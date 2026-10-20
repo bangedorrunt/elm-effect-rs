@@ -3287,7 +3287,13 @@ fn pool_compositional_retry_lands_on_the_succeeding_attempt() {
     for _ in 0..11 {
         allocated += 1;
         let attempt = allocated;
-        match pool.acquire_with(|| if attempt <= 10 { Err(attempt) } else { Ok(attempt) }) {
+        match pool.acquire_with(|| {
+            if attempt <= 10 {
+                Err(attempt)
+            } else {
+                Ok(attempt)
+            }
+        }) {
             Ok(pooled) => {
                 value = Some(*pooled);
                 break;

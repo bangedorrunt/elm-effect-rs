@@ -50,7 +50,10 @@ impl SessionCancels {
         self.inner.insert((session.to_owned(), id.to_owned()), true);
     }
     fn cancelled(&self, session: &str, id: &str) -> bool {
-        self.inner.get(&(session.to_owned(), id.to_owned())).copied().unwrap_or(false)
+        self.inner
+            .get(&(session.to_owned(), id.to_owned()))
+            .copied()
+            .unwrap_or(false)
     }
 }
 
@@ -79,7 +82,9 @@ fn conformance_runs_for_every_protocol_version_a() {
 fn respond_to_client_ping_with_empty_result() {
     // Row 22.
     let t = InMemoryTransport::initialized(ServerInfo::test());
-    let reply = t.handle_line(r#"{"jsonrpc":"2.0","id":1,"method":"ping"}"#).unwrap();
+    let reply = t
+        .handle_line(r#"{"jsonrpc":"2.0","id":1,"method":"ping"}"#)
+        .unwrap();
     let msg = decode_message(&reply).unwrap();
     assert!(msg.is_result());
 }
@@ -89,7 +94,9 @@ fn send_no_response_to_cancellation_notification() {
     // Row 39: notifications/cancelled is a notification (no id, no reply).
     let t = InMemoryTransport::initialized(ServerInfo::test());
     assert_eq!(
-        t.handle_line(r#"{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":1}}"#),
+        t.handle_line(
+            r#"{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":1}}"#
+        ),
         None
     );
 }
@@ -144,12 +151,8 @@ fn ignore_cancellation_for_already_completed_id() {
 #[test]
 fn accept_string_progress_tokens() {
     // Row 168.
-    let decoded =
-        RequestMeta::decode(&json!({"_meta": {"progressToken": "p-1"}})).unwrap();
-    assert_eq!(
-        decoded.encode(),
-        json!({"_meta": {"progressToken": "p-1"}})
-    );
+    let decoded = RequestMeta::decode(&json!({"_meta": {"progressToken": "p-1"}})).unwrap();
+    assert_eq!(decoded.encode(), json!({"_meta": {"progressToken": "p-1"}}));
 }
 
 #[test]
@@ -179,7 +182,9 @@ fn send_no_response_when_cancellation_received() {
     // Row 239.
     let t = InMemoryTransport::initialized(ServerInfo::test());
     assert_eq!(
-        t.handle_line(r#"{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":"a"}}"#),
+        t.handle_line(
+            r#"{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":"a"}}"#
+        ),
         None
     );
     let mut tracker = CancelTracker::default();
@@ -237,8 +242,9 @@ fn close_without_reply_when_tool_cancelled_before_http_output() {
     let mut tracker = CancelTracker::default();
     tracker.start("tool-1");
     tracker.cancel("tool-1");
-    let response: Option<String> =
-        tracker.should_respond("tool-1").then(|| "content".to_owned());
+    let response: Option<String> = tracker
+        .should_respond("tool-1")
+        .then(|| "content".to_owned());
     assert_eq!(response, None);
 }
 
@@ -246,8 +252,7 @@ fn close_without_reply_when_tool_cancelled_before_http_output() {
 fn omit_cancelled_replies_preserve_rest_of_batch() {
     // Row 446 (adapted): ${cancelled} of the batch omitted.
     for cancelled_ids in [vec!["b"], vec!["a", "c"]] {
-        let cancelled: HashSet<String> =
-            cancelled_ids.iter().map(|s| (*s).to_owned()).collect();
+        let cancelled: HashSet<String> = cancelled_ids.iter().map(|s| (*s).to_owned()).collect();
         let kept = batch_results(&["a", "b", "c"], &cancelled);
         assert_eq!(kept.len(), 3 - cancelled_ids.len());
         for id in &cancelled_ids {

@@ -35,9 +35,9 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, OnceLock};
 
 use elm_effect_schema::filters::{FilterOutcome, FilterSpec};
-use elm_effect_schema::representation_doc::{to_representation, Document};
+use elm_effect_schema::representation_doc::{Document, to_representation};
 use elm_effect_schema::{Field, Schema, Unknown};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn string() -> Schema<Unknown> {
     Schema::as_unknown(Schema::string())

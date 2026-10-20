@@ -1003,7 +1003,9 @@ fn parser_encode_string_roundtrip() {
         Unknown::Text("hi".to_string())
     );
     assert_eq!(
-        schema.decode(schema.try_encode(&"hi".to_string()).unwrap()).unwrap(),
+        schema
+            .decode(schema.try_encode(&"hi".to_string()).unwrap())
+            .unwrap(),
         "hi".to_string()
     );
 }
@@ -1016,7 +1018,10 @@ fn parser_encode_number_roundtrip() {
 
 #[test]
 fn parser_encode_boolean_and_null() {
-    assert_eq!(Schema::boolean().try_encode(&true).unwrap(), Unknown::Bool(true));
+    assert_eq!(
+        Schema::boolean().try_encode(&true).unwrap(),
+        Unknown::Bool(true)
+    );
     assert_eq!(Schema::null().try_encode(&()).unwrap(), Unknown::Null);
 }
 
@@ -1050,7 +1055,10 @@ fn parser_encode_array_and_union() {
         Schema::as_unknown(Schema::string()),
         Schema::as_unknown(Schema::number()),
     );
-    assert_eq!(schema.try_encode(&Unknown::Number(1.0)).unwrap(), Unknown::Number(1.0));
+    assert_eq!(
+        schema.try_encode(&Unknown::Number(1.0)).unwrap(),
+        Unknown::Number(1.0)
+    );
 }
 
 #[test]
@@ -1136,7 +1144,10 @@ fn codec_date_bare_struct_tuple_json() {
     const MILLIS: i64 = 1_609_459_200_000;
     let bare = date_schema();
     assert_eq!(bare.decode(Unknown::Text(ISO.to_string())).unwrap(), MILLIS);
-    assert_eq!(bare.try_encode(&MILLIS).unwrap(), Unknown::Text(ISO.to_string()));
+    assert_eq!(
+        bare.try_encode(&MILLIS).unwrap(),
+        Unknown::Text(ISO.to_string())
+    );
     assert!(
         bare.decode(Unknown::Text("not-a-date".to_string()))
             .is_err()

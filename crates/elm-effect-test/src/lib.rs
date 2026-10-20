@@ -74,7 +74,8 @@ impl DeterministicExecutor {
 
     /// Tasks still queued (never ready without a clock advance).
     pub fn pending(&self) -> usize {
-        self.inner.async_tasks.lock().unwrap().len() + self.inner.blocking_tasks.lock().unwrap().len()
+        self.inner.async_tasks.lock().unwrap().len()
+            + self.inner.blocking_tasks.lock().unwrap().len()
     }
 }
 
@@ -253,8 +254,8 @@ pub struct TestLive;
 impl TestLive {
     /// The wall clock as the [`Clock`](elm_effect::Clock) service, for the
     /// test that proves it needs real time. Never the default.
-    pub fn system_clock_layer(
-    ) -> elm_effect::Layer<elm_effect::Clock, std::convert::Infallible, ()> {
+    pub fn system_clock_layer() -> elm_effect::Layer<elm_effect::Clock, std::convert::Infallible, ()>
+    {
         let shared: Arc<dyn elm_effect::ClockImpl> = Arc::new(elm_effect::SystemClock);
         elm_effect::Layer::from_value(shared)
     }

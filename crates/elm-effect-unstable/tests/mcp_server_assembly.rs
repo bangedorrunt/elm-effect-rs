@@ -13,9 +13,7 @@
 //! Adaptations where the Effect service wiring has no Rust equivalent are
 //! noted per test.
 
-use elm_effect_unstable::mcp_assembly::{
-    McpServer, encode_tool_success, internal_error_message,
-};
+use elm_effect_unstable::mcp_assembly::{McpServer, encode_tool_success, internal_error_message};
 use elm_effect_unstable::mcp_handlers::{PromptArg, content_text};
 use elm_effect_unstable::mcp_server::{LATEST_VERSION, ServerInfo};
 use serde_json::{Value, json};
@@ -56,7 +54,13 @@ fn current_request_for_cross_client_resource() {
     // Adaptation: handlers cannot see the invocation (no Effect services);
     // the test pins readability plus caller-identity context.
     let mut s = server();
-    s.resources_mut().insert_text("file:///owner", "owner", "o", "text/plain", "registered:2:Bob:Bob");
+    s.resources_mut().insert_text(
+        "file:///owner",
+        "owner",
+        "o",
+        "text/plain",
+        "registered:2:Bob:Bob",
+    );
     let ctx = bob_ctx(&s);
     let out = s.find_resource(&ctx, "file:///owner").unwrap();
     assert_eq!(out[0].text.as_deref(), Some("registered:2:Bob:Bob"));
@@ -68,20 +72,21 @@ fn current_request_for_cross_client_resource() {
 fn current_request_for_cross_client_template() {
     // Row 1234: template registered under Alice expands under Bob.
     let mut s = server();
-    s.resources_mut().add_template(elm_effect_unstable::mcp_handlers::ResourceTemplate {
-        uri_template: "file:///owners/{name}".to_owned(),
-        name: "owners".to_owned(),
-        description: "o".to_owned(),
-        mime_type: "text/plain".to_owned(),
-        handler: Box::new(|params| {
-            Ok(vec![elm_effect_unstable::mcp_handlers::ResourceContent {
-                uri: format!("file:///owners/{}", params["name"]),
-                mime_type: Some("text/plain".to_owned()),
-                text: Some("registered:2:Bob:Bob".to_owned()),
-                blob: None,
-            }])
-        }),
-    });
+    s.resources_mut()
+        .add_template(elm_effect_unstable::mcp_handlers::ResourceTemplate {
+            uri_template: "file:///owners/{name}".to_owned(),
+            name: "owners".to_owned(),
+            description: "o".to_owned(),
+            mime_type: "text/plain".to_owned(),
+            handler: Box::new(|params| {
+                Ok(vec![elm_effect_unstable::mcp_handlers::ResourceContent {
+                    uri: format!("file:///owners/{}", params["name"]),
+                    mime_type: Some("text/plain".to_owned()),
+                    text: Some("registered:2:Bob:Bob".to_owned()),
+                    blob: None,
+                }])
+            }),
+        });
     let ctx = bob_ctx(&s);
     let out = s.find_resource(&ctx, "file:///owners/bob").unwrap();
     assert_eq!(out[0].text.as_deref(), Some("registered:2:Bob:Bob"));
@@ -95,12 +100,21 @@ fn current_request_for_cross_client_prompt() {
         "owner",
         None,
         "o",
-        vec![PromptArg { name: "name".to_owned(), required: true, choices: vec![] }],
+        vec![PromptArg {
+            name: "name".to_owned(),
+            required: true,
+            choices: vec![],
+        }],
         vec![("user".to_owned(), "registered:2:Bob:Bob".to_owned())],
     );
     let ctx = bob_ctx(&s);
-    let out = s.get_prompt(&ctx, "owner", &json!({"name": "bob"})).unwrap();
-    assert_eq!(out.messages[0]["content"]["text"], json!("registered:2:Bob:Bob"));
+    let out = s
+        .get_prompt(&ctx, "owner", &json!({"name": "bob"}))
+        .unwrap();
+    assert_eq!(
+        out.messages[0]["content"]["text"],
+        json!("registered:2:Bob:Bob")
+    );
 }
 
 #[test]
@@ -121,9 +135,14 @@ fn cross_client_resource_completion() {
 fn cross_client_prompt_completion() {
     // Row 1267: prompt completion registered under Alice answers under Bob.
     let mut s = server();
-    s.register_completion("prompt:owner:name", |_| vec!["registered:2:Bob:Bob".to_owned()]);
+    s.register_completion("prompt:owner:name", |_| {
+        vec!["registered:2:Bob:Bob".to_owned()]
+    });
     let ctx = bob_ctx(&s);
-    assert_eq!(s.complete(&ctx, "prompt:owner:name", "b"), vec!["registered:2:Bob:Bob".to_owned()]);
+    assert_eq!(
+        s.complete(&ctx, "prompt:owner:name", "b"),
+        vec!["registered:2:Bob:Bob".to_owned()]
+    );
 }
 
 #[test]
@@ -131,7 +150,10 @@ fn cross_client_toolkit_tool_uses_invocation_context() {
     // Row 1280: ctx-aware tool registered under Alice reads Bob at call time.
     let mut s = server();
     s.register_ctx_tool("owner", "o", json!({"type": "object"}), |ctx, _| {
-        Ok(vec![content_text(format!("registered:{}:{}:{}", ctx.client_id, ctx.client_name, ctx.client_name))])
+        Ok(vec![content_text(format!(
+            "registered:{}:{}:{}",
+            ctx.client_id, ctx.client_name, ctx.client_name
+        ))])
     });
     let ctx = bob_ctx(&s);
     let out = s.call_tool(&ctx, "owner", None).unwrap();
@@ -145,12 +167,16 @@ fn cross_client_toolkit_tool_uses_invocation_context() {
 fn notification_tools_complete_without_transport() {
     // Row 1292: a tool emitting a notification completes with no transport.
     let mut s = server();
-    s.tools_mut().register("Emit", "e", json!({"type": "object"}), |_| Ok(vec![]));
+    s.tools_mut()
+        .register("Emit", "e", json!({"type": "object"}), |_| Ok(vec![]));
     let ctx = s.context(1, "TestClient");
     let out = s.call_tool(&ctx, "Emit", None).unwrap();
     assert!(!out.is_error);
     assert!(out.content.is_empty());
-    s.emit_notification("notifications/message", json!({"level": "error", "data": "diagnostic"}));
+    s.emit_notification(
+        "notifications/message",
+        json!({"level": "error", "data": "diagnostic"}),
+    );
     let pending = s.drain_notifications();
     assert_eq!(pending.len(), 1);
     assert_eq!(pending[0].method, "notifications/message");
@@ -170,22 +196,25 @@ fn unknown_resource_is_invalid_params() {
 fn resolves_https_resource_template() {
     // Row 1322: template expansion is transport-independent (HTTP framing excused).
     let mut s = server();
-    s.resources_mut().add_template(elm_effect_unstable::mcp_handlers::ResourceTemplate {
-        uri_template: "https://example.test/docs/{name}".to_owned(),
-        name: "document".to_owned(),
-        description: "d".to_owned(),
-        mime_type: "text/plain".to_owned(),
-        handler: Box::new(|params| {
-            Ok(vec![elm_effect_unstable::mcp_handlers::ResourceContent {
-                uri: format!("https://example.test/docs/{}", params["name"]),
-                mime_type: Some("text/plain".to_owned()),
-                text: Some(params["name"].clone()),
-                blob: None,
-            }])
-        }),
-    });
+    s.resources_mut()
+        .add_template(elm_effect_unstable::mcp_handlers::ResourceTemplate {
+            uri_template: "https://example.test/docs/{name}".to_owned(),
+            name: "document".to_owned(),
+            description: "d".to_owned(),
+            mime_type: "text/plain".to_owned(),
+            handler: Box::new(|params| {
+                Ok(vec![elm_effect_unstable::mcp_handlers::ResourceContent {
+                    uri: format!("https://example.test/docs/{}", params["name"]),
+                    mime_type: Some("text/plain".to_owned()),
+                    text: Some(params["name"].clone()),
+                    blob: None,
+                }])
+            }),
+        });
     let ctx = s.context(1, "c");
-    let out = s.find_resource(&ctx, "https://example.test/docs/alice").unwrap();
+    let out = s
+        .find_resource(&ctx, "https://example.test/docs/alice")
+        .unwrap();
     assert_eq!(out[0].uri, "https://example.test/docs/alice");
     assert_eq!(out[0].text.as_deref(), Some("alice"));
 }
@@ -195,7 +224,10 @@ fn preserves_handler_typed_failure() {
     // Row 1338, adapted: no typed-failure channel in Rust; the handler's
     // failure text rides verbatim in isError content (identity preserved).
     let mut s = server();
-    s.tools_mut().register("f", "f", json!({"type": "object"}), |_| Err("resource failed".to_owned()));
+    s.tools_mut()
+        .register("f", "f", json!({"type": "object"}), |_| {
+            Err("resource failed".to_owned())
+        });
     let ctx = s.context(1, "c");
     let out = s.call_tool(&ctx, "f", Some(&json!({}))).unwrap();
     assert!(out.is_error);
@@ -211,14 +243,23 @@ fn prompt_string_substitution_and_completion() {
         "count",
         None,
         "c",
-        vec![PromptArg { name: "count".to_owned(), required: true, choices: vec![] }],
+        vec![PromptArg {
+            name: "count".to_owned(),
+            required: true,
+            choices: vec![],
+        }],
         vec![("user".to_owned(), "{{count}}".to_owned())],
     );
     s.register_completion("prompt:count:count", |_| vec!["13".to_owned()]);
     let ctx = s.context(1, "c");
-    let got = s.get_prompt(&ctx, "count", &json!({"count": "12"})).unwrap();
+    let got = s
+        .get_prompt(&ctx, "count", &json!({"count": "12"}))
+        .unwrap();
     assert_eq!(got.messages[0]["content"]["text"], json!("12"));
-    assert_eq!(s.complete(&ctx, "prompt:count:count", "1"), vec!["13".to_owned()]);
+    assert_eq!(
+        s.complete(&ctx, "prompt:count:count", "1"),
+        vec!["13".to_owned()]
+    );
 }
 
 #[test]
@@ -226,7 +267,12 @@ fn omitted_arguments_default_to_empty_object() {
     // Row 1381, adapted: Rust handlers take &Value, so omission arrives as
     // {} rather than undefined; the contract pinned is "handler runs".
     let mut s = server();
-    s.tools_mut().register("arguments-omitted", "a", json!({"type": "object", "properties": {}}), |_| Ok(vec![]));
+    s.tools_mut().register(
+        "arguments-omitted",
+        "a",
+        json!({"type": "object", "properties": {}}),
+        |_| Ok(vec![]),
+    );
     let ctx = s.context(1, "c");
     assert!(s.call_tool(&ctx, "arguments-omitted", None).is_ok());
 }
@@ -265,7 +311,8 @@ fn selects_latest_when_unsupported_offered() {
 fn advertise_reflects_registered_capabilities() {
     // Capability advertisement follows registration.
     let mut s = server();
-    s.tools_mut().register("t", "t", json!({"type": "object"}), |_| Ok(vec![]));
+    s.tools_mut()
+        .register("t", "t", json!({"type": "object"}), |_| Ok(vec![]));
     let caps = s.advertise();
     assert!(caps.contains_key("tools"));
     assert!(caps.contains_key("logging"));
@@ -279,7 +326,9 @@ fn unknown_tools_are_protocol_errors() {
     // Row 2149: exact pin message and INVALID_PARAMS code.
     let s = server();
     let ctx = s.context(1, "c");
-    let err = s.call_tool(&ctx, "UnknownTool", Some(&json!({}))).unwrap_err();
+    let err = s
+        .call_tool(&ctx, "UnknownTool", Some(&json!({})))
+        .unwrap_err();
     assert_eq!(err.code, -32602);
     assert_eq!(err.message, "Tool 'UnknownTool' not found");
 }
@@ -287,8 +336,8 @@ fn unknown_tools_are_protocol_errors() {
 #[test]
 fn concise_param_errors_skip_handler() {
     // Row 1826: validation error names the param; handler never runs.
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     let count = Arc::new(AtomicUsize::new(0));
     let moved = count.clone();
     let mut s = server();
@@ -302,9 +351,15 @@ fn concise_param_errors_skip_handler() {
         },
     );
     let ctx = s.context(1, "c");
-    let err = s.call_tool(&ctx, "t", Some(&json!({"first": 1}))).unwrap_err();
+    let err = s
+        .call_tool(&ctx, "t", Some(&json!({"first": 1})))
+        .unwrap_err();
     assert_eq!(err.code, -32602);
-    assert!(err.message.contains("second"), "unexpected: {}", err.message);
+    assert!(
+        err.message.contains("second"),
+        "unexpected: {}",
+        err.message
+    );
     assert_eq!(count.load(Ordering::SeqCst), 0);
 }
 
@@ -316,7 +371,11 @@ fn optional_params_omitted_still_succeed() {
         "opt",
         "o",
         json!({"type": "object", "properties": {"signature": {"type": "string"}}}),
-        |args| Ok(vec![content_text(args["signature"].as_str().unwrap_or("omitted"))]),
+        |args| {
+            Ok(vec![content_text(
+                args["signature"].as_str().unwrap_or("omitted"),
+            )])
+        },
     );
     let ctx = s.context(1, "c");
     let out = s.call_tool(&ctx, "opt", Some(&json!({}))).unwrap();

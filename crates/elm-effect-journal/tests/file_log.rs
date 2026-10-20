@@ -21,7 +21,10 @@ impl Scratch {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let path = std::env::temp_dir().join(format!("elm-file-log-{name}-{}-{nanos}.jsonl", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "elm-file-log-{name}-{}-{nanos}.jsonl",
+            std::process::id()
+        ));
         Scratch(path)
     }
 }
@@ -63,12 +66,19 @@ fn fencing_state_survives_reopen() {
     let log = FileLog::open(&scratch.0).unwrap();
     assert_eq!(
         log.append_json(&envelope("p", 0, 1, "2")),
-        Err(AppendError::StaleEpoch { producer: "p".into(), sent: 0, current: 1 }),
+        Err(AppendError::StaleEpoch {
+            producer: "p".into(),
+            sent: 0,
+            current: 1
+        }),
         "a restart does not reopen an old epoch"
     );
     assert_eq!(
         log.append_json(&envelope("p", 1, 5, "2")),
-        Err(AppendError::SeqGap { got: 5, last: Some(0) }),
+        Err(AppendError::SeqGap {
+            got: 5,
+            last: Some(0)
+        }),
         "the sequence resumes where it stopped"
     );
     // The same triple with the same bytes still dedupes across the restart.
@@ -89,7 +99,11 @@ fn torn_tail_is_discarded_and_the_retry_is_accepted() {
     fs::write(&scratch.0, text).unwrap();
 
     let log = FileLog::open(&scratch.0).unwrap();
-    assert_eq!(log.read_from(&Offset::Start).unwrap().len(), 1, "the torn line is gone");
+    assert_eq!(
+        log.read_from(&Offset::Start).unwrap().len(),
+        1,
+        "the torn line is gone"
+    );
     // That append never returned Ok, so its seq is free for the retry.
     assert!(log.append_json(&envelope("p", 0, 1, "2")).is_ok());
 }
@@ -99,7 +113,10 @@ fn corrupt_complete_line_fails_the_open() {
     let scratch = Scratch::new("corrupt");
     fs::write(&scratch.0, "not json at all\n").unwrap();
     let err = FileLog::open(&scratch.0).unwrap_err();
-    assert!(matches!(err, AppendError::Storage(ref m) if m.contains("line 1")), "{err:?}");
+    assert!(
+        matches!(err, AppendError::Storage(ref m) if m.contains("line 1")),
+        "{err:?}"
+    );
 }
 
 #[test]
@@ -116,13 +133,23 @@ fn compaction_rewrites_the_file_and_keeps_offsets() {
     let log = FileLog::open(&scratch.0).unwrap();
     let readings = log.read_from(&Offset::Start).unwrap();
     assert_eq!(readings.len(), 1, "only the kept record is in the file");
-    assert_eq!(readings[0].0, keep_from, "its offset is unchanged by compaction");
-    assert_eq!(fs::read_to_string(&scratch.0).unwrap().lines().count(), 2, "checkpoint line plus the kept record");
+    assert_eq!(
+        readings[0].0, keep_from,
+        "its offset is unchanged by compaction"
+    );
+    assert_eq!(
+        fs::read_to_string(&scratch.0).unwrap().lines().count(),
+        2,
+        "checkpoint line plus the kept record"
+    );
     // The checkpoint keeps the sequence history, so the next seq is accepted
     // and an old seq is still refused after the records behind it are gone.
     assert_eq!(
         log.append_json(&envelope("p", 0, 1, "5")),
-        Err(AppendError::SeqGap { got: 1, last: Some(2) })
+        Err(AppendError::SeqGap {
+            got: 1,
+            last: Some(2)
+        })
     );
     assert!(log.append_json(&envelope("p", 0, 3, "4")).is_ok());
 }

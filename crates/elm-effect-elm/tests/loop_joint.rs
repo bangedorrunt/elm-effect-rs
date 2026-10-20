@@ -261,17 +261,33 @@ fn stale_epoch_producer_is_fenced_and_skips_the_provider() {
         .unwrap();
     let mut app = boot_app(Arc::clone(&log), Producer::new("test"));
     app.send(CMsg::Add(3));
-    assert_eq!(app.model().provider_runs, 0, "a fenced provider must not run");
+    assert_eq!(
+        app.model().provider_runs,
+        0,
+        "a fenced provider must not run"
+    );
     assert!(app.intents().is_empty());
-    assert_eq!(log.read_from(&Offset::Start).unwrap().len(), 1, "nothing written");
+    assert_eq!(
+        log.read_from(&Offset::Start).unwrap().len(),
+        1,
+        "nothing written"
+    );
     match app.model().failures.last() {
-        Some(Failure::NotAppended(AppendError::StaleEpoch { producer, sent, current })) => {
+        Some(Failure::NotAppended(AppendError::StaleEpoch {
+            producer,
+            sent,
+            current,
+        })) => {
             assert_eq!((producer.as_str(), *sent, *current), ("test", 0, 1));
         }
         other => panic!("expected NotAppended(StaleEpoch), got {other:?}"),
     }
     // Negative control: the current incarnation (epoch 1, seq 1) appends.
-    let producer = Producer { producer_id: "test".to_string(), epoch: 1, seq: 1 };
+    let producer = Producer {
+        producer_id: "test".to_string(),
+        epoch: 1,
+        seq: 1,
+    };
     let mut current = boot_app(Arc::clone(&log), producer);
     current.send(CMsg::Add(3));
     assert_eq!(current.model().provider_runs, 1);

@@ -32,9 +32,15 @@ fn accepts_image_content_and_surfaces_client_errors() {
 
 #[test]
 fn decodes_text_and_image_sampling_content() {
-    assert_eq!(Sampler::decode_content(&serde_json::json!({ "type": "text", "text": "hi" })).unwrap(), "hi");
     assert_eq!(
-        Sampler::decode_content(&serde_json::json!({ "type": "image", "data": "aGk=", "mimeType": "image/png" })).unwrap(),
+        Sampler::decode_content(&serde_json::json!({ "type": "text", "text": "hi" })).unwrap(),
+        "hi"
+    );
+    assert_eq!(
+        Sampler::decode_content(
+            &serde_json::json!({ "type": "image", "data": "aGk=", "mimeType": "image/png" })
+        )
+        .unwrap(),
         "aGk="
     );
     assert!(Sampler::decode_content(&serde_json::json!({ "type": "unknown" })).is_err());
@@ -49,7 +55,9 @@ fn form_elicitation_validates_mode_message_and_schema() {
     let req = ElicitFormRequest::decode(&good).unwrap();
     assert_eq!(req.message, "fill in");
     assert_eq!(req.fields.len(), 1);
-    assert!(ElicitFormRequest::decode(&serde_json::json!({ "mode": "url", "message": "x" })).is_err());
+    assert!(
+        ElicitFormRequest::decode(&serde_json::json!({ "mode": "url", "message": "x" })).is_err()
+    );
     assert!(ElicitFormRequest::decode(&serde_json::json!({ "mode": "form" })).is_err());
 }
 
@@ -61,5 +69,10 @@ fn url_elicitation_requires_http_url_and_id() {
     let req = ElicitUrlRequest::decode(&good).unwrap();
     assert_eq!(req.url, "https://example.com/e");
     assert!(ElicitUrlRequest::decode(&serde_json::json!({ "mode": "url", "message": "x", "url": "ftp://e", "elicitationId": "e" })).is_err());
-    assert!(ElicitUrlRequest::decode(&serde_json::json!({ "mode": "url", "message": "x", "url": "https://e" })).is_err());
+    assert!(
+        ElicitUrlRequest::decode(
+            &serde_json::json!({ "mode": "url", "message": "x", "url": "https://e" })
+        )
+        .is_err()
+    );
 }

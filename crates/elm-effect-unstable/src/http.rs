@@ -1341,7 +1341,11 @@ pub fn build_endpoint_url(
         }
     }
     let path = kept.join("/");
-    let path = if path.is_empty() { "/".to_string() } else { path };
+    let path = if path.is_empty() {
+        "/".to_string()
+    } else {
+        path
+    };
     let mut url = match base {
         Some(base) => join_url(base, &path),
         None => path,

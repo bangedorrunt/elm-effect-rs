@@ -73,11 +73,8 @@ fn template_literal_revives_an_identified_part() {
         vec![("identifier", "Part")],
     );
     let schema = Schema::as_unknown(
-        Schema::template_literal_from_kinds(vec![
-            anchor("prefix-"),
-            part.kind(),
-        ])
-        .expect("parts spell a template"),
+        Schema::template_literal_from_kinds(vec![anchor("prefix-"), part.kind()])
+            .expect("parts spell a template"),
     );
     let representation = to_representation(&schema).expect("converts");
     // The identified part hoists to a reference, exactly like any other

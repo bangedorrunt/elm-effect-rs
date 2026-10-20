@@ -202,7 +202,8 @@ impl Shared {
         loop {
             // Deferred fibers forked mid-shutdown must still start to end.
             self.drain_pending();
-            let live: Vec<Arc<FiberControl>> = self.live.lock().unwrap().values().cloned().collect();
+            let live: Vec<Arc<FiberControl>> =
+                self.live.lock().unwrap().values().cloned().collect();
             for control in &live {
                 control.request_interrupt();
             }

@@ -126,11 +126,12 @@ fn filesystem_write_r_rejects_writes() {
     let fs = StdFileSystem;
     let scope = ScopedTempDir::new().expect("scoped temp dir");
     let path = format!("{}/a.txt", scope.path());
-    let err = fs
-        .write_file_with_flag(&path, b"data", "r")
-        .unwrap_err();
+    let err = fs.write_file_with_flag(&path, b"data", "r").unwrap_err();
     let msg = format!("{err:?}");
-    assert!(matches!(err, elm_effect::filesystem::PlatformError::System { .. }), "{msg}");
+    assert!(
+        matches!(err, elm_effect::filesystem::PlatformError::System { .. }),
+        "{msg}"
+    );
     assert!(msg.contains("writeFile") && msg.contains(&path), "{msg}");
 }
 

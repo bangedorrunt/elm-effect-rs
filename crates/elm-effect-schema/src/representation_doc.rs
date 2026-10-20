@@ -664,7 +664,13 @@ fn convert_kind(
                 .iter()
                 .enumerate()
                 .map(|(index, part)| {
-                    convert_kind(part, state, hoist_identifiers, enclosing, &idx(&seg(path, "parts"), index))
+                    convert_kind(
+                        part,
+                        state,
+                        hoist_identifiers,
+                        enclosing,
+                        &idx(&seg(path, "parts"), index),
+                    )
                 })
                 .collect::<Result<Vec<_>, ReprError>>()?;
             Ok(serde_json::json!({ "_tag": "TemplateLiteral", "parts": converted, "checks": [] }))
@@ -1308,9 +1314,10 @@ fn revive_doc(state: &mut Revive, doc: &Value, path: &str) -> Result<Schema<Unkn
         "Any" => Ok(Schema::as_unknown(Schema::any())),
         "Unknown" => Ok(Schema::as_unknown(Schema::unknown())),
         "ObjectKeyword" => Ok(Schema::as_unknown(Schema::object_keyword())),
-        "Undefined" | "BigInt" | "Symbol" | "UniqueSymbol" => Err(
-            ReprError::at(path, format!("`{tag}` has no domain in this port")),
-        ),
+        "Undefined" | "BigInt" | "Symbol" | "UniqueSymbol" => Err(ReprError::at(
+            path,
+            format!("`{tag}` has no domain in this port"),
+        )),
         "TemplateLiteral" => {
             let parts = doc
                 .get("parts")
@@ -1607,7 +1614,9 @@ fn revive_arrays(
             let only = revived.pop().expect("one rest element");
             return Ok(Schema::as_unknown(Schema::array(only)));
         }
-        return Ok(Schema::as_unknown(Schema::tuple_with_rest(converted, revived)));
+        return Ok(Schema::as_unknown(Schema::tuple_with_rest(
+            converted, revived,
+        )));
     }
     Ok(Schema::as_unknown(Schema::tuple_of(converted)))
 }

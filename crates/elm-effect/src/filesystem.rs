@@ -196,7 +196,7 @@ impl FileSystem for StdFileSystem {
                     "FileSystem",
                     "writeFile",
                     "unknown flag (want w, r+, r, a, or wx)",
-                ))
+                ));
             }
         }
         if let Some(parent) = std::path::Path::new(path).parent() {
@@ -375,7 +375,10 @@ impl FileSystem for FakeFileSystem {
                 "FileSystem",
                 method,
                 Some(path),
-                &std::io::Error::new(std::io::ErrorKind::PermissionDenied, "flag rejects the write"),
+                &std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    "flag rejects the write",
+                ),
             )
         };
         match flag {
@@ -399,7 +402,9 @@ impl FileSystem for FakeFileSystem {
                     existing.extend_from_slice(bytes);
                     Ok(())
                 }
-                Some(FakeNode::Dir) => Err(bad_argument("FileSystem", "writeFile", "is a directory")),
+                Some(FakeNode::Dir) => {
+                    Err(bad_argument("FileSystem", "writeFile", "is a directory"))
+                }
                 None => {
                     tree.insert(key, FakeNode::File(bytes.to_vec()));
                     Ok(())
@@ -442,8 +447,14 @@ fn unique_name(prefix: &str) -> String {
 /// removed (the pin's `makeTempDirectory` semantics).
 pub fn make_temp_dir() -> Result<String, PlatformError> {
     let path = std::env::temp_dir().join(unique_name("elm-effect-fs"));
-    std::fs::create_dir_all(&path)
-        .map_err(|e| system_error("FileSystem", "makeTempDirectory", path_to_str(&path).as_deref(), &e))?;
+    std::fs::create_dir_all(&path).map_err(|e| {
+        system_error(
+            "FileSystem",
+            "makeTempDirectory",
+            path_to_str(&path).as_deref(),
+            &e,
+        )
+    })?;
     Ok(path_to_str(&path).unwrap_or_default())
 }
 
@@ -468,7 +479,9 @@ pub struct ScopedTempDir {
 impl ScopedTempDir {
     /// Create the directory; removal happens on drop.
     pub fn new() -> Result<Self, PlatformError> {
-        Ok(Self { path: make_temp_dir()? })
+        Ok(Self {
+            path: make_temp_dir()?,
+        })
     }
 
     /// The directory path.

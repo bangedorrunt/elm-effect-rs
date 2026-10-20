@@ -217,7 +217,9 @@ fn struct_with_rest_does_not_re_parse_a_fixed_property() {
 
     // The pin's encode half: encoding leaves the decoded object as it stands.
     assert_eq!(
-        marked.try_encode(&obj(vec![("a", text("x!")), ("b", text("y!"))])).unwrap(),
+        marked
+            .try_encode(&obj(vec![("a", text("x!")), ("b", text("y!"))]))
+            .unwrap(),
         obj(vec![("a", text("x!")), ("b", text("y!"))])
     );
 }

@@ -59,7 +59,9 @@ fn record_excess_names_an_unmatched_key() {
     let ignoring = Schema::record2(pattern_key("^a"), number_schema());
     assert_eq!(ignoring.decode(input.clone()).unwrap(), expected);
     assert_eq!(
-        ignoring.try_encode(&ignoring.decode(input.clone()).unwrap()).unwrap(),
+        ignoring
+            .try_encode(&ignoring.decode(input.clone()).unwrap())
+            .unwrap(),
         obj(vec![("a", Unknown::Number(1.0))])
     );
 

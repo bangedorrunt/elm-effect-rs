@@ -192,14 +192,20 @@ mod tests {
             "not-applicable\tpackages/effect/test/schema/toIso.test.ts\t30\t30\tit\tClass\tneeds work\n",
         )
         .unwrap_err();
-        assert!(err.contains("expected 6 tab-separated fields, got 7"), "{err}");
+        assert!(
+            err.contains("expected 6 tab-separated fields, got 7"),
+            "{err}"
+        );
     }
 
     #[test]
     fn refuses_a_row_with_a_missing_column() {
         let err = parse_behaviors("ported\tpackages/effect/test/Array.test.ts\t35\tit\ttitle\n")
             .unwrap_err();
-        assert!(err.contains("expected 6 tab-separated fields, got 5"), "{err}");
+        assert!(
+            err.contains("expected 6 tab-separated fields, got 5"),
+            "{err}"
+        );
     }
 
     #[test]

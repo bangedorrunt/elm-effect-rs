@@ -191,7 +191,10 @@ fn record_empty_object_decodes() {
         .decode(Unknown::Object(BTreeMap::new()))
         .expect("empty record decodes");
     assert!(decoded.is_empty());
-    assert_eq!(schema.try_encode(&decoded).unwrap(), Unknown::Object(BTreeMap::new()));
+    assert_eq!(
+        schema.try_encode(&decoded).unwrap(),
+        Unknown::Object(BTreeMap::new())
+    );
 }
 
 #[test]

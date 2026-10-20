@@ -358,7 +358,12 @@ fn adaptive_returns_the_remaining_cooldown() {
     let clock = FakeClock::new();
     let mut limiter = RateLimiter::with_clock(clock.handle());
     let first = limiter.adaptive_consume(&adaptive("a", 1));
-    limiter.adaptive_feedback(&feedback("a", first.epoch, 1, Some(Duration::from_secs(10))));
+    limiter.adaptive_feedback(&feedback(
+        "a",
+        first.epoch,
+        1,
+        Some(Duration::from_secs(10)),
+    ));
     clock.advance(Duration::from_secs(4));
 
     let result = limiter.adaptive_consume(&adaptive("a", 1));
@@ -374,7 +379,12 @@ fn adaptive_starts_learning_after_the_cooldown() {
     let clock = FakeClock::new();
     let mut limiter = RateLimiter::with_clock(clock.handle());
     let first = limiter.adaptive_consume(&adaptive("a", 1));
-    limiter.adaptive_feedback(&feedback("a", first.epoch, 1, Some(Duration::from_secs(10))));
+    limiter.adaptive_feedback(&feedback(
+        "a",
+        first.epoch,
+        1,
+        Some(Duration::from_secs(10)),
+    ));
     clock.advance(Duration::from_secs(10));
 
     let result = limiter.adaptive_consume(&adaptive("a", 2));
@@ -473,7 +483,12 @@ fn adaptive_repeated_learning_feedback_cannot_corrupt_learned_state() {
 
     limiter.adaptive_consume(&adaptive("a", 1));
     let rejected = limiter.adaptive_consume(&adaptive("a", 1));
-    limiter.adaptive_feedback(&feedback("a", rejected.epoch, 1, Some(Duration::from_secs(5))));
+    limiter.adaptive_feedback(&feedback(
+        "a",
+        rejected.epoch,
+        1,
+        Some(Duration::from_secs(5)),
+    ));
     limiter.adaptive_feedback(&feedback(
         "a",
         rejected.epoch,
@@ -499,10 +514,20 @@ fn adaptive_learned_feedback_enters_cooldown_and_extends() {
 
     limiter.adaptive_consume(&adaptive("a", 1));
     let rejected = limiter.adaptive_consume(&adaptive("a", 1));
-    limiter.adaptive_feedback(&feedback("a", rejected.epoch, 1, Some(Duration::from_secs(5))));
+    limiter.adaptive_feedback(&feedback(
+        "a",
+        rejected.epoch,
+        1,
+        Some(Duration::from_secs(5)),
+    ));
 
     let learned = limiter.adaptive_consume(&adaptive("a", 1));
-    limiter.adaptive_feedback(&feedback("a", learned.epoch, 1, Some(Duration::from_secs(5))));
+    limiter.adaptive_feedback(&feedback(
+        "a",
+        learned.epoch,
+        1,
+        Some(Duration::from_secs(5)),
+    ));
     limiter.adaptive_feedback(&feedback(
         "a",
         learned.epoch,
@@ -528,7 +553,12 @@ fn adaptive_stores_only_cooldown_when_nothing_was_accepted() {
     clock.advance(Duration::from_secs(1));
 
     let learning = limiter.adaptive_consume(&adaptive("a", 2));
-    limiter.adaptive_feedback(&feedback("a", learning.epoch, 2, Some(Duration::from_secs(5))));
+    limiter.adaptive_feedback(&feedback(
+        "a",
+        learning.epoch,
+        2,
+        Some(Duration::from_secs(5)),
+    ));
 
     let mut result = limiter.adaptive_consume(&adaptive("a", 1));
     assert_eq!(result.delay, Duration::from_secs(5));
@@ -554,7 +584,12 @@ fn adaptive_learned_state_expires() {
 
     limiter.adaptive_consume(&adaptive("a", 1));
     let rejected = limiter.adaptive_consume(&adaptive("a", 1));
-    limiter.adaptive_feedback(&feedback("a", rejected.epoch, 1, Some(Duration::from_secs(1))));
+    limiter.adaptive_feedback(&feedback(
+        "a",
+        rejected.epoch,
+        1,
+        Some(Duration::from_secs(1)),
+    ));
 
     clock.advance(Duration::from_secs(61));
     let result = limiter.adaptive_consume(&adaptive("a", 1));
@@ -571,7 +606,12 @@ fn adaptive_learned_window_is_bounded_and_expires() {
     let clock = FakeClock::new();
     let mut limiter = RateLimiter::with_clock(clock.handle());
     let first = limiter.adaptive_consume(&adaptive("a", 1));
-    limiter.adaptive_feedback(&feedback("a", first.epoch, 1, Some(Duration::from_millis(1))));
+    limiter.adaptive_feedback(&feedback(
+        "a",
+        first.epoch,
+        1,
+        Some(Duration::from_millis(1)),
+    ));
     clock.advance(Duration::from_millis(1));
 
     limiter.adaptive_consume(&adaptive("a", 1));

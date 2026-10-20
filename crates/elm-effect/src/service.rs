@@ -116,7 +116,11 @@ impl ServiceMaps {
     /// Distinct value over an existing one: poison (ambiguous). Returns
     /// whether this call poisoned, so value-level `provide` can fail at
     /// construction instead of Dying at interpretation.
-    pub(crate) fn insert_tag(&mut self, id: &'static str, value: Arc<dyn Any + Send + Sync>) -> bool {
+    pub(crate) fn insert_tag(
+        &mut self,
+        id: &'static str,
+        value: Arc<dyn Any + Send + Sync>,
+    ) -> bool {
         match self.tags.get(&id) {
             None => {
                 self.tags.insert(

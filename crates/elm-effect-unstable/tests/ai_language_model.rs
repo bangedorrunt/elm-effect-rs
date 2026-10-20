@@ -66,10 +66,7 @@ fn does_not_resolve_tool_calls_after_incomplete_finish() {
             panic!("stop must resolve");
         };
         assert_eq!(result["type"], json!("execution-interrupted"));
-        assert!(result["reason"]
-            .as_str()
-            .unwrap()
-            .contains(reason));
+        assert!(result["reason"].as_str().unwrap().contains(reason));
         assert_eq!(calls.load(Ordering::SeqCst), 0);
         let part = ToolResultPart::new(
             &format!("tool-{reason}"),
@@ -136,7 +133,13 @@ fn preserves_encoded_tool_parameters_when_resolution_enabled_generate_text() {
     let encoded = "21";
     let decoded: f64 = serde_json::from_str(encoded).expect("decodes");
     assert_eq!(decoded * 2.0, 42.0);
-    let part = ToolResultPart::new("tool-transform", "TransformTool", false, json!(42), json!(42));
+    let part = ToolResultPart::new(
+        "tool-transform",
+        "TransformTool",
+        false,
+        json!(42),
+        json!(42),
+    );
     assert!(!part.is_failure);
     assert_eq!(part.result, json!(42));
 }
@@ -194,7 +197,9 @@ fn keeps_results_of_handlers_completed_before_incomplete_finish() {
     // LanguageModel.test.ts:477 — a completed handler keeps its success result; no synthesis.
     let calls = Arc::new(AtomicUsize::new(0));
     let tool = my_tool(calls.clone());
-    let out = tool.call(r#"{"testParam":"test-param"}"#).expect("succeeds");
+    let out = tool
+        .call(r#"{"testParam":"test-param"}"#)
+        .expect("succeeds");
     assert_eq!(calls.load(Ordering::SeqCst), 1);
     let part = ToolResultPart::new(
         "tool-completed",
@@ -210,9 +215,12 @@ fn keeps_results_of_handlers_completed_before_incomplete_finish() {
 #[test]
 fn does_not_synthesize_results_for_calls_awaiting_approval_on_incomplete_finish() {
     // LanguageModel.test.ts:533 — the approval request already resolves the turn: no tool-result.
-    let pending = vec![
-        TrackMessage::assistant_tool_call_with_approval("tool-awaiting", "ApprovalTool", "{}", "appr-1"),
-    ];
+    let pending = vec![TrackMessage::assistant_tool_call_with_approval(
+        "tool-awaiting",
+        "ApprovalTool",
+        "{}",
+        "appr-1",
+    )];
     let has_approval = pending.iter().flat_map(|m| &m.parts).any(|p| {
         matches!(
             p,
@@ -245,7 +253,13 @@ fn preserves_encoded_tool_parameters_when_resolution_disabled_stream() {
 #[test]
 fn preserves_encoded_tool_parameters_when_resolution_enabled_stream() {
     // LanguageModel.test.ts:637 — stream enabled-resolution: tool-call "21", tool-result 42.
-    let part = ToolResultPart::new("tool-transform", "TransformTool", false, json!(42), json!(42));
+    let part = ToolResultPart::new(
+        "tool-transform",
+        "TransformTool",
+        false,
+        json!(42),
+        json!(42),
+    );
     assert!(!part.is_failure);
     assert_eq!(part.result, json!(42));
 }
@@ -266,7 +280,9 @@ fn executes_tool_handlers_once_stream_moves_past_tool_call() {
     let calls = Arc::new(AtomicUsize::new(0));
     let tool = my_tool(calls.clone());
     // Tool call observed, then a text-delta moves past it, then the handler runs.
-    let out = tool.call(r#"{"testParam":"test-param"}"#).expect("succeeds");
+    let out = tool
+        .call(r#"{"testParam":"test-param"}"#)
+        .expect("succeeds");
     assert_eq!(calls.load(Ordering::SeqCst), 1);
     let order = vec!["tool-call", "text-delta", "tool-result", "finish"];
     assert_eq!(order[2], "tool-result");
@@ -301,7 +317,10 @@ fn emits_failed_tool_result_and_keeps_streaming_when_params_invalid_return_mode(
         Err("Invalid parameters for tool 'MyTool': expected string".to_owned())
     };
     let message = outcome.expect_err("handler-equivalent failed");
-    assert!(message.contains("Invalid parameters"), "unexpected: {message}");
+    assert!(
+        message.contains("Invalid parameters"),
+        "unexpected: {message}"
+    );
     assert_eq!(calls.load(Ordering::SeqCst), 0);
     let validation = AiError::new(AiReason::ToolParameterValidation {
         tool_name: "ReturnModeTool".to_owned(),
@@ -341,7 +360,9 @@ fn emits_finish_after_resolved_tool_results() {
     // LanguageModel.test.ts:915 — order is tool-call, tool-result, finish.
     let calls = Arc::new(AtomicUsize::new(0));
     let tool = my_tool(calls.clone());
-    let out = tool.call(r#"{"testParam":"test-param"}"#).expect("succeeds");
+    let out = tool
+        .call(r#"{"testParam":"test-param"}"#)
+        .expect("succeeds");
     assert!(out.contains("test-success"));
     assert_eq!(vec!["tool-call", "tool-result", "finish"].len(), 3);
 }
@@ -398,10 +419,7 @@ fn falls_back_to_full_prompt_in_generate_text_when_incremental_request_fails() {
     // LanguageModel.test.ts:1322 — an InvalidRequest on the incremental id retries with the full prompt.
     let tracker = ResponseIdTracker::new();
     let model = TrackerModel::new(vec!["resp_prev", "resp_next"]);
-    model.generate_text(
-        Some(&tracker),
-        vec![system("system"), user("user")],
-    );
+    model.generate_text(Some(&tracker), vec![system("system"), user("user")]);
     let prefix = model.calls()[0].prompt.clone();
     let mut full = prefix.clone();
     full.push(assistant("assistant"));
@@ -491,7 +509,12 @@ fn uses_tracker_prepare_and_mark_in_generate_text_with_empty_toolkit() {
 fn calls_tracker_prepare_after_stripping_resolved_approvals_in_toolkit_flow() {
     // LanguageModel.test.ts:1598 — the tracker sees the prompt with approval artifacts stripped.
     let prompt = vec![
-        TrackMessage::assistant_tool_call_with_approval("call-tracker", "ApprovalTool", "{}", "approval-tracker"),
+        TrackMessage::assistant_tool_call_with_approval(
+            "call-tracker",
+            "ApprovalTool",
+            "{}",
+            "approval-tracker",
+        ),
         TrackMessage::tool_approval_response("approval-tracker", true),
         user("continue"),
     ];
@@ -501,10 +524,11 @@ fn calls_tracker_prepare_after_stripping_resolved_approvals_in_toolkit_flow() {
         assert!(!text.contains("ApprovalRequest"), "kept request: {text}");
         assert!(!text.contains("ApprovalResponse"), "kept response: {text}");
     }
-    assert!(stripped.iter().any(|m| matches!(
-        m,
-        elm_effect_unstable::ai::TrackMessage { .. }
-    )));
+    assert!(
+        stripped
+            .iter()
+            .any(|m| matches!(m, elm_effect_unstable::ai::TrackMessage { .. }))
+    );
 }
 
 #[test]
@@ -519,7 +543,10 @@ fn uses_tracker_prepare_and_mark_in_stream_text_without_toolkit() {
     second.push(user("incremental"));
     model.stream_text(Some(&tracker), second);
     let calls = model.calls();
-    assert_eq!(calls[1].previous_response_id.as_deref(), Some("resp_stream_1"));
+    assert_eq!(
+        calls[1].previous_response_id.as_deref(),
+        Some("resp_stream_1")
+    );
     assert_eq!(calls[1].incremental_prompt, Some(vec![user("incremental")]));
 }
 
@@ -545,7 +572,12 @@ fn uses_tracker_prepare_and_mark_in_stream_text_with_empty_toolkit() {
 fn calls_tracker_prepare_after_stripping_resolved_approvals_in_stream_toolkit_flow() {
     // LanguageModel.test.ts:1807 — stream toolkit flow strips before prepare.
     let prompt = vec![
-        TrackMessage::assistant_tool_call_with_approval("call-tracker-stream", "ApprovalTool", "{}", "approval-tracker-stream"),
+        TrackMessage::assistant_tool_call_with_approval(
+            "call-tracker-stream",
+            "ApprovalTool",
+            "{}",
+            "approval-tracker-stream",
+        ),
         TrackMessage::tool_approval_response("approval-tracker-stream", true),
         user("continue"),
     ];
@@ -563,7 +595,12 @@ fn uses_tracker_prepare_and_mark_when_tool_call_resolution_disabled() {
     let tracker = ResponseIdTracker::new();
     let model = TrackerModel::new(vec!["resp_1", "resp_2"]);
     let prompt = vec![
-        TrackMessage::assistant_tool_call_with_approval("call-disable", "ApprovalTool", "{}", "approval-disable"),
+        TrackMessage::assistant_tool_call_with_approval(
+            "call-disable",
+            "ApprovalTool",
+            "{}",
+            "approval-disable",
+        ),
         TrackMessage::tool_approval_response("approval-disable", true),
         user("continue"),
     ];
@@ -580,7 +617,12 @@ fn uses_tracker_prepare_and_mark_when_tool_call_resolution_disabled() {
 #[test]
 fn emits_tool_approval_request_when_tool_has_needs_approval() {
     // LanguageModel.test.ts:2005 — static needsApproval:true emits a tool-approval-request part.
-    let pending = TrackMessage::assistant_tool_call_with_approval("call-123", "ApprovalTool", "{}", "approval-123");
+    let pending = TrackMessage::assistant_tool_call_with_approval(
+        "call-123",
+        "ApprovalTool",
+        "{}",
+        "approval-123",
+    );
     let has_request = pending.parts.iter().any(|p| {
         matches!(
             p,
@@ -631,7 +673,12 @@ fn pre_resolves_denied_tool_calls_with_execution_denied() {
 fn strips_approved_approval_artifacts_from_prompt_stream_text() {
     // LanguageModel.test.ts:2177 — assistant keeps the tool-call, drops the approval request.
     let prompt = vec![
-        TrackMessage::assistant_tool_call_with_approval("call-strip", "ApprovalTool", "{}", "approval-strip"),
+        TrackMessage::assistant_tool_call_with_approval(
+            "call-strip",
+            "ApprovalTool",
+            "{}",
+            "approval-strip",
+        ),
         TrackMessage::tool_approval_response("approval-strip", true),
     ];
     let stripped = strip_resolved_approvals(&prompt, &["approval-strip".to_owned()]);
@@ -653,7 +700,12 @@ fn strips_approved_approval_artifacts_from_prompt_stream_text() {
 fn strips_denied_approval_artifacts_from_prompt() {
     // LanguageModel.test.ts:2241 — denied artifacts strip too, keeping the denial result.
     let prompt = vec![
-        TrackMessage::assistant_tool_call_with_approval("call-strip-deny", "ApprovalTool", "{}", "approval-strip-deny"),
+        TrackMessage::assistant_tool_call_with_approval(
+            "call-strip-deny",
+            "ApprovalTool",
+            "{}",
+            "approval-strip-deny",
+        ),
         TrackMessage::tool_approval_response("approval-strip-deny", false),
     ];
     let stripped = strip_resolved_approvals(&prompt, &["approval-strip-deny".to_owned()]);
@@ -710,7 +762,12 @@ fn strips_only_resolved_approvals_preserves_unrelated_parts() {
 fn strips_approval_artifacts_via_generate_text_path() {
     // LanguageModel.test.ts:2390 — the generateText strip matches the streamText strip.
     let prompt = vec![
-        TrackMessage::assistant_tool_call_with_approval("call-gen", "ApprovalTool", "{}", "approval-gen"),
+        TrackMessage::assistant_tool_call_with_approval(
+            "call-gen",
+            "ApprovalTool",
+            "{}",
+            "approval-gen",
+        ),
         TrackMessage::tool_approval_response("approval-gen", true),
     ];
     let stripped = strip_resolved_approvals(&prompt, &["approval-gen".to_owned()]);
@@ -726,7 +783,12 @@ fn dynamic_needs_approval_returns_true_when_condition_met() {
     // LanguageModel.test.ts:2448 — dangerous:true routes to an approval request.
     let needs_approval = |dangerous: bool| dangerous;
     assert!(needs_approval(true));
-    let pending = TrackMessage::assistant_tool_call_with_approval("call-dyn-1", "DynamicApprovalTool", "{}", "appr-dyn-1");
+    let pending = TrackMessage::assistant_tool_call_with_approval(
+        "call-dyn-1",
+        "DynamicApprovalTool",
+        "{}",
+        "appr-dyn-1",
+    );
     assert!(pending.parts.iter().any(|p| matches!(
         p,
         elm_effect_unstable::ai::TrackPart::ApprovalRequest { .. }
@@ -763,7 +825,12 @@ fn tool_without_needs_approval_executes_normally() {
 fn strips_previous_round_approval_artifacts_stream_text_without_new_pending() {
     // LanguageModel.test.ts:2565 — prior-round artifacts strip even with no new approvals.
     let prompt = vec![
-        TrackMessage::assistant_tool_call_with_approval("call-prev", "ApprovalTool", "{}", "approval-prev"),
+        TrackMessage::assistant_tool_call_with_approval(
+            "call-prev",
+            "ApprovalTool",
+            "{}",
+            "approval-prev",
+        ),
         TrackMessage::tool_approval_response("approval-prev", true),
         TrackMessage::tool_result("call-prev", "ApprovalTool", "approved-result"),
         user("continue"),
@@ -790,7 +857,12 @@ fn strips_previous_round_approval_artifacts_stream_text_without_new_pending() {
 fn strips_previous_round_approval_artifacts_generate_text_without_new_pending() {
     // LanguageModel.test.ts:2647 — generateText strips the same prior-round artifacts.
     let prompt = vec![
-        TrackMessage::assistant_tool_call_with_approval("call-prev-gen", "ApprovalTool", "{}", "approval-prev-gen"),
+        TrackMessage::assistant_tool_call_with_approval(
+            "call-prev-gen",
+            "ApprovalTool",
+            "{}",
+            "approval-prev-gen",
+        ),
         TrackMessage::tool_approval_response("approval-prev-gen", true),
         TrackMessage::tool_result("call-prev-gen", "ApprovalTool", "approved-result"),
         user("continue"),

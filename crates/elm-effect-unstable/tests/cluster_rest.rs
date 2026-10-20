@@ -6,8 +6,8 @@ mod cluster;
 
 use cluster::{
     ClusterError, Delivery, MemoryRunnerStorage, PlainJsonCodec, ReplyRegistry, ResourceMap,
-    RunnerCodec, RunnerHealth, RunnerReply, RunnerRequest, RunnerTransport, Runners, ShardingConfig,
-    StoredReply, WaiterFault,
+    RunnerCodec, RunnerHealth, RunnerReply, RunnerRequest, RunnerTransport, Runners,
+    ShardingConfig, StoredReply, WaiterFault,
 };
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -35,14 +35,21 @@ fn sharding_config_defaults_and_validation() {
 #[test]
 fn storage_batch_below_one_normalizes_to_one() {
     // Sharding.test.ts:2077 — programmatic batch sizes below one still drain.
-    let zero = ShardingConfig { storage_batch: 0, ..ShardingConfig::defaults() };
+    let zero = ShardingConfig {
+        storage_batch: 0,
+        ..ShardingConfig::defaults()
+    };
     assert_eq!(zero.effective_storage_batch(), 1);
-    let sized = ShardingConfig { storage_batch: 25, ..ShardingConfig::defaults() };
+    let sized = ShardingConfig {
+        storage_batch: 25,
+        ..ShardingConfig::defaults()
+    };
     assert_eq!(sized.effective_storage_batch(), 25);
 }
 
 #[test]
-fn sharding_config_listen_address_needs_host() {    let no_host = ShardingConfig {
+fn sharding_config_listen_address_needs_host() {
+    let no_host = ShardingConfig {
         listen_host: None,
         listen_port: Some(8080),
         ..ShardingConfig::defaults()
@@ -334,7 +341,9 @@ fn runner_stream_completes_with_exit_after_ack() {
     assert!(entity_values(&registry, "req").is_empty());
     assert_eq!(
         registry.replies_for("req"),
-        vec![StoredReply::Exit { payload: Vec::new() }]
+        vec![StoredReply::Exit {
+            payload: Vec::new()
+        }]
     );
     assert!(registry.is_complete("req"));
 }
@@ -355,7 +364,9 @@ fn runner_codec_fills_payload_and_reply_holes() {
     let mut request = RunnerRequest::new("1", "Double", r#"{"id":21}"#, false);
     let mut received = None;
     runners
-        .send_local(&mut request, true, &mut |incoming| received = Some(incoming))
+        .send_local(&mut request, true, &mut |incoming| {
+            received = Some(incoming)
+        })
         .expect("a local send does not fail");
     let incoming = received.expect("the local send delivered");
     assert_eq!(incoming.payload, r#"{"id":21}"#);
@@ -370,7 +381,10 @@ fn runner_codec_fills_payload_and_reply_holes() {
         back.contains(r#""payload":"{\"id\":21}""#),
         "the entity payload is carried, not re-encoded: {back}"
     );
-    assert!(calls.load(Ordering::SeqCst) >= 3, "the codec filled the holes");
+    assert!(
+        calls.load(Ordering::SeqCst) >= 3,
+        "the codec filled the holes"
+    );
 }
 
 // --- Entity server (Entity.test.ts rows) ---
@@ -466,7 +480,9 @@ fn runner_send_local_uses_the_protocol_codec() {
 
     let mut received = None;
     runners
-        .send_local(&mut request, true, &mut |incoming| received = Some(incoming))
+        .send_local(&mut request, true, &mut |incoming| {
+            received = Some(incoming)
+        })
         .expect("a local send does not fail");
     let incoming = received.expect("the local send delivered");
     assert_eq!(
@@ -487,12 +503,18 @@ fn runner_send_local_uses_the_protocol_codec() {
 // resolves with a failure exit instead of the send failing.
 #[test]
 fn runner_send_delivered_defect_resolves_the_request() {
-    let runners = runners(Box::new(PlainJsonCodec), Delivery::Defect("boom".to_owned()));
+    let runners = runners(
+        Box::new(PlainJsonCodec),
+        Delivery::Defect("boom".to_owned()),
+    );
     let mut request = RunnerRequest::new("1", "TestRpc", r#"{"id":1}"#, false);
 
     let mut replies = Vec::new();
     let result = runners.send(&mut request, &mut |reply| replies.push(reply));
-    assert!(result.is_ok(), "a delivered defect is not a transport failure");
+    assert!(
+        result.is_ok(),
+        "a delivered defect is not a transport failure"
+    );
     assert_eq!(
         replies,
         vec![RunnerReply::WithExit {
@@ -511,7 +533,9 @@ fn runner_send_transport_failure_maps_to_runner_unavailable() {
     );
     let mut request = RunnerRequest::new("1", "TestRpc", r#"{"id":1}"#, false);
 
-    match runners.send(&mut request, &mut |_| panic!("no reply for an undelivered request")) {
+    match runners.send(&mut request, &mut |_| {
+        panic!("no reply for an undelivered request")
+    }) {
         Err(ClusterError::RunnerUnavailable(message)) => {
             assert!(message.contains("socket closed"), "got {message}")
         }
@@ -559,10 +583,15 @@ fn runner_notify_persisted_transport_failure_is_ignored() {
 // takes the storage-recovery path instead of resolving in place.
 #[test]
 fn runner_send_delivered_defect_on_persisted_request_maps_to_runner_unavailable() {
-    let runners = runners(Box::new(PlainJsonCodec), Delivery::Defect("boom".to_owned()));
+    let runners = runners(
+        Box::new(PlainJsonCodec),
+        Delivery::Defect("boom".to_owned()),
+    );
     let mut request = RunnerRequest::new("1", "TestRpcPersisted", r#"{"id":1}"#, true);
 
-    match runners.send(&mut request, &mut |_| panic!("a persisted defect resolves through storage")) {
+    match runners.send(&mut request, &mut |_| {
+        panic!("a persisted defect resolves through storage")
+    }) {
         Err(ClusterError::RunnerUnavailable(message)) => {
             assert!(message.contains("boom"), "got {message}")
         }

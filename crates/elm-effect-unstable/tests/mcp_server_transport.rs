@@ -19,9 +19,8 @@ fn accepts_string_and_numeric_request_ids() {
     // BaseProtocolTest statefulLegacy: SCHEMA accepts string/numeric ids.
     let transport = InMemoryTransport::new(ServerCapabilities::minimal(), ServerInfo::test());
     for id in [json!("ping-1"), json!(42)] {
-        let raw = format!(
-            "{{\"jsonrpc\":\"2.0\",\"id\":{id},\"method\":\"ping\",\"params\":{{}}}}"
-        );
+        let raw =
+            format!("{{\"jsonrpc\":\"2.0\",\"id\":{id},\"method\":\"ping\",\"params\":{{}}}}");
         let reply = transport.handle_line(&raw).unwrap();
         let msg = decode_message(&reply).unwrap();
         assert_eq!(msg.id(), Some(&RequestId::decode(&id).unwrap()));
@@ -155,8 +154,12 @@ fn frames_are_single_line_compact_json() {
 fn processes_consecutive_messages_independently() {
     // TransportsTest stdio: consecutive messages processed independently.
     let (client, _server) = InMemoryTransport::pair(ServerInfo::test());
-    client.send_line(r#"{"jsonrpc":"2.0","id":2,"method":"ping"}"#).unwrap();
-    client.send_line(r#"{"jsonrpc":"2.0","id":3,"method":"ping"}"#).unwrap();
+    client
+        .send_line(r#"{"jsonrpc":"2.0","id":2,"method":"ping"}"#)
+        .unwrap();
+    client
+        .send_line(r#"{"jsonrpc":"2.0","id":3,"method":"ping"}"#)
+        .unwrap();
     let first = decode_message(&client.take_line().unwrap()).unwrap();
     let second = decode_message(&client.take_line().unwrap()).unwrap();
     assert_eq!(first.id(), Some(&RequestId::Number(2)));
@@ -198,7 +201,13 @@ fn negotiates_every_supported_version() {
     // TransportsTest/Lifecycle: 2024-11-05 through 2025-11-25 plus latest.
     assert_eq!(
         SUPPORTED_VERSIONS,
-        ["2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25", "2026-07-28"]
+        [
+            "2024-11-05",
+            "2025-03-26",
+            "2025-06-18",
+            "2025-11-25",
+            "2026-07-28"
+        ]
     );
     assert_eq!(LATEST_VERSION, "2026-07-28");
     for version in SUPPORTED_VERSIONS {
@@ -326,7 +335,10 @@ fn ping_round_trips_after_initialize() {
         .handle_line(r#"{"jsonrpc":"2.0","id":"ping-1","method":"ping"}"#)
         .unwrap();
     let msg = decode_message(&reply).unwrap();
-    assert_eq!(msg.id(), Some(&RequestId::decode(&json!("ping-1")).unwrap()));
+    assert_eq!(
+        msg.id(),
+        Some(&RequestId::decode(&json!("ping-1")).unwrap())
+    );
     assert!(msg.is_result());
 }
 

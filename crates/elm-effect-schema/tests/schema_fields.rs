@@ -285,7 +285,9 @@ fn encode_keys_renames_on_both_sides() {
         map(vec![("a", text("1")), ("b", text("2"))])
     );
     assert_eq!(
-        schema.try_encode(&map(vec![("a", text("1")), ("b", text("2"))])).unwrap(),
+        schema
+            .try_encode(&map(vec![("a", text("1")), ("b", text("2"))]))
+            .unwrap(),
         obj(vec![("c", text("1")), ("b", text("2"))])
     );
 }

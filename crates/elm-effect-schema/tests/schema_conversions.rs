@@ -28,7 +28,10 @@ fn number_from_string_round_trips_non_finite_values() {
     assert_eq!(schema.try_encode(&1.0).unwrap(), text("1"));
     assert_eq!(schema.try_encode(&f64::NAN).unwrap(), text("NaN"));
     assert_eq!(schema.try_encode(&f64::INFINITY).unwrap(), text("Infinity"));
-    assert_eq!(schema.try_encode(&f64::NEG_INFINITY).unwrap(), text("-Infinity"));
+    assert_eq!(
+        schema.try_encode(&f64::NEG_INFINITY).unwrap(),
+        text("-Infinity")
+    );
 }
 
 /// Schema.test.ts:2120 `DateFromString`.

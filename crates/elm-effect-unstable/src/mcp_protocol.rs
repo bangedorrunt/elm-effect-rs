@@ -22,7 +22,10 @@ pub struct ProtocolAdapter {
 impl ProtocolAdapter {
     /// Declare an adapter for `version` validating `discriminator` payloads.
     pub fn new(version: &str, discriminator: &str) -> Self {
-        Self { version: version.to_owned(), discriminator: discriminator.to_owned() }
+        Self {
+            version: version.to_owned(),
+            discriminator: discriminator.to_owned(),
+        }
     }
 
     /// Route a client payload: the tag is namespaced so incompatible schemas
@@ -49,10 +52,15 @@ impl RoutedRequest {
     /// Decode the payload when it carries this adapter's discriminator.
     pub fn decode(&self) -> Result<Value, String> {
         match &self.payload {
-            Value::Object(map) if map.get("protocol").and_then(Value::as_str) == Some(&self.discriminator) => {
+            Value::Object(map)
+                if map.get("protocol").and_then(Value::as_str) == Some(&self.discriminator) =>
+            {
                 Ok(self.payload.clone())
             }
-            _ => Err(format!("payload is not for discriminator {}", self.discriminator)),
+            _ => Err(format!(
+                "payload is not for discriminator {}",
+                self.discriminator
+            )),
         }
     }
 }
@@ -73,7 +81,10 @@ impl ProtocolRegistry {
         let mut seen = std::collections::HashSet::new();
         for adapter in &adapters {
             if !seen.insert(adapter.version.clone()) {
-                return Err(format!("Duplicate MCP protocol version: {}", adapter.version));
+                return Err(format!(
+                    "Duplicate MCP protocol version: {}",
+                    adapter.version
+                ));
             }
         }
         Ok(Self { adapters })
@@ -81,7 +92,10 @@ impl ProtocolRegistry {
 
     /// The adapter for `version`, or the first declared adapter.
     pub fn select(&self, version: &str) -> &ProtocolAdapter {
-        self.adapters.iter().find(|adapter| adapter.version == version).unwrap_or(&self.adapters[0])
+        self.adapters
+            .iter()
+            .find(|adapter| adapter.version == version)
+            .unwrap_or(&self.adapters[0])
     }
 }
 
@@ -96,18 +110,26 @@ pub struct PromptMessage {
 
 /// Decode a prompt message, keeping the content `type` discriminator.
 pub fn decode_prompt_message(value: &Value) -> Result<PromptMessage, String> {
-    let role = value.get("role").and_then(Value::as_str).ok_or_else(|| "missing role".to_owned())?;
+    let role = value
+        .get("role")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "missing role".to_owned())?;
     let kind = value
         .get("content")
         .and_then(|content| content.get("type"))
         .and_then(Value::as_str)
         .ok_or_else(|| "missing content type".to_owned())?;
-    Ok(PromptMessage { role: role.to_owned(), content_kind: kind.to_owned() })
+    Ok(PromptMessage {
+        role: role.to_owned(),
+        content_kind: kind.to_owned(),
+    })
 }
 
 /// Decode annotations, dropping unknown (future) fields.
 pub fn decode_annotations(value: &Value) -> Result<Map<String, Value>, String> {
-    let root = value.as_object().ok_or_else(|| "annotations must be an object".to_owned())?;
+    let root = value
+        .as_object()
+        .ok_or_else(|| "annotations must be an object".to_owned())?;
     let mut out = Map::new();
     if let Some(audience) = root.get("audience") {
         out.insert("audience".to_owned(), audience.clone());
@@ -117,7 +139,9 @@ pub fn decode_annotations(value: &Value) -> Result<Map<String, Value>, String> {
 
 /// Decode server capabilities, dropping unknown (extension) fields.
 pub fn decode_capabilities(value: &Value) -> Result<Map<String, Value>, String> {
-    let root = value.as_object().ok_or_else(|| "capabilities must be an object".to_owned())?;
+    let root = value
+        .as_object()
+        .ok_or_else(|| "capabilities must be an object".to_owned())?;
     let mut out = Map::new();
     if let Some(completions) = root.get("completions") {
         out.insert("completions".to_owned(), completions.clone());
@@ -132,14 +156,21 @@ pub fn decode_capabilities(value: &Value) -> Result<Map<String, Value>, String> 
 pub fn reverse_error(_operation: &str, value: Value) -> Value {
     match &value {
         Value::Object(map)
-            if map.get("_tag").and_then(Value::as_str) == Some("McpReverseOperationUnsupported") =>
+            if map.get("_tag").and_then(Value::as_str)
+                == Some("McpReverseOperationUnsupported") =>
         {
             value
         }
         _ => Value::Object(
-            [("_tag".to_owned(), Value::String("McpReverseOperationError".to_owned())), ("cause".to_owned(), value)]
-                .into_iter()
-                .collect(),
+            [
+                (
+                    "_tag".to_owned(),
+                    Value::String("McpReverseOperationError".to_owned()),
+                ),
+                ("cause".to_owned(), value),
+            ]
+            .into_iter()
+            .collect(),
         ),
     }
 }

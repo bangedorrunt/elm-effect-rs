@@ -306,7 +306,11 @@ fn reduce_evaluates_its_zero_lazily_for_each_run() {
         )
     };
 
-    assert_eq!(*evaluations.lock().unwrap(), 0, "the zero is not evaluated yet");
+    assert_eq!(
+        *evaluations.lock().unwrap(),
+        0,
+        "the zero is not evaluated yet"
+    );
     assert!(matches!(run(), Exit::Success(ref values) if values == &vec![1]));
     assert!(matches!(run(), Exit::Success(ref values) if values == &vec![1]));
     assert_eq!(*evaluations.lock().unwrap(), 2, "once per run");
@@ -319,12 +323,13 @@ fn reduce_evaluates_its_zero_lazily_for_each_run() {
 
 #[test]
 fn filter_keeps_the_odd_numbers() {
-    let exit: Exit<Vec<u32>, std::convert::Infallible> = Runtime::run(
-        elm_effect::Effect::<u32, std::convert::Infallible, ()>::filter(
-            items(&[1, 2, 3, 4, 5]),
-            |value: &u32| value % 2 == 1,
-        ),
-    );
+    let exit: Exit<Vec<u32>, std::convert::Infallible> =
+        Runtime::run(
+            elm_effect::Effect::<u32, std::convert::Infallible, ()>::filter(
+                items(&[1, 2, 3, 4, 5]),
+                |value: &u32| value % 2 == 1,
+            ),
+        );
     assert_eq!(exit, Exit::Success(vec![1, 3, 5]));
 }
 
@@ -333,11 +338,12 @@ fn filter_accepts_any_iterable() {
     // A `BTreeSet` is this port's ordered analogue of the pin's `Set`
     // argument: the combinator takes `IntoIterator`, not a slice.
     let set: std::collections::BTreeSet<u32> = [1, 2, 3, 4, 5].into_iter().collect();
-    let exit: Exit<Vec<u32>, std::convert::Infallible> = Runtime::run(
-        elm_effect::Effect::<u32, std::convert::Infallible, ()>::filter(set, |value: &u32| {
-            value % 2 == 1
-        }),
-    );
+    let exit: Exit<Vec<u32>, std::convert::Infallible> =
+        Runtime::run(
+            elm_effect::Effect::<u32, std::convert::Infallible, ()>::filter(set, |value: &u32| {
+                value % 2 == 1
+            }),
+        );
     assert_eq!(exit, Exit::Success(vec![1, 3, 5]));
 }
 
@@ -346,9 +352,12 @@ fn filter_accepts_any_iterable() {
 #[test]
 fn for_each_over_no_items_yields_an_empty_result() {
     let rt = Runtime::new();
-    let exit = elm_effect::for_each::<u32, u32, u32>(&rt, items(&[]), Concurrency::Sequential, |item, _ctx| {
-        Exit::succeed(item)
-    });
+    let exit = elm_effect::for_each::<u32, u32, u32>(
+        &rt,
+        items(&[]),
+        Concurrency::Sequential,
+        |item, _ctx| Exit::succeed(item),
+    );
     assert_eq!(exit, Exit::Success(Vec::<u32>::new()));
 }
 
@@ -420,7 +429,9 @@ fn all_discard_drops_the_results_but_runs_every_body() {
 fn all_runs_over_any_iterable() {
     // Effect.all(new Set([...])) — a non-Vec iterable is collected first.
     let rt = Runtime::new();
-    let values: Vec<u32> = std::collections::BTreeSet::from([1, 2, 3]).into_iter().collect();
+    let values: Vec<u32> = std::collections::BTreeSet::from([1, 2, 3])
+        .into_iter()
+        .collect();
     let bodies: Vec<Body<u32, u32>> = values
         .into_iter()
         .map(|value| Box::new(move |_ctx: &Ctx| Exit::succeed(value)) as Body<u32, u32>)
@@ -451,10 +462,7 @@ fn all_result_mode_collects_a_failure_as_a_value() {
         vec![make(1, false), make(2, true), make(3, false)],
         Concurrency::Sequential,
     );
-    assert_eq!(
-        exit,
-        Exit::Success(vec![Ok(1), Err("boom"), Ok(3)])
-    );
+    assert_eq!(exit, Exit::Success(vec![Ok(1), Err("boom"), Ok(3)]));
     assert_eq!(*executed.lock().unwrap(), [1, 2, 3]);
 }
 

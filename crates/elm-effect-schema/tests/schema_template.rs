@@ -97,7 +97,9 @@ fn int_span_captures_integer_prefix() {
     );
     assert!(schema.decode(text("a")).is_err());
     assert_eq!(
-        schema.try_encode(&vec![Unknown::Number(1.0), text("a")]).unwrap(),
+        schema
+            .try_encode(&vec![Unknown::Number(1.0), text("a")])
+            .unwrap(),
         text("1a")
     );
 }
@@ -480,7 +482,9 @@ fn parser_int_then_anchor() {
     );
     assert!(schema.decode(text("1.1a")).is_err());
     assert_eq!(
-        schema.try_encode(&vec![Unknown::Number(1.0), text("a")]).unwrap(),
+        schema
+            .try_encode(&vec![Unknown::Number(1.0), text("a")])
+            .unwrap(),
         text("1a")
     );
     let refusal = schema
@@ -524,7 +528,9 @@ fn parser_number_then_anchor_then_non_empty_string() {
     );
     assert!(schema.decode(text("-ab")).is_err(), "no number to read");
     assert_eq!(
-        schema.try_encode(&vec![Unknown::Number(100.0), text("a"), text("b")]).unwrap(),
+        schema
+            .try_encode(&vec![Unknown::Number(100.0), text("a"), text("b")])
+            .unwrap(),
         text("100ab")
     );
     let refusal = schema
@@ -555,7 +561,9 @@ fn parser_anchor_then_literals_part() {
     );
     assert!(schema.decode(text("h4")).is_err());
     assert_eq!(
-        schema.try_encode(&vec![text("h"), Unknown::Number(3.0)]).unwrap(),
+        schema
+            .try_encode(&vec![text("h"), Unknown::Number(3.0)])
+            .unwrap(),
         text("h3")
     );
     // A value outside the set is refused at the part.
@@ -691,11 +699,13 @@ fn parser_nested_parser_part_captures_a_list() {
     assert!(schema.decode(text("<h3>")).is_err());
     // The list is what encodes back, one capture per nested part.
     assert_eq!(
-        schema.try_encode(&vec![
-            text("<"),
-            Unknown::Array(vec![text("h"), Unknown::Number(2.0)]),
-            text(">")
-        ]).unwrap(),
+        schema
+            .try_encode(&vec![
+                text("<"),
+                Unknown::Array(vec![text("h"), Unknown::Number(2.0)]),
+                text(">")
+            ])
+            .unwrap(),
         text("<h2>")
     );
 }
@@ -711,7 +721,9 @@ fn parser_keeps_greedy_segmentation_without_tuple_roundtrips() {
         TemplatePart::AnyString,
     ]);
     assert_eq!(
-        schema.try_encode(&vec![text("a"), text(":"), text("b:c")]).unwrap(),
+        schema
+            .try_encode(&vec![text("a"), text(":"), text("b:c")])
+            .unwrap(),
         text("a:b:c")
     );
     assert_eq!(

@@ -5,7 +5,16 @@ use elm_effect_unstable::mcp_handlers::{LogLevel, Logger};
 #[test]
 fn accepts_every_level_and_rejects_unknown() {
     let mut logger = Logger::new();
-    for level in ["debug", "info", "notice", "warning", "error", "critical", "alert", "emergency"] {
+    for level in [
+        "debug",
+        "info",
+        "notice",
+        "warning",
+        "error",
+        "critical",
+        "alert",
+        "emergency",
+    ] {
         logger.set_level_name(level).unwrap();
         assert_eq!(logger.level(), level.parse::<LogLevel>().unwrap());
     }
@@ -16,8 +25,14 @@ fn accepts_every_level_and_rejects_unknown() {
 fn sends_at_or_above_threshold_and_suppresses_below() {
     let mut logger = Logger::new();
     logger.set_level_name("warning").unwrap();
-    assert!(logger.log("info", Some("test"), serde_json::json!({})).is_none());
-    let note = logger.log("error", Some("test"), serde_json::json!({"n": 1})).unwrap();
+    assert!(
+        logger
+            .log("info", Some("test"), serde_json::json!({}))
+            .is_none()
+    );
+    let note = logger
+        .log("error", Some("test"), serde_json::json!({"n": 1}))
+        .unwrap();
     assert_eq!(note.method, "notifications/message");
     assert!(note.id.is_none());
     assert_eq!(note.params["level"], serde_json::json!("error"));

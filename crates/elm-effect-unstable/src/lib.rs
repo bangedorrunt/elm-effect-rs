@@ -43,11 +43,11 @@ pub mod process;
 pub mod workers;
 
 pub mod mcp_assembly;
-pub mod mcp_schema;
 pub mod mcp_handlers;
-pub mod prompt;
 pub mod mcp_protocol;
+pub mod mcp_schema;
 pub mod mcp_server;
+pub mod prompt;
 pub mod reactivity;
 
 pub mod devtools;

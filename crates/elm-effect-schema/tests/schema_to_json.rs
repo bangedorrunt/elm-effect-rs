@@ -29,10 +29,10 @@
 use std::collections::BTreeMap;
 
 use elm_effect_schema::representation_doc::{
-    from_json, from_representation, to_json, to_representation, Document,
+    Document, from_json, from_representation, to_json, to_representation,
 };
 use elm_effect_schema::{Field, Schema, Unknown};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn string() -> Schema<Unknown> {
     Schema::as_unknown(Schema::string())

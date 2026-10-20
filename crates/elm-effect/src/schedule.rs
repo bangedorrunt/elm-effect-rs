@@ -268,8 +268,7 @@ where
 
 /// A loop predicate recorded as an effect, so the pin's `until`/`while`
 /// callbacks can fail and have that failure end the loop.
-pub type LoopPredicate<In, E> =
-    Arc<dyn Fn(&In) -> Effect<bool, E, ()> + Send + Sync + 'static>;
+pub type LoopPredicate<In, E> = Arc<dyn Fn(&In) -> Effect<bool, E, ()> + Send + Sync + 'static>;
 
 /// `{ schedule, until, while }` for [`repeat_with`] and [`retry_with`].
 ///

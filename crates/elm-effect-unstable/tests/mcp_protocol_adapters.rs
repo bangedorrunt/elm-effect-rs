@@ -100,7 +100,9 @@ fn ignore_recognized_legacy_session_for_modern_request() {
         ProtocolAdapter::new("2025-11-25", "modern"),
     ])
     .unwrap();
-    let routed = registry.select("2025-11-25").route(&json!({"protocol": "modern"}));
+    let routed = registry
+        .select("2025-11-25")
+        .route(&json!({"protocol": "modern"}));
     assert!(routed.decode().is_ok());
     assert_eq!(routed.tag, "modern/test/shape");
 }
@@ -109,7 +111,8 @@ fn ignore_recognized_legacy_session_for_modern_request() {
 fn discover_modern_server_without_init_or_session() {
     // Row 786: capabilities advertise without a handshake.
     let mut s = McpServer::new(ServerInfo::test());
-    s.tools_mut().register("t", "t", json!({"type": "object"}), |_| Ok(vec![]));
+    s.tools_mut()
+        .register("t", "t", json!({"type": "object"}), |_| Ok(vec![]));
     let caps = s.advertise();
     assert!(caps.get("tools").is_some());
     assert!(caps.get("logging").is_some());
@@ -120,7 +123,10 @@ fn expose_continuation_input_to_modern_handlers() {
     // Row 807: prompt/resource handlers see the invocation context.
     let mut s = McpServer::new(ServerInfo::test());
     s.register_ctx_tool("echo", "e", json!({"type": "object"}), |ctx, _| {
-        Ok(vec![content_text(format!("{}:{}", ctx.client_id, ctx.client_name))])
+        Ok(vec![content_text(format!(
+            "{}:{}",
+            ctx.client_id, ctx.client_name
+        ))])
     });
     let ctx = s.context(7, "Carol");
     let out = s.call_tool(&ctx, "echo", None).unwrap();
@@ -153,7 +159,8 @@ fn omit_legacy_client_when_toolkit_session_handles_stateless() {
 fn use_current_request_when_another_registered_resource() {
     // Row 941 (adapted): invocation context wins over registration identity.
     let mut s = McpServer::new(ServerInfo::test());
-    s.resources_mut().insert_text("file:///r", "r", "d", "text/plain", "body");
+    s.resources_mut()
+        .insert_text("file:///r", "r", "d", "text/plain", "body");
     let ctx = s.context(3, "Now");
     let out = s.find_resource(&ctx, "file:///r").unwrap();
     assert_eq!(out[0].text.as_deref(), Some("body"));
@@ -201,7 +208,11 @@ fn reject_prompt_content_when_schema_cannot_represent_it() {
         "p",
         None,
         "d",
-        vec![PromptArg { name: "x".to_owned(), required: true, choices: vec![] }],
+        vec![PromptArg {
+            name: "x".to_owned(),
+            required: true,
+            choices: vec![],
+        }],
         vec![("user".to_owned(), "hi {{x}}".to_owned())],
     );
     let ctx = s.context(1, "c");
@@ -306,7 +317,13 @@ fn route_each_session_through_negotiated_rpc_group() {
 #[test]
 fn expose_negotiated_client_profile_for_each_revision() {
     // Row 1460: initialize negotiates per version.
-    for version in ["2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25", "2026-07-28"] {
+    for version in [
+        "2024-11-05",
+        "2025-03-26",
+        "2025-06-18",
+        "2025-11-25",
+        "2026-07-28",
+    ] {
         let t = InMemoryTransport::new(ServerCapabilities::minimal(), ServerInfo::test());
         let reply = t
             .handle_line(&format!(
@@ -323,8 +340,15 @@ fn preserve_tool_titles_and_hints_when_listing_each_revision() {
     assert!(supports_tool_titles("2025-06-18"));
     assert!(!supports_tool_titles("2025-03-26"));
     let descriptor = json!({"name": "t", "title": "T", "description": "d"});
-    assert_eq!(project_tool_descriptor(&descriptor, "2025-11-25")["title"], json!("T"));
-    assert!(project_tool_descriptor(&descriptor, "2025-03-26").get("title").is_none());
+    assert_eq!(
+        project_tool_descriptor(&descriptor, "2025-11-25")["title"],
+        json!("T")
+    );
+    assert!(
+        project_tool_descriptor(&descriptor, "2025-03-26")
+            .get("title")
+            .is_none()
+    );
 }
 
 #[test]
@@ -338,18 +362,15 @@ fn project_output_schema_only_when_supported() {
 fn inline_identified_output_schemas_on_2025_wire() {
     // Row 1543 (adapted): identified schema inlines on June+ wire.
     let schema = json!({"$id": "ex://out", "type": "object"});
-    let projected = project_tool_descriptor(
-        &json!({"name": "t", "outputSchema": schema}),
-        "2025-06-18",
-    );
+    let projected =
+        project_tool_descriptor(&json!({"name": "t", "outputSchema": schema}), "2025-06-18");
     assert_eq!(projected["outputSchema"]["$id"], json!("ex://out"));
 }
 
 #[test]
 fn project_non_object_toolkit_outputs_only_for_july() {
     // Row 1569: scalars ride structured content only on July wire.
-    let (content, structured) =
-        elm_effect_unstable::mcp_assembly::encode_tool_success(&json!(42));
+    let (content, structured) = elm_effect_unstable::mcp_assembly::encode_tool_success(&json!(42));
     assert!(!content.is_empty());
     assert_eq!(structured, Some(json!(42)));
     assert_eq!(order("2026-07-28") >= order("2025-11-25"), true);
@@ -359,7 +380,8 @@ fn project_non_object_toolkit_outputs_only_for_july() {
 fn encode_binary_content_for_every_representable_revision() {
     // Row 1665: base64 blob survives.
     let mut s = McpServer::new(ServerInfo::test());
-    s.resources_mut().insert_binary("blob://x", "x", "d", "image/png", "aGk=");
+    s.resources_mut()
+        .insert_binary("blob://x", "x", "d", "image/png", "aGk=");
     let ctx = s.context(1, "c");
     let out = s.find_resource(&ctx, "blob://x").unwrap();
     assert_eq!(out[0].blob.as_deref(), Some("aGk="));
@@ -400,8 +422,16 @@ fn preserve_result_metadata_while_omitting_june_only_for_older() {
 fn expose_impl_metadata_and_icons_when_supported() {
     // Row 1850: June+ keeps icons; March drops them.
     let descriptor = json!({"name": "t", "icons": [{"src": "x"}], "title": "T"});
-    assert!(project_tool_descriptor(&descriptor, "2026-07-28").get("icons").is_some());
-    assert!(project_tool_descriptor(&descriptor, "2025-03-26").get("icons").is_none());
+    assert!(
+        project_tool_descriptor(&descriptor, "2026-07-28")
+            .get("icons")
+            .is_some()
+    );
+    assert!(
+        project_tool_descriptor(&descriptor, "2025-03-26")
+            .get("icons")
+            .is_none()
+    );
 }
 
 #[test]
@@ -423,7 +453,10 @@ fn reject_after_invocation_when_tool_result_cannot_project() {
 fn return_error_result_for_failures_on_2025_11_25() {
     // Row 1935: handler failure rides inside the result with isError.
     let mut s = McpServer::new(ServerInfo::test());
-    s.tools_mut().register("f", "f", json!({"type": "object"}), |_| Err("boom".to_owned()));
+    s.tools_mut()
+        .register("f", "f", json!({"type": "object"}), |_| {
+            Err("boom".to_owned())
+        });
     let ctx = s.context(1, "c");
     let out = s.call_tool(&ctx, "f", Some(&json!({}))).unwrap();
     assert!(out.is_error);

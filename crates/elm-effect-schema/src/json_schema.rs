@@ -619,7 +619,6 @@ impl<'a> Compiler<'a> {
         }
     }
 
-
     /// One kind as a document, for positions that only carry a kind (array
     /// items, record keys and values, check bases, rest shapes).
     fn doc_of_kind(&mut self, kind: &SchemaKind) -> serde_json::Value {
@@ -1556,9 +1555,7 @@ fn strip_quotes(text: &str) -> Option<String> {
 fn template_kind_pattern(kind: &SchemaKind) -> Option<String> {
     match kind {
         SchemaKind::Literal(Unknown::Text(text)) => Some(escape_regex(text)),
-        SchemaKind::Literal(Unknown::Number(number)) => {
-            Some(escape_regex(&number.to_string()))
-        }
+        SchemaKind::Literal(Unknown::Number(number)) => Some(escape_regex(&number.to_string())),
         SchemaKind::Literal(Unknown::Bool(flag)) => Some(escape_regex(&flag.to_string())),
         SchemaKind::String => Some("[\\s\\S]*?".to_string()),
         SchemaKind::Number => Some("[+-]?\\d*\\.?\\d+(?:[Ee][+-]?\\d+)?".to_string()),
@@ -1965,7 +1962,8 @@ mod declaration_tests {
     }
 
     #[test]
-    fn symbol_record_keys_become_a_pattern() {        let schema = kind_schema(SchemaKind::Record(
+    fn symbol_record_keys_become_a_pattern() {
+        let schema = kind_schema(SchemaKind::Record(
             Box::new(SchemaKind::Opaque("symbol")),
             Box::new(SchemaKind::Number),
         ));

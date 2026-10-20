@@ -8,12 +8,26 @@ fn registry() -> PromptRegistry {
         Some("Greeter"),
         "says hi",
         vec![
-            PromptArg { name: "name".to_owned(), required: true, choices: vec![] },
-            PromptArg { name: "tone".to_owned(), required: false, choices: vec!["warm".to_owned(), "terse".to_owned()] },
+            PromptArg {
+                name: "name".to_owned(),
+                required: true,
+                choices: vec![],
+            },
+            PromptArg {
+                name: "tone".to_owned(),
+                required: false,
+                choices: vec!["warm".to_owned(), "terse".to_owned()],
+            },
         ],
         vec![("user".to_owned(), "hello {{name}} ({{tone}})".to_owned())],
     );
-    prompts.register("plain", None, "no args", vec![], vec![("user".to_owned(), "hi".to_owned())]);
+    prompts.register(
+        "plain",
+        None,
+        "no args",
+        vec![],
+        vec![("user".to_owned(), "hi".to_owned())],
+    );
     prompts
 }
 
@@ -45,8 +59,16 @@ fn gets_prompt_without_arguments() {
 
 #[test]
 fn substitutes_valid_arguments() {
-    let out = registry().get("greet", &serde_json::json!({ "name": "bo", "tone": "warm" })).unwrap();
-    assert_eq!(out.messages[0]["content"]["text"], serde_json::json!("hello bo (warm)"));
+    let out = registry()
+        .get(
+            "greet",
+            &serde_json::json!({ "name": "bo", "tone": "warm" }),
+        )
+        .unwrap();
+    assert_eq!(
+        out.messages[0]["content"]["text"],
+        serde_json::json!("hello bo (warm)")
+    );
     assert_eq!(out.messages[0]["role"], serde_json::json!("user"));
 }
 
@@ -54,11 +76,20 @@ fn substitutes_valid_arguments() {
 fn rejects_unknown_prompt_missing_required_and_bad_choices() {
     assert!(registry().get("nope", &serde_json::json!({})).is_err());
     assert!(registry().get("greet", &serde_json::json!({})).is_err());
-    assert!(registry().get("greet", &serde_json::json!({ "name": "bo", "tone": "icy" })).is_err());
+    assert!(
+        registry()
+            .get("greet", &serde_json::json!({ "name": "bo", "tone": "icy" }))
+            .is_err()
+    );
 }
 
 #[test]
 fn omits_optional_arguments_cleanly() {
-    let out = registry().get("greet", &serde_json::json!({ "name": "bo" })).unwrap();
-    assert_eq!(out.messages[0]["content"]["text"], serde_json::json!("hello bo ()"));
+    let out = registry()
+        .get("greet", &serde_json::json!({ "name": "bo" }))
+        .unwrap();
+    assert_eq!(
+        out.messages[0]["content"]["text"],
+        serde_json::json!("hello bo ()")
+    );
 }

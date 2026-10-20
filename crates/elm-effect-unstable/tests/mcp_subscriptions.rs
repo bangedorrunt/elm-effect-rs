@@ -36,7 +36,11 @@ struct SubSet {
 
 impl SubSet {
     fn with_transport(can_notify: bool) -> Self {
-        Self { subs: vec![], can_notify, caps: vec!["resources".to_owned()] }
+        Self {
+            subs: vec![],
+            can_notify,
+            caps: vec!["resources".to_owned()],
+        }
     }
     fn advertise(&self) -> Value {
         if self.can_notify && !self.caps.is_empty() {
@@ -49,7 +53,10 @@ impl SubSet {
         if !self.can_notify {
             return Err("transport cannot send notifications".to_owned());
         }
-        let supported = self.caps.iter().any(|c| filter.contains(c) || filter.starts_with("file://"));
+        let supported = self
+            .caps
+            .iter()
+            .any(|c| filter.contains(c) || filter.starts_with("file://"));
         if !supported {
             return Err("unsupported filter".to_owned());
         }
@@ -103,7 +110,8 @@ impl SubSet {
 
 fn server_with_resource() -> McpServer {
     let mut s = McpServer::new(ServerInfo::test());
-    s.resources_mut().insert_text("file:///r", "r", "d", "text/plain", "body");
+    s.resources_mut()
+        .insert_text("file:///r", "r", "d", "text/plain", "body");
     s
 }
 
@@ -167,9 +175,13 @@ fn release_scoped_subscription_when_blocked_listener_interrupted() {
 fn ack_with_exact_numeric_or_string_id() {
     // Row 372.
     let mut set = SubSet::with_transport(true);
-    assert_eq!(set.listen(SubId::Num(7), "file:///r").unwrap(), SubId::Num(7));
     assert_eq!(
-        set.listen(SubId::Text("s-1".to_owned()), "file:///r").unwrap(),
+        set.listen(SubId::Num(7), "file:///r").unwrap(),
+        SubId::Num(7)
+    );
+    assert_eq!(
+        set.listen(SubId::Text("s-1".to_owned()), "file:///r")
+            .unwrap(),
         SubId::Text("s-1".to_owned())
     );
 }
@@ -198,7 +210,11 @@ fn deliver_resource_update_when_uri_subscribed() {
 #[test]
 fn ack_only_supported_subset_when_filters_exceed_caps() {
     // Row 435.
-    let mut set = SubSet { subs: vec![], can_notify: true, caps: vec!["resources".to_owned()] };
+    let mut set = SubSet {
+        subs: vec![],
+        can_notify: true,
+        caps: vec!["resources".to_owned()],
+    };
     assert!(set.listen(SubId::Num(1), "resources").is_ok());
     assert!(set.listen(SubId::Num(2), "elicitation").is_err());
     assert_eq!(set.subs.len(), 1);
@@ -254,7 +270,10 @@ fn preserve_legacy_delivery_with_modern_and_legacy_adapters() {
     // Row 552.
     let legacy = elm_effect_unstable::mcp_protocol::ProtocolAdapter::new("2024-11-05", "legacy");
     let modern = elm_effect_unstable::mcp_protocol::ProtocolAdapter::new("2025-11-25", "modern");
-    assert_ne!(legacy.route(&json!({"protocol": "legacy"})).tag, modern.route(&json!({"protocol": "modern"})).tag);
+    assert_ne!(
+        legacy.route(&json!({"protocol": "legacy"})).tag,
+        modern.route(&json!({"protocol": "modern"})).tag
+    );
     let mut set = SubSet::with_transport(true);
     set.listen(SubId::Num(1), "file:///r").unwrap();
     set.publish("file:///r", json!({"uri": "file:///r"}));

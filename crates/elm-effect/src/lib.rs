@@ -34,24 +34,24 @@ mod executor;
 mod exit;
 #[cfg(feature = "tokio")]
 mod fiber;
+pub mod filesystem;
 mod formatter;
 mod foundation;
-pub mod filesystem;
 mod graph;
-#[cfg(feature = "tokio")]
-mod layer;
-mod metric;
 mod json;
 mod json_patch;
 mod json_pointer;
 mod json_schema;
+#[cfg(feature = "tokio")]
+mod layer;
+mod metric;
 mod optic;
 mod partitioned_semaphore;
 mod path;
+mod platform_error;
 #[cfg(feature = "tokio")]
 mod policy;
 pub mod predicate;
-mod platform_error;
 mod pubsub;
 mod pull;
 #[cfg(feature = "tokio")]
@@ -81,9 +81,9 @@ mod utils_gen;
 pub use bigdecimal::Decimal;
 pub use byte_size::ByteSize;
 pub use cause::{
-    is_exceeded_capacity_error, is_illegal_argument_error, is_no_such_element_error,
-    is_timeout_error, is_unknown_error, Cause, CauseError, Defect, Done, FiberId, Reason, Squash,
-    is_die_reason, is_fail_reason, is_interrupt_reason, is_done,
+    Cause, CauseError, Defect, Done, FiberId, Reason, Squash, is_die_reason, is_done,
+    is_exceeded_capacity_error, is_fail_reason, is_illegal_argument_error, is_interrupt_reason,
+    is_no_such_element_error, is_timeout_error, is_unknown_error,
 };
 #[cfg(feature = "tokio")]
 pub use concurrency::{
@@ -94,9 +94,6 @@ pub use concurrency::{
 };
 pub use context::{Context, ContextReference, Tag};
 pub use effect::{Effect, Requirement};
-pub use metric::{
-    Attributes, Counter, CounterState, Gauge, GaugeState, MetricRegistry, Series, SeriesState,
-};
 #[cfg(feature = "schema")]
 pub use elm_effect_schema::{Schema, SchemaError, StructValue, Unknown};
 #[cfg(feature = "tokio")]
@@ -113,6 +110,9 @@ pub use foundation::{
 };
 #[cfg(feature = "tokio")]
 pub use layer::{BuiltServices, Cycle, Layer, LayerMemo, RequirementIds};
+pub use metric::{
+    Attributes, Counter, CounterState, Gauge, GaugeState, MetricRegistry, Series, SeriesState,
+};
 pub use optic::{
     Iso, Lens, OpticError, Optional, Prism, Traversal, at_map, at_vec, at_vec_exact, failure, none,
     some, success,
@@ -121,17 +121,17 @@ pub use optic::{
 pub use policy::{BreakerConfig, Bulkhead, RateLimiter, Remote, RemoteError, RemotePolicy, hedge};
 #[cfg(feature = "tokio")]
 pub use runtime::{
-    ManagedRuntime, Runtime, SHUTDOWN_DEADLINE, race, race_all, race_all_first, race_first, timeout,
-    timeout_fail,
+    ManagedRuntime, Runtime, SHUTDOWN_DEADLINE, race, race_all, race_all_first, race_first,
+    timeout, timeout_fail,
 };
 pub use schedule::{
     LoopOptions, LoopPredicate, Random, RandomTag, Schedule, repeat, repeat_with, retry, retry_with,
 };
 #[cfg(feature = "schema")]
 pub use schema_data::{
-    bigdecimal, byte_size, byte_size_from_number, byte_size_from_string,
-    is_between_bigdecimal, is_greater_than_bigdecimal, is_greater_than_or_equal_to_bigdecimal,
-    is_less_than_bigdecimal, is_less_than_or_equal_to_bigdecimal,
+    bigdecimal, byte_size, byte_size_from_number, byte_size_from_string, is_between_bigdecimal,
+    is_greater_than_bigdecimal, is_greater_than_or_equal_to_bigdecimal, is_less_than_bigdecimal,
+    is_less_than_or_equal_to_bigdecimal,
 };
 #[cfg(feature = "schema")]
 pub use schema_duration::{duration_from_millis, duration_from_string};
@@ -149,5 +149,11 @@ pub use stm::{
 pub use stream::{Stream, from_iter, from_iterator_succeed};
 #[cfg(feature = "tokio")]
 pub use supervision::{ChildSnapshot, Escalation, Supervisor};
-pub use sync::{Deferred, MutableRef, PartitionedSemaphore, Queue, QueueError, Ref, Semaphore, Strategy, SubscriptionRef, SynchronizedRef, is_dequeue, is_enqueue, is_queue};
-pub use time::{Clock, ClockImpl, Duration, DurationJson, Parts, SleepOutcome, SystemClock, TestClock, is_duration};
+pub use sync::{
+    Deferred, MutableRef, PartitionedSemaphore, Queue, QueueError, Ref, Semaphore, Strategy,
+    SubscriptionRef, SynchronizedRef, is_dequeue, is_enqueue, is_queue,
+};
+pub use time::{
+    Clock, ClockImpl, Duration, DurationJson, Parts, SleepOutcome, SystemClock, TestClock,
+    is_duration,
+};

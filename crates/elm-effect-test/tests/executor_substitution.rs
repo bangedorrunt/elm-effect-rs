@@ -28,7 +28,9 @@ impl Executor for InlineExecutor {
 #[test]
 fn fanout_uses_the_injected_executor() {
     let spawns = Arc::new(AtomicUsize::new(0));
-    let rt = Runtime::with_executor(InlineExecutor { spawns: Arc::clone(&spawns) });
+    let rt = Runtime::with_executor(InlineExecutor {
+        spawns: Arc::clone(&spawns),
+    });
     let bodies: Vec<elm_effect::Body<u32, String>> = (0..3)
         .map(|i| {
             let step: Box<dyn FnOnce(&elm_effect::Ctx) -> Exit<u32, String> + Send> =
@@ -40,7 +42,11 @@ fn fanout_uses_the_injected_executor() {
         Exit::Success(values) => assert_eq!(values, vec![0, 1, 2]),
         other => panic!("expected success, got {other:?}"),
     }
-    assert_eq!(spawns.load(Ordering::SeqCst), 3, "every body via the injected executor");
+    assert_eq!(
+        spawns.load(Ordering::SeqCst),
+        3,
+        "every body via the injected executor"
+    );
 }
 
 #[test]

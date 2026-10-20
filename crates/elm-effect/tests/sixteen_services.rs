@@ -286,8 +286,7 @@ fn provide_wrong_order_fails_with_clear_error() {
         .expect("canonicalize");
     let krate = krate.display().to_string();
 
-    let dir =
-        std::env::temp_dir().join(format!("elm-effect-uifail-{}-order", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("elm-effect-uifail-{}-order", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("src")).expect("scratch src");
     std::fs::write(

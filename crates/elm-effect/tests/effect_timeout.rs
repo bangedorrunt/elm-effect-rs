@@ -72,7 +72,10 @@ fn timeout_option_returns_none_for_a_long_computation() {
     done.store(true, Ordering::SeqCst);
     assert_eq!(exit, Exit::Success(None));
     // The loser is interrupted, not merely abandoned.
-    assert!(seen.load(Ordering::SeqCst), "the body observed the interrupt");
+    assert!(
+        seen.load(Ordering::SeqCst),
+        "the body observed the interrupt"
+    );
 }
 
 /// Effect.test.ts:2064 `timeout a long computation` (the failing variant). The
@@ -123,13 +126,14 @@ fn timeout_fail_renders_seconds_and_millis() {
     match exit {
         Exit::Failure(cause) => assert_eq!(
             cause.failure(),
-            Some(&CauseError::timeout(
-                "Operation timed out after '1s 500ms'"
-            ))
+            Some(&CauseError::timeout("Operation timed out after '1s 500ms'"))
         ),
         Exit::Success(_) => panic!("the deadline arrived first"),
     }
-    assert!(seen.load(Ordering::SeqCst), "the body observed the interrupt");
+    assert!(
+        seen.load(Ordering::SeqCst),
+        "the body observed the interrupt"
+    );
 }
 
 /// Effect.test.ts:2077 `timeout interrupts the effect`. The body is still

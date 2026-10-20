@@ -42,7 +42,11 @@ fn preserves_literal_action_suffixes_in_path_templates() {
     endpoint.parameters.push(param("id", ParamIn::Path, true));
     let spec = SpecBuilder::new("Api").endpoint(endpoint).build().unwrap();
     assert_eq!(
-        spec["paths"].as_object().unwrap().keys().collect::<Vec<_>>(),
+        spec["paths"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .collect::<Vec<_>>(),
         vec!["/operations/{id}:wait"]
     );
     assert_eq!(
@@ -59,7 +63,11 @@ fn keeps_action_paths_literal_when_no_parameter_schema_is_declared() {
     let endpoint = ApiEndpoint::new("resolve", Method::Post, "/offers:resolve");
     let spec = SpecBuilder::new("Api").endpoint(endpoint).build().unwrap();
     assert_eq!(
-        spec["paths"].as_object().unwrap().keys().collect::<Vec<_>>(),
+        spec["paths"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .collect::<Vec<_>>(),
         vec!["/offers:resolve"]
     );
     assert_eq!(
@@ -175,14 +183,17 @@ fn preserves_get_and_query_schemas_on_the_same_path() {
         operation
     }
     let mut get = ApiEndpoint::new("list", Method::Get, "/search");
-    get.success.push(json_response(Schema::as_unknown(Schema::checked(
-        Schema::as_unknown(Schema::number()),
-        "isFinite",
-        vec![],
-        vec![("expected", "a finite number")],
-    ))));
+    get.success
+        .push(json_response(Schema::as_unknown(Schema::checked(
+            Schema::as_unknown(Schema::number()),
+            "isFinite",
+            vec![],
+            vec![("expected", "a finite number")],
+        ))));
     let mut query = ApiEndpoint::new("search", Method::Query, "/search");
-    query.payloads.push(("application/json".to_owned(), string()));
+    query
+        .payloads
+        .push(("application/json".to_owned(), string()));
     query
         .success
         .push(json_response(Schema::as_unknown(Schema::boolean())));
@@ -220,8 +231,12 @@ fn emits_an_anyof_for_two_different_endpoint_errors_sharing_a_status() {
         ))
     }
     let mut endpoint = ApiEndpoint::new("error", Method::Get, "/error");
-    endpoint.error.push(json_response(identified("FirstError", "code")));
-    endpoint.error.push(json_response(identified("SecondError", "reason")));
+    endpoint
+        .error
+        .push(json_response(identified("FirstError", "code")));
+    endpoint
+        .error
+        .push(json_response(identified("SecondError", "reason")));
     let spec = SpecBuilder::new("Api").endpoint(endpoint).build().unwrap();
     assert_eq!(
         spec["paths"]["/error"]["get"]["responses"]["500"]["content"]["application/json"]["schema"],
@@ -289,7 +304,10 @@ fn rejects_duplicate_operation_identifiers() {
 fn allows_operations_without_identifiers() {
     // OpenApi.test.ts:837 — a transform can drop the operationId entirely.
     fn drop_id(mut operation: serde_json::Value) -> serde_json::Value {
-        operation.as_object_mut().expect("operation").remove("operationId");
+        operation
+            .as_object_mut()
+            .expect("operation")
+            .remove("operationId");
         operation
     }
     let mut first = ApiEndpoint::new("first", Method::Get, "/first");
@@ -308,12 +326,7 @@ fn allows_operations_without_identifiers() {
     }
 }
 
-fn secured(
-    id: &str,
-    path: &str,
-    name: &str,
-    scheme: SecurityScheme,
-) -> ApiEndpoint {
+fn secured(id: &str, path: &str, name: &str, scheme: SecurityScheme) -> ApiEndpoint {
     let mut endpoint = ApiEndpoint::new(id, Method::Get, path);
     endpoint.security.push((name.to_owned(), scheme));
     endpoint
@@ -442,10 +455,7 @@ fn stores_proto_security_scheme_names_as_own_properties() {
         .unwrap();
     let schemes = spec["components"]["securitySchemes"].as_object().unwrap();
     assert!(schemes.contains_key("__proto__"));
-    assert_eq!(
-        schemes.keys().collect::<Vec<_>>(),
-        vec!["__proto__"]
-    );
+    assert_eq!(schemes.keys().collect::<Vec<_>>(), vec!["__proto__"]);
     assert_eq!(
         schemes["__proto__"],
         serde_json::json!({"type": "apiKey", "name": "x-api-key", "in": "header"})
@@ -484,7 +494,10 @@ fn rejects_incompatible_proto_security_schemes() {
 #[test]
 fn templates_action_suffixes_but_leaves_plain_colons_alone() {
     // Unit cover for `template_path` beyond the two row witnesses.
-    assert_eq!(template_path("/operations/:id:wait"), "/operations/{id}:wait");
+    assert_eq!(
+        template_path("/operations/:id:wait"),
+        "/operations/{id}:wait"
+    );
     assert_eq!(template_path("/offers:resolve"), "/offers:resolve");
     assert_eq!(template_path("/users/:id"), "/users/{id}");
 }
@@ -565,7 +578,9 @@ fn projects_request_and_response_schemas_to_the_encoded_side() {
     // (The compiler spells this opaque kind on the encoded side already.)
     let wire = Schema::as_unknown(Schema::finite_from_string());
     let mut endpoint = ApiEndpoint::new("create", Method::Post, "/create");
-    endpoint.payloads.push(("application/json".to_owned(), wire.clone()));
+    endpoint
+        .payloads
+        .push(("application/json".to_owned(), wire.clone()));
     endpoint.success.push(json_response(wire));
     let spec = SpecBuilder::new("Api").endpoint(endpoint).build().unwrap();
     assert_eq!(
@@ -640,10 +655,7 @@ fn retains_referenced_parameter_schemas_without_the_parameter_container() {
         ])
     );
     let schemas = spec["components"]["schemas"].as_object().unwrap();
-    assert_eq!(
-        schemas.keys().collect::<Vec<_>>(),
-        vec!["Filter"]
-    );
+    assert_eq!(schemas.keys().collect::<Vec<_>>(), vec!["Filter"]);
     assert_eq!(
         schemas["Filter"],
         serde_json::json!({

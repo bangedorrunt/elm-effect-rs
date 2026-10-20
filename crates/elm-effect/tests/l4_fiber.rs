@@ -518,14 +518,13 @@ fn await_all_children_keeps_a_body_failure_when_interrupted() {
     let child_slot: Arc<Mutex<Option<FiberHandle<(), String>>>> = Arc::new(Mutex::new(None));
     let slot = Arc::clone(&child_slot);
 
-    let effect = Effect::suspend(move || {
-        Effect::fork_child(until_interrupted(child_started.clone()))
-    })
-    .flat_map(move |child| {
-        *slot.lock().unwrap() = Some(child);
-        Effect::<u8, String>::fail("boom".to_owned())
-    })
-    .await_all_children();
+    let effect =
+        Effect::suspend(move || Effect::fork_child(until_interrupted(child_started.clone())))
+            .flat_map(move |child| {
+                *slot.lock().unwrap() = Some(child);
+                Effect::<u8, String>::fail("boom".to_owned())
+            })
+            .await_all_children();
 
     let (rt, target) = spawn_effect(effect);
     assert!(
@@ -588,7 +587,11 @@ fn await_all_children_respects_an_enclosing_uninterruptible_region() {
                 value
             })
         });
-        let effect = if masked { effect.uninterruptible() } else { effect };
+        let effect = if masked {
+            effect.uninterruptible()
+        } else {
+            effect
+        };
 
         let (rt, target) = spawn_effect(effect);
         assert!(
@@ -608,13 +611,19 @@ fn await_all_children_respects_an_enclosing_uninterruptible_region() {
             Exit::Failure(cause) => cause,
             Exit::Success(_) => panic!("masked={masked}: a parked region must end interrupted"),
         };
-        assert!(cause.is_interrupted(), "masked={masked}: no interrupt in the exit");
+        assert!(
+            cause.is_interrupted(),
+            "masked={masked}: no interrupt in the exit"
+        );
         assert_eq!(
             is_set(&after_await),
             masked,
             "masked={masked}: the step after the await ran when it should not have, or vice versa"
         );
-        assert!(rt.shutdown().is_empty(), "masked={masked}: a fiber outlived the test");
+        assert!(
+            rt.shutdown().is_empty(),
+            "masked={masked}: a fiber outlived the test"
+        );
     }
 }
 
@@ -645,13 +654,15 @@ fn await_all_children_ignores_a_child_forked_outside_it() {
                 },
                 ForkOpts::immediate(),
             );
-            let effect = Effect::succeed(1u8).await_all_children().flat_map(move |value| {
-                let returned = returned_flag.clone();
-                Effect::<u8, String>::sync(move || {
-                    returned.store(true, Ordering::SeqCst);
-                    value
-                })
-            });
+            let effect = Effect::succeed(1u8)
+                .await_all_children()
+                .flat_map(move |value| {
+                    let returned = returned_flag.clone();
+                    Effect::<u8, String>::sync(move || {
+                        returned.store(true, Ordering::SeqCst);
+                        value
+                    })
+                });
             let handle = ctx.spawn_effect(effect);
             let dummy = ctx.fork_child(
                 |_| -> Exit<(), String> { Exit::succeed(()) },
@@ -725,7 +736,11 @@ fn await_all_children_ignores_a_preexisting_child() {
         wait_for(&returned, Duration::from_secs(5)),
         "the await waited for a child forked before it"
     );
-    let child = child_slot.lock().unwrap().take().expect("a child was forked");
+    let child = child_slot
+        .lock()
+        .unwrap()
+        .take()
+        .expect("a child was forked");
 
     released.store(true, Ordering::SeqCst);
     assert_eq!(target.join(), Exit::Success(1));
@@ -795,7 +810,11 @@ fn await_all_children_ignores_a_preexisting_child_in_the_same_fiber() {
         "the nested await waited for a child forked before it"
     );
 
-    let outer = outer_slot.lock().unwrap().take().expect("a child was forked");
+    let outer = outer_slot
+        .lock()
+        .unwrap()
+        .take()
+        .expect("a child was forked");
     assert!(
         !outer.is_done(),
         "the enclosing child ended before the nested await returned"
@@ -804,7 +823,11 @@ fn await_all_children_ignores_a_preexisting_child_in_the_same_fiber() {
     outer_released.store(true, Ordering::SeqCst);
     assert_eq!(target.join(), Exit::Success(2));
     outer.join();
-    let inner = inner_slot.lock().unwrap().take().expect("a child was forked");
+    let inner = inner_slot
+        .lock()
+        .unwrap()
+        .take()
+        .expect("a child was forked");
     inner.join();
     assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }

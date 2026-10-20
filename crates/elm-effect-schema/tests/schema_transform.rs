@@ -701,7 +701,10 @@ fn string_from_base64_round_trips_and_refuses_malformed_text() {
             "{bad:?} must be refused by name, got: {err}"
         );
     }
-    assert_eq!(schema.try_encode(&"foobar".to_string()).unwrap(), text("Zm9vYmFy"));
+    assert_eq!(
+        schema.try_encode(&"foobar".to_string()).unwrap(),
+        text("Zm9vYmFy")
+    );
 }
 
 /// :5254 (`StringFromBase64Url`): the URL-safe alphabet, no padding on the way
@@ -713,7 +716,10 @@ fn string_from_base64_url_uses_the_url_alphabet() {
     assert_eq!(schema.decode(text("Pj8-ZD_Dnw")).unwrap(), ">?>d?\u{df}");
     let err = schema.decode(text("Pj8/ZD+Dnw")).unwrap_err().to_string();
     assert!(err.contains("a valid Base64Url string"), "got: {err}");
-    assert_eq!(schema.try_encode(&"foobar".to_string()).unwrap(), text("Zm9vYmFy"));
+    assert_eq!(
+        schema.try_encode(&"foobar".to_string()).unwrap(),
+        text("Zm9vYmFy")
+    );
     assert_eq!(
         schema.try_encode(&">?>d?\u{df}".to_string()).unwrap(),
         text("Pj8-ZD_Dnw")

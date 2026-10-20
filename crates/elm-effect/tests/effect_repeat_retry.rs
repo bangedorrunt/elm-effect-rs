@@ -5,7 +5,7 @@
 //! `Effect.flip` because `retry` only accepts a failing effect; this port's
 //! driver takes a failing recipe directly, so the same counters drive it.
 
-use elm_effect::{repeat_with, retry_with, Effect, Exit, LoopOptions, Runtime, Schedule};
+use elm_effect::{Effect, Exit, LoopOptions, Runtime, Schedule, repeat_with, retry_with};
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
@@ -249,15 +249,18 @@ fn retry_until_always_evaluates_at_least_once() {
         let n = n.clone();
         move || {
             let n = n.clone();
-            Effect::<i64, i64>::sync(move || n.add(1)).flat_map(|value| {
-                Effect::<i64, i64>::fail(value)
-            })
+            Effect::<i64, i64>::sync(move || n.add(1))
+                .flat_map(|value| Effect::<i64, i64>::fail(value))
         }
     };
     let exit: Exit<i64, i64> =
         Runtime::run(retry_with(run, LoopOptions::new().until(|_: &i64| true)));
     assert_eq!(failure(exit), 1);
-    assert_eq!(n.get(), 1, "the condition is checked after the first attempt");
+    assert_eq!(
+        n.get(),
+        1,
+        "the condition is checked after the first attempt"
+    );
 }
 
 #[test]
@@ -291,9 +294,8 @@ fn retry_while_always_evaluates_at_least_once() {
         let n = n.clone();
         move || {
             let n = n.clone();
-            Effect::<i64, i64>::sync(move || n.add(1)).flat_map(|value| {
-                Effect::<i64, i64>::fail(value)
-            })
+            Effect::<i64, i64>::sync(move || n.add(1))
+                .flat_map(|value| Effect::<i64, i64>::fail(value))
         }
     };
     let exit: Exit<i64, i64> =

@@ -13,12 +13,17 @@
 
 use serde_json::{Map, Value};
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 /// MCP protocol versions the server speaks, oldest to newest.
-pub const SUPPORTED_VERSIONS: [&str; 5] =
-    ["2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25", "2026-07-28"];
+pub const SUPPORTED_VERSIONS: [&str; 5] = [
+    "2024-11-05",
+    "2025-03-26",
+    "2025-06-18",
+    "2025-11-25",
+    "2026-07-28",
+];
 
 /// Newest supported version; also the negotiate-down fallback.
 pub const LATEST_VERSION: &str = "2026-07-28";
@@ -52,9 +57,10 @@ impl RequestId {
     pub fn decode(value: &Value) -> Result<Self, JsonRpcError> {
         match value {
             Value::String(text) => Ok(Self::Text(text.clone())),
-            Value::Number(number) => {
-                number.as_i64().map(Self::Number).ok_or(JsonRpcError::INVALID_REQUEST)
-            }
+            Value::Number(number) => number
+                .as_i64()
+                .map(Self::Number)
+                .ok_or(JsonRpcError::INVALID_REQUEST),
             _ => Err(JsonRpcError::INVALID_REQUEST),
         }
     }
@@ -116,13 +122,18 @@ pub fn encode_message(value: &Value) -> String {
 /// Decode one received line into a result or error response.
 pub fn decode_message(line: &str) -> Result<DecodedMessage, String> {
     let value: Value = serde_json::from_str(line).map_err(|error| error.to_string())?;
-    let root = value.as_object().ok_or_else(|| "response must be an object".to_owned())?;
+    let root = value
+        .as_object()
+        .ok_or_else(|| "response must be an object".to_owned())?;
     let id = match root.get("id") {
         None | Some(Value::Null) => None,
         Some(raw) => RequestId::decode(raw).ok(),
     };
     if let Some(result) = root.get("result") {
-        return Ok(DecodedMessage::Result { id, result: result.clone() });
+        return Ok(DecodedMessage::Result {
+            id,
+            result: result.clone(),
+        });
     }
     if let Some(error) = root.get("error") {
         let code = error
@@ -134,7 +145,11 @@ pub fn decode_message(line: &str) -> Result<DecodedMessage, String> {
             .and_then(Value::as_str)
             .unwrap_or("error")
             .to_owned();
-        return Ok(DecodedMessage::Error { id, code: JsonRpcError(code as i32), message });
+        return Ok(DecodedMessage::Error {
+            id,
+            code: JsonRpcError(code as i32),
+            message,
+        });
     }
     Err("response must carry exactly one of result or error".to_owned())
 }
@@ -180,7 +195,10 @@ impl ServerCapabilities {
     pub fn advertise(&self) -> Map<String, Value> {
         let mut out = Map::new();
         if self.flags.prompts {
-            out.insert("prompts".to_owned(), serde_json::json!({"listChanged": true}));
+            out.insert(
+                "prompts".to_owned(),
+                serde_json::json!({"listChanged": true}),
+            );
         }
         if self.flags.resources {
             out.insert(
@@ -213,7 +231,10 @@ pub struct ServerInfo {
 impl ServerInfo {
     /// Name and version for the initialize result.
     pub fn new(name: &str, version: &str) -> Self {
-        Self { name: name.to_owned(), version: version.to_owned() }
+        Self {
+            name: name.to_owned(),
+            version: version.to_owned(),
+        }
     }
 
     /// Placeholder identity for transport-only witnesses.
@@ -234,7 +255,10 @@ pub struct ClientInfo {
 impl ClientInfo {
     /// Client name and version.
     pub fn new(name: &str, version: &str) -> Self {
-        Self { name: name.to_owned(), version: version.to_owned() }
+        Self {
+            name: name.to_owned(),
+            version: version.to_owned(),
+        }
     }
 }
 
@@ -330,10 +354,10 @@ impl Handshake {
         };
         let params = root.get("params").cloned().unwrap_or(Value::Null);
         let params_valid = params.is_null()
-            || params.as_object().map(|object| {
-                method == "initialize" || object.is_empty() || method == "ping"
-            })
-            .unwrap_or(false)
+            || params
+                .as_object()
+                .map(|object| method == "initialize" || object.is_empty() || method == "ping")
+                .unwrap_or(false)
             || (params.is_array() && method != "initialize" && method != "ping");
         if !params_valid {
             if is_notification {
@@ -351,7 +375,9 @@ impl Handshake {
                 let result = self.initialize(&params);
                 Some(encode_message(&match result {
                     Ok(result) => result_reply(&wire_id(&id), result),
-                    Err(message) => error_reply(&wire_id(&id), JsonRpcError::INVALID_PARAMS, &message),
+                    Err(message) => {
+                        error_reply(&wire_id(&id), JsonRpcError::INVALID_PARAMS, &message)
+                    }
                 }))
             }
             "notifications/initialized" => {
@@ -379,7 +405,10 @@ impl Handshake {
                 if is_notification {
                     return None;
                 }
-                Some(encode_message(&result_reply(&wire_id(&id), serde_json::json!({}))))
+                Some(encode_message(&result_reply(
+                    &wire_id(&id),
+                    serde_json::json!({}),
+                )))
             }
             _ => {
                 if is_notification {
@@ -479,8 +508,7 @@ impl InMemoryTransport {
 
     /// A server that already completed the handshake (framing witnesses).
     pub fn initialized(server_info: ServerInfo) -> Self {
-        let transport =
-            Self::build(ServerCapabilities::minimal(), server_info);
+        let transport = Self::build(ServerCapabilities::minimal(), server_info);
         let mut handshake = transport.core.handshake.lock().unwrap();
         handshake.negotiated = Some(LATEST_VERSION.to_owned());
         handshake.initialized = true;

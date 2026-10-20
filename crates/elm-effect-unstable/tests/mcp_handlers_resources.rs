@@ -4,7 +4,13 @@ use elm_effect_unstable::mcp_handlers::{ResourceContent, ResourceStore, Resource
 fn store() -> ResourceStore {
     let mut store = ResourceStore::new();
     store.insert_text("file:///a.txt", "a", "first", "text/plain", "hello");
-    store.insert_binary("file:///b.bin", "b", "second", "application/octet-stream", "aGk=");
+    store.insert_binary(
+        "file:///b.bin",
+        "b",
+        "second",
+        "application/octet-stream",
+        "aGk=",
+    );
     store.add_template(ResourceTemplate {
         uri_template: "file:///docs/{doc}".to_owned(),
         name: "doc".to_owned(),
@@ -12,7 +18,10 @@ fn store() -> ResourceStore {
         mime_type: "text/plain".to_owned(),
         handler: Box::new(|params| {
             Ok(vec![ResourceContent {
-                uri: format!("file:///docs/{}", params.get("doc").map(String::as_str).unwrap_or("?")),
+                uri: format!(
+                    "file:///docs/{}",
+                    params.get("doc").map(String::as_str).unwrap_or("?")
+                ),
                 mime_type: Some("text/plain".to_owned()),
                 text: Some("doc!".to_owned()),
                 blob: None,
@@ -44,7 +53,10 @@ fn reads_text_and_binary_preserving_uri_and_mime() {
     assert_eq!(out[0].mime_type.as_deref(), Some("text/plain"));
     let out = store().read("file:///b.bin").unwrap();
     assert_eq!(out[0].blob.as_deref(), Some("aGk="));
-    assert_eq!(out[0].mime_type.as_deref(), Some("application/octet-stream"));
+    assert_eq!(
+        out[0].mime_type.as_deref(),
+        Some("application/octet-stream")
+    );
 }
 
 #[test]
@@ -65,8 +77,8 @@ fn lists_templates_and_expands_concrete_uris() {
 
 #[test]
 fn does_not_invoke_template_handler_on_decode_failure() {
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     let count = Arc::new(AtomicUsize::new(0));
     let moved = count.clone();
     let mut store = ResourceStore::new();

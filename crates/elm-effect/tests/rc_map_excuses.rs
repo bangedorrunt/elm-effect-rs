@@ -238,11 +238,7 @@ fn rcmap_idle_reuse_restarts_the_ttl() {
 #[test]
 fn rcmap_invalidate_spares_the_replacement_for_every_ttl() {
     let key = "key".to_owned();
-    for ttl in [
-        Duration::ZERO,
-        Duration::from_millis(1000),
-        Duration::MAX,
-    ] {
+    for ttl in [Duration::ZERO, Duration::from_millis(1000), Duration::MAX] {
         let clock = FakeClock::new();
         let acquired = Arc::new(Mutex::new(Vec::<i32>::new()));
         let released = Arc::new(Mutex::new(Vec::<i32>::new()));
@@ -438,7 +434,10 @@ fn rcmap_dynamic_ttl_with_touch() {
         }))
     });
 
-    assert_eq!(map.get(&"short:a".to_owned()), Some(Ok("short:a".to_owned())));
+    assert_eq!(
+        map.get(&"short:a".to_owned()),
+        Some(Ok("short:a".to_owned()))
+    );
     map.release_ref(&"short:a".to_owned());
 
     clock.advance(250);

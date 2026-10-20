@@ -51,14 +51,20 @@ pub struct RpcRequest {
 impl RpcRequest {
     /// Decode from wire JSON.
     pub fn decode(value: &Value) -> Result<Self, String> {
-        let root = value.as_object().ok_or_else(|| "request must be an object".to_owned())?;
+        let root = value
+            .as_object()
+            .ok_or_else(|| "request must be an object".to_owned())?;
         if root.get("jsonrpc").and_then(Value::as_str) != Some("2.0") {
             return Err("jsonrpc must be \"2.0\"".to_owned());
         }
         Ok(Self {
             jsonrpc: "2.0".to_owned(),
             id: root.get("id").and_then(rpc_id),
-            method: root.get("method").and_then(Value::as_str).ok_or_else(|| "missing method".to_owned())?.to_owned(),
+            method: root
+                .get("method")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "missing method".to_owned())?
+                .to_owned(),
             params: root.get("params").cloned(),
         })
     }
@@ -76,11 +82,17 @@ pub struct RpcError {
 impl RpcError {
     /// Invalid-params error (-32602).
     pub fn invalid_params(message: impl Into<String>) -> Self {
-        Self { code: -32602, message: message.into() }
+        Self {
+            code: -32602,
+            message: message.into(),
+        }
     }
     /// Method-not-found error (-32601).
     pub fn method_not_found(method: &str) -> Self {
-        Self { code: -32601, message: format!("method not found: {method}") }
+        Self {
+            code: -32601,
+            message: format!("method not found: {method}"),
+        }
     }
 }
 
@@ -130,7 +142,11 @@ pub struct RpcNotification {
 impl RpcNotification {
     /// Build a server-to-client notification (id is always `None`).
     pub fn new(method: &str, params: Value) -> Self {
-        Self { method: method.to_owned(), params, id: None }
+        Self {
+            method: method.to_owned(),
+            params,
+            id: None,
+        }
     }
 }
 
@@ -185,7 +201,7 @@ pub struct ToolResult {
 /// In-memory tool registry with list/call and basic input validation.
 #[derive(Default)]
 pub struct ToolRegistry {
- tools: Vec<ToolDef>,
+    tools: Vec<ToolDef>,
 }
 
 impl ToolRegistry {
@@ -223,11 +239,21 @@ impl ToolRegistry {
     /// Call a tool: unknown names and validation failures are protocol
     /// errors; handler failures return `is_error` content.
     pub fn call(&self, name: &str, args: &Value) -> Result<ToolResult, ToolCallError> {
-        let tool = self.tools.iter().find(|t| t.name == name).ok_or_else(|| ToolCallError::Protocol(format!("unknown tool: {name}")))?;
+        let tool = self
+            .tools
+            .iter()
+            .find(|t| t.name == name)
+            .ok_or_else(|| ToolCallError::Protocol(format!("unknown tool: {name}")))?;
         validate_args(&tool.input_schema, args).map_err(ToolCallError::Protocol)?;
         match (tool.handler)(args) {
-            Ok(content) => Ok(ToolResult { content, is_error: false }),
-            Err(message) => Ok(ToolResult { content: vec![content_text(message)], is_error: true }),
+            Ok(content) => Ok(ToolResult {
+                content,
+                is_error: false,
+            }),
+            Err(message) => Ok(ToolResult {
+                content: vec![content_text(message)],
+                is_error: true,
+            }),
         }
     }
 }
@@ -235,8 +261,12 @@ impl ToolRegistry {
 /// Validate `args` against a JSON-Schema subset: object shape, `required`
 /// presence, and basic `type` checks per property.
 pub fn validate_args(schema: &Value, args: &Value) -> Result<(), String> {
-    let args = args.as_object().ok_or_else(|| "tool arguments must be an object".to_owned())?;
-    let schema = schema.as_object().ok_or_else(|| "tool schema must be an object".to_owned())?;
+    let args = args
+        .as_object()
+        .ok_or_else(|| "tool arguments must be an object".to_owned())?;
+    let schema = schema
+        .as_object()
+        .ok_or_else(|| "tool schema must be an object".to_owned())?;
     if let Some(Value::Array(required)) = schema.get("required") {
         for name in required.iter().filter_map(Value::as_str) {
             if !args.contains_key(name) {
@@ -246,7 +276,12 @@ pub fn validate_args(schema: &Value, args: &Value) -> Result<(), String> {
     }
     if let Some(properties) = schema.get("properties").and_then(Value::as_object) {
         for (name, value) in args {
-            if let Some(expected) = properties.get(name).and_then(Value::as_object).and_then(|p| p.get("type")).and_then(Value::as_str) {
+            if let Some(expected) = properties
+                .get(name)
+                .and_then(Value::as_object)
+                .and_then(|p| p.get("type"))
+                .and_then(Value::as_str)
+            {
                 check_type(name, expected, value)?;
             }
         }
@@ -264,7 +299,11 @@ fn check_type(name: &str, expected: &str, value: &Value) -> Result<(), String> {
         "object" => value.is_object(),
         _ => true,
     };
-    if ok { Ok(()) } else { Err(format!("parameter {name} must be {expected}")) }
+    if ok {
+        Ok(())
+    } else {
+        Err(format!("parameter {name} must be {expected}"))
+    }
 }
 
 // ── Prompts ─────────────────────────────────────────────────────────────────
@@ -345,12 +384,22 @@ impl PromptRegistry {
 
     /// Get a prompt: validates required args and choices before substituting.
     pub fn get(&self, name: &str, args: &Value) -> Result<PromptResult, String> {
-        let prompt = self.prompts.iter().find(|p| p.name == name).ok_or_else(|| format!("unknown prompt: {name}"))?;
-        let args = args.as_object().ok_or_else(|| "prompt arguments must be an object".to_owned())?;
+        let prompt = self
+            .prompts
+            .iter()
+            .find(|p| p.name == name)
+            .ok_or_else(|| format!("unknown prompt: {name}"))?;
+        let args = args
+            .as_object()
+            .ok_or_else(|| "prompt arguments must be an object".to_owned())?;
         for arg in &prompt.arguments {
             match args.get(&arg.name).and_then(Value::as_str) {
-                None if arg.required => return Err(format!("missing required argument: {}", arg.name)),
-                Some(value) if !arg.choices.is_empty() && !arg.choices.iter().any(|c| c == value) => {
+                None if arg.required => {
+                    return Err(format!("missing required argument: {}", arg.name));
+                }
+                Some(value)
+                    if !arg.choices.is_empty() && !arg.choices.iter().any(|c| c == value) =>
+                {
                     return Err(format!("invalid value for argument: {}", arg.name));
                 }
                 _ => {}
@@ -369,7 +418,10 @@ impl PromptRegistry {
                 serde_json::json!({ "role": role, "content": { "type": "text", "text": text } })
             })
             .collect();
-        Ok(PromptResult { description: prompt.description.clone(), messages })
+        Ok(PromptResult {
+            description: prompt.description.clone(),
+            messages,
+        })
     }
 }
 
@@ -449,24 +501,48 @@ impl ResourceStore {
     }
 
     /// Insert a text resource.
-    pub fn insert_text(&mut self, uri: &str, name: &str, description: &str, mime: &str, text: &str) {
+    pub fn insert_text(
+        &mut self,
+        uri: &str,
+        name: &str,
+        description: &str,
+        mime: &str,
+        text: &str,
+    ) {
         self.resources.push(ResourceDef {
             uri: uri.to_owned(),
             name: name.to_owned(),
             description: description.to_owned(),
             mime_type: Some(mime.to_owned()),
-            content: ResourceContent { uri: uri.to_owned(), mime_type: Some(mime.to_owned()), text: Some(text.to_owned()), blob: None },
+            content: ResourceContent {
+                uri: uri.to_owned(),
+                mime_type: Some(mime.to_owned()),
+                text: Some(text.to_owned()),
+                blob: None,
+            },
         });
     }
 
     /// Insert a base64 binary resource.
-    pub fn insert_binary(&mut self, uri: &str, name: &str, description: &str, mime: &str, blob: &str) {
+    pub fn insert_binary(
+        &mut self,
+        uri: &str,
+        name: &str,
+        description: &str,
+        mime: &str,
+        blob: &str,
+    ) {
         self.resources.push(ResourceDef {
             uri: uri.to_owned(),
             name: name.to_owned(),
             description: description.to_owned(),
             mime_type: Some(mime.to_owned()),
-            content: ResourceContent { uri: uri.to_owned(), mime_type: Some(mime.to_owned()), text: None, blob: Some(blob.to_owned()) },
+            content: ResourceContent {
+                uri: uri.to_owned(),
+                mime_type: Some(mime.to_owned()),
+                text: None,
+                blob: Some(blob.to_owned()),
+            },
         });
     }
 
@@ -497,7 +573,8 @@ impl ResourceStore {
         }
         for template in &self.templates {
             if let Some(params) = match_template(&template.uri_template, uri) {
-                return (template.handler)(&params).map_err(|e| format!("template handler failed: {e}"));
+                return (template.handler)(&params)
+                    .map_err(|e| format!("template handler failed: {e}"));
             }
         }
         Err(format!("unknown resource: {uri}"))
@@ -639,7 +716,9 @@ impl Default for Logger {
 impl Logger {
     /// Logger accepting every level.
     pub fn new() -> Self {
-        Self { min_level: LogLevel::Debug }
+        Self {
+            min_level: LogLevel::Debug,
+        }
     }
 
     /// Current minimum level.
@@ -685,13 +764,20 @@ pub struct Sampler {
 impl Sampler {
     /// Sampler stamping `model` on responses.
     pub fn new(model: &str) -> Self {
-        Self { model: model.to_owned() }
+        Self {
+            model: model.to_owned(),
+        }
     }
 
     /// Handle a `sampling/createMessage` request with a canned response.
     pub fn create_message(&self, request: &Value) -> Result<Value, String> {
-        let root = request.as_object().ok_or_else(|| "sampling request must be an object".to_owned())?;
-        let messages = root.get("messages").and_then(Value::as_array).ok_or_else(|| "messages must be an array".to_owned())?;
+        let root = request
+            .as_object()
+            .ok_or_else(|| "sampling request must be an object".to_owned())?;
+        let messages = root
+            .get("messages")
+            .and_then(Value::as_array)
+            .ok_or_else(|| "messages must be an array".to_owned())?;
         if messages.is_empty() {
             return Err("messages must not be empty".to_owned());
         }
@@ -700,7 +786,11 @@ impl Sampler {
         }
         let summary = messages
             .iter()
-            .filter_map(|m| m.get("content").and_then(|c| c.get("text")).and_then(Value::as_str))
+            .filter_map(|m| {
+                m.get("content")
+                    .and_then(|c| c.get("text"))
+                    .and_then(Value::as_str)
+            })
             .collect::<Vec<_>>()
             .join(" ");
         Ok(serde_json::json!({
@@ -712,10 +802,21 @@ impl Sampler {
 
     /// Decode one sampling content block to its payload text/data.
     pub fn decode_content(content: &Value) -> Result<String, String> {
-        let kind = content.get("type").and_then(Value::as_str).ok_or_else(|| "sampling content needs a type".to_owned())?;
+        let kind = content
+            .get("type")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "sampling content needs a type".to_owned())?;
         match kind {
-            "text" => content.get("text").and_then(Value::as_str).map(str::to_owned).ok_or_else(|| "text content needs text".to_owned()),
-            "image" => content.get("data").and_then(Value::as_str).map(str::to_owned).ok_or_else(|| "image content needs data".to_owned()),
+            "text" => content
+                .get("text")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+                .ok_or_else(|| "text content needs text".to_owned()),
+            "image" => content
+                .get("data")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+                .ok_or_else(|| "image content needs data".to_owned()),
             _ => Err(format!("unsupported sampling content: {kind}")),
         }
     }
@@ -739,13 +840,19 @@ pub struct ElicitFormRequest {
 impl ElicitFormRequest {
     /// Decode and validate a form request scaffold.
     pub fn decode(value: &Value) -> Result<Self, String> {
-        let root = value.as_object().ok_or_else(|| "elicitation request must be an object".to_owned())?;
+        let root = value
+            .as_object()
+            .ok_or_else(|| "elicitation request must be an object".to_owned())?;
         if let Some(mode) = root.get("mode") {
             if mode != "form" {
                 return Err("mode must be \"form\"".to_owned());
             }
         }
-        let message = root.get("message").and_then(Value::as_str).ok_or_else(|| "message must be a string".to_owned())?.to_owned();
+        let message = root
+            .get("message")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "message must be a string".to_owned())?
+            .to_owned();
         let properties = root
             .get("requestedSchema")
             .and_then(Value::as_object)
@@ -775,14 +882,32 @@ pub struct ElicitUrlRequest {
 impl ElicitUrlRequest {
     /// Decode and validate a URL request scaffold.
     pub fn decode(value: &Value) -> Result<Self, String> {
-        let root = value.as_object().ok_or_else(|| "elicitation request must be an object".to_owned())?;
-        let message = root.get("message").and_then(Value::as_str).ok_or_else(|| "message must be a string".to_owned())?.to_owned();
-        let url = root.get("url").and_then(Value::as_str).ok_or_else(|| "url must be a string".to_owned())?.to_owned();
+        let root = value
+            .as_object()
+            .ok_or_else(|| "elicitation request must be an object".to_owned())?;
+        let message = root
+            .get("message")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "message must be a string".to_owned())?
+            .to_owned();
+        let url = root
+            .get("url")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "url must be a string".to_owned())?
+            .to_owned();
         if !url.starts_with("https://") && !url.starts_with("http://") {
             return Err("url must use http or https".to_owned());
         }
-        let elicitation_id = root.get("elicitationId").and_then(Value::as_str).ok_or_else(|| "elicitationId must be a string".to_owned())?.to_owned();
-        Ok(Self { message, url, elicitation_id })
+        let elicitation_id = root
+            .get("elicitationId")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "elicitationId must be a string".to_owned())?
+            .to_owned();
+        Ok(Self {
+            message,
+            url,
+            elicitation_id,
+        })
     }
 }
 
@@ -797,13 +922,23 @@ pub fn dispatch(
     resources: &ResourceStore,
     logger: &mut Logger,
 ) -> RpcResponse {
-    let respond = |result: Value| RpcResponse { id: request.id.clone(), result: Some(result), error: None };
-    let fail = |error: RpcError| RpcResponse { id: request.id.clone(), result: None, error: Some(error) };
+    let respond = |result: Value| RpcResponse {
+        id: request.id.clone(),
+        result: Some(result),
+        error: None,
+    };
+    let fail = |error: RpcError| RpcResponse {
+        id: request.id.clone(),
+        result: None,
+        error: Some(error),
+    };
     let params = request.params.clone().unwrap_or(Value::Null);
     match request.method.as_str() {
-        "tools/list" => respond(serde_json::json!({ "tools": tools.list().iter().map(|t| serde_json::json!({
+        "tools/list" => respond(
+            serde_json::json!({ "tools": tools.list().iter().map(|t| serde_json::json!({
             "name": t.name, "description": t.description, "inputSchema": t.input_schema,
-        })).collect::<Vec<_>>() })),
+        })).collect::<Vec<_>>() }),
+        ),
         "tools/call" => {
             let name = params.get("name").and_then(Value::as_str).unwrap_or("");
             if name.is_empty() {
@@ -811,34 +946,46 @@ pub fn dispatch(
             }
             let args = params.get("arguments").unwrap_or(&Value::Null);
             match tools.call(name, args) {
-                Ok(out) => respond(serde_json::json!({ "content": out.content, "isError": out.is_error })),
+                Ok(out) => {
+                    respond(serde_json::json!({ "content": out.content, "isError": out.is_error }))
+                }
                 Err(ToolCallError::Protocol(message)) => fail(RpcError::invalid_params(message)),
             }
         }
-        "prompts/list" => respond(serde_json::json!({ "prompts": prompts.list().iter().map(|p| serde_json::json!({
+        "prompts/list" => respond(
+            serde_json::json!({ "prompts": prompts.list().iter().map(|p| serde_json::json!({
             "name": p.name, "title": p.title, "description": p.description,
             "arguments": p.arguments.iter().map(|a| serde_json::json!({
                 "name": a.name, "required": a.required,
             })).collect::<Vec<_>>(),
-        })).collect::<Vec<_>>() })),
+        })).collect::<Vec<_>>() }),
+        ),
         "prompts/get" => {
             let name = params.get("name").and_then(Value::as_str).unwrap_or("");
             let args = params.get("arguments").unwrap_or(&Value::Null);
             match prompts.get(name, args) {
-                Ok(out) => respond(serde_json::json!({ "description": out.description, "messages": out.messages })),
+                Ok(out) => respond(
+                    serde_json::json!({ "description": out.description, "messages": out.messages }),
+                ),
                 Err(message) => fail(RpcError::invalid_params(message)),
             }
         }
-        "resources/list" => respond(serde_json::json!({ "resources": resources.list().iter().map(|r| serde_json::json!({
+        "resources/list" => respond(
+            serde_json::json!({ "resources": resources.list().iter().map(|r| serde_json::json!({
             "uri": r.uri, "name": r.name, "description": r.description, "mimeType": r.mime_type,
-        })).collect::<Vec<_>>() })),
-        "resources/templates/list" => respond(serde_json::json!({ "resourceTemplates": resources.list_templates().iter().map(|t| serde_json::json!({
+        })).collect::<Vec<_>>() }),
+        ),
+        "resources/templates/list" => respond(
+            serde_json::json!({ "resourceTemplates": resources.list_templates().iter().map(|t| serde_json::json!({
             "uriTemplate": t.uri_template, "name": t.name,
-        })).collect::<Vec<_>>() })),
+        })).collect::<Vec<_>>() }),
+        ),
         "resources/read" => {
             let uri = params.get("uri").and_then(Value::as_str).unwrap_or("");
             match resources.read(uri) {
-                Ok(contents) => respond(serde_json::json!({ "contents": contents.iter().map(ResourceContent::encode).collect::<Vec<_>>() })),
+                Ok(contents) => respond(
+                    serde_json::json!({ "contents": contents.iter().map(ResourceContent::encode).collect::<Vec<_>>() }),
+                ),
                 Err(message) => fail(RpcError::invalid_params(message)),
             }
         }

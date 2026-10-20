@@ -11,7 +11,10 @@ fn adapter(version: &str, discriminator: &str) -> ProtocolAdapter {
 fn rejects_an_empty_declaration() {
     // McpProtocol.test.ts:81 — a registry needs at least one protocol.
     let err = ProtocolRegistry::make(vec![]).unwrap_err();
-    assert!(err.contains("at least one MCP protocol"), "unexpected: {err}");
+    assert!(
+        err.contains("at least one MCP protocol"),
+        "unexpected: {err}"
+    );
 }
 
 #[test]
@@ -19,7 +22,10 @@ fn rejects_duplicate_versions() {
     // McpProtocol.test.ts:91
     let err = ProtocolRegistry::make(vec![adapter("test-a", "a"), adapter("test-a", "other-a")])
         .unwrap_err();
-    assert!(err.contains("Duplicate MCP protocol version: test-a"), "unexpected: {err}");
+    assert!(
+        err.contains("Duplicate MCP protocol version: test-a"),
+        "unexpected: {err}"
+    );
 }
 
 #[test]
@@ -103,7 +109,13 @@ fn preserves_tagged_unsupported_errors_without_a_local_class() {
         "protocolVersion": "2025-06-18",
         "reason": "Client did not advertise roots"
     });
-    assert_eq!(reverse_error("roots/list", unsupported.clone()), unsupported);
+    assert_eq!(
+        reverse_error("roots/list", unsupported.clone()),
+        unsupported
+    );
     let wrapped = reverse_error("roots/list", json!({"message": "Transport failed"}));
-    assert_eq!(wrapped.get("_tag").and_then(|tag| tag.as_str()), Some("McpReverseOperationError"));
+    assert_eq!(
+        wrapped.get("_tag").and_then(|tag| tag.as_str()),
+        Some("McpReverseOperationError")
+    );
 }

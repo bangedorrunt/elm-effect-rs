@@ -31,7 +31,11 @@ impl Handlers {
         }
     }
 
-    fn handle(&mut self, id: &str, handler: fn(&str) -> String) -> Result<fn(&str) -> String, String> {
+    fn handle(
+        &mut self,
+        id: &str,
+        handler: fn(&str) -> String,
+    ) -> Result<fn(&str) -> String, String> {
         if !self.known.iter().any(|known| known == id) {
             return Err(format!(
                 "HttpApiEndpoint \"{id}\" not found in HttpApiGroup \"{}\"",
@@ -48,10 +52,7 @@ impl Handlers {
         Ok(handler)
     }
 
-    fn handle_all(
-        &mut self,
-        entries: Vec<(&str, fn(&str) -> String)>,
-    ) -> Result<(), String> {
+    fn handle_all(&mut self, entries: Vec<(&str, fn(&str) -> String)>) -> Result<(), String> {
         for (id, handler) in entries {
             self.handle(id, handler)?;
         }
@@ -100,7 +101,10 @@ fn returns_the_callback_unchanged_and_supports_registration_in_a_group() {
     let group = HttpApiGroup::make("users").add_endpoint(
         elm_effect_unstable::http::HttpApiEndpoint::get("create", "/users/:id"),
     );
-    assert_eq!(group.endpoint("create").map(|e| e.path.as_str()), Some("/users/:id"));
+    assert_eq!(
+        group.endpoint("create").map(|e| e.path.as_str()),
+        Some("/users/:id")
+    );
 
     let mut handlers = Handlers::new("users", &["create"]);
     let callback: fn(&str) -> String = get_user;
@@ -159,11 +163,13 @@ fn round_trips_mixed_case_media_types_with_declared_and_received_parameters() {
         )])
         .build()
         .expect("payload validates");
-    assert!(endpoint
-        .payload_entry(&normalize_content_type(
-            "application/vnd.effect+json; profile=received"
-        ))
-        .is_some());
+    assert!(
+        endpoint
+            .payload_entry(&normalize_content_type(
+                "application/vnd.effect+json; profile=received"
+            ))
+            .is_some()
+    );
 }
 
 #[test]
@@ -177,10 +183,9 @@ fn round_trips_custom_form_urlencoded_media_types() {
 #[test]
 fn registers_handle_all_handlers_at_runtime() {
     // HttpApiBuilder.test.ts:1567 — one call registers every endpoint handler.
-    let api = HttpApi::make("Api").add(
-        HttpApiGroup::make("users")
-            .add_endpoint(elm_effect_unstable::http::HttpApiEndpoint::get("getUser", "/users")),
-    );
+    let api = HttpApi::make("Api").add(HttpApiGroup::make("users").add_endpoint(
+        elm_effect_unstable::http::HttpApiEndpoint::get("getUser", "/users"),
+    ));
     let group = api.group("users").expect("group registered");
     let mut handlers = Handlers::new(
         "users",
@@ -195,7 +200,10 @@ fn registers_handle_all_handlers_at_runtime() {
         .expect("handleAll registers");
     // `createUser` is unknown to this group, so it refuses at runtime.
     assert!(handlers.handle("createUser", create_user).is_err());
-    assert_eq!(handlers.call("getUser", "user-1"), Some("user:user-1".to_owned()));
+    assert_eq!(
+        handlers.call("getUser", "user-1"),
+        Some("user:user-1".to_owned())
+    );
 }
 
 #[test]
@@ -203,7 +211,9 @@ fn rejects_unknown_endpoint_identifiers() {
     // HttpApiBuilder.test.ts:1621 — `missing` and `toString` are both unknown.
     let mut handlers = Handlers::new("users", &["getUser"]);
     for identifier in ["missing", "toString"] {
-        let error = handlers.handle(identifier, get_user).expect_err("unknown refuses");
+        let error = handlers
+            .handle(identifier, get_user)
+            .expect_err("unknown refuses");
         assert_eq!(
             error,
             format!("HttpApiEndpoint \"{identifier}\" not found in HttpApiGroup \"users\"")
@@ -217,12 +227,15 @@ fn rejects_duplicate_handle_and_handle_all_registrations() {
     let mut direct = Handlers::new("users", &["getUser"]);
     direct.handle("getUser", get_user).expect("first registers");
     assert_eq!(
-        direct.handle("getUser", create_user).expect_err("duplicate refuses"),
+        direct
+            .handle("getUser", create_user)
+            .expect_err("duplicate refuses"),
         "Handler for HttpApiEndpoint \"getUser\" is already registered in HttpApiGroup \"users\""
     );
 
     let mut bulk = Handlers::new("users", &["getUser"]);
-    bulk.handle_all(vec![("getUser", get_user)]).expect("first registers");
+    bulk.handle_all(vec![("getUser", get_user)])
+        .expect("first registers");
     assert_eq!(
         bulk.handle_all(vec![("getUser", create_user)])
             .expect_err("duplicate refuses"),
@@ -239,5 +252,8 @@ fn executes_effectful_handler_builders() {
         Ok(handlers)
     };
     let handlers = build().expect("builder closure runs");
-    assert_eq!(handlers.call("getUser", "user-1"), Some("user:user-1".to_owned()));
+    assert_eq!(
+        handlers.call("getUser", "user-1"),
+        Some("user:user-1".to_owned())
+    );
 }

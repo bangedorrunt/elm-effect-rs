@@ -20,7 +20,9 @@
 //! `rawJSON`/override identity. None of that machinery exists yet; every
 //! assertion here holds on the routing/registry layer.
 
-use elm_effect_schema::json_schema::{CompileOptions, OnExcessProperty, compile_multi_with_options};
+use elm_effect_schema::json_schema::{
+    CompileOptions, OnExcessProperty, compile_multi_with_options,
+};
 use elm_effect_schema::{Schema, Unknown};
 use std::collections::BTreeMap;
 use std::fmt;
@@ -205,9 +207,12 @@ impl SecurityScheme {
                         || (location.eq_ignore_ascii_case("header")
                             && name.eq_ignore_ascii_case(other_name)))
             }
-            (Self::Http { scheme }, Self::Http { scheme: other_scheme }) => {
-                scheme.eq_ignore_ascii_case(other_scheme)
-            }
+            (
+                Self::Http { scheme },
+                Self::Http {
+                    scheme: other_scheme,
+                },
+            ) => scheme.eq_ignore_ascii_case(other_scheme),
             _ => false,
         }
     }
@@ -371,7 +376,8 @@ impl SpecBuilder {
     /// Whether the definition for `identifier` stays referenced under the
     /// current policy (absent policy keeps every reference).
     fn keeps_reference(&self, identifier: &str) -> bool {
-        self.reference_policy.is_none_or(|policy| policy(identifier))
+        self.reference_policy
+            .is_none_or(|policy| policy(identifier))
     }
 
     /// The assembled document: `openapi`, `info`, `paths`, and `components`.
@@ -399,12 +405,7 @@ impl SpecBuilder {
                     .iter()
                     .map(|param| param.schema.clone())
                     .chain(endpoint.payloads.iter().map(|(_, schema)| schema.clone()))
-                    .chain(
-                        endpoint
-                            .success
-                            .iter()
-                            .map(|entry| entry.schema.clone()),
-                    )
+                    .chain(endpoint.success.iter().map(|entry| entry.schema.clone()))
                     .chain(endpoint.error.iter().map(|entry| entry.schema.clone()))
                     .chain(endpoint.query_structs.iter().cloned())
             })
@@ -417,8 +418,7 @@ impl SpecBuilder {
         // documents. An identified declaration aliases its `Encoded` form (the
         // canonical JSON codec definition), exactly like the pin; an inlined
         // identifier lands under its own name instead.
-        let mut additional_components: BTreeMap<String, serde_json::Value> =
-            BTreeMap::new();
+        let mut additional_components: BTreeMap<String, serde_json::Value> = BTreeMap::new();
         let mut additional_docs = Vec::new();
         for _ in 0..self.additional_schemas.len() {
             additional_docs.push(docs.next_back());
@@ -494,7 +494,11 @@ impl SpecBuilder {
         let mut seen_operations = std::collections::HashSet::new();
         for (endpoint, mut operation) in self.endpoints.iter().zip(operations) {
             let path = template_path(&endpoint.path);
-            let canonical = format!("{} {}", endpoint.method.name(), canonical_template(&endpoint.path));
+            let canonical = format!(
+                "{} {}",
+                endpoint.method.name(),
+                canonical_template(&endpoint.path)
+            );
             if !seen_operations.insert(canonical) {
                 return Err(OpenApiError::DuplicateOperation {
                     method: endpoint.method.name().to_owned(),
@@ -522,9 +526,8 @@ impl SpecBuilder {
             }
         }
         let mut components = serde_json::json!({});
-        let mut schemas: serde_json::Map<String, serde_json::Value> = definitions
-            .into_iter()
-            .collect::<serde_json::Map<_, _>>();
+        let mut schemas: serde_json::Map<String, serde_json::Value> =
+            definitions.into_iter().collect::<serde_json::Map<_, _>>();
         for (name, component) in additional_components {
             schemas.insert(name, component);
         }
@@ -603,17 +606,17 @@ fn operation_document(
         })
         .collect::<Vec<_>>();
     parameters.extend(query_params.iter().cloned());
-    operation.insert("parameters".to_owned(), serde_json::Value::Array(parameters));
+    operation.insert(
+        "parameters".to_owned(),
+        serde_json::Value::Array(parameters),
+    );
     if !endpoint.payloads.is_empty() {
         let content = endpoint
             .payloads
             .iter()
             .zip(payload_docs)
             .map(|((content_type, _), schema)| {
-                (
-                    content_type.clone(),
-                    serde_json::json!({"schema": schema}),
-                )
+                (content_type.clone(), serde_json::json!({"schema": schema}))
             })
             .collect::<serde_json::Map<_, _>>();
         operation.insert(
@@ -621,8 +624,7 @@ fn operation_document(
             serde_json::json!({"content": serde_json::Value::Object(content)}),
         );
     }
-    let mut responses: BTreeMap<String, BTreeMap<String, Vec<serde_json::Value>>> =
-        BTreeMap::new();
+    let mut responses: BTreeMap<String, BTreeMap<String, Vec<serde_json::Value>>> = BTreeMap::new();
     for (entry, doc) in endpoint
         .success
         .iter()
@@ -664,10 +666,7 @@ fn operation_document(
             )
         })
         .collect::<serde_json::Map<_, _>>();
-    operation.insert(
-        "responses".to_owned(),
-        serde_json::Value::Object(responses),
-    );
+    operation.insert("responses".to_owned(), serde_json::Value::Object(responses));
     serde_json::Value::Object(operation)
 }
 
@@ -680,9 +679,7 @@ fn ref_target(doc: &serde_json::Value) -> Option<String> {
             .flatten()
             .and_then(|reference| reference.as_str())
     })?;
-    reference
-        .strip_prefix("#/$defs/")
-        .map(str::to_owned)
+    reference.strip_prefix("#/$defs/").map(str::to_owned)
 }
 
 /// One query parameter per property of a query-struct document: the container
@@ -729,11 +726,7 @@ fn query_parameters(
 /// Replace every `$ref` to `target` with `replacement`. Children resolve
 /// before their parent, and an inserted copy is never revisited, so a
 /// self-referential definition terminates instead of unfolding forever.
-fn inline_refs(
-    value: &mut serde_json::Value,
-    target: &str,
-    replacement: &serde_json::Value,
-) {
+fn inline_refs(value: &mut serde_json::Value, target: &str, replacement: &serde_json::Value) {
     match value {
         serde_json::Value::Array(items) => {
             for item in items {

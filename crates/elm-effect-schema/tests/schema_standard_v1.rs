@@ -201,10 +201,7 @@ fn leaf_hook_non_empty_string_reports_the_check_message() {
 fn nested_struct_collects_deep_issues() {
     // Depth accumulates: two failures inside one nested struct yield two
     // issues, not the first one the fail-fast decode would report.
-    let inner = Schema::as_unknown(Schema::struct_([
-        ("a", non_empty()),
-        ("b", non_empty()),
-    ]));
+    let inner = Schema::as_unknown(Schema::struct_([("a", non_empty()), ("b", non_empty())]));
     let outer = Schema::struct_([("inner", inner)]);
     let standard = to_standard_schema_v1(outer);
     let input = Unknown::Object(

@@ -227,7 +227,10 @@ impl RateLimiter {
     }
 
     /// Admit `tokens` against `options`, or say how long to wait.
-    pub fn consume(&mut self, options: &ConsumeOptions<'_>) -> Result<ConsumeResult, RateLimitExceeded> {
+    pub fn consume(
+        &mut self,
+        options: &ConsumeOptions<'_>,
+    ) -> Result<ConsumeResult, RateLimitExceeded> {
         let window_ms = options.window.as_millis() as i64;
         let limit = options.limit as i64;
         let tokens = options.tokens as i64;
@@ -259,19 +262,20 @@ impl RateLimiter {
         match options.algorithm {
             Algorithm::FixedWindow => {
                 let now = self.now();
-                let counter = self.counters.entry(options.key.to_owned()).or_insert(Counter {
-                    count: 0,
-                    expires_at: now,
-                });
+                let counter = self
+                    .counters
+                    .entry(options.key.to_owned())
+                    .or_insert(Counter {
+                        count: 0,
+                        expires_at: now,
+                    });
                 if counter.expires_at <= now {
                     counter.count = 0;
                     counter.expires_at = now;
                 }
                 // Fail mode asks the store to refuse the reservation, but still
                 // reports the hypothetical count so the caller sees the excess.
-                if options.on_exceeded == OnExceeded::Fail
-                    && counter.count + tokens > limit
-                {
+                if options.on_exceeded == OnExceeded::Fail && counter.count + tokens > limit {
                     return Err(exceeded(counter.expires_at as i64 - now as i64, 0));
                 }
                 counter.count += tokens;
@@ -307,10 +311,13 @@ impl RateLimiter {
             }
             Algorithm::TokenBucket => {
                 let now = self.now();
-                let bucket = self.buckets.entry(options.key.to_owned()).or_insert(Bucket {
-                    tokens: limit,
-                    last_refill: now,
-                });
+                let bucket = self
+                    .buckets
+                    .entry(options.key.to_owned())
+                    .or_insert(Bucket {
+                        tokens: limit,
+                        last_refill: now,
+                    });
                 let refill = refill_ms.max(1) as u64;
                 let added = ((now.saturating_sub(bucket.last_refill)) / refill) as i64;
                 if added > 0 {
@@ -387,9 +394,8 @@ impl RateLimiter {
                 state.epoch += 1;
                 state.learning_started_at = now;
                 state.observed_tokens = tokens;
-                state.expires_at = now
-                    + options.fallback_window.as_millis() as u64
-                    + ADAPTIVE_STATE_TTL_GRACE_MS;
+                state.expires_at =
+                    now + options.fallback_window.as_millis() as u64 + ADAPTIVE_STATE_TTL_GRACE_MS;
                 AdaptiveConsumeResult {
                     delay: Duration::ZERO,
                     epoch: state.epoch,
@@ -418,7 +424,8 @@ impl RateLimiter {
                 state.cooldown_until += (refill_ms * tokens) as u64;
 
                 let ttl = (state.cooldown_until as i64 - now as i64).max(0);
-                let window_number = (state.observed_tokens - 1).div_euclid(state.learned_limit.max(1));
+                let window_number =
+                    (state.observed_tokens - 1).div_euclid(state.learned_limit.max(1));
                 let elapsed = state.observed_tokens * refill_ms - ttl;
                 let remaining = window_number * state.learned_window_ms - elapsed;
                 AdaptiveConsumeResult {
@@ -492,9 +499,8 @@ impl RateLimiter {
                     reset_to_cooldown(state);
                     return;
                 }
-                let learned_window = clamp_adaptive_millis(
-                    now.saturating_sub(state.learning_started_at) + retry_ms,
-                );
+                let learned_window =
+                    clamp_adaptive_millis(now.saturating_sub(state.learning_started_at) + retry_ms);
                 state.phase = AdaptivePhase::Learned;
                 state.epoch += 1;
                 state.cooldown_until = state.learning_started_at + learned_window;
@@ -510,7 +516,10 @@ impl RateLimiter {
     /// Consume, then park for the delay the limit asks for.
     ///
     /// The pin's `RateLimiter.sleep`; `sleeper` is its partially applied shape.
-    pub fn sleep(&mut self, options: &ConsumeOptions<'_>) -> Result<ConsumeResult, RateLimitExceeded> {
+    pub fn sleep(
+        &mut self,
+        options: &ConsumeOptions<'_>,
+    ) -> Result<ConsumeResult, RateLimitExceeded> {
         let result = self.consume(options)?;
         if !result.delay.is_zero() {
             self.clock.sleep(result.delay);

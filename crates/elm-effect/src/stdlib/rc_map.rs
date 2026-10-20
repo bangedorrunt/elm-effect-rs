@@ -427,7 +427,6 @@ where
     pub fn is_closed(&self) -> bool {
         self.closed
     }
-
 }
 
 impl<K, V, E> RcMap<K, V, E> {

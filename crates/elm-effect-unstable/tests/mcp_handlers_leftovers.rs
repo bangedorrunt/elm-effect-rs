@@ -23,7 +23,11 @@ fn features() -> ServerCapabilities {
 fn logging_advertised_when_notifications_supported() {
     // LoggingTest:48 — a server supporting log notifications advertises it.
     assert!(features().advertise().contains_key("logging"));
-    assert!(!ServerCapabilities::minimal().advertise().contains_key("logging"));
+    assert!(
+        !ServerCapabilities::minimal()
+            .advertise()
+            .contains_key("logging")
+    );
 }
 
 #[test]
@@ -46,8 +50,16 @@ fn prompt_registry() -> PromptRegistry {
         Some("Greeter"),
         "Greets a person warmly",
         vec![
-            PromptArg { name: "name".to_owned(), required: true, choices: vec![] },
-            PromptArg { name: "tone".to_owned(), required: false, choices: vec!["warm".to_owned(), "icy".to_owned()] },
+            PromptArg {
+                name: "name".to_owned(),
+                required: true,
+                choices: vec![],
+            },
+            PromptArg {
+                name: "tone".to_owned(),
+                required: false,
+                choices: vec!["warm".to_owned(), "icy".to_owned()],
+            },
         ],
         vec![
             ("user".to_owned(), "hello {{name}}".to_owned()),
@@ -82,7 +94,10 @@ fn prompt_get_preserves_description_and_message_order() {
     assert_eq!(out.messages.len(), 2);
     assert_eq!(out.messages[0]["role"], serde_json::json!("user"));
     assert_eq!(out.messages[1]["role"], serde_json::json!("assistant"));
-    assert_eq!(out.messages[0]["content"]["text"], serde_json::json!("hello bo"));
+    assert_eq!(
+        out.messages[0]["content"]["text"],
+        serde_json::json!("hello bo")
+    );
 }
 
 #[test]
@@ -91,13 +106,21 @@ fn prompt_validation_fails_without_invoking_substitution() {
     let reg = prompt_registry();
     let err = reg.get("greet", &serde_json::json!({})).unwrap_err();
     assert!(err.contains("name"), "unexpected error: {err}");
-    let out = reg.get("greet", &serde_json::json!({"name": "bo"})).unwrap();
+    let out = reg
+        .get("greet", &serde_json::json!({"name": "bo"}))
+        .unwrap();
     assert_eq!(out.messages.len(), 2);
 }
 
 fn resource_store() -> ResourceStore {
     let mut store = ResourceStore::new();
-    store.insert_text("file:///a.txt", "notes", "plain notes", "text/plain", "hello");
+    store.insert_text(
+        "file:///a.txt",
+        "notes",
+        "plain notes",
+        "text/plain",
+        "hello",
+    );
     store
 }
 

@@ -82,11 +82,7 @@ impl Path for UnixPath {
 
     fn dirname(&self, path: &str) -> String {
         let (dir, _) = Self::split(path.trim_end_matches('/'));
-        if dir.is_empty() {
-            ".".to_string()
-        } else {
-            dir
-        }
+        if dir.is_empty() { ".".to_string() } else { dir }
     }
 
     fn extname(&self, path: &str) -> String {
@@ -109,11 +105,7 @@ impl Path for UnixPath {
                 out.push_str(part);
             }
         }
-        if out.is_empty() {
-            ".".to_string()
-        } else {
-            out
-        }
+        if out.is_empty() { ".".to_string() } else { out }
     }
 
     fn normalize(&self, path: &str) -> String {
@@ -134,11 +126,7 @@ impl Path for UnixPath {
         if absolute {
             out.insert(0, '/');
         }
-        if out.is_empty() {
-            ".".to_string()
-        } else {
-            out
-        }
+        if out.is_empty() { ".".to_string() } else { out }
     }
 
     fn is_absolute(&self, path: &str) -> bool {
@@ -149,7 +137,13 @@ impl Path for UnixPath {
         let root = if path.starts_with('/') { "/" } else { "" }.to_string();
         let (dir, base) = Self::split(path);
         let (name, ext) = Self::strip_ext(&base);
-        Parsed { root, dir, base, name, ext }
+        Parsed {
+            root,
+            dir,
+            base,
+            name,
+            ext,
+        }
     }
 
     fn format(&self, parsed: &Parsed) -> String {
@@ -165,7 +159,11 @@ impl Path for UnixPath {
     fn relative(&self, from: &str, to: &str) -> String {
         let from: Vec<&str> = from.split('/').filter(|p| !p.is_empty()).collect();
         let to: Vec<&str> = to.split('/').filter(|p| !p.is_empty()).collect();
-        let common = from.iter().zip(to.iter()).take_while(|(a, b)| a == b).count();
+        let common = from
+            .iter()
+            .zip(to.iter())
+            .take_while(|(a, b)| a == b)
+            .count();
         let mut out: Vec<&str> = vec![".."; from.len() - common];
         out.extend(to[common..].iter().copied());
         if out.is_empty() {

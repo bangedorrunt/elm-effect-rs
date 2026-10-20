@@ -221,7 +221,10 @@ fn parse(envelope: &str) -> Result<(String, u64, u64, String), AppendError> {
             }
         }
     };
-    let message = value.get("payload").map(|v| v.to_string()).unwrap_or_default();
+    let message = value
+        .get("payload")
+        .map(|v| v.to_string())
+        .unwrap_or_default();
     Ok((id, epoch, seq, message))
 }
 
@@ -234,7 +237,8 @@ fn line(offset: u64, envelope: &str) -> String {
 /// A kept record rewritten by compaction. Replay restores it without the
 /// fence checks: the checkpoint line already holds the fencing state.
 fn replayed_line(offset: u64, envelope: &str) -> String {
-    serde_json::json!({ "offset": mint(offset), "envelope": envelope, "replayed": true }).to_string()
+    serde_json::json!({ "offset": mint(offset), "envelope": envelope, "replayed": true })
+        .to_string()
 }
 
 impl Store {
@@ -247,12 +251,20 @@ impl Store {
         // older one, even after a restart (L16: epoch state never expires).
         if let Some(&current) = self.max_epoch.get(&id) {
             if epoch < current {
-                return Err(AppendError::StaleEpoch { producer: id, sent: epoch, current });
+                return Err(AppendError::StaleEpoch {
+                    producer: id,
+                    sent: epoch,
+                    current,
+                });
             }
         }
         if let Some((recorded_offset, recorded)) = self.offsets.get(&(id.clone(), epoch, seq)) {
             if *recorded != message {
-                return Err(AppendError::PayloadMismatch { producer_id: id, epoch, seq });
+                return Err(AppendError::PayloadMismatch {
+                    producer_id: id,
+                    epoch,
+                    seq,
+                });
             }
             // Idempotent replay: same triple and same bytes, replies the offset.
             return Ok(Admit::Duplicate(*recorded_offset));
@@ -262,21 +274,40 @@ impl Store {
         if seq != expected {
             return Err(AppendError::SeqGap { got: seq, last });
         }
-        Ok(Admit::Fresh(Accepted { id, epoch, seq, offset, message, envelope: envelope.to_string() }))
+        Ok(Admit::Fresh(Accepted {
+            id,
+            epoch,
+            seq,
+            offset,
+            message,
+            envelope: envelope.to_string(),
+        }))
     }
 
     /// Commit an admitted envelope. Only call this after [`Store::admit`]
     /// accepted it and any durable write succeeded.
     fn apply(&mut self, accepted: Accepted) {
-        let Accepted { id, epoch, seq, offset, message, envelope } = accepted;
+        let Accepted {
+            id,
+            epoch,
+            seq,
+            offset,
+            message,
+            envelope,
+        } = accepted;
         self.next = self.next.max(offset + 1);
         self.last_seq.insert((id.clone(), epoch), seq);
         self.max_epoch
             .entry(id.clone())
             .and_modify(|current| *current = (*current).max(epoch))
             .or_insert(epoch);
-        self.offsets.insert((id, epoch, seq), (offset, message.clone()));
-        self.entries.push(Stored { offset, message, envelope });
+        self.offsets
+            .insert((id, epoch, seq), (offset, message.clone()));
+        self.entries.push(Stored {
+            offset,
+            message,
+            envelope,
+        });
     }
 
     /// Restore a record a compaction kept. Its fencing effect is already in
@@ -284,8 +315,13 @@ impl Store {
     fn restore_entry(&mut self, envelope: &str, offset: u64) -> Result<(), AppendError> {
         let (id, epoch, seq, message) = parse(envelope)?;
         self.next = self.next.max(offset + 1);
-        self.offsets.insert((id, epoch, seq), (offset, message.clone()));
-        self.entries.push(Stored { offset, message, envelope: envelope.to_string() });
+        self.offsets
+            .insert((id, epoch, seq), (offset, message.clone()));
+        self.entries.push(Stored {
+            offset,
+            message,
+            envelope: envelope.to_string(),
+        });
         Ok(())
     }
 
@@ -297,8 +333,11 @@ impl Store {
             .iter()
             .map(|((id, epoch), seq)| serde_json::json!([id, epoch, seq]))
             .collect();
-        let max_epoch: Vec<_> =
-            self.max_epoch.iter().map(|(id, epoch)| serde_json::json!([id, epoch])).collect();
+        let max_epoch: Vec<_> = self
+            .max_epoch
+            .iter()
+            .map(|(id, epoch)| serde_json::json!([id, epoch]))
+            .collect();
         serde_json::json!({ "next": self.next, "last_seq": last_seq, "max_epoch": max_epoch })
     }
 
@@ -306,10 +345,12 @@ impl Store {
         self.next = value["next"].as_u64()?;
         for item in value["last_seq"].as_array()? {
             let id = item[0].as_str()?.to_string();
-            self.last_seq.insert((id, item[1].as_u64()?), item[2].as_u64()?);
+            self.last_seq
+                .insert((id, item[1].as_u64()?), item[2].as_u64()?);
         }
         for item in value["max_epoch"].as_array()? {
-            self.max_epoch.insert(item[0].as_str()?.to_string(), item[1].as_u64()?);
+            self.max_epoch
+                .insert(item[0].as_str()?.to_string(), item[1].as_u64()?);
         }
         Some(())
     }
@@ -322,7 +363,11 @@ impl Store {
             Offset::Now => Ok(Some(u64::MAX)),
             Offset::At(raw) => {
                 let seq: u64 = raw.parse().map_err(|_| AppendError::UnknownOffset)?;
-                if seq < self.next { Ok(Some(seq)) } else { Err(AppendError::UnknownOffset) }
+                if seq < self.next {
+                    Ok(Some(seq))
+                } else {
+                    Err(AppendError::UnknownOffset)
+                }
             }
         }
     }
@@ -405,7 +450,11 @@ impl FileLog {
                 let complete = text.rfind('\n').map_or(0, |i| i + 1);
                 for (index, line) in text[..complete].lines().enumerate() {
                     let at = |why: &str| {
-                        AppendError::Storage(format!("{}: line {}: {why}", path.display(), index + 1))
+                        AppendError::Storage(format!(
+                            "{}: line {}: {why}",
+                            path.display(),
+                            index + 1
+                        ))
                     };
                     let record: serde_json::Value =
                         serde_json::from_str(line).map_err(|e| at(&e.to_string()))?;
@@ -419,7 +468,9 @@ impl FileLog {
                         .as_str()
                         .and_then(|s| s.parse::<u64>().ok())
                         .ok_or_else(|| at("missing offset"))?;
-                    let envelope = record["envelope"].as_str().ok_or_else(|| at("missing envelope"))?;
+                    let envelope = record["envelope"]
+                        .as_str()
+                        .ok_or_else(|| at("missing envelope"))?;
                     if record["replayed"].as_bool() == Some(true) {
                         store.restore_entry(envelope, offset)?;
                         continue;
@@ -430,7 +481,10 @@ impl FileLog {
                     }
                 }
                 if complete < text.len() {
-                    let file = OpenOptions::new().write(true).open(&path).map_err(storage)?;
+                    let file = OpenOptions::new()
+                        .write(true)
+                        .open(&path)
+                        .map_err(storage)?;
                     file.set_len(complete as u64).map_err(storage)?;
                     file.sync_data().map_err(storage)?;
                 }
@@ -438,7 +492,10 @@ impl FileLog {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
             Err(e) => return Err(storage(e)),
         }
-        Ok(Self { store: Mutex::new(store), path })
+        Ok(Self {
+            store: Mutex::new(store),
+            path,
+        })
     }
 }
 
@@ -476,7 +533,11 @@ impl DurableLog for FileLog {
 }
 
 fn append_line(path: &Path, line: &str) -> Result<(), AppendError> {
-    let mut file = OpenOptions::new().create(true).append(true).open(path).map_err(storage)?;
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map_err(storage)?;
     writeln!(file, "{line}").map_err(storage)?;
     file.sync_data().map_err(storage)
 }
@@ -484,7 +545,11 @@ fn append_line(path: &Path, line: &str) -> Result<(), AppendError> {
 /// Replace the file with a checkpoint line followed by the kept records.
 /// Written to a sibling file, synced, then renamed over the original, so a
 /// crash leaves either the old file or the new one, never a mix.
-fn rewrite(path: &Path, checkpoint: &serde_json::Value, kept: &[&Stored]) -> Result<(), AppendError> {
+fn rewrite(
+    path: &Path,
+    checkpoint: &serde_json::Value,
+    kept: &[&Stored],
+) -> Result<(), AppendError> {
     let tmp = path.with_extension("compacting");
     {
         let mut file = File::create(&tmp).map_err(storage)?;

@@ -35,9 +35,15 @@ fn conformance_runs_for_every_protocol_version() {
 fn advertise_completions_when_supported() {
     // Row 52: registering completions advertises the capability path.
     let mut s = server();
-    assert!(s.complete(&s.context(1, "c"), "prompt:greet:name", "").is_empty());
+    assert!(
+        s.complete(&s.context(1, "c"), "prompt:greet:name", "")
+            .is_empty()
+    );
     s.register_completion("prompt:greet:name", |_| vec!["a".to_owned()]);
-    assert_eq!(s.complete(&s.context(1, "c"), "prompt:greet:name", ""), vec!["a"]);
+    assert_eq!(
+        s.complete(&s.context(1, "c"), "prompt:greet:name", ""),
+        vec!["a"]
+    );
 }
 
 #[test]
@@ -86,19 +92,24 @@ fn reject_unknown_prompt_reference_with_invalid_params() {
 fn reject_unknown_argument_name() {
     // Row 100: completion for an unregistered key is empty (reject).
     let s = server();
-    assert!(s.complete(&s.context(1, "c"), "prompt:greet:nope", "x").is_empty());
-    assert!(s.complete(&s.context(1, "c"), "resource:unknown:param", "x").is_empty());
+    assert!(
+        s.complete(&s.context(1, "c"), "prompt:greet:nope", "x")
+            .is_empty()
+    );
+    assert!(
+        s.complete(&s.context(1, "c"), "resource:unknown:param", "x")
+            .is_empty()
+    );
 }
 
 #[test]
 fn return_completion_values_in_order() {
     // Row 119.
     let mut s = server();
-    s.register_completion("k", |_| vec!["b".to_owned(), "a".to_owned(), "c".to_owned()]);
-    assert_eq!(
-        s.complete(&s.context(1, "c"), "k", ""),
-        vec!["b", "a", "c"]
-    );
+    s.register_completion("k", |_| {
+        vec!["b".to_owned(), "a".to_owned(), "c".to_owned()]
+    });
+    assert_eq!(s.complete(&s.context(1, "c"), "k", ""), vec!["b", "a", "c"]);
 }
 
 #[test]

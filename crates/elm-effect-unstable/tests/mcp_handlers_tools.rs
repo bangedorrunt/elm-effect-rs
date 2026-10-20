@@ -40,7 +40,10 @@ fn list_preserves_names_descriptions_schemas_and_order() {
     assert_eq!(listed.len(), 2);
     assert_eq!(listed[0].name, "add");
     assert_eq!(listed[0].description, "add two numbers");
-    assert_eq!(listed[0].input_schema["required"], serde_json::json!(["a", "b"]));
+    assert_eq!(
+        listed[0].input_schema["required"],
+        serde_json::json!(["a", "b"])
+    );
     assert_eq!(listed[1].name, "fail");
     // stable order across calls
     let again: Vec<_> = registry().list().iter().map(|t| t.name.clone()).collect();
@@ -50,7 +53,9 @@ fn list_preserves_names_descriptions_schemas_and_order() {
 
 #[test]
 fn calls_with_valid_arguments() {
-    let out = registry().call("add", &serde_json::json!({ "a": 2, "b": 3 })).unwrap();
+    let out = registry()
+        .call("add", &serde_json::json!({ "a": 2, "b": 3 }))
+        .unwrap();
     assert!(!out.is_error);
     assert_eq!(out.content[0]["text"], serde_json::json!(5.0));
 }
@@ -70,8 +75,8 @@ fn returns_handler_failures_with_is_error_not_protocol() {
 
 #[test]
 fn rejects_missing_required_param_without_invoking_handler() {
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     let count = Arc::new(AtomicUsize::new(0));
     let moved = count.clone();
     let mut tools = ToolRegistry::new();
@@ -141,15 +146,30 @@ fn rpc_wire_round_trip_for_list_and_call() {
         method: "tools/call".to_owned(),
         params: Some(serde_json::json!({ "name": "add", "arguments": { "a": 1, "b": 2 } })),
     };
-    let res = dispatch(&req, &tools, &Default::default(), &Default::default(), &mut Default::default());
+    let res = dispatch(
+        &req,
+        &tools,
+        &Default::default(),
+        &Default::default(),
+        &mut Default::default(),
+    );
     assert!(res.error.is_none());
-    assert_eq!(res.result.unwrap()["content"][0]["text"], serde_json::json!(3.0));
+    assert_eq!(
+        res.result.unwrap()["content"][0]["text"],
+        serde_json::json!(3.0)
+    );
     let bad = RpcRequest {
         jsonrpc: "2.0".to_owned(),
         id: Some(RpcId::Num(2)),
         method: "tools/call".to_owned(),
         params: Some(serde_json::json!({ "arguments": {} })),
     };
-    let res = dispatch(&bad, &tools, &Default::default(), &Default::default(), &mut Default::default());
+    let res = dispatch(
+        &bad,
+        &tools,
+        &Default::default(),
+        &Default::default(),
+        &mut Default::default(),
+    );
     assert!(res.error.is_some());
 }

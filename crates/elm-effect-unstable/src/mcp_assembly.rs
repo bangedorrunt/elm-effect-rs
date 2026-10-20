@@ -36,7 +36,10 @@ pub struct AssemblyError {
 
 impl AssemblyError {
     fn invalid_params(message: String) -> Self {
-        Self { code: INVALID_PARAMS_CODE, message }
+        Self {
+            code: INVALID_PARAMS_CODE,
+            message,
+        }
     }
 }
 
@@ -103,7 +106,8 @@ pub struct McpServer {
     /// and `completed_ttl`, enforced on insert). A resend arriving after
     /// its entry was evicted re-runs the handler: the cache is a dedupe
     /// window, not a log.
-    completed: Mutex<HashMap<String, (std::time::Instant, Arc<Request<ToolResult, AssemblyError>>)>>,
+    completed:
+        Mutex<HashMap<String, (std::time::Instant, Arc<Request<ToolResult, AssemblyError>>)>>,
     /// Maximum retained completed dispatches; oldest-first on overflow.
     completed_cap: usize,
     /// How long a completed dispatch stays replayable.
@@ -239,7 +243,10 @@ impl McpServer {
     pub fn advertise(&self) -> Map<String, Value> {
         let mut out = Map::new();
         if self.prompts.capability() {
-            out.insert("prompts".to_owned(), serde_json::json!({"listChanged": true}));
+            out.insert(
+                "prompts".to_owned(),
+                serde_json::json!({"listChanged": true}),
+            );
         }
         if self.resources.capability() {
             out.insert(
@@ -277,13 +284,16 @@ impl McpServer {
         let empty = Value::Object(Map::new());
         let args = args.unwrap_or(&empty);
         if let Some(tool) = self.ctx_tools.get(name) {
-            validate_args(&tool.input_schema, args)
-                .map_err(AssemblyError::invalid_params)?;
+            validate_args(&tool.input_schema, args).map_err(AssemblyError::invalid_params)?;
             return match (tool.handler)(ctx, args) {
-                Ok(content) => Ok(ToolResult { content, is_error: false }),
-                Err(message) => {
-                    Ok(ToolResult { content: vec![content_text(message)], is_error: true })
-                }
+                Ok(content) => Ok(ToolResult {
+                    content,
+                    is_error: false,
+                }),
+                Err(message) => Ok(ToolResult {
+                    content: vec![content_text(message)],
+                    is_error: true,
+                }),
             };
         }
         self.tools.call(name, args).map_err(|error| {
@@ -313,10 +323,7 @@ impl McpServer {
     ) -> Result<ToolResult, AssemblyError> {
         let empty = Value::Object(Map::new());
         let args_ref = args.unwrap_or(&empty);
-        let key = format!(
-            "{}:{}:{}:{}",
-            ctx.client_id, request_id, name, args_ref
-        );
+        let key = format!("{}:{}:{}:{}", ctx.client_id, request_id, name, args_ref);
         let (cell, owner) = {
             let mut done = self.completed.lock().unwrap();
             let now = std::time::Instant::now();
@@ -355,9 +362,9 @@ impl McpServer {
         _ctx: &RequestContext,
         uri: &str,
     ) -> Result<Vec<ResourceContent>, AssemblyError> {
-        self.resources.read(uri).map_err(|_| {
-            AssemblyError::invalid_params(format!("Resource '{uri}' not found"))
-        })
+        self.resources
+            .read(uri)
+            .map_err(|_| AssemblyError::invalid_params(format!("Resource '{uri}' not found")))
     }
 
     /// Render a prompt with the given arguments.
@@ -367,12 +374,17 @@ impl McpServer {
         name: &str,
         args: &Value,
     ) -> Result<PromptResult, AssemblyError> {
-        self.prompts.get(name, args).map_err(AssemblyError::invalid_params)
+        self.prompts
+            .get(name, args)
+            .map_err(AssemblyError::invalid_params)
     }
 
     /// Run a registered completion; empty when the key is unknown.
     pub fn complete(&self, _ctx: &RequestContext, key: &str, value: &str) -> Vec<String> {
-        self.completions.get(key).map(|f| f(value)).unwrap_or_default()
+        self.completions
+            .get(key)
+            .map(|f| f(value))
+            .unwrap_or_default()
     }
 
     /// Elicitation completion with no live peer is a silent no-op.
@@ -403,11 +415,7 @@ impl McpServer {
     }
 
     /// Build the update notification for a subscribed URI, if subscribed.
-    pub fn resource_update(
-        &self,
-        _ctx: &RequestContext,
-        uri: &str,
-    ) -> Option<RpcNotification> {
+    pub fn resource_update(&self, _ctx: &RequestContext, uri: &str) -> Option<RpcNotification> {
         self.resources.notify_update(uri)
     }
 
@@ -427,7 +435,9 @@ impl McpServer {
 
     /// Tool description, for capability listing rows.
     pub fn ctx_tool_description(&self, name: &str) -> Option<&str> {
-        self.ctx_tools.get(name).map(|tool| tool.description.as_str())
+        self.ctx_tools
+            .get(name)
+            .map(|tool| tool.description.as_str())
     }
 }
 
@@ -442,10 +452,15 @@ mod idempotency_tests {
         let mut s = McpServer::new(ServerInfo::test());
         let runs = Arc::new(AtomicUsize::new(0));
         let body = Arc::clone(&runs);
-        s.tools_mut().register("once", "o", serde_json::json!({"type": "object"}), move |_| {
-            body.fetch_add(1, Ordering::SeqCst);
-            Ok(vec![content_text("done")])
-        });
+        s.tools_mut().register(
+            "once",
+            "o",
+            serde_json::json!({"type": "object"}),
+            move |_| {
+                body.fetch_add(1, Ordering::SeqCst);
+                Ok(vec![content_text("done")])
+            },
+        );
         let ctx = s.context(7, "c");
         let first = s.call_tool_with_id(&ctx, "req-1", "once", None).unwrap();
         let second = s.call_tool_with_id(&ctx, "req-1", "once", None).unwrap();
@@ -462,10 +477,15 @@ mod idempotency_tests {
         s.set_completed_cache_limits(2, std::time::Duration::from_secs(600));
         let runs = Arc::new(AtomicUsize::new(0));
         let body = Arc::clone(&runs);
-        s.tools_mut().register("once", "o", serde_json::json!({"type": "object"}), move |_| {
-            body.fetch_add(1, Ordering::SeqCst);
-            Ok(vec![content_text("done")])
-        });
+        s.tools_mut().register(
+            "once",
+            "o",
+            serde_json::json!({"type": "object"}),
+            move |_| {
+                body.fetch_add(1, Ordering::SeqCst);
+                Ok(vec![content_text("done")])
+            },
+        );
         let ctx = s.context(7, "c");
         for id in ["a", "b", "c"] {
             s.call_tool_with_id(&ctx, id, "once", None).unwrap();
@@ -484,10 +504,15 @@ mod idempotency_tests {
         s.set_completed_cache_limits(1024, std::time::Duration::from_millis(1));
         let runs = Arc::new(AtomicUsize::new(0));
         let body = Arc::clone(&runs);
-        s.tools_mut().register("once", "o", serde_json::json!({"type": "object"}), move |_| {
-            body.fetch_add(1, Ordering::SeqCst);
-            Ok(vec![content_text("done")])
-        });
+        s.tools_mut().register(
+            "once",
+            "o",
+            serde_json::json!({"type": "object"}),
+            move |_| {
+                body.fetch_add(1, Ordering::SeqCst);
+                Ok(vec![content_text("done")])
+            },
+        );
         let ctx = s.context(7, "c");
         s.call_tool_with_id(&ctx, "req-1", "once", None).unwrap();
         std::thread::sleep(std::time::Duration::from_millis(50));

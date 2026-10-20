@@ -21,11 +21,11 @@ use std::sync::Arc;
 
 use elm_effect_schema::filters::{FilterOutcome, FilterSpec};
 use elm_effect_schema::representation_doc::{
-    annotate_with_representation, from_json, from_representation, is_greater_than_reviver,
-    is_int_reviver, to_json, to_representation, Document, RevivedCheck, Reviver,
+    Document, RevivedCheck, Reviver, annotate_with_representation, from_json, from_representation,
+    is_greater_than_reviver, is_int_reviver, to_json, to_representation,
 };
 use elm_effect_schema::{Field, Schema, SchemaKind, Unknown};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const FILTER_ID: &str = "acme/schema/minLength";
 
@@ -468,9 +468,11 @@ fn restores_node_annotations_before_checks() {
         back["representation"]["checks"][0]["annotations"]["description"],
         json!("check")
     );
-    assert!(back["representation"]["checks"][0]["annotations"]
-        .get("title")
-        .is_none());
+    assert!(
+        back["representation"]["checks"][0]["annotations"]
+            .get("title")
+            .is_none()
+    );
     assert!(!is_ok(&schema, text("a")));
     assert!(is_ok(&schema, text("ab")));
 }
@@ -490,9 +492,11 @@ fn restores_tuple_element_annotations() {
         back["representation"]["elements"][0]["annotations"],
         json!({ "description": "element" })
     );
-    assert!(back["representation"]["elements"][0]["type"]
-        .get("annotations")
-        .is_none());
+    assert!(
+        back["representation"]["elements"][0]["type"]
+            .get("annotations")
+            .is_none()
+    );
 }
 
 // 320: property annotations restore onto the property, not the type.
@@ -548,11 +552,13 @@ fn restores_a_node_representation_annotation_without_schema_dependencies() {
         .expect("annotates"),
         vec![],
     );
-    assert!(schema
-        .resolve_annotations()
-        .expect("annotations")
-        .iter()
-        .any(|(key, value)| key == "representation" && value.contains("acme/schema/String")));
+    assert!(
+        schema
+            .resolve_annotations()
+            .expect("annotations")
+            .iter()
+            .any(|(key, value)| key == "representation" && value.contains("acme/schema/String"))
+    );
 }
 
 // 354: a node representation annotation with schema dependencies round-trips.
@@ -678,7 +684,10 @@ fn reports_a_missing_reviver() {
     };
     let parsed = from_json(&to_json(&document).expect("serializes")).expect("parses");
     assert_eq!(
-        from_representation(&parsed, &[]).err().expect("fails").to_string(),
+        from_representation(&parsed, &[])
+            .err()
+            .expect("fails")
+            .to_string(),
         "Missing reviver for acme/schema/minLength\n  at [\"representation\"][\"checks\"][0][\"representation\"]"
     );
 }
@@ -715,7 +724,10 @@ fn rejects_an_invalid_reviver_payload() {
     };
     let parsed = from_json(&to_json(&document).expect("serializes")).expect("parses");
     assert_eq!(
-        from_representation(&parsed, &[min_length_reviver()]).err().expect("fails").to_string(),
+        from_representation(&parsed, &[min_length_reviver()])
+            .err()
+            .expect("fails")
+            .to_string(),
         "Invalid representation payload for acme/schema/minLength\n  at [\"representation\"][\"checks\"][0][\"representation\"][\"payload\"]"
     );
 }
@@ -731,7 +743,10 @@ fn requires_a_representation_identity_on_a_filter() {
         references: BTreeMap::new(),
     };
     assert_eq!(
-        from_representation(&document, &[]).err().expect("fails").to_string(),
+        from_representation(&document, &[])
+            .err()
+            .expect("fails")
+            .to_string(),
         "Missing representation annotation\n  at [\"representation\"][\"checks\"][0][\"representation\"]"
     );
 }

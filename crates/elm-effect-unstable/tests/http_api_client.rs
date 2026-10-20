@@ -39,13 +39,17 @@ fn builds_urls_using_endpoint_schemas() {
         ]),
     )
     .unwrap();
-    assert_eq!(url, "https://api.example.com/users/123?page=1&tags=1&tags=2");
+    assert_eq!(
+        url,
+        "https://api.example.com/users/123?page=1&tags=1&tags=2"
+    );
 }
 
 #[test]
 fn preserves_a_base_url_pathname() {
     // HttpApiClient.test.ts:927 — the base pathname survives the join.
-    let url = build_endpoint_url(Some("https://api.example.com/v1"), "", "/health", &[], &[]).unwrap();
+    let url =
+        build_endpoint_url(Some("https://api.example.com/v1"), "", "/health", &[], &[]).unwrap();
     assert_eq!(url, "https://api.example.com/v1/health");
 }
 
@@ -101,7 +105,11 @@ fn supports_top_level_endpoints() {
     // HttpApiClient.test.ts:995 — a `topLevel` group flattens to the API
     // root and the `/v1` prefix still applies.
     let api = HttpApi::make("Api")
-        .add(HttpApiGroup::make("top").top_level().add_endpoint(HttpApiEndpoint::get("health", "/health")))
+        .add(
+            HttpApiGroup::make("top")
+                .top_level()
+                .add_endpoint(HttpApiEndpoint::get("health", "/health")),
+        )
         .prefix("/v1");
     let group = api.group("top").expect("top group");
     assert!(group.top_level);
@@ -181,8 +189,14 @@ fn encodes_path_parameters_when_executing_requests() {
 #[test]
 fn omits_optional_path_parameters_when_executing_requests() {
     // HttpApiClient.test.ts:1111 — both shapes build through the request.
-    let bare =
-        build_endpoint_url(Some("https://api.example.com"), "", "/files/:path?", &[], &[]).unwrap();
+    let bare = build_endpoint_url(
+        Some("https://api.example.com"),
+        "",
+        "/files/:path?",
+        &[],
+        &[],
+    )
+    .unwrap();
     let filled = build_endpoint_url(
         Some("https://api.example.com"),
         "",
@@ -202,8 +216,8 @@ fn omits_optional_path_parameters_when_executing_requests() {
 fn stores_proto_identifiers_as_own_properties() {
     // HttpApiClient.test.ts:1012 — `__proto__` is an ordinary own key at
     // every builder level.
-    let group = HttpApiGroup::make("__proto__")
-        .add_endpoint(HttpApiEndpoint::get("__proto__", "/proto"));
+    let group =
+        HttpApiGroup::make("__proto__").add_endpoint(HttpApiEndpoint::get("__proto__", "/proto"));
     let api = HttpApi::make("Api").add(group);
     assert!(api.group("__proto__").is_some());
     assert!(
@@ -261,5 +275,8 @@ fn query_pairs_render_in_order_with_repeats() {
         ("tags", Some("2")),
     ]));
     assert_eq!(params.render(), "page=1&tags=1&tags=2");
-    assert_eq!(join_url("https://api.example.com/v1", "/health"), "https://api.example.com/v1/health");
+    assert_eq!(
+        join_url("https://api.example.com/v1", "/health"),
+        "https://api.example.com/v1/health"
+    );
 }

@@ -17,11 +17,12 @@ enum Error {
 fn catch_if_with_refinement_reraises_a_declined_error() {
     // Pin :3205 — the refinement only admits `ErrorA`, so the `ErrorB` failure
     // comes out of `catchIf` untouched.
-    let effect: Effect<i64, Error> = Effect::fail(Error::B).catch_if(
-        |error| *error == Error::A,
-        |_| Effect::succeed(0),
+    let effect: Effect<i64, Error> =
+        Effect::fail(Error::B).catch_if(|error| *error == Error::A, |_| Effect::succeed(0));
+    assert_eq!(
+        Runtime::run(effect),
+        Exit::Failure(elm_effect::Cause::fail(Error::B))
     );
-    assert_eq!(Runtime::run(effect), Exit::Failure(elm_effect::Cause::fail(Error::B)));
 }
 
 #[test]

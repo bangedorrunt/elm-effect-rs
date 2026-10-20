@@ -121,7 +121,12 @@ fn number_diff_uses_object_is_semantics() {
         }]
     );
     assert!(differ.diff(&f64::NAN, &f64::NAN).unwrap().is_empty());
-    assert!(differ.diff(&f64::INFINITY, &f64::INFINITY).unwrap().is_empty());
+    assert!(
+        differ
+            .diff(&f64::INFINITY, &f64::INFINITY)
+            .unwrap()
+            .is_empty()
+    );
     assert!(
         differ
             .diff(&f64::NEG_INFINITY, &f64::NEG_INFINITY)

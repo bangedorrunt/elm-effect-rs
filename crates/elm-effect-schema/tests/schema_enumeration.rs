@@ -53,10 +53,12 @@ fn a_non_finite_member_is_refused_at_build_time() {
     }
 
     // A finite member of the same shape still builds.
-    assert!(Schema::enumeration(vec![("value", number(1.0))])
-        .schema()
-        .decode(number(1.0))
-        .is_ok());
+    assert!(
+        Schema::enumeration(vec![("value", number(1.0))])
+            .schema()
+            .decode(number(1.0))
+            .is_ok()
+    );
 }
 
 /// Schema.test.ts:7819 — "enums should be exposed". A numeric enum's names are
@@ -119,14 +121,8 @@ fn a_string_enum_mixes_spellings_and_keeps_the_order() {
         "\"apple\" | \"banana\" | 0"
     );
 
-    assert_eq!(
-        schema.try_encode(&text("apple")).unwrap(),
-        text("apple")
-    );
-    assert_eq!(
-        schema.try_encode(&number(0.0)).unwrap(),
-        number(0.0)
-    );
+    assert_eq!(schema.try_encode(&text("apple")).unwrap(), text("apple"));
+    assert_eq!(schema.try_encode(&number(0.0)).unwrap(), number(0.0));
 }
 
 /// Schema.test.ts:7881 — "Const enum". The values come from a `const` object

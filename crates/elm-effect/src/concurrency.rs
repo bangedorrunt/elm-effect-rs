@@ -205,11 +205,7 @@ where
 
 /// Run every body and collect its exit, with at most `bound` alive at a time.
 /// Unlike [`all_bounded`] nothing is interrupted and no exit is dropped.
-fn tolerant_bounded<A, E>(
-    rt: &Runtime,
-    bodies: Vec<Body<A, E>>,
-    bound: usize,
-) -> Vec<Exit<A, E>>
+fn tolerant_bounded<A, E>(rt: &Runtime, bodies: Vec<Body<A, E>>, bound: usize) -> Vec<Exit<A, E>>
 where
     A: Send + 'static,
     E: Send + 'static,
