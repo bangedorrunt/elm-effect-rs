@@ -7529,10 +7529,10 @@ not-applicable	packages/effect/test/schema/HMR.test.ts	32	it	isSchema	N/A: Rust 
 not-applicable	packages/effect/test/schema/HMR.test.ts	44	it	isSchemaError	N/A: Rust schema is compiled statically; no hot-module reloading or module-instance distinctness runtime
 not-applicable	packages/effect/test/schema/HMR.test.ts	57	it	Schema.Class	N/A: Rust schema is compiled statically; no hot-module reloading or module-instance distinctness runtime
 not-applicable	packages/effect/test/schema/Schema.test.ts	59	it	keeps synchronous decode and encode effects eager	the row asserts the JS adapter return shape (Exit.isExit on decodeUnknownEffect/encodeUnknownEffect, plus Cause.findErrorOption over a SchemaError); this port's decode/encode are direct synchronous Result calls with no adapter to hand an Exit back from, so the observable has no counterpart
-unported	packages/effect/test/schema/Schema.test.ts	83	it	isSchema	
-unported	packages/effect/test/schema/Schema.test.ts	94	it	toString	
-unported	packages/effect/test/schema/Schema.test.ts	102	it	extends Error and exposes the issue	
-unported	packages/effect/test/schema/Schema.test.ts	117	it	does not capture stack frames	
+not-applicable	packages/effect/test/schema/Schema.test.ts	83	it	isSchema	isSchema asks whether an untyped value is a schema; having a Schema<T> is the proof in Rust, so no value can answer false.
+not-applicable	packages/effect/test/schema/Schema.test.ts	94	it	toString	a reason renders through JS toString, which quotes strings and prints objects by message; one bound on the generic E cannot do both, so Debug renders both (Fail("e") matches, a SchemaError renders its struct).
+not-applicable	packages/effect/test/schema/Schema.test.ts	102	it	extends Error and exposes the issue	asserts the JS Error object a thrown failure is (instanceof Error, name, _tag, stack); this port's failure value is the issue itself.
+not-applicable	packages/effect/test/schema/Schema.test.ts	117	it	does not capture stack frames	asserts error.stack and that Error.stackTraceLimit is untouched: JS engine diagnostics with no Rust carrier.
 ported	packages/effect/test/schema/Schema.test.ts	131	it	does not interpret custom parseOptions metadata	custom_metadata_is_not_interpreted
 ported	packages/effect/test/schema/Schema.test.ts	144	it	applies errors to nested schemas without annotation overrides	a_nested_annotation_does_not_narrow_collection
 ported	packages/effect/test/schema/Schema.test.ts	164	it	applies errors with encoding checks	a_check_behind_a_flip_still_collects_every_missing_key
@@ -7674,7 +7674,7 @@ ported	packages/effect/test/schema/Schema.test.ts	2582	it	double transformation	
 ported	packages/effect/test/schema/Schema.test.ts	2600	it	double transformation with checks	double_with_checks_rejects_between_steps
 ported	packages/effect/test/schema/Schema.test.ts	2634	it	double transformation	encode_only_transformation_leaves_decode_alone
 ported	packages/effect/test/schema/Schema.test.ts	2654	it	should expose the schema	a_flip_exposes_the_schema_it_flipped
-unported	packages/effect/test/schema/Schema.test.ts	2662	it	string & isMinLength(3) <-> number & isGreaterThan(2)	
+not-applicable	packages/effect/test/schema/Schema.test.ts	2662	it	string & isMinLength(3) <-> number & isGreaterThan(2)	as_unknown re-encodes to the wire form, so a flip of a transform has no transformed value to run the check against (see schema_flip.rs).
 ported	packages/effect/test/schema/Schema.test.ts	2684	it	Struct & flip & check & flip should apply the check to the encoded side	a_struct_check_after_a_flip_decides_both_directions
 ported	packages/effect/test/schema/Schema.test.ts	2710	it	Tuple & flip & check & flip should apply the check to the encoded side	a_tuple_check_after_a_flip_decides_both_directions
 ported	packages/effect/test/schema/Schema.test.ts	2736	it	Union & flip & check & flip should apply the check to the encoded side	a_union_check_after_a_flip_decides_both_directions
@@ -7712,7 +7712,7 @@ unported	packages/effect/test/schema/Schema.test.ts	3462	it	Error
 unported	packages/effect/test/schema/Schema.test.ts	3501	it	should expose the values	
 ported	packages/effect/test/schema/Schema.test.ts	3511	it	Exit(FiniteFromString, String, Unknown)	exit_round_trips_through_three_schemas
 ported	packages/effect/test/schema/Schema.test.ts	3538	it	Exit(FiniteFromString, String, Defect)	exit_decodes_a_defect_through_the_defect_schema
-unported	packages/effect/test/schema/Schema.test.ts	3557	it	should work	
+ported	packages/effect/test/schema/Schema.test.ts	3557	it	should work	a_default_that_died_with_an_issue_reports_both
 not-applicable	packages/effect/test/schema/Schema.test.ts	3601	it	preserves __proto__ as an own option	the row asserts Object.hasOwn(schema, "__proto__") on the options bag Schema.make merges into a schema; this port's schemas hold no options object, so there is no own-property surface to preserve
 unported	packages/effect/test/schema/Schema.test.ts	3612	it	preserves name and length as options	
 unported	packages/effect/test/schema/Schema.test.ts	3627	it	assigns options	
@@ -7720,8 +7720,8 @@ ported	packages/effect/test/schema/Schema.test.ts	3640	it	should throw an error 
 ported	packages/effect/test/schema/Schema.test.ts	3658	it	Struct	make_option_answers_none_for_a_schema_issue
 ported	packages/effect/test/schema/Schema.test.ts	3664	it	Class	a_class_make_option_answers_none_for_a_schema_issue
 ported	packages/effect/test/schema/Schema.test.ts	3670	it	should throw an error when the cause is not a schema issue	make_option_refuses_a_died_default_instead_of_answering_none
-unported	packages/effect/test/schema/Schema.test.ts	3690	it.effect	Struct	
-unported	packages/effect/test/schema/Schema.test.ts	3701	it.effect	Class	
+ported	packages/effect/test/schema/Schema.test.ts	3690	it.effect	Struct	make_reports_a_schema_issue_for_the_effect_channel
+ported	packages/effect/test/schema/Schema.test.ts	3701	it.effect	Class	a_class_make_reports_a_schema_issue_for_the_effect_channel
 ported	packages/effect/test/schema/Schema.test.ts	3712	it.effect	should preserve mixed schema issue and defect causes	make_keeps_the_issues_beside_a_died_default
 ported	packages/effect/test/schema/Schema.test.ts	3733	it	should not apply defaults when decoding / encoding	constructor_default_does_not_fill_on_decode_or_encode
 ported	packages/effect/test/schema/Schema.test.ts	3746	it	should apply constructor default when the field is not present	constructor_default_fills_an_absent_field_on_make
@@ -7829,8 +7829,8 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	5560	it	ReadonlyMap	th
 not-applicable	packages/effect/test/schema/Schema.test.ts	5586	it	HashMap	the row's wire value is an Effect HashMap and its decoded value one too; this port's schema crate has no HashMap type (Unknown holds Object), so HashMap.make inputs and equality cannot be built
 ported	packages/effect/test/schema/Schema.test.ts	5613	it	toLowerCase	to_lowercase_lowers_on_decode_and_passes_through_on_encode
 ported	packages/effect/test/schema/Schema.test.ts	5627	it	toUpperCase	to_uppercase_uppers_on_decode_and_passes_through_on_encode
-unported	packages/effect/test/schema/Schema.test.ts	5640	it	returns the original schema	
-unported	packages/effect/test/schema/Schema.test.ts	5646	it	Struct	
+not-applicable	packages/effect/test/schema/Schema.test.ts	5640	it	returns the original schema	Opaque()(schema) === schema is reference identity of the schema it returns; Opaque here is the type-level brand and a schema value has no identity to compare.
+ported	packages/effect/test/schema/Schema.test.ts	5646	it	Struct	an_opaque_struct_constructs_its_instance_and_keeps_its_fields
 ported	packages/effect/test/schema/Schema.test.ts	5658	it	arg: message: string	instance_of_names_its_expected_and_decides_both_directions
 not-applicable	packages/effect/test/schema/Schema.test.ts	5683	it	Duration	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.Duration does not exist on the Rust schema surface, so the schema in the row cannot be built
 ported	packages/effect/test/schema/Schema.test.ts	5692	it	DurationFromString	duration_from_string_parses_and_prints_the_pin_spellings
@@ -7909,9 +7909,9 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	6884	it	make validates
 ported	packages/effect/test/schema/Schema.test.ts	6905	it	make allows an optional nested Class to be omitted	an_optional_nested_class_may_be_omitted_from_a_construction
 ported	packages/effect/test/schema/Schema.test.ts	6912	it	make applies constructor defaults only at a field occurrence	a_constructor_default_runs_only_at_a_field_occurrence
 ported	packages/effect/test/schema/Schema.test.ts	6932	it	suspend before initialization	suspend_reads_late_initialized_binding
-unported	packages/effect/test/schema/Schema.test.ts	6946	it	should memoize the ast	
+not-applicable	packages/effect/test/schema/Schema.test.ts	6946	it	should memoize the ast	asserts the AST is memoized by input reference; this port builds a schema per constructor call, so there is no AST object to compare.
 ported	packages/effect/test/schema/Schema.test.ts	6953	it	should set the identifier annotation	a_class_exposes_its_fields_and_identifier_and_round_trips
-unported	packages/effect/test/schema/Schema.test.ts	6961	it	`[immerable]`	
+not-applicable	packages/effect/test/schema/Schema.test.ts	6961	it	`[immerable]`	asserts the [immerable] drafts marker on a class instance, which is a JS object-model flag.
 ported	packages/effect/test/schema/Schema.test.ts	6981	it	Equality	class_instances_compare_by_their_values
 ported	packages/effect/test/schema/Schema.test.ts	6998	it	mapFields	map_fields_rebuilds_a_class_with_the_mapped_list
 ported	packages/effect/test/schema/Schema.test.ts	7006	it	Struct with nested Class	a_nested_class_field_constructs_its_own_instance
@@ -7932,7 +7932,7 @@ ported	packages/effect/test/schema/Schema.test.ts	7307	it	constructor preserves 
 ported	packages/effect/test/schema/Schema.test.ts	7322	it	constructor keeps subclass fields and strips excess properties with explicit ignore	an_extended_constructor_strips_excess_under_explicit_ignore
 ported	packages/effect/test/schema/Schema.test.ts	7339	it	constructor does not treat subclass fields as excess properties	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
 unported	packages/effect/test/schema/Schema.test.ts	7361	it	Struct argument	
-unported	packages/effect/test/schema/Schema.test.ts	7380	it	static members	
+not-applicable	packages/effect/test/schema/Schema.test.ts	7380	it	static members	asserts a static class member survives extend; ClassValue carries no static members.
 ported	packages/effect/test/schema/Schema.test.ts	7395	it	make with void input	a_tagged_class_takes_a_void_construction
 ported	packages/effect/test/schema/Schema.test.ts	7402	it	explicit identifier	the_name_is_the_identifier_and_the_tag_stands_in_when_there_is_none
 ported	packages/effect/test/schema/Schema.test.ts	7409	it	fields argument	a_tagged_class_carries_its_tag_on_the_wire
@@ -8057,7 +8057,7 @@ ported	packages/effect/test/schema/Schema.test.ts	9330	it	single-element array c
 ported	packages/effect/test/schema/Schema.test.ts	9343	it	multi-element array groups into a Composite	a_multi_element_array_composites
 ported	packages/effect/test/schema/Schema.test.ts	9361	it	array mixing string, Issue, and { path, issue }	an_array_mixing_kinds_composites_in_order
 ported	packages/effect/test/schema/Schema.test.ts	9383	it	Struct	extend_to_fills_a_derived_field_and_drops_it_on_encode
-unported	packages/effect/test/schema/Schema.test.ts	9401	it	Union	
+not-applicable	packages/effect/test/schema/Schema.test.ts	9401	it	Union	a union member is erased to its wire form, so an extended member's derived field is not observable through Union([...]) (see schema_extend_to.rs).
 ported	packages/effect/test/schema/Schema.test.ts	9433	it	should augment a union of structs	to_tagged_union_indexes_every_member_by_its_literal
 ported	packages/effect/test/schema/Schema.test.ts	9530	it	should support multiple tags	to_tagged_union_follows_the_requested_tag
 ported	packages/effect/test/schema/Schema.test.ts	9541	it	should throw on duplicate discriminants	to_tagged_union_refuses_a_duplicate_discriminant
@@ -8100,7 +8100,7 @@ ported	packages/effect/test/schema/Schema.test.ts	10194	it	Capitalize	capitalize
 ported	packages/effect/test/schema/Schema.test.ts	10218	it	Uncapitalize	uncapitalize_normalizes_on_decode_and_insists_on_encode
 ported	packages/effect/test/schema/Schema.test.ts	10242	it	Lowercase	lowercase_normalizes_on_decode_and_insists_on_encode
 ported	packages/effect/test/schema/Schema.test.ts	10266	it	Uppercase	uppercase_normalizes_on_decode_and_insists_on_encode
-unported	packages/effect/test/schema/Schema.test.ts	10292	it	succeed	
+ported	packages/effect/test/schema/Schema.test.ts	10292	it	succeed	a_getter_that_ignores_its_input_still_checks_both_sides
 ported	packages/effect/test/schema/Schema.test.ts	10310	it	isStringFinite	refine_is_string_finite
 ported	packages/effect/test/schema/Schema.test.ts	10319	it	isStringBigInt	is_string_big_int_matches_signed_digits_only
 ported	packages/effect/test/schema/Schema.test.ts	10328	it	isStringSymbol	is_string_symbol_matches_the_symbol_spelling
@@ -8119,16 +8119,16 @@ ported	packages/effect/test/schema/Schema.test.ts	10484	it	multiple brands	two_b
 ported	packages/effect/test/schema/Schema.test.ts	10507	it	should make all optionalKey keys required	require_all_makes_optional_keys_required
 ported	packages/effect/test/schema/Schema.test.ts	10533	it	should make all optional keys required	require_all_makes_optional_keys_required
 ported	packages/effect/test/schema/Schema.test.ts	10559	it	should make all optional keys required	require_all_makes_optional_keys_required
-unported	packages/effect/test/schema/Schema.test.ts	10591	it	fieldsAssign	
-unported	packages/effect/test/schema/Schema.test.ts	10622	it	wrapping a primitive schema	
-unported	packages/effect/test/schema/Schema.test.ts	10628	it	inherits the schema protocol	
-unported	packages/effect/test/schema/Schema.test.ts	10639	it	extending a rebuilt schema	
-unported	packages/effect/test/schema/Schema.test.ts	10646	it	static getter using this	
-unported	packages/effect/test/schema/Schema.test.ts	10656	it	static property	
+ported	packages/effect/test/schema/Schema.test.ts	10591	it	fieldsAssign	a_unions_members_each_gain_the_assigned_field
+not-applicable	packages/effect/test/schema/Schema.test.ts	10622	it	wrapping a primitive schema	subclasses a schema value (class A extends Schema.String): JS class inheritance over a schema object has no Rust carrier, a schema is a value here.
+not-applicable	packages/effect/test/schema/Schema.test.ts	10628	it	inherits the schema protocol	subclasses a schema value (class A extends Schema.String): JS class inheritance over a schema object has no Rust carrier, a schema is a value here.
+not-applicable	packages/effect/test/schema/Schema.test.ts	10639	it	extending a rebuilt schema	asserts that subclassing an annotated struct carries the annotation; here a class wraps a declared field list, so the source's annotation has no carrier at the class.
+not-applicable	packages/effect/test/schema/Schema.test.ts	10646	it	static getter using this	subclasses a schema value (class A extends Schema.String): JS class inheritance over a schema object has no Rust carrier, a schema is a value here.
+not-applicable	packages/effect/test/schema/Schema.test.ts	10656	it	static property	subclasses a schema value (class A extends Schema.String): JS class inheritance over a schema object has no Rust carrier, a schema is a value here.
 ported	packages/effect/test/schema/Schema.test.ts	10664	it	static property using Schema.suspend	struct_field_using_suspend
-unported	packages/effect/test/schema/Schema.test.ts	10672	it	wrapping a Struct schema	
-unported	packages/effect/test/schema/Schema.test.ts	10686	it	does not create class instances	
-unported	packages/effect/test/schema/Schema.test.ts	10695	it	subclassing	
+not-applicable	packages/effect/test/schema/Schema.test.ts	10672	it	wrapping a Struct schema	subclasses a schema value (class A extends Schema.String): JS class inheritance over a schema object has no Rust carrier, a schema is a value here.
+not-applicable	packages/effect/test/schema/Schema.test.ts	10686	it	does not create class instances	asserts a JS subclass of a Struct does not produce instances of the subclass; this port's struct make returns a map and has no class identity to test.
+not-applicable	packages/effect/test/schema/Schema.test.ts	10695	it	subclassing	subclasses a schema value (class A extends Schema.String): JS class inheritance over a schema object has no Rust carrier, a schema is a value here.
 ported	packages/effect/test/schema/Schema.test.ts	10713	it	returns undefined for a schema without annotations	resolve_annotations_is_none_for_a_schema_without_annotations
 ported	packages/effect/test/schema/Schema.test.ts	10717	it	returns annotations from the base schema	resolve_annotations_returns_the_base_annotations
 ported	packages/effect/test/schema/Schema.test.ts	10722	it	returns annotations from the last check	resolve_annotations_returns_the_last_checks_annotations

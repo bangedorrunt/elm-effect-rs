@@ -113,3 +113,4 @@ fn strict_encoding_keeps_the_reason_wire_format() {
     assert_eq!(schema.decode(wire.clone()).unwrap(), cause);
     assert_eq!(strict.scoped(|| schema.decode(wire.clone())).unwrap(), cause);
 }
+

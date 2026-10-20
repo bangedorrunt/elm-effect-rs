@@ -84,6 +84,60 @@ fn make_option_reports_a_default_that_died() {
     );
 }
 
+/// Schema.test.ts:3557 `should throw an error when the cause contains both a
+/// schema issue and a defect`: the make adapter reports its own contract
+/// message and still hands back both halves of the cause, so a caller can see
+/// the issue beside the defect.
+#[test]
+fn a_default_that_died_with_an_issue_reports_both() {
+    let inner = Schema::as_unknown(Schema::finite_from_string().with_constructor_default(|| {
+        Err(elm_effect_schema::ConstructError::Die {
+            defect: Unknown::Text("defect".to_string()),
+            issues: vec![SchemaError::FilterFailed {
+                path: "$".to_string(),
+                message: "schema issue".to_string(),
+            }],
+        })
+    }));
+    let schema = Schema::struct_shape(vec![Field::required("a", inner)]);
+
+    let error = schema.make(map(&[])).expect_err("the default died");
+    match &error {
+        elm_effect_schema::AdapterError::Die {
+            message,
+            defect,
+            issues,
+        } => {
+            assert_eq!(*message, elm_effect_schema::CONSTRUCTOR_DIE);
+            assert_eq!(*defect, Unknown::Text("defect".to_string()));
+            assert_eq!(issues.len(), 1, "the issue rides beside the defect");
+        }
+        other => panic!("expected the adapter's die, got {other:?}"),
+    }
+    assert!(error.issue().is_some(), "the issue is still reachable");
+}
+
+/// Schema.test.ts:3690 `makeEffect` `Struct`: the effect channel is this port's
+/// `Result`, so the accepted input constructs and the refused one is an issue.
+#[test]
+fn make_reports_a_schema_issue_for_the_effect_channel() {
+    let positive = Schema::as_unknown(Schema::number()).refine(
+        "greater than 0",
+        |value: &Unknown| matches!(value, Unknown::Number(number) if *number > 0.0),
+    );
+    let schema = Schema::struct_shape(vec![Field::required("a", positive)]);
+
+    assert_eq!(
+        schema.make(map(&[("a", number(1.0))])).unwrap(),
+        map(&[("a", number(1.0))])
+    );
+    let error = schema.make(map(&[("a", number(-1.0))])).unwrap_err();
+    assert!(
+        matches!(error, elm_effect_schema::AdapterError::Issue(_)),
+        "a check's refusal is an issue, not a defect: {error:?}"
+    );
+}
+
 /// Schema.test.ts:3733 `should not apply defaults when decoding / encoding`.
 #[test]
 fn constructor_default_does_not_fill_on_decode_or_encode() {

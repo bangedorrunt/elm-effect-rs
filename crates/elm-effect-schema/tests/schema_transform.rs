@@ -823,3 +823,40 @@ fn datetime_utc_from_millis_decodes_a_millisecond_number() {
         "null is not a number"
     );
 }
+
+// ------------------------------------------------- Schema.test.ts:10292 ---
+
+/// `Schema.test.ts:10292` — "Getter" / "succeed": a getter that answers a fixed
+/// value still runs its source schema on the way in, so `0` decodes to `"a"`
+/// and `1` is refused as `0`'s shape. On the way out the value has to be the
+/// target side's, so `"b"` is refused where `"a"` encodes back to `0`.
+#[test]
+fn a_getter_that_ignores_its_input_still_checks_both_sides() {
+    use elm_effect_schema::SchemaError;
+
+    let schema = Schema::try_convert(
+        Schema::literal(Unknown::Number(0.0)),
+        |_value: Unknown| Ok(text("a")),
+        |value: &Unknown| match value {
+            Unknown::Text(text) if text == "a" => Ok(Unknown::Number(0.0)),
+            _ => Err(SchemaError::EncodingFailed {
+                path: "$".to_string(),
+                expected: "\"a\"".to_string(),
+            }),
+        },
+    );
+
+    assert_eq!(schema.decode(Unknown::Number(0.0)).unwrap(), text("a"));
+    let refused = schema
+        .decode(Unknown::Number(1.0))
+        .expect_err("1 is not 0")
+        .to_string();
+    assert!(refused.contains("0"), "{refused}");
+
+    assert_eq!(schema.try_encode(&text("a")).unwrap(), Unknown::Number(0.0));
+    let refused = schema
+        .try_encode(&text("b"))
+        .expect_err("\"b\" is not the target side's value")
+        .to_string();
+    assert!(refused.contains("\"a\""), "{refused}");
+}

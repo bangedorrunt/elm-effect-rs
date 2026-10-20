@@ -287,6 +287,48 @@ fn a_class_exposes_its_fields_and_identifier_and_round_trips() {
 }
 
 #[test]
+fn a_class_make_reports_a_schema_issue_for_the_effect_channel() {
+    // :3701 `makeEffect` `Class`: the accepted input constructs an instance and
+    // the refused one answers the issue, which is this port's `Result`.
+    let positive = number_field().refine(
+        "greater than 0",
+        |value: &Unknown| matches!(value, Unknown::Number(number) if *number > 0.0),
+    );
+    let schema = class("A", vec![("a", positive)]);
+
+    let built = schema
+        .make(object(vec![("a", number(1.0))]))
+        .expect("a positive value is constructible");
+    assert!(built.is_instance_of("A"));
+    assert!(
+        matches!(
+            schema.make(object(vec![("a", number(-1.0))])),
+            Err(elm_effect_schema::AdapterError::Issue(_))
+        ),
+        "a check's refusal is an issue"
+    );
+}
+
+#[test]
+fn an_opaque_struct_constructs_its_instance_and_keeps_its_fields() {
+    // :5646 `Opaque` `Struct`: the branded class is the struct it was built
+    // from, so `make` builds the instance and the declared fields are the
+    // struct's own. `Opaque`'s type-level identity is the port's `class_from`
+    // identifier.
+    let schema = elm_effect_schema::class::class_from(
+        "A",
+        Schema::as_unknown(Schema::struct_shape(vec![Field::required("a", string_field())])),
+    );
+
+    let built = schema
+        .make(object(vec![("a", text("a"))]))
+        .expect("the struct is constructible");
+    assert!(built.is_instance_of("A"));
+    assert_eq!(built.get("a"), Some(&text("a")));
+    assert_eq!(schema.class_fields(), vec!["a"], "the struct's own fields");
+}
+
+#[test]
 fn a_class_make_option_answers_none_for_a_schema_issue() {
     // :3664 `makeOption` `Class`: the same rule at a class, where the accepted
     // input constructs an instance of the class.

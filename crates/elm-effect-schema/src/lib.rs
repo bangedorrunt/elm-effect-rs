@@ -2802,12 +2802,20 @@ impl Schema<Unknown> {
             );
         }
         let kind = SchemaKind::Literal(expected.clone());
+        // The refusal names the literal it expected (`Expected 0`,
+        // `Expected "a"`), which is why the expected side is a `String`: the
+        // value is only known once the schema exists.
+        let expected_text = format_value(&expected);
         Self::new(
             move |unknown| {
                 if unknown == expected {
                     Ok(unknown)
                 } else {
-                    mismatch("$", "that literal", &unknown)
+                    Err(SchemaError::TypeMismatchDynamic {
+                        path: "$".to_string(),
+                        expected: expected_text.clone(),
+                        got: unknown.kind(),
+                    })
                 }
             },
             |value| Ok(value.clone()),
@@ -6527,6 +6535,20 @@ impl<T> Schema<T> {
 // SchemaRepresentation: the code / type repr
 
 impl Schema<Unknown> {
+    /// `mapFields` at the `Unknown` level, which is how a union member is
+    /// spelled here: `mapMembers(Tuple.map(fieldsAssign(...)))` moves each
+    /// member's field list, and a member is already re-typed. The rebuilt shape
+    /// is re-typed the same way, so the mapped member stays a plain struct.
+    pub fn map_fields(self, transform: impl Fn(Vec<Field>) -> Vec<Field>) -> Self {
+        let fields = self
+            .struct_fields
+            .clone()
+            .expect("mapFields needs a struct shape with declared fields");
+        Schema::as_unknown(Schema::<std::collections::BTreeMap<String, Unknown>>::struct_shape(
+            transform(fields),
+        ))
+    }
+
     /// A named reference to a root definition. The decode is the referenced
     /// definition's decode, resolved once at construction: a reference is a
     /// name, but it still has to decode what it names.

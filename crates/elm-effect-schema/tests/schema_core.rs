@@ -956,6 +956,60 @@ fn map_fields_assign_joins_the_declared_fields() {
     }
 }
 
+/// Schema.test.ts:10591 — `fieldsAssign` over a union's members: each member
+/// gains the assigned field, so a value is only a member's when the member's
+/// own field and the assigned one are both there.
+#[test]
+fn a_unions_members_each_gain_the_assigned_field() {
+    let obj = |pairs: Vec<(&str, Unknown)>| {
+        Unknown::Object(
+            pairs
+                .into_iter()
+                .map(|(key, value)| (key.to_string(), value))
+                .collect(),
+        )
+    };
+    let string = || Schema::as_unknown(Schema::string());
+    let number = || Schema::as_unknown(Schema::number());
+    let schema = Schema::union_with_mode(
+        vec![
+            Schema::as_unknown(Schema::struct_shape(vec![Field::required("a", string())])),
+            Schema::as_unknown(Schema::struct_shape(vec![Field::required("b", number())])),
+        ],
+        "anyOf",
+    )
+    .map_members(|members| {
+        members
+            .into_iter()
+            .map(|member| {
+                member.map_fields(|mut fields| {
+                    fields.push(Field::required("c", number()));
+                    fields
+                })
+            })
+            .collect()
+    });
+
+    for value in [
+        obj(vec![("a", text("a")), ("c", Unknown::Number(1.0))]),
+        obj(vec![("b", Unknown::Number(1.0)), ("c", Unknown::Number(1.0))]),
+    ] {
+        assert!(schema.decode(value.clone()).is_ok(), "{value:?}");
+    }
+
+    // The assigned field is required on every member, so a value without it
+    // matches none of them.
+    for value in [
+        obj(vec![("a", text("a"))]),
+        obj(vec![("b", Unknown::Number(1.0))]),
+    ] {
+        let error = schema
+            .decode(value.clone())
+            .expect_err("the assigned field is missing");
+        assert!(error.to_string().contains("c"), "{value:?}: {error}");
+    }
+}
+
 /// Schema.test.ts:963 — overlapping fields: an assigned field that repeats a
 /// declared name replaces it, so the value decodes with the NEW schema rather
 /// than the declared one.
