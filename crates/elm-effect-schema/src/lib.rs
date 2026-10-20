@@ -165,6 +165,13 @@ pub struct Schema<T> {
     /// reprs rather than as a schema, because the wrapped schema has an
     /// arbitrary `T` and re-typing it here would recurse forever.
     wrapped: Option<Box<Wrapped>>,
+    /// The one inner schema a wrapper holds so a caller can read it back:
+    /// `flip_source` for a flipped schema, `redacted_value` for a box. Kept
+    /// apart from `children`, which the object paths (`decode_collect`, a
+    /// formatter) read as declared fields: an inner schema is not a field, and
+    /// riding `children` made `decode_collect` report a missing `$.flipped`
+    /// key for a schema that declares no such thing.
+    wrapped_schema: Option<std::sync::Arc<Schema<Unknown>>>,
     /// What a check attached on top of this schema reads: the wire value mapped
     /// to the form the check is written against. The pin's `check` lands on the
     /// target side of a link, so `FiniteFromString.check(isInt())` reads the
@@ -1571,6 +1578,7 @@ impl<T> Schema<T> {
             formatter: None,
             equivalence: None,
             wrapped: None,
+            wrapped_schema: None,
             check_view: None,
             construct: None,
             constructor_default: None,
@@ -2030,6 +2038,9 @@ impl<T> Schema<T> {
             // would make `to_code` answer for the unwrapped schema and drop the
             // annotation from the repr.
             wrapped: None,
+            // A wrapper's inner schema rides the codec too, so an annotation
+            // over a flip or a `Redacted` box still answers what it wraps.
+            wrapped_schema: schema.wrapped_schema.clone(),
             // An annotation rides the same codec, so a check on top of it reads
             // exactly what a check underneath it would have read.
             check_view: schema.check_view.clone(),
@@ -2890,13 +2901,20 @@ impl Schema<Unknown> {
         let second = Arc::new(second);
         let decode_first = first.clone();
         let decode_second = second.clone();
-        let encode_first = first.clone();
+        let encode_first = first;
+        let encode_second = second;
         Schema::new(
             move |unknown| match decode_first.decode(unknown.clone()) {
                 ok @ Ok(_) => ok,
                 Err(_) => decode_second.decode(unknown),
             },
-            move |value| encode_first.try_encode(value),
+            // Both members get a turn: the value belongs to whichever one can
+            // carry it, and answering with the first member only made
+            // `NullOr(String)` refuse to encode a null.
+            move |value| match encode_first.try_encode(value) {
+                Ok(encoded) => Ok(encoded),
+                Err(first_error) => encode_second.try_encode(value).map_err(|_| first_error),
+            },
             kind,
         )
     }
@@ -7065,7 +7083,24 @@ impl Schema<Unknown> {
             code: schema.to_code(),
             ty: schema.to_type(),
         }));
-        out.children = vec![("flipped".to_string(), Arc::new(schema))];
+        // The flipped schema is the one a caller reads back through
+        // `flip_source`; it rides `wrapped_schema`, not `children`, so the
+        // object paths still see a struct with no declared field named
+        // "flipped".
+        out.wrapped_schema = Some(std::sync::Arc::new(schema));
+        // A flip does not change the shape, so everything that decomposes it
+        // must read the same field list, tuple, members, class identity and
+        // record key the schema underneath declares.
+        let inner = out
+            .wrapped_schema
+            .as_ref()
+            .expect("the flipped schema is stored above")
+            .clone();
+        out.struct_fields = inner.struct_fields.clone();
+        out.tuple_elements = inner.tuple_elements.clone();
+        out.union_members = inner.union_members.clone();
+        out.class_meta = inner.class_meta.clone();
+        out.record_key = inner.record_key.clone();
         out
     }
 
@@ -7162,10 +7197,9 @@ impl Schema<Unknown> {
             move |value| redacted_encode(&encode_inner, label.as_deref(), value),
             SchemaKind::Opaque("redacted"),
         );
-        // The wrapped schema rides `children` under the name of the key it
-        // occupies, so the accessor below reads it back: that is what the pin's
-        // `schema.value` exposes.
-        out.children = vec![("value".to_string(), Arc::new(inner_for_children))];
+        // The wrapped schema rides `wrapped_schema`, which is what the accessor
+        // below reads: that is the pin's `schema.value`.
+        out.wrapped_schema = Some(Arc::new(inner_for_children));
         out
     }
 
@@ -7187,7 +7221,7 @@ impl Schema<Unknown> {
             move |value| unboxed_value(&encode_inner, None, value),
             SchemaKind::Opaque("redactedFromValue"),
         );
-        out.children = vec![("value".to_string(), Arc::new(inner_for_children))];
+        out.wrapped_schema = Some(Arc::new(inner_for_children));
         out
     }
 
@@ -7242,6 +7276,10 @@ impl Schema<Unknown> {
         // costs the early exit an `anyOf` keeps, which is the whole difference
         // between the two modes.
         let one_of = mode == "oneOf";
+        // The encode side needs its own handles on the members and the union's
+        // own refusal text: the decode closure takes both by move.
+        let encode_decoders = decoders.clone();
+        let encode_expected = expected.clone();
         // The pin's Union relation selects a candidate member and answers with
         // THAT member's relation, which is why a member carrying its own
         // `toEquivalence` decides its values instead of a wire-form compare.
@@ -7282,7 +7320,35 @@ impl Schema<Unknown> {
                     None => mismatch_dynamic("$", expected.clone(), &unknown),
                 }
             },
-            |value| Ok(value.clone()),
+            // The encode side walks the same candidates the decode side picked
+            // by shape, first member that can carry the value winning. A union
+            // never hands its value back untouched: a member's encode may
+            // refuse (a value its check denies) or normalize (a transform), and
+            // identity would drop both.
+            //
+            // ponytail: shape dispatch, not the pin's decoded-type dispatch, so
+            // a value two members could both carry goes to the earlier one.
+            // A sentinel or a disjoint shape is what keeps that rare; dispatch
+            // on the decoded type if a row ever shows it.
+            move |value| {
+                let candidates = union_candidates(&encode_decoders, value);
+                if candidates.is_empty() {
+                    return mismatch_dynamic("$", encode_expected.clone(), value);
+                }
+                let mut first_error = None;
+                for index in candidates {
+                    match encode_decoders[index].try_encode(value) {
+                        Ok(encoded) => return Ok(encoded),
+                        Err(error) => {
+                            first_error.get_or_insert(error);
+                        }
+                    }
+                }
+                match first_error {
+                    Some(error) => Err(error),
+                    None => mismatch_dynamic("$", encode_expected.clone(), value),
+                }
+            },
             kind,
         );
         schema.union_members = declared_members;
@@ -7601,8 +7667,7 @@ impl Schema<Unknown> {
                 .map(|(key, value)| ((*key).to_string(), (*value).to_string()))
                 .collect(),
         };
-        let numeric: Vec<f64> = args.iter().filter_map(|arg| arg.parse().ok()).collect();
-        let bounds = numeric.clone();
+        let bounds: Vec<f64> = args.iter().filter_map(|arg| arg.parse().ok()).collect();
         // The first argument is kept in its printed form: some checks read it as
         // text (a RegExp literal for `isPattern`), not as a number.
         let first_arg = args.first().map(|arg| (*arg).to_string());
@@ -7612,12 +7677,6 @@ impl Schema<Unknown> {
         let exclusive_maximum = annotation
             .iter()
             .any(|(key, value)| *key == "exclusiveMaximum" && *value == "true");
-        let name_owned = name.to_string();
-        // The encode closure needs the same three inputs the decode one uses,
-        // so they are cloned rather than moved.
-        let encode_name = name_owned.clone();
-        let encode_bounds = bounds.clone();
-        let encode_first_arg = first_arg.clone();
         let base_view = base.check_view.clone();
         let inner = Arc::new(base);
         let decode_inner = inner.clone();
@@ -7625,36 +7684,43 @@ impl Schema<Unknown> {
         // The check reads what the schema underneath produces (see
         // `check_value`), and a failure carries the check's own `expected` text
         // when it was given one.
-        let decode_view = inner.check_view.clone();
-        let encode_view = inner.check_view.clone();
-        let decode_refusal = check_refusal(&annotation);
-        let encode_refusal = decode_refusal.clone();
+        let view = inner.check_view.clone();
+        let decode_view = view.clone();
+        let encode_view = view;
+        let refusal = check_refusal(&annotation);
+        let decode_refusal = refusal.clone();
+        let encode_refusal = refusal;
+        // One verdict, two readers: the decode closure and the encode closure.
+        let verdict: Arc<dyn Fn(&Unknown) -> bool + Send + Sync> = {
+            let name = name.to_string();
+            let bounds = bounds.clone();
+            let first_arg = first_arg.clone();
+            Arc::new(move |checked: &Unknown| match name.as_str() {
+                "isBetweenCodePoints" => {
+                    let bmin = bounds.first().copied().unwrap_or(0.0).floor().max(0.0);
+                    let bmax = bounds.get(1).copied().unwrap_or(0.0).floor().max(0.0);
+                    if let Unknown::Text(text) = checked {
+                        let count = text.chars().count() as f64;
+                        count >= bmin && count <= bmax
+                    } else {
+                        true
+                    }
+                }
+                "isBetween" => {
+                    between_holds(&bounds, exclusive_minimum, exclusive_maximum, checked)
+                }
+                "isBetweenProperties" => {
+                    between_properties_holds(&bounds, exclusive_minimum, exclusive_maximum, checked)
+                }
+                _ => check_holds_arg(&name, first_arg.as_deref(), checked),
+            })
+        };
+        let decode_holds = verdict.clone();
+        let encode_holds = verdict;
         let mut out = Self::new(
             move |unknown| {
                 let checked = check_value(decode_view.as_ref(), &unknown);
-                let holds = match name_owned.as_str() {
-                    "isBetweenCodePoints" => {
-                        let bmin = bounds.first().copied().unwrap_or(0.0).floor().max(0.0);
-                        let bmax = bounds.get(1).copied().unwrap_or(0.0).floor().max(0.0);
-                        if let Unknown::Text(text) = &checked {
-                            let count = text.chars().count() as f64;
-                            count >= bmin && count <= bmax
-                        } else {
-                            true
-                        }
-                    }
-                    "isBetween" => {
-                        between_holds(&bounds, exclusive_minimum, exclusive_maximum, &checked)
-                    }
-                    "isBetweenProperties" => between_properties_holds(
-                        &bounds,
-                        exclusive_minimum,
-                        exclusive_maximum,
-                        &checked,
-                    ),
-                    _ => check_holds_arg(&name_owned, first_arg.as_deref(), &checked),
-                };
-                if !holds {
+                if !decode_holds(&checked) {
                     return Err(SchemaError::TypeMismatchDynamic {
                         path: "$".to_string(),
                         expected: decode_refusal.clone(),
@@ -7668,42 +7734,7 @@ impl Schema<Unknown> {
             // silently violates the refinement on the way out.
             move |value| {
                 let checked = check_value(encode_view.as_ref(), value);
-                let holds = match encode_name.as_str() {
-                    "isBetweenCodePoints" => {
-                        let bmin = encode_bounds
-                            .first()
-                            .copied()
-                            .unwrap_or(0.0)
-                            .floor()
-                            .max(0.0);
-                        let bmax = encode_bounds
-                            .get(1)
-                            .copied()
-                            .unwrap_or(0.0)
-                            .floor()
-                            .max(0.0);
-                        if let Unknown::Text(text) = &checked {
-                            let count = text.chars().count() as f64;
-                            count >= bmin && count <= bmax
-                        } else {
-                            true
-                        }
-                    }
-                    "isBetween" => between_holds(
-                        &encode_bounds,
-                        exclusive_minimum,
-                        exclusive_maximum,
-                        &checked,
-                    ),
-                    "isBetweenProperties" => between_properties_holds(
-                        &encode_bounds,
-                        exclusive_minimum,
-                        exclusive_maximum,
-                        &checked,
-                    ),
-                    _ => check_holds_arg(&encode_name, encode_first_arg.as_deref(), &checked),
-                };
-                if !holds {
+                if !encode_holds(&checked) {
                     return Err(SchemaError::TypeMismatchDynamic {
                         path: "$".to_string(),
                         expected: encode_refusal.clone(),
@@ -8053,10 +8084,9 @@ fn rebuild_box(map: &std::collections::BTreeMap<String, Unknown>, value: Unknown
 /// answers the same thing.
 pub fn flip_source(schema: &Schema<Unknown>) -> Option<Schema<Unknown>> {
     schema
-        .children
-        .iter()
-        .find(|(name, _)| name == "flipped")
-        .map(|(_, child)| child.as_ref().clone())
+        .wrapped_schema
+        .as_ref()
+        .map(|child| child.as_ref().clone())
 }
 
 /// The schema a `Redacted` box wraps: the pin's `schema.value`. An annotation
@@ -8064,10 +8094,9 @@ pub fn flip_source(schema: &Schema<Unknown>) -> Option<Schema<Unknown>> {
 /// the same thing.
 pub fn redacted_value(schema: &Schema<Unknown>) -> Option<Schema<Unknown>> {
     schema
-        .children
-        .iter()
-        .find(|(name, _)| name == "value")
-        .map(|(_, child)| child.as_ref().clone())
+        .wrapped_schema
+        .as_ref()
+        .map(|child| child.as_ref().clone())
 }
 
 /// Whether an amount sits between two bounds: each includes its endpoint

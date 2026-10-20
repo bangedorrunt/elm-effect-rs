@@ -7535,7 +7535,7 @@ unported	packages/effect/test/schema/Schema.test.ts	102	it	extends Error and exp
 unported	packages/effect/test/schema/Schema.test.ts	117	it	does not capture stack frames	
 ported	packages/effect/test/schema/Schema.test.ts	131	it	does not interpret custom parseOptions metadata	custom_metadata_is_not_interpreted
 ported	packages/effect/test/schema/Schema.test.ts	144	it	applies errors to nested schemas without annotation overrides	a_nested_annotation_does_not_narrow_collection
-unported	packages/effect/test/schema/Schema.test.ts	164	it	applies errors with encoding checks	
+ported	packages/effect/test/schema/Schema.test.ts	164	it	applies errors with encoding checks	a_check_behind_a_flip_still_collects_every_missing_key
 ported	packages/effect/test/schema/Schema.test.ts	187	it	decoders can receive options when they are created	a_decoder_keeps_the_options_it_was_created_with
 ported	packages/effect/test/schema/Schema.test.ts	202	it	encoders can receive options when they are created	an_encoder_keeps_the_options_it_was_created_with
 ported	packages/effect/test/schema/Schema.test.ts	219	it	should throw an error if the literal is not a finite number	literal_refuses_a_non_finite_number
@@ -7654,7 +7654,7 @@ ported	packages/effect/test/schema/Schema.test.ts	2120	it	DateFromString	date_fr
 ported	packages/effect/test/schema/Schema.test.ts	2136	it	DateFromMillis	date_from_millis_validates_whole_milliseconds_in_range
 ported	packages/effect/test/schema/Schema.test.ts	2159	it	FiniteFromString	finite_from_string_dedicated_decode_and_encode_table
 not-applicable	packages/effect/test/schema/Schema.test.ts	2198	it	BigIntFromString	the row's value is a JavaScript BigInt; the port's Unknown holds null, booleans, numbers, text, arrays and objects, so both the success and the failure case are unrepresentable
-unported	packages/effect/test/schema/Schema.test.ts	2216	it	BigDecimalFromString	
+ported	packages/effect/test/schema/Schema.test.ts	2216	it	BigDecimalFromString	bigdecimal_from_string_parses_and_prints_the_decimal
 unported	packages/effect/test/schema/Schema.test.ts	2237	it	TimeZoneNamedFromString	
 unported	packages/effect/test/schema/Schema.test.ts	2256	it	TimeZoneFromString	
 unported	packages/effect/test/schema/Schema.test.ts	2277	it	DateTimeZonedFromString	

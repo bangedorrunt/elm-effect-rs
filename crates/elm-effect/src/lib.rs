@@ -137,9 +137,9 @@ pub use schedule::{
 pub use schema_cause::cause_schema;
 #[cfg(feature = "schema")]
 pub use schema_data::{
-    bigdecimal, byte_size, byte_size_from_number, byte_size_from_string, is_between_bigdecimal,
-    is_greater_than_bigdecimal, is_greater_than_or_equal_to_bigdecimal, is_less_than_bigdecimal,
-    is_less_than_or_equal_to_bigdecimal,
+    bigdecimal, bigdecimal_from_string, byte_size, byte_size_from_number, byte_size_from_string,
+    is_between_bigdecimal, is_greater_than_bigdecimal, is_greater_than_or_equal_to_bigdecimal,
+    is_less_than_bigdecimal, is_less_than_or_equal_to_bigdecimal,
 };
 #[cfg(feature = "schema")]
 pub use schema_defect::defect_schema;

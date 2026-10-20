@@ -111,6 +111,17 @@ pub fn bigdecimal() -> Schema<Decimal> {
     )
 }
 
+/// `Schema.BigDecimalFromString`: the pin's parse-a-string form.
+///
+/// The pin keeps two schemas here: `BigDecimal` admits a decimal value and
+/// serializes it as text, `BigDecimalFromString` parses text into one. In this
+/// port `Unknown` cannot hold a decimal, so `BigDecimal`'s wire already is the
+/// string and one codec answers for both. The name stays so a ported call site
+/// reads like the pin's.
+pub fn bigdecimal_from_string() -> Schema<Decimal> {
+    bigdecimal()
+}
+
 /// A check over a decimal's printed spelling, answering the pin's own message.
 ///
 /// A spelling the base schema cannot read is passed through: the transform

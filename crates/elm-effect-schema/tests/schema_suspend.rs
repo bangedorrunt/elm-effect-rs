@@ -196,9 +196,11 @@ fn category() -> Schema<Unknown> {
 
 // A suspended recursive tree decodes at any depth, and a failure inside an
 // array element keeps the element's own path: the pin's `["a"][0]["b"]`, not
-// a flattened `[0]`. The encode half of `:3557` waits on encoding-side checks
-// (the pin re-runs a check when encoding; this port does not yet), so this row
-// stays unported and this test fences the path shape it needs.
+// a flattened `[0]`. The encode half of `:3557` is the row's remaining half and
+// is blocked on the encoding-check channel: a check under `as_unknown` never
+// runs on encode, because a re-typing answers its value back untouched. Making
+// that wrapper validate by decoding first is exponential on a recursive tree;
+// the fix is a wire-form encode channel composed through every composite.
 #[test]
 fn a_suspended_tree_keeps_the_nested_path_of_a_failure() {
     let schema = category();

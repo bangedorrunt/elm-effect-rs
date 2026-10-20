@@ -9,9 +9,9 @@
 //!     cargo test -p elm-effect --features schema --test schema_data
 
 use elm_effect::{
-    ByteSize, Decimal, Schema, Unknown, bigdecimal, byte_size, byte_size_from_number,
-    byte_size_from_string, is_between_bigdecimal, is_greater_than_bigdecimal,
-    is_greater_than_or_equal_to_bigdecimal, is_less_than_bigdecimal,
+    ByteSize, Decimal, Schema, Unknown, bigdecimal, bigdecimal_from_string, byte_size,
+    byte_size_from_number, byte_size_from_string, is_between_bigdecimal,
+    is_greater_than_bigdecimal, is_greater_than_or_equal_to_bigdecimal, is_less_than_bigdecimal,
     is_less_than_or_equal_to_bigdecimal,
 };
 use elm_effect_schema::FilterSpec;
@@ -140,6 +140,32 @@ fn bigdecimal_reads_and_prints_decimal_text() {
     );
     assert!(schema.decode(Unknown::Null).is_err(), "a decimal is text");
     assert!(schema.decode(text("not a number")).is_err());
+}
+
+/// `Schema.test.ts:2216` — "BigDecimalFromString": text in, decimal out, and
+/// the decimal's own printed spelling back out. The pin's encode-failure half
+/// feeds a string where a decimal belongs, which Rust's type already refuses.
+#[test]
+fn bigdecimal_from_string_parses_and_prints_the_decimal() {
+    let schema = bigdecimal_from_string();
+
+    assert_eq!(schema.decode(text("0")).expect("decodes"), decimal("0"));
+    assert_eq!(
+        schema.decode(text("123.456")).expect("decodes"),
+        decimal("123.456")
+    );
+    // The pin documents this one: an empty string decodes as zero.
+    assert_eq!(schema.decode(text("")).expect("decodes"), Decimal::zero());
+    assert!(schema.decode(text("nope")).is_err());
+
+    assert_eq!(
+        schema.try_encode(&decimal("0")).expect("encodes"),
+        text("0")
+    );
+    assert_eq!(
+        schema.try_encode(&decimal("123.456")).expect("encodes"),
+        text("123.456")
+    );
 }
 
 /// `Schema.test.ts:5815` — `isGreaterThanBigDecimal`.

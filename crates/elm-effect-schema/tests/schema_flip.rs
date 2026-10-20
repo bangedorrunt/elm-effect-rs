@@ -124,6 +124,49 @@ fn a_struct_check_after_a_flip_decides_both_directions() {
     assert!(schema.try_encode(&obj(vec![("a", text("aa"))])).is_ok());
 }
 
+/// `Schema.Struct({ a: String, b: String })`, the shape `:164` collects over.
+fn struct_ab() -> Schema<Unknown> {
+    Schema::as_unknown(Schema::struct_shape(vec![
+        Field::required("a", string()),
+        Field::required("b", string()),
+    ]))
+}
+
+/// Schema.test.ts:164 — "applies errors with encoding checks". A check added
+/// through a flip is the *encoding* side's check in the pin, so the struct
+/// under it still reports one issue per absent key and the encode path is the
+/// one the check decides.
+///
+/// This used to report a phantom `$.flipped`: the flip stored the schema it
+/// wrapped in `children`, which the object path reads as declared fields.
+#[test]
+fn a_check_behind_a_flip_still_collects_every_missing_key() {
+    let schema = flip_check_flip(
+        struct_ab(),
+        filter("a value with at most 1 entry", |value| match value {
+            Unknown::Object(map) => map.len() <= 1,
+            _ => true,
+        }),
+    );
+
+    // `errors: "all"` names both absent keys, at the fields they belong to.
+    let issues = schema
+        .decode_collect(obj(vec![]))
+        .expect_err("an empty object has no required key");
+    let reported: Vec<String> = issues.iter().map(|issue| issue.to_string()).collect();
+    assert_eq!(issues.len(), 2, "{reported:?}");
+    assert!(reported[0].contains("$.a"), "{reported:?}");
+    assert!(reported[1].contains("$.b"), "{reported:?}");
+
+    // The check decides the encoding path, so two keys have no wire form.
+    let two = obj(vec![("a", text("x")), ("b", text("y"))]);
+    assert_eq!(
+        schema.try_encode(&two).unwrap_err().to_string(),
+        "a value with at most 1 entry at $"
+    );
+    assert!(schema.try_encode(&obj(vec![("a", text("x"))])).is_ok());
+}
+
 /// Schema.test.ts:2710 — "Tuple & flip & check & flip should apply the check to
 /// the encoded side".
 #[test]
