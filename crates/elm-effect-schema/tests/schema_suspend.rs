@@ -177,6 +177,103 @@ fn suspend_preserves_inner_refinement() {
     assert!(schema.decode(Unknown::Null).is_err());
 }
 
+/// The pin's `Category`: a checked `FiniteFromString` beside an array of
+/// suspended copies of the same struct.
+///
+/// The port's `Unknown` is the WIRE form (as `schema_construct`'s fence states),
+/// so a decoded `"1"` stays the text it arrived as; what this row pins is the
+/// recursion and the check's deep path, not the JS value form.
+fn category() -> Schema<Unknown> {
+    let checked = Schema::as_unknown(
+        Schema::finite_from_string().refine("a value greater than 0", |n| *n > 0.0),
+    );
+    let nested = Schema::as_unknown(Schema::array(Schema::<Unknown>::suspend(category)));
+    Schema::as_unknown(Schema::struct_shape(vec![
+        Field::required("a", checked),
+        Field::required("categories", nested),
+    ]))
+}
+
+// A suspended recursive tree decodes at any depth, and a failure inside an
+// array element keeps the element's own path: the pin's `["a"][0]["b"]`, not
+// a flattened `[0]`. The encode half of `:3557` waits on encoding-side checks
+// (the pin re-runs a check when encoding; this port does not yet), so this row
+// stays unported and this test fences the path shape it needs.
+#[test]
+fn a_suspended_tree_keeps_the_nested_path_of_a_failure() {
+    let schema = category();
+
+    let empty = obj(&[
+        ("a", Unknown::Text("1".to_string())),
+        ("categories", Unknown::Array(Vec::new())),
+    ]);
+    assert_eq!(schema.decode(empty.clone()), Ok(empty.clone()));
+
+    let nested = obj(&[
+        ("a", Unknown::Text("1".to_string())),
+        (
+            "categories",
+            Unknown::Array(vec![obj(&[
+                ("a", Unknown::Text("2".to_string())),
+                ("categories", Unknown::Array(Vec::new())),
+            ])]),
+        ),
+    ]);
+    let decoded = schema
+        .decode(nested.clone())
+        .expect("a nested tree decodes");
+    assert_eq!(schema.try_encode(&decoded).unwrap(), nested);
+
+    // A non-numeric leaf is the finite reader's refusal, at the depth it sits.
+    let bad = obj(&[
+        ("a", Unknown::Text("1".to_string())),
+        (
+            "categories",
+            Unknown::Array(vec![obj(&[
+                ("a", Unknown::Text("a".to_string())),
+                ("categories", Unknown::Array(Vec::new())),
+            ])]),
+        ),
+    ]);
+    let error = schema.decode(bad).unwrap_err().to_string();
+    assert!(
+        error.contains("finite") && error.contains("$.categories[0].a"),
+        "{error}"
+    );
+
+    // The same deep path for a refinement, which travels as its own issue kind
+    // and used to be dropped by the element prefix.
+    let too_small = obj(&[
+        ("a", Unknown::Text("1".to_string())),
+        (
+            "categories",
+            Unknown::Array(vec![obj(&[
+                ("a", Unknown::Text("-1".to_string())),
+                ("categories", Unknown::Array(Vec::new())),
+            ])]),
+        ),
+    ]);
+    let check_error = schema.decode(too_small).unwrap_err().to_string();
+    assert!(
+        check_error.contains("greater than 0") && check_error.contains("$.categories[0].a"),
+        "{check_error}"
+    );
+
+    // The prefix rule is the array's, not suspend's: a plain Array(Struct)
+    // element reports the field it failed on.
+    let plain = Schema::as_unknown(Schema::array(Schema::as_unknown(Schema::struct_shape(
+        vec![Field::required("a", Schema::as_unknown(Schema::string()))],
+    ))));
+    let plain_error = plain
+        .decode(Unknown::Array(vec![obj(&[("a", Unknown::Number(1.0))])]))
+        .unwrap_err()
+        .to_string();
+    assert!(
+        plain_error.contains("expected string") && plain_error.contains("$[0].a"),
+        "{plain_error}"
+    );
+}
+
 // 10664: a struct field can be declared with a suspended member schema.
 #[test]
 fn struct_field_using_suspend() {

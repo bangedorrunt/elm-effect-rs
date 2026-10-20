@@ -2625,12 +2625,23 @@ impl SchemaError {
                 path: rooted(path),
                 message,
             },
+            SchemaError::FilterFailed { path, message } => SchemaError::FilterFailed {
+                path: rooted(path),
+                message,
+            },
+            SchemaError::EncodingFailed { path, expected } => SchemaError::EncodingFailed {
+                path: rooted(path),
+                expected,
+            },
+            SchemaError::InvalidJson { path, message } => SchemaError::InvalidJson {
+                path: rooted(path),
+                message,
+            },
             // A composite from a nested collecting walk carries one issue per
             // member, each with its own root-relative path.
             SchemaError::Composite { issues } => SchemaError::Composite {
                 issues: issues.into_iter().map(|issue| issue.at(prefix)).collect(),
             },
-            other => other,
         }
     }
 }
@@ -3075,23 +3086,11 @@ impl Schema<BTreeMap<String, Unknown>> {
         Schema::new(
             move |unknown| match unknown {
                 Unknown::Object(mut fields) => match fields.remove(&decode_name) {
-                    Some(value) => decode_inner.decode(value).map_err(|error| match error {
-                        SchemaError::TypeMismatch { expected, got, .. } => {
-                            SchemaError::TypeMismatch {
-                                path: format!("$.{decode_name}"),
-                                expected,
-                                got,
-                            }
-                        }
-                        SchemaError::TypeMismatchDynamic { expected, got, .. } => {
-                            SchemaError::TypeMismatchDynamic {
-                                path: format!("$.{decode_name}"),
-                                expected,
-                                got,
-                            }
-                        }
-                        other => other,
-                    }),
+                    // Re-root, never overwrite, for the same reason the array
+                    // does: the field's own path is the nested half of it.
+                    Some(value) => decode_inner
+                        .decode(value)
+                        .map_err(|error| error.at(&format!("$.{decode_name}"))),
                     None => Err(SchemaError::TypeMismatch {
                         path: format!("$.{decode_name}"),
                         expected: "required field",
@@ -3184,23 +3183,13 @@ impl<T: Send + Sync + 'static> Schema<Vec<T>> {
                         .into_iter()
                         .enumerate()
                         .map(|(index, item)| {
-                            decode_inner.decode(item).map_err(|error| match error {
-                                SchemaError::TypeMismatch { expected, got, .. } => {
-                                    SchemaError::TypeMismatch {
-                                        path: format!("$[{index}]"),
-                                        expected,
-                                        got,
-                                    }
-                                }
-                                SchemaError::TypeMismatchDynamic { expected, got, .. } => {
-                                    SchemaError::TypeMismatchDynamic {
-                                        path: format!("$[{index}]"),
-                                        expected,
-                                        got,
-                                    }
-                                }
-                                other => other,
-                            })
+                            // Re-root, never overwrite: an element's own path
+                            // (`$.a`, `$[1]`) is what makes `["a"][0]["b"]`
+                            // reportable, so replacing it would flatten every
+                            // nested failure to the element index.
+                            decode_inner
+                                .decode(item)
+                                .map_err(|error| error.at(&format!("$[{index}]")))
                         })
                         .collect()
                 }
