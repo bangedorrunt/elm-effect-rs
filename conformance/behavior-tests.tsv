@@ -7831,7 +7831,7 @@ ported	packages/effect/test/schema/Schema.test.ts	5613	it	toLowerCase	to_lowerca
 ported	packages/effect/test/schema/Schema.test.ts	5627	it	toUpperCase	to_uppercase_uppers_on_decode_and_passes_through_on_encode
 unported	packages/effect/test/schema/Schema.test.ts	5640	it	returns the original schema	
 unported	packages/effect/test/schema/Schema.test.ts	5646	it	Struct	
-unported	packages/effect/test/schema/Schema.test.ts	5658	it	arg: message: string	
+ported	packages/effect/test/schema/Schema.test.ts	5658	it	arg: message: string	instance_of_names_its_expected_and_decides_both_directions
 not-applicable	packages/effect/test/schema/Schema.test.ts	5683	it	Duration	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.Duration does not exist on the Rust schema surface, so the schema in the row cannot be built
 ported	packages/effect/test/schema/Schema.test.ts	5692	it	DurationFromString	duration_from_string_parses_and_prints_the_pin_spellings
 not-applicable	packages/effect/test/schema/Schema.test.ts	5711	it	DurationFromNanos	Unknown (crates/elm-effect-schema/src/lib.rs:41) has no arbitrary-precision integer variant, so the row's bigint nanos wire form cannot be observed; the Formatter.test.ts:66 rows are excused by the same gap in crates/elm-effect/src/json.rs:19. The constructor is one convert() call once a bigint wire form exists.
@@ -7858,8 +7858,8 @@ ported	packages/effect/test/schema/Schema.test.ts	6030	it	use case: create a JSO
 ported	packages/effect/test/schema/Schema.test.ts	6047	it	reviver option	from_json_string_reviver_runs_on_each_value
 ported	packages/effect/test/schema/Schema.test.ts	6056	it	replacer and space options	from_json_string_replacer_and_space_shape_the_output
 unported	packages/effect/test/schema/Schema.test.ts	6071	it	use case: parse / stringify a nested schema	
-unported	packages/effect/test/schema/Schema.test.ts	6091	it	fromFormData	
-unported	packages/effect/test/schema/Schema.test.ts	6137	it	fromURLSearchParams	
+ported	packages/effect/test/schema/Schema.test.ts	6091	it	fromFormData	form_data_accepts_indexed_array_pairs_and_writes_repeated_keys
+ported	packages/effect/test/schema/Schema.test.ts	6137	it	fromURLSearchParams	url_search_params_decode_and_encode_the_bracket_pairs
 ported	packages/effect/test/schema/Schema.test.ts	6172	it	Trim	trim_decodes_trimmed_and_refuses_untrimmed_on_encode
 unported	packages/effect/test/schema/Schema.test.ts	6195	it	transformEffect	
 ported	packages/effect/test/schema/Schema.test.ts	6229	it	should expose the parts	template_literal_exposes_its_parts

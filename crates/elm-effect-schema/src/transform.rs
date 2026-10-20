@@ -427,17 +427,9 @@ pub fn make_tree_record(entries: Vec<(Vec<Segment>, Unknown)>) -> Unknown {
 
 fn insert_path(node: &mut Unknown, path: &[Segment], value: Unknown) {
     if path.is_empty() {
-        // Duplicate path: array leaves concatenate, anything else is
-        // last-wins (conflicting leaves are replaced by containers below
-        // when a deeper path arrives).
-        match (node, value) {
-            (Unknown::Array(items), Unknown::Array(mut more)) => {
-                items.append(&mut more);
-            }
-            (slot, v) => {
-                *slot = v;
-            }
-        }
+        // A container slot taking a leaf: last-wins. Repeated leaves are
+        // collected a level up, where the key exists in its own map.
+        *node = value;
         return;
     }
     match node {
@@ -449,6 +441,26 @@ fn insert_path(node: &mut Unknown, path: &[Segment], value: Unknown) {
                 // keep the value under the empty key.
                 Segment::Append => String::new(),
             };
+            if path.len() == 1 {
+                // The leaf case: a key that is already there collects into an
+                // array (`e=e0&e=e1` is how a form spells one array, and the
+                // pin's makeTreeRecord does the same), an array keeps
+                // concatenating, and a fresh key just takes the value.
+                let existing = map.remove(&key);
+                let collected = match existing {
+                    None => value,
+                    Some(Unknown::Array(mut items)) => {
+                        match value {
+                            Unknown::Array(more) => items.extend(more),
+                            scalar => items.push(scalar),
+                        }
+                        Unknown::Array(items)
+                    }
+                    Some(other) => Unknown::Array(vec![other, value]),
+                };
+                map.insert(key, collected);
+                return;
+            }
             let want_array = matches!(path.get(1), Some(Segment::Append) | Some(Segment::Index(_)));
             let child = map.entry(key).or_insert_with(|| {
                 if want_array {

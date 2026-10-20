@@ -28,6 +28,7 @@ pub mod class;
 pub mod built_in_revivers;
 pub mod checks;
 pub mod filters;
+pub mod form;
 pub use built_in_revivers::*;
 pub mod json_schema;
 pub mod representation;
@@ -1469,7 +1470,11 @@ impl Schema<StructValue> {
                     let value = object.get(name).cloned().unwrap_or(Unknown::Null);
                     match field.decode(value) {
                         Ok(value) => decoded.push((name.clone(), value)),
-                        Err(error) => return Err(error),
+                        // A field's failure belongs at the field: without this
+                        // the nested path stopped one level short, so a schema
+                        // that parsed a JSON document in a field reported
+                        // `$.b` where the pin reports `["a"]["b"]`.
+                        Err(error) => return Err(error.at(&format!("$.{name}"))),
                     }
                 }
                 Ok(StructValue { fields: decoded })
@@ -7160,6 +7165,8 @@ impl Schema<Unknown> {
     ) -> Self {
         let expected = expected.to_string();
         let predicate = Arc::new(predicate);
+        let encode_expected = expected.clone();
+        let encode_predicate = predicate.clone();
         Self::new(
             move |unknown| {
                 if predicate(&unknown) {
@@ -7172,7 +7179,20 @@ impl Schema<Unknown> {
                     })
                 }
             },
-            |value| Ok(value.clone()),
+            // The declaration decides both directions, the way `refine` and a
+            // named check do: a value the predicate refuses is not a value this
+            // schema can carry, so encoding it must not produce a wire form.
+            move |value| {
+                if encode_predicate(value) {
+                    Ok(value.clone())
+                } else {
+                    Err(SchemaError::TypeMismatchDynamic {
+                        path: "$".to_string(),
+                        expected: encode_expected.clone(),
+                        got: value.kind(),
+                    })
+                }
+            },
             SchemaKind::Opaque("declare"),
         )
     }

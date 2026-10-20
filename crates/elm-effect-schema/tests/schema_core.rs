@@ -1122,3 +1122,42 @@ fn trimmed_string_refuses_padding_but_not_an_inner_space() {
     // A non-string is the string schema's refusal, not the check's.
     assert!(schema.decode(Unknown::Number(1.0)).is_err());
 }
+
+/// `Schema.test.ts:5658` — "arg: message: string" (`Schema.instanceOf`): a
+/// declaration with the caller's own `expected` text, deciding both directions.
+///
+/// The pin declares a host class (`(u) => u instanceof MyError`); this port's
+/// values are wire values, so the same declaration is spelled as a predicate
+/// over the wire. What the row asserts is the `expected` text and that a value
+/// the declaration refuses has no wire form either.
+#[test]
+fn instance_of_names_its_expected_and_decides_both_directions() {
+    let schema = Schema::<Unknown>::declare(
+        |value| matches!(value, Unknown::Text(text) if text.starts_with("MyError:")),
+        "MyError",
+    );
+
+    assert_eq!(
+        schema.decode(text("MyError: a")).expect("decodes"),
+        text("MyError: a")
+    );
+    assert_eq!(
+        schema
+            .decode(Unknown::Null)
+            .expect_err("null is not a MyError")
+            .to_string(),
+        "expected MyError at $, got null"
+    );
+
+    assert_eq!(
+        schema.try_encode(&text("MyError: a")).expect("encodes"),
+        text("MyError: a")
+    );
+    assert_eq!(
+        schema
+            .try_encode(&Unknown::Null)
+            .expect_err("a non-MyError has no wire form")
+            .to_string(),
+        "expected MyError at $, got null"
+    );
+}

@@ -66,13 +66,30 @@ fn from_json_string_serializes_an_existing_schema() {
     );
 }
 
-// `Schema.test.ts:6071` — "use case: parse / stringify a nested schema" — is
-// NOT witnessed here. Its shape is `Struct({ a: fromJsonString(Struct) })`, and
-// a struct field can only be spelled `Schema<Unknown>`, so it has to be re-typed
-// with `as_unknown` — whose decode is the inner ENCODE. A decoding transform
-// therefore comes back as its own text, and the row's `a: { b: 2 }` cannot be
-// observed. That is the port's wire-level `Unknown`, not this schema's doing:
-// `as_unknown(NumberFromString)` behaves the same way.
+/// The path half of `Schema.test.ts:6071` — "use case: parse / stringify a
+/// nested schema": a failure inside the parsed document belongs at the field
+/// that held the text, so the pin's `["a"]["b"]` is `$.a.b` here.
+///
+/// The row stays unported for its other half. Its value is `{ a: { b: 2 } }`,
+/// and a struct field can only be spelled `Schema<Unknown>`, so the field is
+/// re-typed with `as_unknown` — whose decode is the inner ENCODE. A decoding
+/// transform therefore comes back as its own text, and that value cannot be
+/// observed at all. That is the port's wire-level `Unknown`, not this schema's
+/// doing: `as_unknown(NumberFromString)` behaves the same way.
+#[test]
+fn from_json_string_nested_in_a_struct_reports_the_nested_path() {
+    let nested = Schema::from_json_string(b_is_a_number());
+    let schema = Schema::as_unknown(Schema::struct_shape(vec![Field::required(
+        "a",
+        Schema::as_unknown(nested),
+    )]));
+
+    let error = schema
+        .decode(object(&[("a", text("{\"a\":null}"))]))
+        .expect_err("the document has no b")
+        .to_string();
+    assert!(error.contains("$.a.b"), "{error}");
+}
 
 /// `Schema.test.ts:6047` — "reviver option".
 #[test]
