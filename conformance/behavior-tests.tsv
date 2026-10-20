@@ -8003,7 +8003,7 @@ unported	packages/effect/test/schema/Schema.test.ts	8662	it	should throw on miss
 unported	packages/effect/test/schema/Schema.test.ts	8680	it	should die on async decoding	
 unported	packages/effect/test/schema/Schema.test.ts	8696	it	should die on missing dependency	
 unported	packages/effect/test/schema/Schema.test.ts	8714	it	should preserve mixed schema issue and defect causes	
-unported	packages/effect/test/schema/Schema.test.ts	8746	it	Struct	
+ported	packages/effect/test/schema/Schema.test.ts	8746	it	Struct	a_missing_key_reports_the_message_its_key_schema_annotated
 ported	packages/effect/test/schema/Schema.test.ts	8760	it	Tuple	tuple_checks_length_and_order
 unported	packages/effect/test/schema/Schema.test.ts	8777	it	non-transforming schema	
 unported	packages/effect/test/schema/Schema.test.ts	8784	it	transforming schema	

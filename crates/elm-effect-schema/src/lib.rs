@@ -92,6 +92,12 @@ pub enum SchemaError {
     /// own message, at the occurrence it was filling.
     #[error("{message} at {path}")]
     DefaultFailed { path: String, message: String },
+    /// A required key or position is absent and its schema carried a
+    /// `messageMissingKey` annotation, which replaces the refusal's message
+    /// wholesale (`Schema.test.ts:8746`). The annotation *is* the message, so
+    /// this does not read as `expected ... got ...`.
+    #[error("{message} at {path}")]
+    MissingKey { path: String, message: String },
     /// Invalid JSON bytes or JSON that is not UTF-8 text.
     #[error("invalid JSON at {path}: {message}")]
     InvalidJson { path: String, message: String },
@@ -972,6 +978,10 @@ fn repath_under(error: SchemaError, prefix: &str) -> SchemaError {
             path: join(path),
             message,
         },
+        SchemaError::MissingKey { path, message } => SchemaError::MissingKey {
+            path: join(path),
+            message,
+        },
         SchemaError::InvalidJson { path, message } => SchemaError::InvalidJson {
             path: join(path),
             message,
@@ -1013,6 +1023,7 @@ fn v1_issue(error: &SchemaError) -> V1Issue {
         SchemaError::TypeMismatchDynamic { expected, .. } => sentence(expected),
         SchemaError::FilterFailed { message, .. }
         | SchemaError::DefaultFailed { message, .. }
+        | SchemaError::MissingKey { message, .. }
         | SchemaError::InvalidJson { message, .. } => sentence(message),
         SchemaError::EncodingFailed { expected, .. } => {
             sentence(&format!("cannot encode {expected}"))
@@ -1039,6 +1050,7 @@ fn error_path(error: &SchemaError) -> String {
         SchemaError::TypeMismatch { path, .. }
         | SchemaError::TypeMismatchDynamic { path, .. }
         | SchemaError::DefaultFailed { path, .. }
+        | SchemaError::MissingKey { path, .. }
         | SchemaError::InvalidJson { path, .. }
         | SchemaError::EncodingFailed { path, .. }
         | SchemaError::FilterFailed { path, .. } => path.clone(),
@@ -2609,6 +2621,10 @@ impl SchemaError {
                 path: rooted(path),
                 message,
             },
+            SchemaError::MissingKey { path, message } => SchemaError::MissingKey {
+                path: rooted(path),
+                message,
+            },
             // A composite from a nested collecting walk carries one issue per
             // member, each with its own root-relative path.
             SchemaError::Composite { issues } => SchemaError::Composite {
@@ -3725,6 +3741,17 @@ pub fn field_map_omit(
 /// One field's contribution to a struct walk: the pair to insert, or `None`
 /// when the field is absent and may be. Split out of [`walk_struct`] so the
 /// loop can accumulate a failure instead of returning it.
+/// `resolveAnnotationsKey`'s `messageMissingKey`: the pin lets a key schema name
+/// the message for the key it guards, and a tuple element do the same for its
+/// position (`Schema.test.ts:8746`).
+fn missing_key_message(schema: &Schema<Unknown>) -> Option<String> {
+    schema
+        .resolve_annotations_key()?
+        .into_iter()
+        .find(|(key, _)| key == "messageMissingKey")
+        .map(|(_, message)| message)
+}
+
 fn walk_field(
     field: &Field,
     input: &mut BTreeMap<String, Unknown>,
@@ -3759,11 +3786,21 @@ fn walk_field(
         }
         None if field.optionality != Optionality::Required => Ok(None),
         Some(Unknown::Null) if field.optionality == Optionality::Optional => Ok(None),
-        None => Err(ConstructError::Issue(SchemaError::TypeMismatch {
-            path: format!("$.{}", field.name),
-            expected: "required field",
-            got: "missing",
-        })),
+        None => {
+            let path = format!("$.{}", field.name);
+            Err(ConstructError::Issue(
+                match missing_key_message(&field.schema) {
+                    // The annotation replaces the refusal's message wholesale, which
+                    // is why this is not `expected <message> at <path> got missing`.
+                    Some(message) => SchemaError::MissingKey { path, message },
+                    None => SchemaError::TypeMismatch {
+                        path,
+                        expected: "required field",
+                        got: "missing",
+                    },
+                },
+            ))
+        }
         Some(value) => {
             let step = if construct {
                 field.schema.construct(value)
@@ -6704,10 +6741,17 @@ impl Schema<Unknown> {
                 // the shape the pin reports (`Missing key at [1]`); only this
                 // port's spelling of a missing key differs.
                 if items.len() < required {
-                    return Err(SchemaError::TypeMismatch {
-                        path: format!("$[{}]", items.len()),
-                        expected: "required field",
-                        got: "missing",
+                    let path = format!("$[{}]", items.len());
+                    // The element guards its own position, so its key
+                    // annotation answers for it (`Schema.test.ts:8746`).
+                    let element = &decoders[items.len()];
+                    return Err(match missing_key_message(element) {
+                        Some(message) => SchemaError::MissingKey { path, message },
+                        None => SchemaError::TypeMismatch {
+                            path,
+                            expected: "required field",
+                            got: "missing",
+                        },
                     });
                 }
                 let mut out = Vec::with_capacity(items.len());

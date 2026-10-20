@@ -5,7 +5,9 @@
 //! `resolveAnnotationsKey` answers from the AST's `context` slot, which is what
 //! `annotateKey` writes.
 
-use elm_effect_schema::{Schema, Unknown};
+use std::collections::BTreeMap;
+
+use elm_effect_schema::{Field, Schema, Unknown};
 
 #[test]
 fn resolve_annotations_is_none_for_a_schema_without_annotations() {
@@ -102,5 +104,74 @@ fn key_annotations_survive_the_re_typing_a_struct_field_goes_through() {
     assert_eq!(
         re_typed.decode(Unknown::Text("a".to_string())),
         Ok(Unknown::Text("a".to_string()))
+    );
+}
+
+/// Schema.test.ts:8746 — the `messageMissingKey` annotation is the error message
+/// for the key it guards, at the field's own path.
+#[test]
+fn a_missing_key_reports_the_message_its_key_schema_annotated() {
+    let guarded = Schema::annotate_key(
+        Schema::string(),
+        vec![("messageMissingKey", "this field is required")],
+    );
+    let schema = Schema::struct_shape(vec![Field::required("a", Schema::as_unknown(guarded))]);
+    let error = schema.decode(Unknown::Object(BTreeMap::new())).unwrap_err();
+    assert_eq!(error.to_string(), "this field is required at $.a");
+    assert!(matches!(
+        error,
+        elm_effect_schema::SchemaError::MissingKey { .. }
+    ));
+
+    // The control: without the annotation the port's own refusal stands, and it
+    // is a different shape of message (expected/got), which is the whole point
+    // of the annotation replacing it.
+    let bare = Schema::struct_shape(vec![Field::required(
+        "a",
+        Schema::as_unknown(Schema::string()),
+    )]);
+    assert_eq!(
+        bare.decode(Unknown::Object(BTreeMap::new()))
+            .unwrap_err()
+            .to_string(),
+        "expected required field at $.a, got missing"
+    );
+}
+
+/// The same row's Tuple half: the element guards its own position.
+#[test]
+fn a_missing_tuple_position_reports_its_element_annotated_message() {
+    let element = Schema::annotate_key(
+        Schema::string(),
+        vec![("messageMissingKey", "this element is required")],
+    );
+    let schema = Schema::tuple_of(vec![Schema::as_unknown(element)]);
+    assert_eq!(
+        schema
+            .decode(Unknown::Array(Vec::new()))
+            .unwrap_err()
+            .to_string(),
+        "this element is required at $[0]"
+    );
+
+    // A nested occurrence keeps the outer path and the annotated message.
+    let outer = Schema::struct_shape(vec![Field::required(
+        "inner",
+        Schema::as_unknown(Schema::tuple_of(vec![Schema::as_unknown(
+            Schema::annotate_key(
+                Schema::string(),
+                vec![("messageMissingKey", "this element is required")],
+            ),
+        )])),
+    )]);
+    assert_eq!(
+        outer
+            .decode(Unknown::Object(BTreeMap::from([(
+                "inner".to_string(),
+                Unknown::Array(Vec::new()),
+            )])))
+            .unwrap_err()
+            .to_string(),
+        "this element is required at $.inner[0]"
     );
 }
