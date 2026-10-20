@@ -285,3 +285,25 @@ fn a_filter_chain_decides_the_encode_side_too() {
         Err(SchemaError::FilterFailed { path, message }) if path == "$" && message == "Expected <filter>"
     ));
 }
+
+/// A typed refinement is validated on the way OUT as well as in: a value the
+/// check refuses has no wire form, which is the rule `filtered_with` already
+/// documented and `refine` had been skipping.
+#[test]
+fn a_typed_refinement_refuses_to_encode_a_value_it_rejects() {
+    let schema = Schema::<f64>::finite_from_string().refine("a value greater than 0", |n| *n > 0.0);
+
+    assert_eq!(schema.try_encode(&2.0), Ok(text("2")));
+
+    let error = schema
+        .try_encode(&-1.0)
+        .expect_err("the check refuses this value");
+    assert_eq!(
+        error.to_string(),
+        "expected a value greater than 0 at $, got a value failing the check"
+    );
+
+    // The control: the decode side refuses the same value, so the two
+    // directions agree instead of the encoder quietly emitting it.
+    assert!(schema.decode(Unknown::Number(-1.0)).is_err());
+}

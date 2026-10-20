@@ -2266,20 +2266,33 @@ impl<T> Schema<T> {
         let inner = Arc::new(self);
         let decode_inner = inner.clone();
         let encode_inner = inner.clone();
+        // The pin validates a check on the way OUT too: a value the refinement
+        // refuses has no wire form, so encoding it must not produce one. Both
+        // closures share the predicate for that reason.
+        let check_fn: Arc<dyn Fn(&T) -> bool + Send + Sync> = Arc::new(predicate);
+        let decode_check = check_fn.clone();
+        let encode_check = check_fn;
+        let failed = move || SchemaError::TypeMismatch {
+            path: "$".to_string(),
+            expected: check,
+            got: "a value failing the check",
+        };
+        let decode_failed = failed.clone();
         Schema::new(
             move |unknown| {
                 let value = decode_inner.decode(unknown)?;
-                if predicate(&value) {
+                if decode_check(&value) {
                     Ok(value)
                 } else {
-                    Err(SchemaError::TypeMismatch {
-                        path: "$".to_string(),
-                        expected: check,
-                        got: "a value failing the check",
-                    })
+                    Err(decode_failed())
                 }
             },
-            move |value| encode_inner.try_encode(value),
+            move |value| {
+                if !encode_check(value) {
+                    return Err(failed());
+                }
+                encode_inner.try_encode(value)
+            },
             SchemaKind::Opaque("refinement"),
         )
     }
