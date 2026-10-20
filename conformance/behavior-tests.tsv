@@ -7965,16 +7965,16 @@ ported	packages/effect/test/schema/Schema.test.ts	7819	it	enums should be expose
 ported	packages/effect/test/schema/Schema.test.ts	7829	it	Numeric enum	a_numeric_enum_decodes_its_members_and_refuses_the_rest
 ported	packages/effect/test/schema/Schema.test.ts	7853	it	String enum	a_string_enum_mixes_spellings_and_keeps_the_order
 ported	packages/effect/test/schema/Schema.test.ts	7881	it	Const enum	a_const_enum_decodes_like_the_other_two
-unported	packages/effect/test/schema/Schema.test.ts	7908	it	sync fallback	
-unported	packages/effect/test/schema/Schema.test.ts	7929	it	async fallback	
-unported	packages/effect/test/schema/Schema.test.ts	7940	it	catchDecodingWithContext	
-unported	packages/effect/test/schema/Schema.test.ts	7960	it	providing a service	
-unported	packages/effect/test/schema/Schema.test.ts	7983	it	forced failure	
-unported	packages/effect/test/schema/Schema.test.ts	7998	it	sync fallback	
-unported	packages/effect/test/schema/Schema.test.ts	8019	it	async fallback	
-unported	packages/effect/test/schema/Schema.test.ts	8034	it	catchEncodingWithContext	
-unported	packages/effect/test/schema/Schema.test.ts	8061	it	providing a service	
-unported	packages/effect/test/schema/Schema.test.ts	8084	it	forced failure	
+ported	packages/effect/test/schema/Schema.test.ts	7908	it	sync fallback	a_refused_decode_falls_back_and_the_check_still_decides
+not-applicable	packages/effect/test/schema/Schema.test.ts	7929	it	async fallback	the fallback is a delayed Effect; schema parsing here is synchronous, so the delay has no carrier (the sync row beside it carries the fallback behavior).
+not-applicable	packages/effect/test/schema/Schema.test.ts	7940	it	catchDecodingWithContext	the fallback reads a service from the Effect context; schema parse takes no context argument here, and a captured closure would make this row's witness identical to the sync one.
+not-applicable	packages/effect/test/schema/Schema.test.ts	7960	it	providing a service	the hook is an Effect layer that provides a service; this port's middleware is a plain closure, so the provisioning this row asserts has no carrier.
+ported	packages/effect/test/schema/Schema.test.ts	7983	it	forced failure	a_decoding_middleware_can_refuse_what_the_base_accepts
+ported	packages/effect/test/schema/Schema.test.ts	7998	it	sync fallback	a_refused_encode_falls_back_to_a_wire_value
+not-applicable	packages/effect/test/schema/Schema.test.ts	8019	it	async fallback	the fallback is a delayed Effect; schema parsing here is synchronous, so the delay has no carrier (the sync row beside it carries the fallback behavior).
+not-applicable	packages/effect/test/schema/Schema.test.ts	8034	it	catchEncodingWithContext	the fallback reads a service from the Effect context; schema parse takes no context argument here, and a captured closure would make this row's witness identical to the sync one.
+not-applicable	packages/effect/test/schema/Schema.test.ts	8061	it	providing a service	the hook is an Effect layer that provides a service; this port's middleware is a plain closure, so the provisioning this row asserts has no carrier.
+ported	packages/effect/test/schema/Schema.test.ts	8084	it	forced failure	an_encoding_middleware_can_refuse_what_the_base_accepts
 ported	packages/effect/test/schema/Schema.test.ts	8096	it	Exact Optional Property	an_exact_optional_key_is_absent_or_decoded
 unported	packages/effect/test/schema/Schema.test.ts	8111	it	Optional Property	
 ported	packages/effect/test/schema/Schema.test.ts	8128	it	Exact Optional Property with Nullability	an_optional_key_admits_null_as_a_value
