@@ -7927,11 +7927,11 @@ ported	packages/effect/test/schema/Schema.test.ts	7206	it	constructor strips exc
 ported	packages/effect/test/schema/Schema.test.ts	7219	it	constructor rejects excess properties when requested	the_constructor_rejects_excess_properties_when_requested
 ported	packages/effect/test/schema/Schema.test.ts	7231	it	annotate	an_annotation_over_a_class_keeps_the_class
 unported	packages/effect/test/schema/Schema.test.ts	7247	it	basic	
-unported	packages/effect/test/schema/Schema.test.ts	7280	it	decoding validates the extended struct once	
+ported	packages/effect/test/schema/Schema.test.ts	7280	it	decoding validates the extended struct once	extend_validates_each_sources_check_once
 ported	packages/effect/test/schema/Schema.test.ts	7307	it	constructor preserves subclass fields while ignoring excess properties by default	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
 ported	packages/effect/test/schema/Schema.test.ts	7322	it	constructor keeps subclass fields and strips excess properties with explicit ignore	an_extended_constructor_strips_excess_under_explicit_ignore
 ported	packages/effect/test/schema/Schema.test.ts	7339	it	constructor does not treat subclass fields as excess properties	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
-unported	packages/effect/test/schema/Schema.test.ts	7361	it	Struct argument	
+ported	packages/effect/test/schema/Schema.test.ts	7361	it	Struct argument	an_extended_class_carries_both_struct_checks
 not-applicable	packages/effect/test/schema/Schema.test.ts	7380	it	static members	asserts a static class member survives extend; ClassValue carries no static members.
 ported	packages/effect/test/schema/Schema.test.ts	7395	it	make with void input	a_tagged_class_takes_a_void_construction
 ported	packages/effect/test/schema/Schema.test.ts	7402	it	explicit identifier	the_name_is_the_identifier_and_the_tag_stands_in_when_there_is_none

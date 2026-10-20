@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use elm_effect_schema::class::{
     ExcessProperty, class, error, error_named, tagged_class, tagged_error,
 };
-use elm_effect_schema::{Field, Schema, Unknown};
+use elm_effect_schema::{Field, FilterIssue, FilterOutcome, FilterSpec, Schema, Unknown};
 
 fn text(value: &str) -> Unknown {
     Unknown::Text(value.to_string())
@@ -562,6 +562,103 @@ fn the_extended_constructor_ignores_excess_but_not_the_subclass_fields() {
     assert!(
         refusal.contains("extra"),
         "only the extra key is refused: {refusal}"
+    );
+}
+
+/// `Schema.test.ts:7280` — "decoding validates the extended struct once": the
+/// parent's struct check and the child's each run exactly one time on the
+/// merged decode. A rebuild from field names would have dropped both, which is
+/// the bug this row exists for.
+#[test]
+fn extend_validates_each_sources_check_once() {
+    let base_runs = Arc::new(AtomicUsize::new(0));
+    let child_runs = Arc::new(AtomicUsize::new(0));
+    let count = |runs: Arc<AtomicUsize>| {
+        FilterSpec::new(move |_| {
+            runs.fetch_add(1, Ordering::SeqCst);
+            FilterOutcome::Pass
+        })
+    };
+    let base_source = Schema::filtered(
+        Schema::as_unknown(Schema::struct_shape(vec![Field::required(
+            "a",
+            string_field(),
+        )])),
+        vec![count(base_runs.clone())],
+        false,
+    );
+    let child_source = Schema::filtered(
+        Schema::as_unknown(Schema::struct_shape(vec![Field::required(
+            "b",
+            number_field(),
+        )])),
+        vec![count(child_runs.clone())],
+        false,
+    );
+
+    let child = elm_effect_schema::class::class_from("A", base_source).extend_from("B", child_source);
+    let decoded = child
+        .decode(object(vec![("a", text("a")), ("b", number(1.0))]))
+        .expect("both declared fields decode");
+    assert_eq!(decoded.identifier(), "B");
+    assert_eq!(base_runs.load(Ordering::SeqCst), 1, "the parent's check ran once");
+    assert_eq!(
+        child_runs.load(Ordering::SeqCst),
+        1,
+        "the child's check ran once"
+    );
+}
+
+/// `Schema.test.ts:7361` — "Struct argument": `extend` takes a schema, not only
+/// a field list, so each side carries its own refined struct. The merged shape
+/// still decides both fields, and a failing one names its own filter.
+#[test]
+fn an_extended_class_carries_both_struct_checks() {
+    let positive = |field: &'static str, label: &'static str| {
+        FilterSpec::new(move |value| match value {
+            Unknown::Object(fields) => match fields.get(field) {
+                Some(Unknown::Number(number)) if *number > 0.0 => FilterOutcome::Pass,
+                _ => FilterOutcome::Fail(FilterIssue::new(format!("Expected {label}"))),
+            },
+            _ => FilterOutcome::Fail(FilterIssue::new(format!("Expected {label}"))),
+        })
+    };
+    let base = Schema::filtered(
+        Schema::as_unknown(Schema::struct_shape(vec![Field::required(
+            "a",
+            number_field(),
+        )])),
+        vec![positive("a", "positive a")],
+        false,
+    );
+    let extension = Schema::filtered(
+        Schema::as_unknown(Schema::struct_shape(vec![Field::required(
+            "b",
+            number_field(),
+        )])),
+        vec![positive("b", "positive b")],
+        false,
+    );
+    let child = elm_effect_schema::class::class_from("A", base).extend_from("B", extension);
+
+    let built = child
+        .make(object(vec![("a", number(1.0)), ("b", number(1.0))]))
+        .expect("both fields are positive");
+    assert_eq!(built.get("a"), Some(&number(1.0)));
+    assert_eq!(built.get("b"), Some(&number(1.0)));
+
+    let base_refusal = child
+        .make(object(vec![("a", number(0.0)), ("b", number(1.0))]))
+        .expect_err("the parent's check refuses a zero")
+        .to_string();
+    assert!(base_refusal.contains("Expected positive a"), "{base_refusal}");
+    let child_refusal = child
+        .make(object(vec![("a", number(1.0)), ("b", number(0.0))]))
+        .expect_err("the child's check refuses a zero")
+        .to_string();
+    assert!(
+        child_refusal.contains("Expected positive b"),
+        "{child_refusal}"
     );
 }
 

@@ -111,9 +111,14 @@ pub struct ClassMeta {
     identifier: String,
     tag: Option<String>,
     excess: ExcessProperty,
-    /// The declared fields with their schemas, which is what `extend` rebuilds
-    /// on and what a repr lists.
+    /// The declared fields with their schemas, which is what a repr lists and
+    /// what `mapFields` rebuilds from.
     fields: Vec<(String, Schema<Unknown>)>,
+    /// The source schema the class was built around. Kept because a check lives
+    /// on the source, not on the field list: `extend` composes over this so a
+    /// parent's check survives into the child (`Schema.test.ts:7280`), which a
+    /// rebuild from names could not do.
+    source: Schema<Unknown>,
 }
 
 impl ClassMeta {
@@ -142,23 +147,23 @@ impl ClassMeta {
 /// `Schema.Class<E>("E")(fields)`: a named constructible schema with no
 /// discriminant.
 pub fn class(identifier: &str, fields: Vec<(&str, Schema<Unknown>)>) -> Schema<ClassValue> {
-    build(ClassMeta {
-        identifier: identifier.to_string(),
-        tag: None,
-        excess: ExcessProperty::Ignore,
-        fields: own(fields),
-    })
+    build(meta_from_fields(
+        identifier,
+        None,
+        ExcessProperty::Ignore,
+        own(fields),
+    ))
 }
 
 /// `Schema.TaggedClass<E>()("E", fields)`: the identifier is the tag, and the
 /// wire carries it as `_tag`.
 pub fn tagged_class(identifier: &str, fields: Vec<(&str, Schema<Unknown>)>) -> Schema<ClassValue> {
-    build(ClassMeta {
-        identifier: identifier.to_string(),
-        tag: Some(identifier.to_string()),
-        excess: ExcessProperty::Ignore,
-        fields: own(fields),
-    })
+    build(meta_from_fields(
+        identifier,
+        Some(identifier.to_string()),
+        ExcessProperty::Ignore,
+        own(fields),
+    ))
 }
 
 /// `Schema.Error<E>()("E")(fields)`: a tagged error whose identifier defaults to
@@ -183,12 +188,12 @@ pub fn tagged_error(
     tag: &str,
     fields: Vec<(&str, Schema<Unknown>)>,
 ) -> Schema<ClassValue> {
-    build(ClassMeta {
-        identifier: identifier.to_string(),
-        tag: Some(tag.to_string()),
-        excess: ExcessProperty::Ignore,
-        fields: own(fields),
-    })
+    build(meta_from_fields(
+        identifier,
+        Some(tag.to_string()),
+        ExcessProperty::Ignore,
+        own(fields),
+    ))
 }
 
 fn own(fields: Vec<(&str, Schema<Unknown>)>) -> Vec<(String, Schema<Unknown>)> {
@@ -222,23 +227,41 @@ pub fn class_from(identifier: &str, source: Schema<Unknown>) -> Schema<ClassValu
             tag: None,
             excess: ExcessProperty::Ignore,
             fields,
+            source: source.clone(),
         },
         source,
     )
 }
 
-/// The one place a class schema is assembled: the source struct is the codec,
-/// and the class adds its identity, its discriminant and its excess policy.
-fn build(meta: ClassMeta) -> Schema<ClassValue> {
-    // The source is a declared field list (`struct_shape`), not a `struct_of`
-    // map: a class field is an occurrence with a name and an optionality, and
-    // that is what carries a constructor default and names a failing path.
+/// The metadata for a class declared from a bare field list. The source is a
+/// declared field list (`struct_shape`), not a `struct_of` map: a class field is
+/// an occurrence with a name and an optionality, and that is what carries a
+/// constructor default and names a failing path.
+fn meta_from_fields(
+    identifier: &str,
+    tag: Option<String>,
+    excess: ExcessProperty,
+    fields: Vec<(String, Schema<Unknown>)>,
+) -> ClassMeta {
     let source = Schema::as_unknown(Schema::struct_shape(
-        meta.fields
+        fields
             .iter()
             .map(|(name, schema)| Field::required(name, schema.clone()))
             .collect(),
     ));
+    ClassMeta {
+        identifier: identifier.to_string(),
+        tag,
+        excess,
+        fields,
+        source,
+    }
+}
+
+/// The one place a class schema is assembled: the source struct is the codec,
+/// and the class adds its identity, its discriminant and its excess policy.
+fn build(meta: ClassMeta) -> Schema<ClassValue> {
+    let source = meta.source.clone();
     build_with(meta, source)
 }
 
@@ -457,7 +480,11 @@ impl Schema<ClassValue> {
         match self.class_meta.as_deref().cloned() {
             Some(mut meta) => {
                 meta.excess = policy;
-                build(meta)
+                // The source is untouched: the pin's parseOptions decide one
+                // construction call, they do not rebuild the schema, so a check
+                // on the source still runs.
+                let source = meta.source.clone();
+                build_with(meta, source)
             }
             None => self,
         }
@@ -477,11 +504,18 @@ impl Schema<ClassValue> {
                 .map(|(name, schema)| Field::required(name, schema.clone()))
                 .collect(),
         );
-        meta.fields = declared
+        let fields: Vec<(String, Schema<Unknown>)> = declared
             .into_iter()
             .map(|field| (field.name().to_string(), field.inner().clone()))
             .collect();
-        build(meta)
+        // The pin rebuilds the struct too, so a check on the original source
+        // does not survive this one. `extend` is the derivation that keeps it.
+        build(meta_from_fields(
+            &meta.identifier,
+            meta.tag,
+            meta.excess,
+            fields,
+        ))
     }
 
     /// `make`: construction. An instance built by this class is answered
@@ -532,16 +566,60 @@ impl Schema<ClassValue> {
         identifier: &str,
         fields: Vec<(&str, Schema<Unknown>)>,
     ) -> Schema<ClassValue> {
+        let child = Schema::as_unknown(Schema::struct_shape(
+            own(fields)
+                .into_iter()
+                .map(|(name, schema)| Field::required(&name, schema))
+                .collect(),
+        ));
+        self.extend_from(identifier, child)
+    }
+
+    /// `A.extend("B")(source)`: the spelling whose child fields are a schema,
+    /// which is how the pin passes a refined struct. The parent's source and the
+    /// child's are composed through `mapFields` with `unsafePreserveChecks`, so
+    /// each side's check runs once on the child rather than being dropped by a
+    /// rebuild.
+    pub fn extend_from(
+        self,
+        identifier: &str,
+        source: Schema<Unknown>,
+    ) -> Schema<ClassValue> {
         let Some(meta) = self.class_meta.as_deref().cloned() else {
             return self;
         };
+        let extra: Vec<Field> = source
+            .fields()
+            .map(|fields| fields.to_vec())
+            .unwrap_or_default();
+        let child_fields: Vec<(String, Schema<Unknown>)> = extra
+            .iter()
+            .map(|field| (field.name().to_string(), field.inner().clone()))
+            .collect();
+        let parent_source = meta.source.clone();
+        let merged = parent_source.map_fields_preserving_checks(|mut declared| {
+            declared.extend(extra.iter().cloned());
+            declared
+        });
+        // The child's own chain wraps the merged shape, which is the pin's order:
+        // its filter sees the same object both sides' fields live on.
+        let child_filters = source.applied_filters.clone();
+        let composed = if child_filters.is_empty() {
+            merged
+        } else {
+            Schema::filtered(merged, child_filters, false)
+        };
         let mut all = meta.fields;
-        all.extend(own(fields));
-        build(ClassMeta {
-            identifier: identifier.to_string(),
-            tag: meta.tag,
-            excess: meta.excess,
-            fields: all,
-        })
+        all.extend(child_fields);
+        build_with(
+            ClassMeta {
+                identifier: identifier.to_string(),
+                tag: meta.tag,
+                excess: meta.excess,
+                fields: all,
+                source: composed.clone(),
+            },
+            composed,
+        )
     }
 }

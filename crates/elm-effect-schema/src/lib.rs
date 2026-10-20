@@ -3967,6 +3967,29 @@ fn walk_struct(
     }
 }
 
+impl Schema<Unknown> {
+    /// `mapFields` with `{ unsafePreserveChecks: true }` for an erased struct:
+    /// the same derivation as the typed version, with the source's filter chain
+    /// re-applied. A class source is spelled this way — every class field is a
+    /// `Schema<Unknown>` — so a class `extend` composes through here instead of
+    /// rebuilding a struct that has forgotten the parent's check.
+    pub fn map_fields_preserving_checks(
+        self,
+        transform: impl Fn(Vec<Field>) -> Vec<Field>,
+    ) -> Self {
+        let filters = self.applied_filters.clone();
+        let fields = self
+            .struct_fields
+            .clone()
+            .expect("mapFields needs a struct shape with declared fields");
+        let derived = Schema::as_unknown(Schema::struct_shape(transform(fields)));
+        if filters.is_empty() {
+            return derived;
+        }
+        Self::filtered(derived, filters, false)
+    }
+}
+
 impl Schema<BTreeMap<String, Unknown>> {
     /// Encode collecting every issue: the encoding half of
     /// [`Schema::decode_collect`]. One issue per absent required field and per
