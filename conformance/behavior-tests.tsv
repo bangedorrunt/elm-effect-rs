@@ -3221,7 +3221,7 @@ ported	packages/effect/test/Request.test.ts	427	it.effect	withCache still caches
 ported	packages/effect/test/Request.test.ts	446	it.effect	withCache does not cache interrupted resolver results	crates/elm-effect/tests/request_batch.rs::cache_drops_interrupted_results
 ported	packages/effect/test/Request.test.ts	463	it.effect	withCache cancellation does not evict a replacement entry	crates/elm-effect/tests/request_batch.rs::cache_cancellation_does_not_evict_a_replacement
 unported	packages/effect/test/Request.test.ts	500	it.effect	withCache allows an equal retry from the cancelled delay's finalizer	
-unported	packages/effect/test/Request.test.ts	548	it.effect	withCache preserves the race winner when the losing resolver is interrupted	
+ported	packages/effect/test/Request.test.ts	548	it.effect	withCache preserves the race winner when the losing resolver is interrupted	crates/elm-effect/tests/request_batch.rs::race_keeps_the_winner_and_interrupts_the_loser
 unported	packages/effect/test/Request.test.ts	585	it.effect	withCache accepts refreshed results from stale-while-revalidate	
 unported	packages/effect/test/Request.test.ts	610	it.effect	persisted propagates failures to unfinished requests	
 unported	packages/effect/test/Request.test.ts	635	it.effect	persisted stores synchronous resolver failures	

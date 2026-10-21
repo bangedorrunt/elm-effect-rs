@@ -293,6 +293,26 @@ impl<R: Request> Resolver<R> {
         })
     }
 
+    /// `RequestResolver.fromEffect` at the pin: one effect per entry, each
+    /// answered with its own exit. Entries run in batch order.
+    pub fn from_effect<F>(f: F) -> Self
+    where
+        F: Fn(&Entry<R>) -> Effect<R::Success, R::Error> + Send + Sync + 'static,
+    {
+        let f = Arc::new(f);
+        Self::make(move |entries| {
+            let mut chain: Effect<(), std::convert::Infallible> = Effect::sync(|| ());
+            for entry in entries {
+                let f = Arc::clone(&f);
+                chain = chain.flat_map(move |()| {
+                    let entry = entry.clone();
+                    f(&entry).exit().map(move |exit| entry.complete(exit))
+                });
+            }
+            chain.map_err(|never| -> R::Error { match never {} })
+        })
+    }
+
     /// `RequestResolver.batchN` at the pin: close the batch once it holds `n`
     /// entries, so the remainder runs in a later batch. The pin's
     /// `Count.normalizeNonEmpty` floors the value and lifts anything below one
@@ -333,6 +353,46 @@ impl<R: Request> Resolver<R> {
     {
         self.with(|inner| Inner {
             delay: Some(Arc::new(delay)),
+            ..inner
+        })
+    }
+
+    /// `RequestResolver.race` at the pin: send the batch to both resolvers and
+    /// answer with the first success. The losing run is interrupted and
+    /// released before the batch returns.
+    pub fn race(self, that: Resolver<R>) -> Self {
+        let left = Arc::clone(&self.inner.run);
+        let right = Arc::clone(&that.inner.run);
+        self.with(|inner| Inner {
+            run: Arc::new(move |entries| left(entries.clone()).race(right(entries))),
+            ..inner
+        })
+    }
+
+    /// `RequestResolver.around` at the pin: run `before`, then the wrapped
+    /// resolver, then `after`, which runs even when the batch failed.
+    pub fn around<B, A2>(self, before: B, after: A2) -> Self
+    where
+        B: Fn(&[Entry<R>]) -> Effect<(), R::Error> + Send + Sync + 'static,
+        A2: Fn(&[Entry<R>]) -> Effect<(), R::Error> + Send + Sync + 'static,
+    {
+        let run = Arc::clone(&self.inner.run);
+        let before = Arc::new(before);
+        let after = Arc::new(after);
+        self.with(|inner| Inner {
+            run: Arc::new(move |entries| {
+                let run = Arc::clone(&run);
+                let before = Arc::clone(&before);
+                let after = Arc::clone(&after);
+                before(&entries).flat_map(move |()| {
+                    let after = Arc::clone(&after);
+                    let entries = entries.clone();
+                    run(entries.clone())
+                        .exit()
+                        .map_err(|never| -> R::Error { match never {} })
+                        .flat_map(move |exit| after(&entries).flat_map(move |()| rethrow(exit)))
+                })
+            }),
             ..inner
         })
     }
@@ -495,6 +555,15 @@ fn run_group<R: Request>(inner: Arc<Inner<R>>, group: Arc<Group<R>>, key: u64, s
             answer_unfinished(&live, &unanswered);
         }
         Err(cause) => answer_unfinished(&live, &cause),
+    }
+}
+
+/// Re-raise a batch's exit after its `after` hook ran. The hook's own failure
+/// only stands when the batch had none, which is `acquireUseRelease`'s order.
+fn rethrow<E: Send + 'static>(exit: Exit<(), E>) -> Effect<(), E> {
+    match exit {
+        Exit::Success(()) => Effect::sync(|| ()),
+        Exit::Failure(cause) => Effect::fail_cause(cause),
     }
 }
 

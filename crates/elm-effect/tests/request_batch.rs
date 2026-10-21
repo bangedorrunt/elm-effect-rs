@@ -595,6 +595,81 @@ fn cache_cancellation_does_not_evict_a_replacement() {
     rt.shutdown();
 }
 
+// Racing resolvers
+
+/// Request.test.ts:548 `withCache preserves the race winner when the losing
+/// resolver is interrupted`: the fast resolver wins, the slow one is
+/// interrupted with its handler run, and the cached winner serves the retry
+/// without calling the winner again.
+#[test]
+fn race_keeps_the_winner_and_interrupts_the_loser() {
+    let finished = Arc::new(Deferred::<(), ()>::new());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let interruptions = Arc::new(AtomicUsize::new(0));
+    let slow_running = Arc::new(Deferred::<(), ()>::new());
+
+    let fast_calls = Arc::clone(&calls);
+    let fast_wait = Arc::clone(&slow_running);
+    let fast = Resolver::<GetNameById>::from_effect(move |_entry| {
+        let calls = Arc::clone(&fast_calls);
+        let wait = Arc::clone(&fast_wait);
+        Effect::sync(move || {
+            // The pin's `yieldNow` here lets the losing leg install its
+            // interrupt handler. A fiber start has no observable edge in this
+            // port, so the winner waits a fixed window instead.
+            wait.wait();
+            std::thread::sleep(Duration::from_millis(50));
+            calls.fetch_add(1, Ordering::SeqCst);
+            user_name(1)
+        })
+    });
+
+    let slow_interruptions = Arc::clone(&interruptions);
+    let slow_signal = Arc::clone(&slow_running);
+    let slow = Resolver::<GetNameById>::from_effect(move |_entry| {
+        let signal = Arc::clone(&slow_signal);
+        let interruptions = Arc::clone(&slow_interruptions);
+        Effect::sync(move || {
+            signal.complete(());
+        })
+        .flat_map(move |()| {
+            let interruptions = Arc::clone(&interruptions);
+            Effect::<String, String, ()>::never().on_interrupt(move || {
+                interruptions.fetch_add(1, Ordering::SeqCst);
+            })
+        })
+    });
+
+    let after = Arc::clone(&finished);
+    let resolver = fast
+        .race(slow)
+        .around(
+            |_entries: &[elm_effect::request::Entry<GetNameById>]| Effect::sync(|| ()),
+            move |_entries: &[elm_effect::request::Entry<GetNameById>]| {
+                after.complete(());
+                Effect::sync(|| ())
+            },
+        )
+        .with_cache(10);
+
+    assert_eq!(
+        Runtime::run(request(&resolver, GetNameById { id: 1 })),
+        Exit::Success(user_name(1))
+    );
+    finished.wait();
+    assert_eq!(
+        interruptions.load(Ordering::SeqCst),
+        1,
+        "the losing resolver's interrupt handler ran"
+    );
+    assert_eq!(
+        Runtime::run(request(&resolver, GetNameById { id: 1 })),
+        Exit::Success(user_name(1)),
+        "the winner was cached"
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "the winner ran once");
+}
+
 // Interruption
 
 /// Request.test.ts:267 `requests don't break interruption`: interrupting the
