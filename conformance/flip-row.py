@@ -36,7 +36,10 @@ import sys
 
 LEDGER = "conformance/behavior-tests.tsv"
 
-STATUSES = ("ported", "not-applicable", "skipped-upstream")
+# `unported` is the demotion path: a row whose witness turned out not to prove
+# it goes back to open with an empty witness. It is the only status that takes
+# no text, so a demotion cannot smuggle a reason in beside it.
+STATUSES = ("ported", "not-applicable", "skipped-upstream", "unported")
 
 
 def load_queue(path: str) -> list[tuple[str, int, str, str]]:
@@ -111,7 +114,13 @@ def main(argv: list[str]) -> int:
         if key not in wanted:
             continue
         status, witness = wanted[key]
-        if not witness:
+        if status == "unported" and witness:
+            print(
+                f"{key}: refusing an unported row with text {witness!r}",
+                file=sys.stderr,
+            )
+            return 1
+        if status != "unported" and not witness:
             print(f"{key}: refusing a {status} row with no witness", file=sys.stderr)
             return 1
         if fields[0] == status and fields[5] == witness:

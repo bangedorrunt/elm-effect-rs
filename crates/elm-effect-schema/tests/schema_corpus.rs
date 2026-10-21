@@ -2616,47 +2616,45 @@ fn json_schema_document_intersects_typed_bases_with_enums_and_literals() {
 
 #[test]
 fn json_schema_document_literal_refinements_filter_through_both_orders() {
-    // fromJsonSchemaDocument.test.ts:1827, :1831 — a refinement beside a
-    // `const` filters that one value in either order, so the intersection is
-    // the literal when it satisfies the refinement and `never` when it does
-    // not. The two rows are the precision cases: a divisor below the
-    // `toFixed` precision limit, and one with an operand far past it.
+    // fromJsonSchemaDocument.test.ts:1807-1855, the `literal refinements`
+    // group: a refinement beside a `const` filters that one value in either
+    // order, so the intersection is the literal when it satisfies the
+    // refinement and `never` when it does not. The three precision rows
+    // (:1827, :1831, :1835) are the divisor cases; the rest are the plain
+    // operation rows, including :1855's filter group, which arrives as an
+    // allOf member and is carried by its own decode-level witness
+    // (`json_schema_document_a_grouped_range_refinement_decides_both_ends`).
     use elm_effect_schema::{Schema, Unknown};
 
-    for (doc, literal, kept) in [
-        (
-            serde_json::json!({"type": "number", "multipleOf": 1e-101}),
-            0.0,
-            true,
-        ),
-        (
-            serde_json::json!({"type": "number", "multipleOf": 1e-101}),
-            5e-102,
-            false,
-        ),
-        (
-            serde_json::json!({"type": "number", "multipleOf": 2}),
-            1e21,
-            true,
-        ),
-        (
-            serde_json::json!({"type": "number", "multipleOf": 2}),
-            1.0,
-            false,
-        ),
+    let cases: Vec<(serde_json::Value, serde_json::Value, bool)> = vec![
+        (serde_json::json!({"type": "number", "multipleOf": 1e-101}), serde_json::json!(0.0), true),
+        (serde_json::json!({"type": "number", "multipleOf": 1e-101}), serde_json::json!(5e-102), false),
+        (serde_json::json!({"type": "number", "multipleOf": 2}), serde_json::json!(1e21), true),
+        (serde_json::json!({"type": "number", "multipleOf": 2}), serde_json::json!(1.0), false),
         // A subnormal divisor: the quotient is not exact, and plain float
         // arithmetic would call this value a multiple of it.
-        (
-            serde_json::json!({"type": "number", "multipleOf": 1e-323}),
-            1.042e-321,
-            false,
-        ),
-        (
-            serde_json::json!({"type": "number", "multipleOf": 1e-323}),
-            0.0,
-            true,
-        ),
-    ] {
+        (serde_json::json!({"type": "number", "multipleOf": 1e-323}), serde_json::json!(1.042e-321), false),
+        (serde_json::json!({"type": "number", "multipleOf": 1e-323}), serde_json::json!(0.0), true),
+        (serde_json::json!({"type": "string", "minLength": 2}), serde_json::json!("ab"), true),
+        (serde_json::json!({"type": "string", "minLength": 2}), serde_json::json!("a"), false),
+        (serde_json::json!({"type": "string", "maxLength": 1}), serde_json::json!("a"), true),
+        (serde_json::json!({"type": "string", "maxLength": 1}), serde_json::json!("ab"), false),
+        (serde_json::json!({"type": "string", "pattern": "^a+$"}), serde_json::json!("aa"), true),
+        (serde_json::json!({"type": "string", "pattern": "^a+$"}), serde_json::json!("ab"), false),
+        (serde_json::json!({"type": "integer"}), serde_json::json!(1.0), true),
+        (serde_json::json!({"type": "integer"}), serde_json::json!(1.5), false),
+        (serde_json::json!({"type": "number", "multipleOf": 0.1}), serde_json::json!(0.3), true),
+        (serde_json::json!({"type": "number", "multipleOf": 0.1}), serde_json::json!(0.31), false),
+        (serde_json::json!({"type": "number", "minimum": 1}), serde_json::json!(1.0), true),
+        (serde_json::json!({"type": "number", "minimum": 1}), serde_json::json!(0.0), false),
+        (serde_json::json!({"type": "number", "maximum": 1}), serde_json::json!(1.0), true),
+        (serde_json::json!({"type": "number", "maximum": 1}), serde_json::json!(2.0), false),
+        (serde_json::json!({"type": "number", "exclusiveMinimum": 1}), serde_json::json!(2.0), true),
+        (serde_json::json!({"type": "number", "exclusiveMinimum": 1}), serde_json::json!(1.0), false),
+        (serde_json::json!({"type": "number", "exclusiveMaximum": 1}), serde_json::json!(0.0), true),
+        (serde_json::json!({"type": "number", "exclusiveMaximum": 1}), serde_json::json!(1.0), false),
+    ];
+    for (doc, literal, kept) in cases {
         for order in [
             [doc.clone(), serde_json::json!({"const": literal})],
             [serde_json::json!({"const": literal}), doc.clone()],

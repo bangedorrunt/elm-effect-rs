@@ -123,6 +123,8 @@ fn tx_hash_map_crud() {
     let map = TxHashMap::new();
     map.insert("a".to_string(), 1);
     assert_eq!(map.get(&"a".to_string()), Some(1));
+    // TxHashMap.test.ts:57 — a missing key reads as none, not a panic.
+    assert_eq!(map.get(&"missing".to_string()), None);
     assert_eq!(map.len(), 1);
     assert_eq!(map.remove(&"a".to_string()), Some(1));
     assert_eq!(map.len(), 0);
