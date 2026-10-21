@@ -246,6 +246,26 @@ pub struct Schema<T> {
     /// composite that embeds one (a struct with rest) can ask which keys the
     /// index signature covers. None for every other shape.
     record_key: Option<std::sync::Arc<Schema<Unknown>>>,
+    /// Whether a decoding default or a transformation rides this node. The pin
+    /// stores both as `encoding` links, and `mutable` refuses a schema that
+    /// carries one: lifting a readonly marker would have to rewrite the link's
+    /// target, which it cannot do.
+    carries_encoding: bool,
+    /// The schema on the encoded side of a link (`decodeTo`'s `from`), kept so
+    /// `from`/`to` and `annotateEncoded` can answer without re-deriving it.
+    link_source: Option<std::sync::Arc<Schema<Unknown>>>,
+    /// The schema on the decoded side of a link, when the constructor named it.
+    link_target: Option<std::sync::Arc<Schema<Unknown>>>,
+    /// Whether this node recovers from a refusal (`catchDecoding`/
+    /// `catchEncoding`/middleware). The pin models those as middleware links
+    /// whose candidate type is `unknown`; without the marker the dispatcher
+    /// narrows such a member away by its shape and it never gets the chance to
+    /// recover (`Schema.test.ts:4504`).
+    recovering: bool,
+    /// Annotations placed on the encoded side (`annotateEncoded`). Kept beside
+    /// the node because the encoded side is a schema this one links to, not a
+    /// field list.
+    encoded_annotations: Vec<(String, String)>,
 }
 
 /// The two spellings of a decoding default. `withDecodingDefault` takes a wire
@@ -1625,7 +1645,31 @@ impl<T> Schema<T> {
             key_annotations: Vec::new(),
             class_meta: None,
             record_key: None,
+            carries_encoding: false,
+            link_source: None,
+            link_target: None,
+            recovering: false,
+            encoded_annotations: Vec::new(),
         }
+    }
+
+    /// `Schema.mutable`: lift the readonly marker a node carries.
+    ///
+    /// This port has no readonly fields, so the value-level work is nothing and
+    /// the schema is the one it was given; that is also what keeps the row that
+    /// asserts it preserves annotations, checks, encoding checks and context
+    /// honest, because it is the same node.
+    ///
+    /// What the pin DOES refuse is a schema carrying an encoding link: marking
+    /// such a node writable means rewriting the link's target, and a `mutable`
+    /// that silently dropped the link would leave a refined derivation
+    /// unrefined (`Schema.test.ts:1175`).
+    pub fn mutable(inner: Schema<T>) -> Schema<T> {
+        assert!(
+            !inner.carries_encoding,
+            "mutable does not support encodings"
+        );
+        inner
     }
 
     /// Attach the class identity a `Class`-family schema carries. Crate-private:
@@ -2120,6 +2164,11 @@ impl<T> Schema<T> {
             // `A.annotate({})` is still a schema with fields and a `make`.
             class_meta: schema.class_meta.clone(),
             record_key: schema.record_key.clone(),
+            carries_encoding: schema.carries_encoding,
+            link_source: schema.link_source.clone(),
+            link_target: schema.link_target.clone(),
+            recovering: schema.recovering,
+            encoded_annotations: schema.encoded_annotations.clone(),
         }
     }
 
@@ -2214,6 +2263,14 @@ impl<T> Schema<T> {
         // recognize an instance.
         out.class_meta = schema.class_meta.clone();
         out.record_key = schema.record_key.clone();
+        // A link and a recovery are properties of the codec, not of the shape,
+        // so a re-typing keeps both: an `annotateEncoded` over a re-typed
+        // transform must still reach the encoded side.
+        out.carries_encoding = schema.carries_encoding;
+        out.link_source = schema.link_source.clone();
+        out.link_target = schema.link_target.clone();
+        out.recovering = schema.recovering;
+        out.encoded_annotations = schema.encoded_annotations.clone();
         // A nested struct must stay reachable for accumulating validation:
         // `decode_collect` recurses through `children`, and every struct
         // field passes through this re-typing.
@@ -2394,9 +2451,14 @@ impl<T> Schema<T> {
         let decode_step = transformation.clone();
         let encode_step = transformation;
         let from = std::sync::Arc::new(from);
+        // The encoded side stays reachable as a schema: `from` is what
+        // `toEncoded`/`annotateEncoded` and the `link_from` accessor answer
+        // with. Retained through the shared arc so the value type need not be
+        // `Clone` to keep a copy of the schema.
+        let link_source = std::sync::Arc::new(Schema::as_unknown_shared(from.clone()));
         let decode_from = from.clone();
         let encode_from = from;
-        Schema::new(
+        let mut out = Schema::new(
             move |unknown| {
                 decode_from
                     .decode(unknown)
@@ -2408,7 +2470,10 @@ impl<T> Schema<T> {
                     .and_then(|wire| encode_from.try_encode(&wire))
             },
             kind,
-        )
+        );
+        out.link_source = Some(link_source);
+        out.carries_encoding = true;
+        out
     }
 
     /// Adapt a schema to a new type through a total isomorphism pair.
@@ -2935,6 +3000,9 @@ impl Schema<Unknown> {
             SchemaKind::Opaque("withDecodingDefault"),
         );
         out.decoding_default = Some(default);
+        // The pin stores a decoding default as an `encoding` link, which is
+        // why `mutable` refuses a schema that already carries one.
+        out.carries_encoding = true;
         out
     }
 
@@ -3162,6 +3230,17 @@ impl Schema<f64> {
             Unknown::Number(number) if number.is_finite() => Ok(number),
             other => decode_finite_from_string(other).map_err(ConstructError::from),
         }));
+        // The two sides are real schemas here, not a bare closure pair: a
+        // `FiniteFromString` is `String` on the wire and `Finite` as its value,
+        // and the row that reads `schema.from`/`schema.to`
+        // (`Schema.test.ts:2319`) is asking for exactly those two.
+        schema.link_source = Some(std::sync::Arc::new(Schema::as_unknown(
+            Schema::<String>::string(),
+        )));
+        schema.link_target = Some(std::sync::Arc::new(Schema::as_unknown(
+            Schema::<f64>::number().refine("a finite number", |number| number.is_finite()),
+        )));
+        schema.carries_encoding = true;
         schema
     }
 }
@@ -4063,6 +4142,14 @@ impl Schema<BTreeMap<String, Unknown>> {
         let declared: Vec<String> = fields.iter().map(|field| field.name.clone()).collect();
         let decode_fields = fields.clone();
         let declared_fields = Some(fields.clone());
+        // The ENCODE walk runs each declared field's own codec, because a field
+        // schema can still refuse or transform on the way out: a filter on a
+        // field is a statement about the encoded value too, and a struct that
+        // handed the value through untouched would let a value its field
+        // refuses travel outwards (`Schema.test.ts:4551`). A field schema whose
+        // value already is its wire form (`as_unknown`) encodes by identity, so
+        // this costs nothing there.
+        let encode_fields = fields.clone();
         let construct_fields = fields;
         let mut schema = Self::new(
             move |unknown| {
@@ -4078,7 +4165,24 @@ impl Schema<BTreeMap<String, Unknown>> {
                         });
                     }
                 }
-                let mut filtered = output.clone();
+                let mut filtered = std::collections::BTreeMap::new();
+                for (name, value) in output {
+                    match encode_fields.iter().find(|field| field.name == *name) {
+                        Some(field) => {
+                            filtered.insert(
+                                name.clone(),
+                                field.inner().try_encode(value).map_err(|error| {
+                                    error.at(&format!("$.{name}"))
+                                })?,
+                            );
+                        }
+                        // An undeclared key is the call site's excess decision,
+                        // made below on the value as it came.
+                        None => {
+                            filtered.insert(name.clone(), value.clone());
+                        }
+                    }
+                }
                 for name in &omitted {
                     filtered.remove(name);
                 }
@@ -6686,6 +6790,11 @@ impl Schema<Unknown> {
                 None => Err(error),
             },
         });
+        // The fallback can answer for any input, so union dispatch must not
+        // narrow this member away by its base shape: the pin types a middleware
+        // link as `unknown` for exactly that reason.
+        out.recovering = true;
+        out.carries_encoding = true;
         out
     }
 
@@ -6707,6 +6816,8 @@ impl Schema<Unknown> {
                 None => Err(error),
             },
         });
+        out.recovering = true;
+        out.carries_encoding = true;
         out
     }
 
@@ -6724,6 +6835,8 @@ impl Schema<Unknown> {
         let mut out = base.clone();
         let inner = base;
         out.decode = std::sync::Arc::new(move |unknown| inner.decode(hook(unknown)?));
+        out.recovering = true;
+        out.carries_encoding = true;
         out
     }
 
@@ -6737,6 +6850,8 @@ impl Schema<Unknown> {
         let mut out = base.clone();
         let inner = base;
         out.encode = std::sync::Arc::new(move |value| hook(inner.try_encode(value)?));
+        out.recovering = true;
+        out.carries_encoding = true;
         out
     }
 
@@ -6783,6 +6898,51 @@ impl Schema<Unknown> {
     /// the marker wraps still decodes and encodes through it.
     pub fn mutable_key(inner: Schema<Unknown>) -> Self {
         inner
+    }
+
+    /// `Schema.annotateEncoded(pairs)`: the pairs land on the ENCODED side, so
+    /// `toEncoded(ast).annotations` answers them and the decoded node is
+    /// untouched. A link's encoded side is the schema it was built from; a
+    /// plain node's encoded side is itself.
+    pub fn annotate_encoded<S: Into<String>>(
+        mut inner: Schema<Unknown>,
+        pairs: Vec<(S, S)>,
+    ) -> Self {
+        inner.encoded_annotations.extend(
+            pairs
+                .into_iter()
+                .map(|(key, value)| (key.into(), value.into())),
+        );
+        inner
+    }
+
+    /// `toEncoded(ast)`: the schema an encode produces, with the pairs an
+    /// `annotateEncoded` placed on it.
+    pub fn to_encoded(&self) -> Schema<Unknown> {
+        let base = match &self.link_source {
+            Some(source) => source.as_ref().clone(),
+            None => {
+                let mut bare = self.clone();
+                bare.encoded_annotations.clear();
+                bare
+            }
+        };
+        if self.encoded_annotations.is_empty() {
+            return base;
+        }
+        Schema::annotated_with(base, self.encoded_annotations.clone())
+    }
+
+    /// The schema a link was built FROM (`decodeTo`'s `from`), when the
+    /// constructor kept one.
+    pub fn link_from(&self) -> Option<Schema<Unknown>> {
+        self.link_source.as_ref().map(|source| source.as_ref().clone())
+    }
+
+    /// The schema a link was built TO (`decodeTo`'s `to`), when the constructor
+    /// named one.
+    pub fn link_to(&self) -> Option<Schema<Unknown>> {
+        self.link_target.as_ref().map(|target| target.as_ref().clone())
     }
 
     /// A struct field whose key may be absent (`optionalKey`). Decode delegates
@@ -7659,17 +7819,35 @@ impl Schema<Unknown> {
                     return mismatch_dynamic("$", encode_expected.clone(), value);
                 }
                 let mut first_error = None;
+                let mut encoded = None;
+                let mut matches = 0usize;
                 for index in candidates {
                     match encode_decoders[index].try_encode(value) {
-                        Ok(encoded) => return Ok(encoded),
+                        Ok(wire) => {
+                            matches += 1;
+                            encoded.get_or_insert(wire);
+                            if !one_of {
+                                break;
+                            }
+                        }
                         Err(error) => {
                             first_error.get_or_insert(error);
                         }
                     }
                 }
-                match first_error {
-                    Some(error) => Err(error),
-                    None => mismatch_dynamic("$", encode_expected.clone(), value),
+                // `oneOf` is a rule on both axes: a value two members can
+                // encode has no single wire form, which is what the recovering
+                // member rows assert on the way out as well as in
+                // (`Schema.test.ts:4504`).
+                if matches > 1 {
+                    return mismatch("$", "exactly one member to match", value);
+                }
+                match encoded {
+                    Some(wire) => Ok(wire),
+                    None => match first_error {
+                        Some(error) => Err(error),
+                        None => mismatch_dynamic("$", encode_expected.clone(), value),
+                    },
                 }
             },
             kind,
@@ -7785,6 +7963,29 @@ fn candidate_kinds(kind: &SchemaKind) -> Vec<&'static str> {
     }
 }
 
+/// The runtime kinds a member can accept, read from the schema rather than its
+/// kind alone: a recovering member answers every type, and a union answers the
+/// union of its members'. The pin's `getCandidateTypes` recurses the same way,
+/// which is why a union holding a recovering member is itself a candidate for
+/// every type.
+fn member_candidate_kinds(member: &Schema<Unknown>) -> Vec<&'static str> {
+    if member.recovering {
+        return ALL_KINDS.to_vec();
+    }
+    if let Some(members) = &member.union_members {
+        let mut out: Vec<&'static str> = Vec::new();
+        for inner in members {
+            for kind in member_candidate_kinds(inner) {
+                if !out.contains(&kind) {
+                    out.push(kind);
+                }
+            }
+        }
+        return out;
+    }
+    candidate_kinds(&member.repr_kind())
+}
+
 /// The value a sentinel key holds in the input, or `None` when the key is not
 /// there. An absent key is neutral; an observed one decides.
 fn sentinel_value(input: &Unknown, key: &SentinelKey) -> Option<Unknown> {
@@ -7846,6 +8047,12 @@ fn add_sentinel(
 /// its kind. `struct_shape` records itself as a plain object, so the kind alone
 /// would hide the tags it declares; `struct_of` keeps them in the kind.
 pub(crate) fn member_sentinels(member: &Schema<Unknown>) -> Vec<(SentinelKey, Unknown)> {
+    // A recovering member demands nothing of the input, so it owns no sentinel:
+    // the pin's middleware link is typed `unknown` and `collectSentinels` reads
+    // through `toCandidate`, which answers `unknown` for exactly this reason.
+    if member.recovering {
+        return Vec::new();
+    }
     // A tagged class carries its discriminant in the class metadata rather than
     // in a field list, because the class strips `_tag` before its source struct
     // sees it. Without this the union index and the dispatcher cannot see the
@@ -7862,6 +8069,9 @@ pub(crate) fn member_sentinels(member: &Schema<Unknown>) -> Vec<(SentinelKey, Un
         return fields
             .iter()
             .filter(|field| field.optionality() == Optionality::Required)
+            // A field whose schema recovers demands nothing of its value, so
+            // the tag it names is not a tag this member requires.
+            .filter(|field| !field.inner().recovering)
             .filter_map(|field| match field.inner().repr_kind() {
                 SchemaKind::Literal(value) => {
                     Some((SentinelKey::Field(field.name().to_string()), value))
@@ -7875,6 +8085,7 @@ pub(crate) fn member_sentinels(member: &Schema<Unknown>) -> Vec<(SentinelKey, Un
             .iter()
             .take_while(|element| !is_optional_element(&element.repr_kind()))
             .enumerate()
+            .filter(|(_, element)| !element.recovering)
             .filter_map(|(index, element)| match element.repr_kind() {
                 SchemaKind::Literal(value) => Some((SentinelKey::Index(index), value)),
                 _ => None,
@@ -7899,9 +8110,18 @@ fn union_candidates(members: &[Arc<Schema<Unknown>>], input: &Unknown) -> Vec<us
         if matches!(kind, SchemaKind::Opaque("never")) {
             continue;
         }
+        // A recovering member is a candidate for every runtime type: it may
+        // answer where the base shape refuses, so narrowing it away by that
+        // shape would deny it the turn the fallback exists for.
+        if member.recovering {
+            for candidate in ALL_KINDS {
+                otherwise.push((candidate, index));
+            }
+            continue;
+        }
         let sentinels = member_sentinels(member);
         if sentinels.is_empty() {
-            for candidate in candidate_kinds(&kind) {
+            for candidate in member_candidate_kinds(member) {
                 otherwise.push((candidate, index));
             }
             continue;

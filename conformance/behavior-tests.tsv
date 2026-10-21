@@ -7595,9 +7595,9 @@ ported	packages/effect/test/schema/Schema.test.ts	1101	it	readonly [string?]	tup
 ported	packages/effect/test/schema/Schema.test.ts	1120	it	should expose the element schema via .value	crates/elm-effect-schema/tests/schema_elements.rs::array_exposes_the_element_schema
 ported	packages/effect/test/schema/Schema.test.ts	1126	it	readonly string[]	array_of_strings_decides_each_element
 ported	packages/effect/test/schema/Schema.test.ts	1152	it	supports encodings on array elements	an_array_runs_its_element_encoding_on_both_axes
-unported	packages/effect/test/schema/Schema.test.ts	1160	it	supports withDecodingDefaultType after mutable	
-unported	packages/effect/test/schema/Schema.test.ts	1175	it	does not support withDecodingDefaultType before mutable	
-unported	packages/effect/test/schema/Schema.test.ts	1188	it	preserves annotations, checks, encoding checks, and context	
+ported	packages/effect/test/schema/Schema.test.ts	1160	it	supports withDecodingDefaultType after mutable	a_decoding_default_after_mutable_still_fills
+ported	packages/effect/test/schema/Schema.test.ts	1175	it	does not support withDecodingDefaultType before mutable	mutable_refuses_a_schema_that_already_carries_an_encoding
+ported	packages/effect/test/schema/Schema.test.ts	1188	it	preserves annotations, checks, encoding checks, and context	mutable_preserves_the_annotations_and_checks_on_both_axes
 ported	packages/effect/test/schema/Schema.test.ts	1210	it	ArrayEnsure	one_value_or_many
 ported	packages/effect/test/schema/Schema.test.ts	1232	it	ArrayEnsure roundtrips array-valued elements	an_array_valued_element_round_trips
 ported	packages/effect/test/schema/Schema.test.ts	1239	it	ArrayEnsure preserves outer-array encoding	many_values_encode_element_wise
@@ -7773,8 +7773,8 @@ ported	packages/effect/test/schema/Schema.test.ts	4434	it	oneOf	one_of_inside_a_
 ported	packages/effect/test/schema/Schema.test.ts	4460	it	oneOf	one_of_counts_the_same_member_twice
 ported	packages/effect/test/schema/Schema.test.ts	4472	it	oneOf	one_of_counts_the_same_literal_twice
 ported	packages/effect/test/schema/Schema.test.ts	4484	it	preserves member order after sentinel dispatch	member_order_is_preserved_after_sentinel_dispatch
-unported	packages/effect/test/schema/Schema.test.ts	4504	it	preserves recovering members during runtime type dispatch	
-unported	packages/effect/test/schema/Schema.test.ts	4551	it	preserves recovering members during sentinel dispatch	
+ported	packages/effect/test/schema/Schema.test.ts	4504	it	preserves recovering members during runtime type dispatch	a_recovering_member_is_dispatched_for_every_runtime_type
+ported	packages/effect/test/schema/Schema.test.ts	4551	it	preserves recovering members during sentinel dispatch	a_recovering_member_survives_sentinel_dispatch
 ported	packages/effect/test/schema/Schema.test.ts	4586	it	keeps suspended members lazy during candidate selection	union_skips_suspended_loser_after_success
 ported	packages/effect/test/schema/Schema.test.ts	4627	it	does not force a recursive suspended member after an earlier success	union_skips_suspended_loser_after_success
 not-applicable	packages/effect/test/schema/Schema.test.ts	4641	it.effect	does not start later members after an asynchronous success	the row's first member yields through the Effect runtime and the row asserts when the next member starts; async members are a stated residual of this port (see the module doc in src/transform.rs), so there is no scheduler to observe
@@ -8005,8 +8005,8 @@ unported	packages/effect/test/schema/Schema.test.ts	8696	it	should die on missin
 ported	packages/effect/test/schema/Schema.test.ts	8714	it	should preserve mixed schema issue and defect causes	an_exit_keeps_a_mixed_cause_whole
 ported	packages/effect/test/schema/Schema.test.ts	8746	it	Struct	a_missing_key_reports_the_message_its_key_schema_annotated
 ported	packages/effect/test/schema/Schema.test.ts	8760	it	Tuple	tuple_checks_length_and_order
-unported	packages/effect/test/schema/Schema.test.ts	8777	it	non-transforming schema	
-unported	packages/effect/test/schema/Schema.test.ts	8784	it	transforming schema	
+ported	packages/effect/test/schema/Schema.test.ts	8777	it	non-transforming schema	annotate_encoded_lands_on_a_plain_nodes_encoded_side
+ported	packages/effect/test/schema/Schema.test.ts	8784	it	transforming schema	annotate_encoded_lands_on_a_transforms_source
 ported	packages/effect/test/schema/Schema.test.ts	8793	it	evolve	evolve_maps_a_named_field
 ported	packages/effect/test/schema/Schema.test.ts	8805	it	evolveKeys	evolve_keys_renames_a_named_field
 ported	packages/effect/test/schema/Schema.test.ts	8817	it	renameKeys	rename_keys_rewrites_two_of_three
