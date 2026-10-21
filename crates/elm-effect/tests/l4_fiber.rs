@@ -986,6 +986,56 @@ where
     (rt, handle)
 }
 
+/// :1265 `releases on interrupt`.
+/// The pin masks the acquisition, so an interrupt that lands while it is in
+/// flight still lets it finish and still runs the release. A sync acquisition
+/// is atomic here, which is this port's version of that mask: the interrupt
+/// lands inside the acquire's own step and the release runs when the scope
+/// closes afterwards.
+#[test]
+fn acquire_release_still_releases_after_an_interrupt() {
+    let released = flag();
+    let rel = released.clone();
+    let rt = Runtime::new();
+
+    let fiber = rt.fork_detach_with(
+        move |ctx| -> Exit<(), String> {
+            let acquired = ctx.acquire_release(
+                Effect::<u8, String>::sync(|| {
+                    std::thread::sleep(Duration::from_millis(80));
+                    7
+                }),
+                move |_value: u8| {
+                    let rel = rel.clone();
+                    Effect::<(), String>::sync(move || {
+                        rel.store(true, Ordering::SeqCst);
+                    })
+                },
+            );
+            if let Err(cause) = acquired {
+                return Exit::Failure(cause);
+            }
+            while !ctx.is_interrupted() {
+                std::thread::park_timeout(Duration::from_millis(1));
+            }
+            Exit::Failure(Cause::interrupt(None))
+        },
+        ForkOpts::immediate(),
+    );
+
+    // Land the interrupt in the middle of the acquisition, not before it
+    // starts: the row is about an acquire already in flight.
+    std::thread::sleep(Duration::from_millis(20));
+    fiber.interrupt();
+    let _ = fiber.join();
+
+    assert!(
+        is_set(&released),
+        "the scope closes on interrupt, and the release runs"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
 /// :2149 `run of interruptible`.
 /// `exit` inside an interruptible region sees the interrupt as a failure with
 /// interrupts only, and the surrounding `uninterruptible` still runs to the

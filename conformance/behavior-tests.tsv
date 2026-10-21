@@ -1270,7 +1270,7 @@ ported	packages/effect/test/Effect.test.ts	1231	it.live	odd numbers	crates/elm-e
 ported	packages/effect/test/Effect.test.ts	1237	it.live	iterable	crates/elm-effect/tests/effect_collections.rs::filter_accepts_any_iterable
 ported	packages/effect/test/Effect.test.ts	1245	it.effect	releases disposables	crates/elm-effect/tests/l5_scope.rs::a_scope_releases_both_disposable_kinds_exactly_once
 ported	packages/effect/test/Effect.test.ts	1254	it.effect	releases async disposables	crates/elm-effect/tests/l5_scope.rs::a_scope_releases_both_disposable_kinds_exactly_once
-unported	packages/effect/test/Effect.test.ts	1265	it.live	releases on interrupt	
+ported	packages/effect/test/Effect.test.ts	1265	it.live	releases on interrupt	acquire_release_still_releases_after_an_interrupt
 not-applicable	packages/effect/test/Effect.test.ts	1283	it.effect	supports release dependencies	Effect.acquireRelease and Effect.provideService are absent from crates/elm-effect/src/effect.rs (21 pub fns), so release dependencies have no Rust constructor
 ported	packages/effect/test/Effect.test.ts	1306	it.effect	raceAll	race_all_completes_on_the_first_success_not_the_first_completion
 ported	packages/effect/test/Effect.test.ts	1325	it.effect	raceAllFirst	race_all_first_completes_on_the_first_completion_even_a_failure
