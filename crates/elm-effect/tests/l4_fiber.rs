@@ -2405,3 +2405,35 @@ fn with_fiber_outside_a_fiber_is_a_defect_and_never_calls_the_body() {
         "a run with no fiber must refuse before calling the body"
     );
 }
+
+/// :1422 `${name} interrupts the loser when interrupted while starting`.
+/// The left leg interrupts the fiber running the race. Both policies must stop
+/// that leg, and its interrupt finalizer runs before the race returns.
+#[test]
+fn a_race_interrupts_its_loser_when_the_parent_is_interrupted_while_starting() {
+    for race_first in [false, true] {
+        let interrupted = flag();
+        let loser_seen = interrupted.clone();
+        let effect = Effect::<(), String>::with_fiber(move |parent| {
+            let parent = parent.clone();
+            let left = Effect::<(), String>::sync(move || parent.interrupt())
+                .flat_map(|_| Effect::<(), String>::never())
+                .on_interrupt(move || loser_seen.store(true, Ordering::SeqCst));
+            let right = Effect::<(), String>::succeed(());
+            if race_first {
+                left.race_first(right)
+            } else {
+                left.race(right)
+            }
+        });
+
+        let (rt, target) = spawn_effect_any(effect);
+        let _ = target.join();
+
+        assert!(
+            is_set(&interrupted),
+            "the losing leg's cleanup must run (race_first = {race_first})"
+        );
+        assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+    }
+}

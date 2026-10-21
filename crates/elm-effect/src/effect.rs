@@ -553,6 +553,133 @@ where
     }
 }
 
+/// `Effect.race` / `Effect.raceFirst` as a step.
+///
+/// Both legs run on children of the running fiber and the loser is interrupted
+/// and joined before this returns, so a losing release finishes first — the
+/// same bargain [`zip_concurrent`](Effect::zip_concurrent) strikes. The two
+/// policies differ only in what counts as a settlement: `race` waits for a
+/// success (failures are remembered, and two of them are concatenated),
+/// `raceFirst` takes the first exit either way.
+#[cfg(feature = "tokio")]
+struct Race<A: Send + 'static, E: Send + 'static, R: Requirement> {
+    left: Effect<A, E, R>,
+    right: Effect<A, E, R>,
+    first_settles: bool,
+    env: crate::service::Services,
+    marker: PhantomData<fn() -> (A, E)>,
+}
+
+/// Interrupt both legs and join whatever is left of them. A handle already
+/// taken has had its exit read, so it is skipped.
+#[cfg(feature = "tokio")]
+fn stop_legs<A: Send + 'static, E: Send + 'static>(
+    left: &mut Option<crate::fiber::FiberHandle<A, E>>,
+    right: &mut Option<crate::fiber::FiberHandle<A, E>>,
+) {
+    for handle in [left.as_ref(), right.as_ref()].into_iter().flatten() {
+        handle.interrupt_unsafe();
+    }
+    for handle in [left.take(), right.take()].into_iter().flatten() {
+        let _ = handle.join();
+    }
+}
+
+#[cfg(feature = "tokio")]
+impl<A, E, R> ErasedStep<A, E> for Race<A, E, R>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
+        let Self {
+            left,
+            right,
+            first_settles,
+            env,
+            ..
+        } = *self;
+        let services = crate::service::merged_services(scope, &env);
+        let Some(fiber) = ambient_fiber(&services) else {
+            return Err(Cause::die(Defect::new(
+                "race outside a fiber: run the effect through Ctx::spawn_effect or Runtime::spawn_effect",
+            )));
+        };
+        let mut left_handle = Some(fiber.fork_child(
+            move |c| {
+                let ambient = c.services_with_fiber();
+                match left.run_sync_with(&ambient) {
+                    Ok(value) => Exit::Success(value),
+                    Err(cause) => Exit::Failure(cause),
+                }
+            },
+            crate::ForkOpts::immediate(),
+        ));
+        let mut right_handle = Some(fiber.fork_child(
+            move |c| {
+                let ambient = c.services_with_fiber();
+                match right.run_sync_with(&ambient) {
+                    Ok(value) => Exit::Success(value),
+                    Err(cause) => Exit::Failure(cause),
+                }
+            },
+            crate::ForkOpts::immediate(),
+        ));
+        let mut left_cause: Option<Cause<E>> = None;
+        let mut right_cause: Option<Cause<E>> = None;
+        loop {
+            for take_left in [true, false] {
+                let handle = if take_left {
+                    &left_handle
+                } else {
+                    &right_handle
+                };
+                if !handle.as_ref().is_some_and(|handle| handle.is_done()) {
+                    continue;
+                }
+                let handle = if take_left {
+                    left_handle.take()
+                } else {
+                    right_handle.take()
+                };
+                let Some(handle) = handle else { continue };
+                match handle.join() {
+                    Exit::Success(value) => {
+                        stop_legs(&mut left_handle, &mut right_handle);
+                        return Ok(value);
+                    }
+                    Exit::Failure(cause) => {
+                        if first_settles {
+                            stop_legs(&mut left_handle, &mut right_handle);
+                            return Err(cause);
+                        }
+                        if take_left {
+                            left_cause = Some(cause);
+                        } else {
+                            right_cause = Some(cause);
+                        }
+                    }
+                }
+            }
+            if left_cause.is_some() && right_cause.is_some() {
+                let mut cause = left_cause.take().expect("checked");
+                cause
+                    .reasons
+                    .extend(right_cause.take().expect("checked").reasons);
+                return Err(cause);
+            }
+            if fiber.is_interrupted() && !fiber.is_masked() {
+                stop_legs(&mut left_handle, &mut right_handle);
+                return Err(Cause::interrupt(Some(fiber.id())));
+            }
+            // ponytail: 1ms poll; a condvar signalled on child completion would
+            // remove it, but that touches the driver.
+            std::thread::park_timeout(std::time::Duration::from_millis(1));
+        }
+    }
+}
+
 /// The clock in scope, or the wall clock when nothing provided one.
 #[cfg(feature = "tokio")]
 fn ambient_clock(scope: &crate::service::Services) -> std::sync::Arc<dyn crate::ClockImpl> {
@@ -1327,6 +1454,42 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
             ZipConcurrent {
                 left: self,
                 right: other,
+                env: std::sync::Arc::clone(&env),
+                marker: PhantomData,
+            },
+            env,
+        )
+    }
+
+    /// `Effect.race` at the pin: run both effects at once and answer with the
+    /// first SUCCESS. A failure does not beat a later success; when both fail,
+    /// their reasons are concatenated in that order. The loser is interrupted
+    /// and released before this returns.
+    #[cfg(feature = "tokio")]
+    pub fn race(self, other: Effect<A, E, R>) -> Self {
+        let env = std::sync::Arc::clone(&self.services);
+        Effect::suspend_op(
+            Race {
+                left: self,
+                right: other,
+                first_settles: false,
+                env: std::sync::Arc::clone(&env),
+                marker: PhantomData,
+            },
+            env,
+        )
+    }
+
+    /// `Effect.raceFirst` at the pin: the first settlement wins, success or
+    /// failure, and the other side is interrupted and released.
+    #[cfg(feature = "tokio")]
+    pub fn race_first(self, other: Effect<A, E, R>) -> Self {
+        let env = std::sync::Arc::clone(&self.services);
+        Effect::suspend_op(
+            Race {
+                left: self,
+                right: other,
+                first_settles: true,
                 env: std::sync::Arc::clone(&env),
                 marker: PhantomData,
             },
