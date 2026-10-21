@@ -1318,8 +1318,8 @@ ported	packages/effect/test/Effect.test.ts	2064	it.live	timeout a long computati
 ported	packages/effect/test/Effect.test.ts	2077	it.effect	timeout interrupts the effect	timeout_fail_interrupts_the_effect
 not-applicable	packages/effect/test/Effect.test.ts	2101	it	a map callback that interrupts its own fiber skips the next map	Effect.runSyncExit is absent from crates/elm-effect/src/effect.rs (21 pub fns), so a map callback interrupting its own fiber cannot be observed at the sync edge
 not-applicable	packages/effect/test/Effect.test.ts	2115	it.effect	sync forever is interruptible	Effect.forever is absent from crates/elm-effect/src/effect.rs (21 pub fns), so an unbounded sync loop has no Rust constructor
-unported	packages/effect/test/Effect.test.ts	2122	it.effect	interrupt of never is interrupted with cause	
-unported	packages/effect/test/Effect.test.ts	2129	it.effect	catch + ensuring + interrupt	
+ported	packages/effect/test/Effect.test.ts	2122	it.effect	interrupt of never is interrupted with cause	never_interrupted_reports_an_interrupt_cause
+ported	packages/effect/test/Effect.test.ts	2129	it.effect	catch + ensuring + interrupt	catch_cause_ignores_an_interrupt_and_ensuring_still_runs
 unported	packages/effect/test/Effect.test.ts	2149	it.effect	run of interruptible	
 unported	packages/effect/test/Effect.test.ts	2167	it.effect	alternating interruptibility	
 not-applicable	packages/effect/test/Effect.test.ts	2189	it.live	acquireUseRelease use inherits interrupt status	Effect.acquireUseRelease, Effect.delay, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
@@ -1365,7 +1365,7 @@ not-applicable	packages/effect/test/Effect.test.ts	2912	it.effect	rethrown caugh
 not-applicable	packages/effect/test/Effect.test.ts	2922	it.effect	rethrown caught error in release	Effect.acquireUseRelease and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns), so combining usage and release failures has no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	2935	it.effect	rethrown caught error in usage	Effect.acquireUseRelease and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns), so combining usage and release failures has no Rust constructor
 ported	packages/effect/test/Effect.test.ts	2945	it.effect	onResult - ensures that a cleanup function runs when an effect fails	on_result_runs_the_cleanup_when_the_effect_dies
-unported	packages/effect/test/Effect.test.ts	2962	it.effect	onExit - callback observes interrupt exit when the fiber is interrupted	
+ported	packages/effect/test/Effect.test.ts	2962	it.effect	onExit - callback observes interrupt exit when the fiber is interrupted	on_exit_sees_the_interrupt_exit
 ported	packages/effect/test/Effect.test.ts	3007	it.effect	does not log when log is omitted	ignore_omitted_logs_nothing
 ported	packages/effect/test/Effect.test.ts	3013	it.effect	does not log when log is false	ignore_false_logs_nothing
 ported	packages/effect/test/Effect.test.ts	3019	it.effect	logs with the current level when log is true	ignore_true_logs_at_current_level

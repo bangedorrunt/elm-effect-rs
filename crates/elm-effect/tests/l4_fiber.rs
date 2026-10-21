@@ -957,6 +957,120 @@ fn with_fiber_self_interrupt_turns_success_into_an_interrupt() {
     assert!(matches!(exit, Exit::Failure(_)));
 }
 
+/// Same handover as [`spawn_effect`], for the shapes these rows need: the
+/// forking parent parks, so only the witness can end the effect's fiber.
+fn spawn_effect_any<A, E>(effect: Effect<A, E>) -> (Runtime, FiberHandle<A, E>)
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    let rt = Runtime::new();
+    let (tx, rx) = mpsc::channel();
+    let _parent = rt.fork_detach_with(
+        move |ctx| -> Exit<(), String> {
+            let handle = ctx.spawn_effect(effect);
+            let dummy = ctx.fork_child(
+                |_| -> Exit<(), String> { Exit::succeed(()) },
+                ForkOpts::immediate(),
+            );
+            dummy.join();
+            let _ = tx.send(handle);
+            while !ctx.is_interrupted() {
+                std::thread::park_timeout(Duration::from_millis(1));
+            }
+            Exit::succeed(())
+        },
+        ForkOpts::immediate(),
+    );
+    let handle = rx.recv().expect("the parent hands its effect handle over");
+    (rt, handle)
+}
+
+/// :2122 `interrupt of never is interrupted with cause`.
+/// `never` ends only by interruption, and the exit it leaves carries the
+/// interrupt as its cause: no typed failure, no defect.
+#[test]
+fn never_interrupted_reports_an_interrupt_cause() {
+    let (rt, target) = spawn_effect_any(Effect::<(), String>::never());
+    target.interrupt();
+
+    let cause = match target.join() {
+        Exit::Failure(cause) => cause,
+        Exit::Success(_) => panic!("an interrupted never must not succeed"),
+    };
+    assert!(cause.is_interrupted(), "the interrupt is the cause");
+    assert!(cause.failure().is_none(), "no typed failure was raised");
+    assert!(cause.defects().is_empty(), "no defect was raised");
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2129 `catch + ensuring + interrupt`.
+/// An interrupt is not a failure the handler sees, so `catchCause` stays
+/// silent, while `ensuring` still runs on the way out.
+#[test]
+fn catch_cause_ignores_an_interrupt_and_ensuring_still_runs() {
+    let caught = flag();
+    let ensured = flag();
+    let catch_flag = caught.clone();
+    let ensuring_flag = ensured.clone();
+
+    let effect = Effect::<(), String>::never()
+        .catch_cause(move |_cause| {
+            let flag = catch_flag.clone();
+            Effect::<(), String>::sync(move || flag.store(true, Ordering::SeqCst))
+        })
+        .ensuring(move || {
+            ensuring_flag.store(true, Ordering::SeqCst);
+        });
+
+    let (rt, target) = spawn_effect_any(effect);
+    target.interrupt();
+    let exit = target.join();
+
+    assert!(
+        !is_set(&caught),
+        "catchCause must not observe an interrupt as a failure"
+    );
+    assert!(is_set(&ensured), "ensuring runs on the interrupt path");
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the interrupt still ends the fiber"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2962 `onExit - callback observes interrupt exit when the fiber is
+/// interrupted`. The callback sees the failure exit with its interrupt cause,
+/// and the effect still ends interrupted afterwards.
+#[test]
+fn on_exit_sees_the_interrupt_exit() {
+    let observed = Arc::new(Mutex::new(None::<bool>));
+    let slot = Arc::clone(&observed);
+
+    let effect = Effect::<(), String>::never().on_exit(move |exit| {
+        let interrupted = match exit {
+            Exit::Failure(cause) => cause.is_interrupted(),
+            Exit::Success(_) => false,
+        };
+        *slot.lock().unwrap() = Some(interrupted);
+    });
+
+    let (rt, target) = spawn_effect_any(effect);
+    target.interrupt();
+    let exit = target.join();
+
+    assert_eq!(
+        *observed.lock().unwrap(),
+        Some(true),
+        "onExit must see the interrupt exit"
+    );
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the callback observes, it does not swallow"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
 #[test]
 fn with_fiber_outside_a_fiber_is_a_defect_and_never_calls_the_body() {
     let called = flag();

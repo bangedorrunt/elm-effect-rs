@@ -199,6 +199,50 @@ where
     }
 }
 
+/// `Effect.catchCause` at the pin, as its own step rather than a [`FoldE`].
+///
+/// The pin delivers an externally requested interrupt at the fiber's boundary,
+/// so the handler is never offered a cause that only says "you were
+/// interrupted" (`catch + ensuring + interrupt` is the row that pins it).
+/// This port's fold runs the inner effect to completion and hands every cause
+/// to the handler, so the rule has to live in the step: a cause carrying an
+/// interrupt, seen while the fiber itself carries an interrupt request, is
+/// re-raised unhandled. `ensuring` and `onExit` stay on [`FoldE`] and keep
+/// observing the interrupt, which is the other half of that row.
+struct CatchCause<A: Send + 'static, E: Send + 'static, R: Requirement, F> {
+    inner: Effect<A, E, R>,
+    on_cause: F,
+    env: crate::service::Services,
+}
+
+impl<A, E, R, F> ErasedStep<A, E> for CatchCause<A, E, R, F>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+    F: FnOnce(Cause<E>) -> Effect<A, E, R> + Send + 'static,
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
+        let Self {
+            inner,
+            on_cause,
+            env,
+        } = *self;
+        let services = crate::service::merged_services(scope, &env);
+        match inner.run_sync_with(&services) {
+            Ok(value) => Ok(value),
+            Err(cause) => {
+                if cause.is_interrupted()
+                    && ambient_fiber(&services).is_some_and(|fiber| fiber.is_interrupted())
+                {
+                    return Err(cause);
+                }
+                on_cause(cause).run_sync_with(&services)
+            }
+        }
+    }
+}
+
 /// Runs an inner effect under a scope minted for that run, then closes the
 /// scope. Every exit path closes: success, typed failure, defect, interrupt.
 #[cfg(feature = "tokio")]
@@ -919,11 +963,22 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
 
     /// Handle the whole cause: the only combinator that sees `Fail`, `Die`,
     /// and `Interrupt` together. Library code does not call this.
+    ///
+    /// An interrupt requested from outside the effect ends it without being
+    /// offered here; [`CatchCause`] carries the rule and the why.
     pub fn catch_cause<F>(self, on_cause: F) -> Self
     where
         F: FnOnce(Cause<E>) -> Self + Send + 'static,
     {
-        self.fold_e(Effect::succeed, on_cause)
+        let env = std::sync::Arc::clone(&self.services);
+        Effect::suspend_op(
+            CatchCause {
+                inner: self,
+                on_cause,
+                env: std::sync::Arc::clone(&env),
+            },
+            env,
+        )
     }
 
     /// `Effect.catchCauseIf` at the pin: recover from any failure whose
