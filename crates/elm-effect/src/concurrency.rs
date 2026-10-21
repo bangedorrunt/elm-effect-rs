@@ -433,6 +433,33 @@ where
         true
     };
 
+    // Stop the batch on `cause`: interrupt the workers still running, join
+    // them so their cleanups finish, and fold both the cleanup defects and any
+    // interrupt that landed meanwhile into the same cause.
+    let stop_batch = |live: &mut std::collections::HashMap<
+        usize,
+        FiberHandle<(), std::convert::Infallible>,
+    >,
+                      cause: &mut Cause<E>,
+                      finished: &mut usize,
+                      launched: usize| {
+        for handle in live.values() {
+            handle.interrupt_unsafe();
+        }
+        let mut defects = Vec::new();
+        for (_, handle) in live.drain() {
+            if let Exit::Failure(sibling) = handle.join() {
+                defects.extend(sibling.defects().into_iter().cloned());
+            }
+        }
+        cause.append_defects(defects);
+        if ctx.is_interrupted() && !cause.is_interrupted() {
+            cause.reasons.push(Reason::Interrupt { fiber_id: None });
+        }
+        *finished = launched;
+    };
+
+
     while live.len() < bound && launch_one(&mut queue, &mut live) {
         launched += 1;
     }
@@ -464,7 +491,23 @@ where
         match rx.recv_timeout(std::time::Duration::from_millis(5)) {
             Ok(Done::Ok(index, value)) => {
                 delivered.insert(index);
-                live.remove(&index);
+                // Join rather than drop: the body reports over the channel
+                // before its supervisor closes the worker's scope, so a
+                // cleanup that dies is only visible on this exit. Dropping the
+                // handle loses the defect and lets the batch claim a success
+                // whose release died.
+                let spilled = match live.remove(&index).map(|handle| handle.join()) {
+                    Some(Exit::Failure(cause)) => {
+                        cause.defects().into_iter().cloned().collect::<Vec<_>>()
+                    }
+                    _ => Vec::new(),
+                };
+                if !spilled.is_empty() && failure.is_none() {
+                    let mut cause = Cause::from_defects(spilled);
+                    stop_batch(&mut live, &mut cause, &mut finished, launched);
+                    failure = Some(cause);
+                    continue;
+                }
                 if failure.is_none() {
                     results[index] = Some(value);
                     if launch_one(&mut queue, &mut live) {
@@ -475,30 +518,18 @@ where
             }
             Ok(Done::Failed(index, cause)) => {
                 delivered.insert(index);
-                live.remove(&index);
+                let mut cause = cause;
+                // The failing body's own cleanup runs after it reported, so its
+                // defects are read back off the exit here, not off the message.
+                if let Some(Exit::Failure(tail)) = live.remove(&index).map(|handle| handle.join()) {
+                    cause.append_defects(tail.defects().into_iter().cloned().collect());
+                }
                 if failure.is_none() {
-                    let mut cause = cause;
                     // The failure wins, but the siblings it stops still get to
                     // run their cleanups, and a cleanup that dies rides along
                     // in the same cause instead of vanishing.
-                    for handle in live.values() {
-                        handle.interrupt_unsafe();
-                    }
-                    let mut defects = Vec::new();
-                    for (_, handle) in live.drain() {
-                        if let Exit::Failure(sibling) = handle.join() {
-                            defects.extend(sibling.defects().into_iter().cloned());
-                        }
-                    }
-                    cause.append_defects(defects);
-                    // An interrupt that landed while the cleanup above ran does
-                    // not replace the recorded failure: the two share one
-                    // cause, the same way the interpreter merges them.
-                    if ctx.is_interrupted() && !cause.is_interrupted() {
-                        cause.reasons.push(Reason::Interrupt { fiber_id: None });
-                    }
+                    stop_batch(&mut live, &mut cause, &mut finished, launched);
                     failure = Some(cause);
-                    finished = launched;
                     continue;
                 }
                 finished += 1;
@@ -533,21 +564,8 @@ where
                         continue;
                     }
                     if failure.is_none() {
-                        for handle in live.values() {
-                            handle.interrupt_unsafe();
-                        }
-                        let mut defects = Vec::new();
-                        for (_, handle) in live.drain() {
-                            if let Exit::Failure(sibling) = handle.join() {
-                                defects.extend(sibling.defects().into_iter().cloned());
-                            }
-                        }
-                        cause.append_defects(defects);
-                        if ctx.is_interrupted() && !cause.is_interrupted() {
-                            cause.reasons.push(Reason::Interrupt { fiber_id: None });
-                        }
+                        stop_batch(&mut live, &mut cause, &mut finished, launched);
                         failure = Some(cause);
-                        finished = launched;
                     }
                 }
                 if failure.is_some() {

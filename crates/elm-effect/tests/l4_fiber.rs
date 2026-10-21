@@ -964,6 +964,13 @@ fn with_fiber_self_interrupt_turns_success_into_an_interrupt() {
 
 /// Same handover as [`spawn_effect`], for the shapes these rows need: the
 /// forking parent parks, so only the witness can end the effect's fiber.
+///
+/// The returned handle is only handed over once the effect's first step has
+/// run. These rows interrupt the instant they have the handle, and without that
+/// handshake the interrupt can land before the fiber body starts: the fiber is
+/// then pre-empted rather than interrupted mid-chain, and a row that counts what
+/// the chain did reads zero. The pin never races here, because its interrupt is
+/// issued from a fiber that only resumes after the child has started.
 fn spawn_effect_any<A, E>(effect: Effect<A, E>) -> (Runtime, FiberHandle<A, E>)
 where
     A: Send + 'static,
@@ -971,6 +978,10 @@ where
 {
     let rt = Runtime::new();
     let (tx, rx) = mpsc::channel();
+    let began = flag();
+    let announce = began.clone();
+    let effect = Effect::<(), E>::sync(move || announce.store(true, Ordering::SeqCst))
+        .flat_map(move |_| effect);
     let _parent = rt.fork_detach_with(
         move |ctx| -> Exit<(), String> {
             let handle = ctx.spawn_effect(effect);
@@ -988,6 +999,10 @@ where
         ForkOpts::immediate(),
     );
     let handle = rx.recv().expect("the parent hands its effect handle over");
+    assert!(
+        wait_for(&began, Duration::from_secs(5)),
+        "the effect's first step never ran"
+    );
     (rt, handle)
 }
 
@@ -1267,10 +1282,13 @@ fn an_interrupt_preserves_a_child_cleanup_defect() {
         Box::new(move |ctx: &Ctx| {
             // A held resource whose release dies: the cleanup runs when the
             // interrupt closes the scope.
-            let _held = ctx.acquire_release(
+            let held = ctx.acquire_release(
                 Effect::<(), String>::succeed(()),
                 |_: ()| Effect::<(), String>::die(Defect::new("cleanup defect")),
             );
+            // The fiber's own scope is open here, so the release is registered
+            // rather than run inline; an `Err` would mean it was dropped.
+            assert!(held.is_ok(), "the release was not registered: {held:?}");
             body_started.complete(());
             park(ctx)
         }),
@@ -1294,7 +1312,7 @@ fn an_interrupt_preserves_a_child_cleanup_defect() {
             .defects()
             .iter()
             .any(|defect| defect.message.contains("cleanup defect")),
-        "the cleanup defect rides along in the same cause"
+        "the cleanup defect rides along in the same cause: {cause:?}"
     );
     assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
@@ -1968,6 +1986,224 @@ fn on_exit_sees_the_interrupt_exit() {
         "the callback observes, it does not swallow"
     );
     assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2232 `async can be uninterruptible`.
+/// An interrupt that arrives while the masked region is parked on a sleep must
+/// not cut the park short: the sleep still runs to its deadline, and the region
+/// hands the pending interrupt on only once it ends.
+#[test]
+fn a_masked_sleep_runs_to_its_deadline_before_the_interrupt_lands() {
+    let started = flag();
+    let body_started = started.clone();
+    let recorded = flag();
+    let body_recorded = recorded.clone();
+
+    type NeedsClock = elm_effect::Cons<ClockTag, ()>;
+    let effect = Effect::<(), String, NeedsClock>::sync(move || {
+        body_started.store(true, Ordering::SeqCst)
+    })
+    .flat_map(|_| Effect::sleep(EffectDuration::from_millis(40)))
+    .flat_map(move |_| {
+        let recorded = body_recorded.clone();
+        Effect::<(), String, NeedsClock>::sync(move || {
+            recorded.store(true, Ordering::SeqCst)
+        })
+    })
+    .uninterruptible()
+        .provide::<ClockTag, ()>(Arc::new(SystemClock) as Arc<dyn ClockImpl>);
+
+    let (rt, target) = spawn_effect_any(effect);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !is_set(&started) && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(is_set(&started), "the masked region never started");
+
+    let interrupt_at = Instant::now();
+    target.interrupt();
+    let exit = target.join();
+    let elapsed = interrupt_at.elapsed();
+
+    assert!(
+        is_set(&recorded),
+        "the sync after the sleep must run despite the interrupt"
+    );
+    assert!(
+        elapsed >= Duration::from_millis(30),
+        "the park was cut short after {elapsed:?}, so the mask did not hold"
+    );
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the interrupt still ends the fiber once the region is done"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2260 `closing scope is uninterruptible`.
+/// The same masked region, one fact further: the park's own finalizer and the
+/// step after it both run, so the region closes cleanly before the interrupt is
+/// delivered.
+#[test]
+fn a_masked_region_closes_its_scope_before_the_interrupt_returns() {
+    let sleeping = flag();
+    let body_sleeping = sleeping.clone();
+    let closed = flag();
+    let cleanup_closed = closed.clone();
+
+    type NeedsClock = elm_effect::Cons<ClockTag, ()>;
+    let effect = Effect::<(), String, NeedsClock>::sync(move || {
+        body_sleeping.store(true, Ordering::SeqCst)
+    })
+    .flat_map(|_| Effect::sleep(EffectDuration::from_millis(40)))
+    .ensuring(move || cleanup_closed.store(true, Ordering::SeqCst))
+    .uninterruptible()
+        .provide::<ClockTag, ()>(Arc::new(SystemClock) as Arc<dyn ClockImpl>);
+
+    let (rt, target) = spawn_effect_any(effect);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !is_set(&sleeping) && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(is_set(&sleeping), "the masked region never started");
+
+    target.interrupt();
+    let exit = target.join();
+
+    assert!(
+        is_set(&closed),
+        "the region's finalizer must run before the interrupt is delivered"
+    );
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the fiber still ends interrupted"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :1813 `${form}: factory and body follow cleanup and replay`.
+/// The source's finalizer runs before the fallback, so the fallback observes a
+/// stopped source; a second run of the same program runs the factory and the
+/// body again, in the same order. The port's fallback is an exit builder rather
+/// than an effect builder, so the factory/body split is two closures here.
+#[test]
+fn a_timeout_fallback_runs_after_cleanup_and_again_on_the_next_run() {
+    let stopped = flag();
+    let factories = Arc::new(AtomicU64::new(0));
+    let bodies = Arc::new(AtomicU64::new(0));
+    let order = Arc::new(Mutex::new(Vec::<String>::new()));
+
+    let program = |stopped: Arc<AtomicBool>,
+                   factories: Arc<AtomicU64>,
+                   bodies: Arc<AtomicU64>,
+                   order: Arc<Mutex<Vec<String>>>| {
+        let source_cleanup = stopped.clone();
+        let order_cleanup = order.clone();
+        let source = Effect::<bool, String>::never().ensuring(move || {
+            source_cleanup.store(true, Ordering::SeqCst);
+            order_cleanup.lock().unwrap().push("stopped".to_owned());
+        });
+        // A non-zero deadline, so the source has parked in `never` and hung its
+        // finalizer before the deadline can win. The row is about cleanup
+        // ordering and replay, not about what a zero-length deadline may skip.
+        source
+            .timeout_or_else(EffectDuration::from_millis(50), move || {
+                let seen = stopped.load(Ordering::SeqCst);
+                factories.fetch_add(1, Ordering::SeqCst);
+                order.lock().unwrap().push(format!("factory:{seen}"));
+                let seen = stopped.load(Ordering::SeqCst);
+                bodies.fetch_add(1, Ordering::SeqCst);
+                order.lock().unwrap().push(format!("body:{seen}"));
+                Exit::Success(true)
+            })
+            .provide::<ClockTag, ()>(Arc::new(SystemClock) as Arc<dyn ClockImpl>)
+    };
+
+    let before = (
+        factories.load(Ordering::SeqCst),
+        bodies.load(Ordering::SeqCst),
+    );
+    // A fiber, not `Runtime::run`: the deadline races a child of the running
+    // fiber, so the program needs one.
+    let (rt_first, first_run) = spawn_effect_any(program(
+        stopped.clone(),
+        factories.clone(),
+        bodies.clone(),
+        order.clone(),
+    ));
+    let first = first_run.join();
+    let first_stopped = stopped.load(Ordering::SeqCst);
+    stopped.store(false, Ordering::SeqCst);
+    let (rt_second, second_run) = spawn_effect_any(program(
+        stopped.clone(),
+        factories.clone(),
+        bodies.clone(),
+        order.clone(),
+    ));
+    let second = second_run.join();
+
+    assert_eq!(before, (0, 0), "building the program runs no factory");
+    assert_eq!(first, Exit::Success(true));
+    assert_eq!(second, Exit::Success(true));
+    assert!(rt_first.shutdown().is_empty(), "a fiber outlived the run");
+    assert!(rt_second.shutdown().is_empty(), "a fiber outlived the run");
+    assert!(first_stopped, "the source's finalizer ran on the first run");
+    assert!(
+        stopped.load(Ordering::SeqCst),
+        "and again on the second"
+    );
+    assert_eq!(
+        (
+            factories.load(Ordering::SeqCst),
+            bodies.load(Ordering::SeqCst)
+        ),
+        (2, 2),
+        "one factory and one body per run"
+    );
+    assert_eq!(
+        *order.lock().unwrap(),
+        vec![
+            "stopped",
+            "factory:true",
+            "body:true",
+            "stopped",
+            "factory:true",
+            "body:true",
+        ],
+        "cleanup precedes the fallback on every run"
+    );
+}
+
+/// :2687 `works` (do notation).
+/// Rust has no do-notation: the pin's `bindTo`/`let`/`bind`/`tap` chain is the
+/// same threading of bindings through `flat_map`, and the final tap sees the
+/// pair the pin's record holds.
+#[test]
+fn a_flat_map_chain_threads_every_do_notation_binding() {
+    let seen = Arc::new(Mutex::new(None::<(i32, String)>));
+    let slot = seen.clone();
+
+    let effect = Effect::<i32, String>::succeed(1)
+        .flat_map(|a| Effect::<i32, String>::succeed(a))
+        .flat_map(|a| {
+            let next = a + 1;
+            Effect::<i32, String>::succeed(next).map(move |b| (a, b))
+        })
+        .flat_map(|(a, b)| {
+            let text = b.to_string();
+            Effect::<String, String>::succeed(text).map(move |b| (a, b))
+        })
+        .flat_map(move |pair| {
+            let slot = slot.clone();
+            Effect::<(), String>::sync(move || *slot.lock().unwrap() = Some(pair))
+        });
+
+    assert_eq!(Runtime::run(effect), Exit::Success(()));
+    assert_eq!(
+        *seen.lock().unwrap(),
+        Some((1, "2".to_owned())),
+        "both bindings reach the last step unchanged"
+    );
 }
 
 #[test]

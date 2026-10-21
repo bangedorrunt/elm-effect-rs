@@ -725,6 +725,42 @@ where
     }
 }
 
+/// `Effect.sleep` as a step: park on the ambient clock until the deadline or
+/// an interrupt, whichever lands first.
+///
+/// The interrupt check is mask-aware. A park that only read the flag would end
+/// the moment an interrupt was requested, so regions masked with
+/// `uninterruptible` would be interruptible at every sleep and only
+/// "uninterruptible" between steps. Here the deadline wins inside a mask and
+/// the pending interrupt is delivered once the region ends.
+#[cfg(feature = "tokio")]
+struct Sleep {
+    duration: crate::Duration,
+}
+
+/// Generic in `E` so a sleep fits any effect's error channel: its only failure
+/// is interruption, which carries no typed error of its own.
+#[cfg(feature = "tokio")]
+impl<E: Send + 'static> ErasedStep<(), E> for Sleep {
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<(), Cause<E>> {
+        let Self { duration } = *self;
+        let clock = ambient_clock(scope);
+        let fiber = ambient_fiber(scope);
+        let outcome = match &fiber {
+            Some(fiber) => clock.sleep(duration, &|| fiber.is_interrupted() && !fiber.is_masked()),
+            // No fiber: nothing can request an interrupt, so the park is the
+            // whole answer.
+            None => clock.sleep(duration, &|| false),
+        };
+        match outcome {
+            crate::time::SleepOutcome::Elapsed => Ok(()),
+            crate::time::SleepOutcome::Interrupted => {
+                Err(Cause::interrupt(fiber.as_ref().map(|fiber| fiber.id())))
+            }
+        }
+    }
+}
+
 /// The handle `Effect::uninterruptible_mask` gives its callback: `restore` at
 /// the pin. Copy so a callback can use it in more than one arm.
 #[cfg(feature = "tokio")]
@@ -813,6 +849,26 @@ pub struct Effect<A: Send + 'static, E: Send + 'static, R: Requirement = ()> {
     pub(crate) step: Step<A, E>,
     pub(crate) services: crate::service::Services,
     pub(crate) marker: PhantomData<R>,
+}
+
+/// `Effect.sleep` lives on a concrete `Self` so the `Clock` requirement shows
+/// up in its return type: a `Self` generic over `R` could not answer with a
+/// different `R`, and the call site would be one inference hole.
+#[cfg(feature = "tokio")]
+impl<E: Send + 'static> Effect<(), E, crate::service::Cons<crate::time::Clock, ()>> {
+    /// `Effect.sleep` at the pin: park until the ambient clock's deadline
+    /// passes, or until an interrupt arrives outside a masked region.
+    ///
+    /// The `Clock` requirement mirrors `timeoutOption`: a caller that provided
+    /// a `TestClock` parks on that one, and with nothing provided the run falls
+    /// back to the wall clock.
+    pub fn sleep(duration: crate::Duration) -> Self {
+        Effect {
+            step: Step::Suspend(Box::new(Sleep { duration })),
+            services: crate::service::empty_services(),
+            marker: PhantomData,
+        }
+    }
 }
 
 impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
