@@ -54,6 +54,7 @@ mod platform_error;
 mod policy;
 pub mod predicate;
 mod pubsub;
+pub mod request;
 mod pull;
 #[cfg(feature = "tokio")]
 mod runtime;

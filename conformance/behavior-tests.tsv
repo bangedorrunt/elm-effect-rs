@@ -3201,16 +3201,16 @@ ported	packages/effect/test/Ref.test.ts	134	it.effect	updateSomeAndGet - twice	u
 ported	packages/effect/test/Ref.test.ts	152	it.effect	modify returns a result while storing the new value	modify_returns_a_result_while_storing_the_new_value
 ported	packages/effect/test/Ref.test.ts	160	it.effect	modifySome - once	modify_some_once
 ported	packages/effect/test/Ref.test.ts	170	it.effect	modifySome returns a result while applying matching transitions	modify_some_returns_a_result_while_applying_matching_transitions
-unported	packages/effect/test/Request.test.ts	137	it	preserves __proto__ as an own constructor property	
-unported	packages/effect/test/Request.test.ts	150	it	copies enumerable symbol properties in Class	
-unported	packages/effect/test/Request.test.ts	157	it	compares StructuralProto values when hashes collide	
+not-applicable	packages/effect/test/Request.test.ts	137	it	preserves __proto__ as an own constructor property	no JS prototype chain: Rust struct fields have no __proto__, so a payload field of that name is an ordinary field and there is no pollution path to guard
+not-applicable	packages/effect/test/Request.test.ts	150	it	copies enumerable symbol properties in Class	Rust has no symbol-keyed properties; the pin's Class copies enumerable symbols, and a Rust payload is a typed struct, not an object with symbol keys
+not-applicable	packages/effect/test/Request.test.ts	157	it	compares StructuralProto values when hashes collide	the row asserts a fabricated hash collision in the pin's StructuralProto hashing; Rust derives Hash and PartialEq from the fields, so there is no collision machinery to reproduce
 ported	packages/effect/test/Request.test.ts	167	it.effect	requests are executed correctly	batching_makes_one_downstream_call
 unported	packages/effect/test/Request.test.ts	180	it.effect	requests with dual syntax are executed correctly	
 unported	packages/effect/test/Request.test.ts	192	it.effect	requests are executed correctly with fromEffectTagged	
-unported	packages/effect/test/Request.test.ts	204	it.effect	fromEffectTagged preserves typed errors	
-unported	packages/effect/test/Request.test.ts	214	it.effect	fromEffectTagged preserves defects	
-unported	packages/effect/test/Request.test.ts	233	it.effect	fromEffectTagged preserves interrupts	
-unported	packages/effect/test/Request.test.ts	243	it.each	fromEffectTagged resolves requests from $name results	
+ported	packages/effect/test/Request.test.ts	204	it.effect	fromEffectTagged preserves typed errors	crates/elm-effect/tests/request_core.rs::a_tagged_resolver_preserves_its_typed_error
+ported	packages/effect/test/Request.test.ts	214	it.effect	fromEffectTagged preserves defects	crates/elm-effect/tests/request_core.rs::a_tagged_resolver_preserves_its_defect
+ported	packages/effect/test/Request.test.ts	233	it.effect	fromEffectTagged preserves interrupts	crates/elm-effect/tests/request_core.rs::a_tagged_resolver_preserves_its_interrupt
+ported	packages/effect/test/Request.test.ts	243	it.each	fromEffectTagged resolves requests from $name results	crates/elm-effect/tests/request_core.rs::a_tagged_resolver_answers_every_submitted_request
 unported	packages/effect/test/Request.test.ts	267	it.effect	requests don't break interruption	
 unported	packages/effect/test/Request.test.ts	288	it.effect	requests work with uninterruptible	
 unported	packages/effect/test/Request.test.ts	309	it.effect	grouped requests can be interrupted before execution	
