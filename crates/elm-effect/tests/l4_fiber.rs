@@ -1649,9 +1649,10 @@ fn timeout_or_else_can_die_on_its_own_terms() {
         std::thread::sleep(Duration::from_millis(200));
         true
     })
-    .timeout_or_else(EffectDuration::from_millis(10), || {
-        Exit::Failure(Cause::die(Defect::new("boom")))
-    })
+    .timeout_or_else(
+        EffectDuration::from_millis(10),
+        Effect::<bool, String>::die(Defect::new("boom")),
+    )
     .sandbox()
     .flip()
     .provide::<ClockTag, ()>(Arc::new(SystemClock) as Arc<dyn ClockImpl>);
@@ -1812,9 +1813,19 @@ fn alternating_interruptibility_runs_each_observed_window() {
     let seen = Arc::new(Mutex::new(Vec::<&'static str>::new()));
     let first_seen = seen.clone();
     let second_seen = seen.clone();
+    // The interrupt must land while the fiber is parked in its FIRST window, as
+    // it does at the pin: there the forked child reaches `never` before the
+    // test fiber resumes to interrupt it. Without this handshake the interrupt
+    // can arrive before the chain enters the window, and the first `exit` never
+    // sees it (measured: only the outer window's continuation ran).
+    let armed = flag();
+    let announce_armed = armed.clone();
 
-    let effect = Effect::<(), String>::never()
-        .interruptible()
+    let effect = Effect::<(), String>::sync(move || {
+        announce_armed.store(true, Ordering::SeqCst);
+    })
+    .flat_map(|_| Effect::<(), String>::never())
+    .interruptible()
         .exit()
         .flat_map(move |_| {
             let seen = first_seen.clone();
@@ -1834,6 +1845,10 @@ fn alternating_interruptibility_runs_each_observed_window() {
         .uninterruptible();
 
     let (rt, target) = spawn_effect_any(effect);
+    assert!(
+        wait_for(&armed, Duration::from_secs(5)),
+        "the first window never armed"
+    );
     target.interrupt();
     let exit = target.join();
 
@@ -1985,6 +2000,38 @@ fn on_exit_sees_the_interrupt_exit() {
         matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
         "the callback observes, it does not swallow"
     );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2246 `callback cannot resume on interrupt`.
+/// The park ends on the interrupt even though its answer never arrives at that
+/// point, and the fiber exits interrupted. The late answer is sent afterwards
+/// to show it changes nothing (and does not crash a handle whose effect is
+/// gone).
+#[test]
+fn a_callback_cannot_resume_after_the_interrupt() {
+    let (tx, rx) = mpsc::channel();
+    let effect = Effect::<String, String>::callback(move |resume| {
+        // Keep the resume handle in the test, so the completion is ordered
+        // after the interrupt by the test itself rather than by a sleep.
+        let _ = tx.send(resume);
+    });
+
+    let (rt, target) = spawn_effect_any(effect);
+    let resume = rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("the callback registers a resume handle");
+
+    target.interrupt_unsafe();
+    // No answer yet: the park has to end on the interrupt alone.
+    let exit = target.join();
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "an interrupted callback exits interrupted: {exit:?}"
+    );
+    // The answer that arrives afterwards is dropped, not a panic on a slot
+    // whose effect is gone.
+    resume.succeed("foo".to_owned());
     assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
 
@@ -2142,6 +2189,72 @@ fn a_masked_region_closes_its_scope_before_the_interrupt_returns() {
     assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
 
+/// :1972 `external interruption stops a pending fallback`.
+/// The source's finalizer has already run when the deadline wins, the fallback
+/// is pending, and an interrupt from outside stops it too: both cleanups run and
+/// the exit carries the interrupt.
+#[test]
+fn an_external_interrupt_stops_a_pending_fallback() {
+    let source_stopped = flag();
+    let cleanup_source = source_stopped.clone();
+    let fallback_started = flag();
+    let body_started = fallback_started.clone();
+    let fallback_stopped = flag();
+    let cleanup_fallback = fallback_stopped.clone();
+    let calls = Arc::new(AtomicU64::new(0));
+    let fallback_calls = calls.clone();
+
+    let source = Effect::<(), String>::never().ensuring(move || {
+        cleanup_source.store(true, Ordering::SeqCst);
+    });
+    // The fallback parks after announcing itself, so the test interrupts a
+    // pending fallback rather than a finished one.
+    let fallback = Effect::<(), String>::sync(move || {
+        fallback_calls.fetch_add(1, Ordering::SeqCst);
+        body_started.store(true, Ordering::SeqCst);
+    })
+    .flat_map(|_| Effect::<(), String>::never())
+    .ensuring(move || cleanup_fallback.store(true, Ordering::SeqCst));
+
+    // A non-zero deadline, so the source has parked and hung its finalizer
+    // before the deadline wins (see :1813 for why zero is not used here).
+    let effect = source
+        .timeout_or_else(EffectDuration::from_millis(50), fallback)
+        .provide::<ClockTag, ()>(Arc::new(SystemClock) as Arc<dyn ClockImpl>);
+
+    let (rt, target) = spawn_effect_any(effect);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !is_set(&fallback_started) && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(
+        is_set(&fallback_started),
+        "the deadline never handed over to the fallback"
+    );
+
+    target.interrupt();
+    let exit = target.join();
+
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the interrupt is what the fiber ends with: {exit:?}"
+    );
+    assert!(
+        is_set(&source_stopped),
+        "the source's cleanup ran when the deadline won"
+    );
+    assert!(
+        is_set(&fallback_stopped),
+        "the pending fallback's cleanup ran when the interrupt stopped it"
+    );
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        1,
+        "the fallback is built and run once"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
 /// :1813 `${form}: factory and body follow cleanup and replay`.
 /// The source's finalizer runs before the fallback, so the fallback observes a
 /// stopped source; a second run of the same program runs the factory and the
@@ -2167,16 +2280,17 @@ fn a_timeout_fallback_runs_after_cleanup_and_again_on_the_next_run() {
         // A non-zero deadline, so the source has parked in `never` and hung its
         // finalizer before the deadline can win. The row is about cleanup
         // ordering and replay, not about what a zero-length deadline may skip.
+        let fallback = Effect::<bool, String>::sync(move || {
+            let seen = stopped.load(Ordering::SeqCst);
+            factories.fetch_add(1, Ordering::SeqCst);
+            order.lock().unwrap().push(format!("factory:{seen}"));
+            let seen = stopped.load(Ordering::SeqCst);
+            bodies.fetch_add(1, Ordering::SeqCst);
+            order.lock().unwrap().push(format!("body:{seen}"));
+            true
+        });
         source
-            .timeout_or_else(EffectDuration::from_millis(50), move || {
-                let seen = stopped.load(Ordering::SeqCst);
-                factories.fetch_add(1, Ordering::SeqCst);
-                order.lock().unwrap().push(format!("factory:{seen}"));
-                let seen = stopped.load(Ordering::SeqCst);
-                bodies.fetch_add(1, Ordering::SeqCst);
-                order.lock().unwrap().push(format!("body:{seen}"));
-                Exit::Success(true)
-            })
+            .timeout_or_else(EffectDuration::from_millis(50), fallback)
             .provide::<ClockTag, ()>(Arc::new(SystemClock) as Arc<dyn ClockImpl>)
     };
 

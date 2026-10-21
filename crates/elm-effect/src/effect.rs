@@ -652,37 +652,68 @@ where
 
 /// `Effect.timeoutOrElse` as a step.
 #[cfg(feature = "tokio")]
-struct TimeoutOrElse<A: Send + 'static, E: Send + 'static, R: Requirement, F> {
+struct TimeoutOrElse<A: Send + 'static, E: Send + 'static, R: Requirement> {
     inner: Effect<A, E, R>,
     duration: crate::Duration,
-    on_timeout: F,
+    fallback: Effect<A, E, R>,
     env: crate::service::Services,
     marker: PhantomData<fn() -> (A, E)>,
 }
 
 #[cfg(feature = "tokio")]
-impl<A, E, R, F> ErasedStep<A, E> for TimeoutOrElse<A, E, R, F>
+impl<A, E, R> ErasedStep<A, E> for TimeoutOrElse<A, E, R>
 where
     A: Send + 'static,
     E: Send + 'static,
     R: Requirement,
-    F: FnOnce() -> Exit<A, E> + Send + 'static,
 {
     fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
         let Self {
             inner,
             duration,
-            on_timeout,
+            fallback,
             env,
             ..
         } = *self;
         let services = crate::service::merged_services(scope, &env);
         match race_deadline(inner, duration, &services) {
             Ok(Some(value)) => Ok(value),
-            Ok(None) => match on_timeout() {
-                Exit::Success(value) => Ok(value),
-                Exit::Failure(cause) => Err(cause),
-            },
+            Ok(None) => {
+                let Some(fiber) = ambient_fiber(&services) else {
+                    return Err(Cause::die(Defect::new(
+                        "timeoutOrElse outside a fiber: run the effect through Ctx::spawn_effect or Runtime::spawn_effect",
+                    )));
+                };
+                // The fallback runs on a child of the deadline's fiber, so an
+                // interrupt that arrives while it is pending reaches it: the
+                // row's "external interruption stops a pending fallback".
+                let child = fiber.fork_child(
+                    move |c| {
+                        let ambient = c.services_with_fiber();
+                        match fallback.run_sync_with(&ambient) {
+                            Ok(value) => Exit::Success(value),
+                            Err(cause) => Exit::Failure(cause),
+                        }
+                    },
+                    crate::ForkOpts::immediate(),
+                );
+                loop {
+                    if child.is_done() {
+                        return match child.join() {
+                            Exit::Success(value) => Ok(value),
+                            Exit::Failure(cause) => Err(cause),
+                        };
+                    }
+                    if fiber.is_interrupted() && !fiber.is_masked() {
+                        child.interrupt();
+                        let _ = child.join();
+                        return Err(Cause::interrupt(Some(fiber.id())));
+                    }
+                    // ponytail: 1ms poll; a condvar notified on child completion
+                    // would remove it, but that touches the driver.
+                    std::thread::park_timeout(std::time::Duration::from_millis(1));
+                }
+            }
             Err(cause) => Err(cause),
         }
     }
@@ -865,6 +896,129 @@ impl<E: Send + 'static> Effect<(), E, crate::service::Cons<crate::time::Clock, (
     pub fn sleep(duration: crate::Duration) -> Self {
         Effect {
             step: Step::Suspend(Box::new(Sleep { duration })),
+            services: crate::service::empty_services(),
+            marker: PhantomData,
+        }
+    }
+}
+
+/// The resume handle `Effect::callback` hands its registration closure.
+///
+/// Clonable, so the completion can live on another thread. Completing twice is
+/// harmless: the first answer is the one the effect keeps, which is the pin's
+/// `resume` contract. A completion that arrives after the fiber was interrupted
+/// is ignored, because the effect already answered.
+#[cfg(feature = "tokio")]
+pub struct Resume<A: Send + 'static, E: Send + 'static> {
+    slot: Arc<(std::sync::Mutex<Option<Exit<A, E>>>, std::sync::Condvar)>,
+}
+
+#[cfg(feature = "tokio")]
+impl<A: Send + 'static, E: Send + 'static> Clone for Resume<A, E> {
+    fn clone(&self) -> Self {
+        Self {
+            slot: Arc::clone(&self.slot),
+        }
+    }
+}
+
+#[cfg(feature = "tokio")]
+impl<A: Send + 'static, E: Send + 'static> Resume<A, E> {
+    /// Answer the callback with a whole exit: success or failure.
+    pub fn complete(&self, exit: Exit<A, E>) {
+        let (lock, cvar) = &*self.slot;
+        let mut slot = lock.lock().unwrap();
+        if slot.is_none() {
+            *slot = Some(exit);
+            cvar.notify_all();
+        }
+    }
+
+    /// Answer with a value: the common case.
+    pub fn succeed(&self, value: A) {
+        self.complete(Exit::Success(value));
+    }
+
+    /// Answer with a failure.
+    pub fn fail(&self, cause: Cause<E>) {
+        self.complete(Exit::Failure(cause));
+    }
+}
+
+/// `Effect.callback` as a step: register, then park until the registration
+/// answers or the fiber is interrupted.
+///
+/// The interrupt check is what ends the park: an answer may never come, and the
+/// fiber still has to stop. Checking it before the parked answer means an
+/// interrupt already requested is not overtaken by an answer arriving in the
+/// same turn of the loop. Either way the interpreter's own boundary turns a
+/// success that lands after an interrupt into the interrupt exit, so the fleet
+/// outcomes are the ones the row asserts.
+#[cfg(feature = "tokio")]
+struct Callback<A: Send + 'static, E: Send + 'static, F> {
+    register: F,
+    marker: PhantomData<fn() -> (A, E)>,
+}
+
+#[cfg(feature = "tokio")]
+impl<A, E, F> ErasedStep<A, E> for Callback<A, E, F>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    F: FnOnce(Resume<A, E>) + Send + 'static,
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
+        let Self { register, .. } = *self;
+        let slot = Arc::new((std::sync::Mutex::new(None), std::sync::Condvar::new()));
+        let fiber = ambient_fiber(scope);
+        register(Resume {
+            slot: Arc::clone(&slot),
+        });
+        let (lock, cvar) = &*slot;
+        let mut parked = lock.lock().unwrap();
+        loop {
+            if let Some(fiber) = &fiber
+                && fiber.is_interrupted()
+                && !fiber.is_masked()
+            {
+                return Err(Cause::interrupt(Some(fiber.id())));
+            }
+            if let Some(exit) = parked.take() {
+                return match exit {
+                    Exit::Success(value) => Ok(value),
+                    Exit::Failure(cause) => Err(cause),
+                };
+            }
+            // ponytail: 1ms cap on the wait; a wake-up on interrupt would need
+            // request_interrupt to notify this condvar. 1ms keeps the latency
+            // bounded without touching FiberControl.
+            let (guard, _) = cvar
+                .wait_timeout(parked, std::time::Duration::from_millis(1))
+                .unwrap();
+            parked = guard;
+        }
+    }
+}
+
+/// `Effect.callback` lives on a concrete `Self`: like `sleep`, it is a
+/// constructor, not a transformation of an existing effect.
+#[cfg(feature = "tokio")]
+impl<A: Send + 'static, E: Send + 'static> Effect<A, E, ()> {
+    /// `Effect.callback` at the pin: hand the registration a [`Resume`] and
+    /// park until it answers or the fiber is interrupted.
+    ///
+    /// Ceiling: the pin's registration may return an effect that runs when the
+    /// fiber is interrupted (its `onInterrupt` cleanup); here the registration
+    /// returns nothing, so a cleanup is the caller's `.on_interrupt(...)`.
+    pub fn callback<F>(register: F) -> Self
+    where
+        F: FnOnce(Resume<A, E>) + Send + 'static,
+    {
+        Effect {
+            step: Step::Suspend(Box::new(Callback {
+                register,
+                marker: PhantomData,
+            })),
             services: crate::service::empty_services(),
             marker: PhantomData,
         }
@@ -1203,23 +1357,23 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
 
     /// `Effect.timeoutOrElse` at the pin: same race as
     /// [`timeout_option`](Self::timeout_option), but the deadline runs the
-    /// caller's own exit — which is how a timeout dies or fails on its own
-    /// terms instead of being mapped to `None`.
+    /// caller's own effect — which is how a timeout dies or fails on its own
+    /// terms instead of being mapped to `None`, and how a pending fallback can
+    /// still be interrupted.
+    ///
+    /// The fallback shares this effect's `R`, so it reads the same services.
     #[cfg(feature = "tokio")]
-    pub fn timeout_or_else<F>(
+    pub fn timeout_or_else(
         self,
         duration: crate::Duration,
-        on_timeout: F,
-    ) -> Effect<A, E, crate::service::Cons<crate::time::Clock, R>>
-    where
-        F: FnOnce() -> Exit<A, E> + Send + 'static,
-    {
+        fallback: Effect<A, E, R>,
+    ) -> Effect<A, E, crate::service::Cons<crate::time::Clock, R>> {
         let env = std::sync::Arc::clone(&self.services);
         Effect::suspend_op(
             TimeoutOrElse {
                 inner: self,
                 duration,
-                on_timeout,
+                fallback,
                 env: std::sync::Arc::clone(&env),
                 marker: PhantomData,
             },

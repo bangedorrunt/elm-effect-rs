@@ -1308,7 +1308,7 @@ ported	packages/effect/test/Effect.test.ts	1813	it.live	${form}: factory and bod
 not-applicable	packages/effect/test/Effect.test.ts	1864	it.live	a ready source value is not confused with a zero-duration timeout	Effect.timeoutOrElse and Effect.as are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the slow-fallback timeout rows have no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	1878	it.live	slow fallback cannot let the original source win after timeout	Effect.timeoutOrElse and Effect.as are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the slow-fallback timeout rows have no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	1920	it.live	source and fallback inherit caller context	Effect.timeoutOrElse, Effect.provideService, Effect.currentSpan and Effect.fiberId are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate never function is basics.rs:115 Predicate, not an Effect constructor
-unported	packages/effect/test/Effect.test.ts	1972	it.live	external interruption stops a pending fallback	
+ported	packages/effect/test/Effect.test.ts	1972	it.live	external interruption stops a pending fallback	an_external_interrupt_stops_a_pending_fallback
 ported	packages/effect/test/Effect.test.ts	2004	it.live	timeout a long computation	timeout_option_returns_none_for_a_long_computation
 ported	packages/effect/test/Effect.test.ts	2013	it.live	timeout a long computation with a failure	timeout_or_else_can_die_on_its_own_terms
 ported	packages/effect/test/Effect.test.ts	2028	it.effect	timeout repetition of uninterruptible effect	a_timeout_still_ends_an_uninterruptible_repeat
@@ -1325,7 +1325,7 @@ ported	packages/effect/test/Effect.test.ts	2167	it.effect	alternating interrupti
 not-applicable	packages/effect/test/Effect.test.ts	2189	it.live	acquireUseRelease use inherits interrupt status	Effect.acquireUseRelease, Effect.delay, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
 not-applicable	packages/effect/test/Effect.test.ts	2209	it.effect	acquireUseRelease release runs when use is interrupted	Effect.acquireUseRelease, Effect.delay, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
 ported	packages/effect/test/Effect.test.ts	2232	it.live	async can be uninterruptible	a_masked_sleep_runs_to_its_deadline_before_the_interrupt_lands
-unported	packages/effect/test/Effect.test.ts	2246	it.live	callback cannot resume on interrupt	
+ported	packages/effect/test/Effect.test.ts	2246	it.live	callback cannot resume on interrupt	a_callback_cannot_resume_after_the_interrupt
 ported	packages/effect/test/Effect.test.ts	2260	it.live	closing scope is uninterruptible	a_masked_region_closes_its_scope_before_the_interrupt_returns
 not-applicable	packages/effect/test/Effect.test.ts	2274	it.effect	AbortSignal is aborted	Effect.callback is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate callback is stream.rs:994 Stream::callback, so an AbortSignal-observing callback has no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	2284	it.effect	callback cleanup effect runs on interrupt	Effect.callback is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate callback is stream.rs:994 Stream::callback, so an AbortSignal-observing callback has no Rust constructor
