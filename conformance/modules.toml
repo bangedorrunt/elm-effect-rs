@@ -660,7 +660,7 @@ tests = ["packages/effect/test/Random.test.ts"]
 [[module]]
 path = "packages/effect/src/RcMap.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/RcMap.test.ts"]

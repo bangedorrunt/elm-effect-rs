@@ -538,3 +538,161 @@ fn invalidate_retires_a_referenced_entry_until_the_last_borrower_returns() {
         "the last borrower releases exactly once"
     );
 }
+
+/// RcMap.test.ts:188 `shares an in-flight entry`.
+///
+/// The pin hands the second caller the entry while the first caller's
+/// acquisition is still pending (`refCount` 2 before the lookup's own effect
+/// completes). This port serializes acquisition on the map, so the second
+/// caller waits for the first and then joins the cached entry: one lookup, two
+/// references, and the release runs on the last return.
+#[test]
+fn rcmap_shares_an_in_flight_acquisition_between_threads() {
+    let (started_tx, started_rx) = std::sync::mpsc::channel::<()>();
+    let (gate_tx, gate_rx) = std::sync::mpsc::channel::<()>();
+    let gate_rx = Arc::new(Mutex::new(Some(gate_rx)));
+    let lookups = counter();
+    let released = counter();
+    let (looked_up_tx, looked_up_rx) = std::sync::mpsc::channel::<()>();
+
+    let lookups_hook = lookups.clone();
+    let released_hook = released.clone();
+    let map = RcMap::<String, String, ()>::make(
+        move |key: &String| -> Result<String, ()> {
+            lookups_hook.fetch_add(1, Ordering::SeqCst);
+            started_tx.send(()).ok();
+            if let Some(gate) = gate_rx.lock().unwrap().take() {
+                gate.recv().ok();
+            }
+            Ok(key.clone())
+        },
+        move |_: String| {
+            released_hook.fetch_add(1, Ordering::SeqCst);
+        },
+    );
+    let map = Arc::new(Mutex::new(map));
+
+    let owner_map = map.clone();
+    let owner = std::thread::spawn(move || owner_map.lock().unwrap().get(&"pending".to_owned()));
+
+    started_rx.recv().expect("the owner reaches the lookup");
+
+    let borrower_map = map.clone();
+    let borrower = std::thread::spawn(move || {
+        let mut guard = borrower_map.lock().unwrap();
+        looked_up_tx.send(()).ok();
+        guard.get_option(&"pending".to_owned())
+    });
+
+    // The borrower cannot reach the map while the owner is inside `lookup`:
+    // that serialization is how this port shares one acquisition.
+    assert!(
+        looked_up_rx
+            .recv_timeout(Duration::from_millis(150))
+            .is_err(),
+        "the second caller must wait for the acquisition in flight"
+    );
+    assert_eq!(
+        lookups.load(Ordering::SeqCst),
+        1,
+        "the waiting caller must not start a second lookup"
+    );
+
+    gate_tx.send(()).ok();
+
+    assert_eq!(owner.join().unwrap(), Some(Ok("pending".to_owned())));
+    assert_eq!(borrower.join().unwrap(), Some(Ok("pending".to_owned())));
+    assert_eq!(map.lock().unwrap().ref_count(&"pending".to_owned()), 2);
+    assert_eq!(lookups.load(Ordering::SeqCst), 1);
+
+    let mut guard = map.lock().unwrap();
+    guard.release_ref(&"pending".to_owned());
+    assert_eq!(released.load(Ordering::SeqCst), 0, "one holder is left");
+    guard.release_ref(&"pending".to_owned());
+    assert_eq!(
+        released.load(Ordering::SeqCst),
+        1,
+        "the shared value is released once, on the last return"
+    );
+}
+
+/// RcMap.test.ts:551 `closing the map while an idle entry is being released`.
+///
+/// The pin's finalizer may await, so `close` overlaps a release already in
+/// flight and every finalizer still runs. Here the release hook itself is the
+/// in-flight finalizer: a blocking hook runs under the map lock, so `close`
+/// waits for it and then releases what remains, with no value released twice.
+#[test]
+fn rcmap_close_waits_out_an_in_flight_release_and_runs_every_finalizer() {
+    let clock = FakeClock::new();
+    let released = Arc::new(Mutex::new(Vec::<String>::new()));
+    let (started_tx, started_rx) = std::sync::mpsc::channel::<()>();
+    let (gate_tx, gate_rx) = std::sync::mpsc::channel::<()>();
+    let gate_rx = Arc::new(Mutex::new(Some(gate_rx)));
+    let log = released.clone();
+
+    let mut map = RcMap::<String, String, ()>::make(
+        |key: &String| Ok(key.clone()),
+        move |value: String| {
+            log.lock().unwrap().push(value.clone());
+            if value == "a" {
+                started_tx.send(()).ok();
+                if let Some(gate) = gate_rx.lock().unwrap().take() {
+                    gate.recv().ok();
+                }
+            }
+        },
+    )
+    .with_clock(clock.handle());
+    map.set_idle_ttl(Some(Duration::from_millis(1000)));
+
+    assert_eq!(map.get(&"a".to_owned()), Some(Ok("a".to_owned())));
+    assert_eq!(map.get(&"b".to_owned()), Some(Ok("b".to_owned())));
+    // Only "a" goes idle, so the timer has one entry to release and "b" is
+    // still held when close arrives.
+    map.release_ref(&"a".to_owned());
+    clock.advance(1000);
+
+    let map = Arc::new(Mutex::new(map));
+
+    let expiring_map = map.clone();
+    let expiring = std::thread::spawn(move || {
+        let mut guard = expiring_map.lock().unwrap();
+        let expired = guard.expire_idle();
+        (
+            expired,
+            guard.has(&"a".to_owned()),
+            guard.has(&"b".to_owned()),
+        )
+    });
+
+    started_rx.recv().expect("the idle timer starts releasing");
+
+    let closing_map = map.clone();
+    let (closed_tx, closed_rx) = std::sync::mpsc::channel::<()>();
+    let closing = std::thread::spawn(move || {
+        let mut guard = closing_map.lock().unwrap();
+        guard.close();
+        closed_tx.send(()).ok();
+        guard.is_closed()
+    });
+
+    assert!(
+        closed_rx.recv_timeout(Duration::from_millis(150)).is_err(),
+        "close must wait for the release already in flight"
+    );
+
+    gate_tx.send(()).ok();
+
+    assert_eq!(
+        expiring.join().unwrap(),
+        (1, false, true),
+        "the timer takes the idle key and leaves the held one"
+    );
+    assert!(closing.join().unwrap(), "close finishes after the release");
+    assert_eq!(
+        *released.lock().unwrap(),
+        vec!["a".to_owned(), "b".to_owned()],
+        "every value is released exactly once, none dropped or repeated"
+    );
+}

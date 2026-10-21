@@ -3108,7 +3108,7 @@ ported	packages/effect/test/RcMap.test.ts	54	it.each	releases only the invalidat
 ported	packages/effect/test/RcMap.test.ts	103	it.effect	an invalidated entry's idle timer cannot remove its replacement	rcmap_invalidated_entry_release_spares_the_replacement
 ported	packages/effect/test/RcMap.test.ts	150	it.effect	returns None without lookup or capacity acquisition when missing	rcmap_get_option_reads_without_lookup
 ported	packages/effect/test/RcMap.test.ts	163	it.effect	retains a ready entry until the caller scope closes	rcmap_refs_defer_the_release_until_the_last_holder
-unported	packages/effect/test/RcMap.test.ts	188	it.effect	shares an in-flight entry	
+ported	packages/effect/test/RcMap.test.ts	188	it.effect	shares an in-flight entry	rcmap_shares_an_in_flight_acquisition_between_threads
 ported	packages/effect/test/RcMap.test.ts	226	it.effect	propagates a cached failure	rcmap_failure_propagates_and_caches
 ported	packages/effect/test/RcMap.test.ts	249	it.effect	retains an idle entry and restarts its TTL on release	rcmap_idle_reuse_restarts_the_ttl
 ported	packages/effect/test/RcMap.test.ts	281	it.effect	linearizes retention before invalidation	crates/elm-effect/tests/rc_map_excuses.rs::invalidate_retires_a_referenced_entry_until_the_last_borrower_returns
@@ -3121,7 +3121,7 @@ ported	packages/effect/test/RcMap.test.ts	466	it.effect	complex key	rcmap_comple
 ported	packages/effect/test/RcMap.test.ts	479	it.effect	keys lookup	rcmap_keys_lists_retained_entries
 ported	packages/effect/test/RcMap.test.ts	492	it.effect	dynamic idleTimeToLive	rcmap_dynamic_ttl_is_read_per_key
 ported	packages/effect/test/RcMap.test.ts	522	it.effect	dynamic idleTimeToLive with touch	rcmap_dynamic_ttl_with_touch
-unported	packages/effect/test/RcMap.test.ts	551	it.effect	closing the map while an idle entry is being released runs every finalizer	
+ported	packages/effect/test/RcMap.test.ts	551	it.effect	closing the map while an idle entry is being released runs every finalizer	rcmap_close_waits_out_an_in_flight_release_and_runs_every_finalizer
 not-applicable	packages/effect/test/RcRef.test.ts	15	it.effect	deallocation	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
 not-applicable	packages/effect/test/RcRef.test.ts	66	it.effect	releasing an invalidated borrower preserves the replacement resource	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
 not-applicable	packages/effect/test/RcRef.test.ts	97	it.effect	releasing a borrower after owner shutdown does not reopen the reference	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
