@@ -1,10 +1,8 @@
-//! Request.test.ts rows that ride on direct execution: a resolver's typed
+//! Request.test.ts rows that ride on a single batch: a resolver's typed
 //! error, its defects, its interrupts, and one answer per submitted request.
 
-use std::sync::Arc;
-
-use elm_effect::{Cause, Defect, Effect, Exit, Runtime};
-use elm_effect::request::{request, Entry, Request, Resolver, TaggedResolver};
+use elm_effect::request::{Request, Resolver, TaggedResolver, request};
+use elm_effect::{Cause, Defect, Exit, Runtime};
 
 /// The rows' `GetNameById` request class: a tag plus a payload.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -21,19 +19,24 @@ impl Request for GetNameById {
     }
 }
 
-fn resolver<F>(handler: F) -> Arc<TaggedResolver<GetNameById>>
+fn resolver<F>(handler: F) -> Resolver<GetNameById>
 where
     F: Fn(&[GetNameById]) -> Result<Vec<String>, Cause<String>> + Send + Sync + 'static,
 {
-    Arc::new(TaggedResolver::<GetNameById>::new().on("GetNameById", handler))
+    TaggedResolver::<GetNameById>::new()
+        .on("GetNameById", handler)
+        .into_resolver()
 }
 
 /// Request.test.ts:204 `fromEffectTagged preserves typed errors`.
 /// The handler's typed failure is the request's failure, unchanged.
 #[test]
 fn a_tagged_resolver_preserves_its_typed_error() {
-    let effect = request(resolver(|_reqs| Err(Cause::fail("missing".to_owned()))), GetNameById { id: 1 })
-        .flip();
+    let effect = request(
+        &resolver(|_reqs| Err(Cause::fail("missing".to_owned()))),
+        GetNameById { id: 1 },
+    )
+    .flip();
 
     assert_eq!(Runtime::run(effect), Exit::Success("missing".to_owned()));
 }
@@ -44,25 +47,23 @@ fn a_tagged_resolver_preserves_its_typed_error() {
 #[test]
 fn a_tagged_resolver_preserves_its_defect() {
     let effect = request(
-        resolver(|_reqs| Err(Cause::die(Defect::new("boom")))),
+        &resolver(|_reqs| Err(Cause::die(Defect::new("boom")))),
         GetNameById { id: 1 },
     )
     .exit();
 
     let exit = match Runtime::run(effect) {
         Exit::Success(exit) => exit,
-        Exit::Failure(cause) => panic!("exit must turn the request's outcome into a value: {cause:?}"),
+        Exit::Failure(cause) => {
+            panic!("exit must turn the request's outcome into a value: {cause:?}")
+        }
     };
     let cause = match exit {
         Exit::Failure(cause) => cause,
         Exit::Success(value) => panic!("the request must fail, not answer {value:?}"),
     };
     assert_eq!(cause.reasons.len(), 1, "one reason: {cause:?}");
-    assert_eq!(
-        cause.defects().len(),
-        1,
-        "the reason is a Die: {cause:?}"
-    );
+    assert_eq!(cause.defects().len(), 1, "the reason is a Die: {cause:?}");
     assert_eq!(cause.defects()[0].message, "boom");
 }
 
@@ -72,14 +73,16 @@ fn a_tagged_resolver_preserves_its_defect() {
 #[test]
 fn a_tagged_resolver_preserves_its_interrupt() {
     let effect = request(
-        resolver(|_reqs| Err(Cause::interrupt(None))),
+        &resolver(|_reqs| Err(Cause::interrupt(None))),
         GetNameById { id: 1 },
     )
     .exit();
 
     let exit = match Runtime::run(effect) {
         Exit::Success(exit) => exit,
-        Exit::Failure(cause) => panic!("exit must turn the request's outcome into a value: {cause:?}"),
+        Exit::Failure(cause) => {
+            panic!("exit must turn the request's outcome into a value: {cause:?}")
+        }
     };
     match exit {
         Exit::Failure(cause) => {
@@ -98,13 +101,11 @@ fn a_tagged_resolver_preserves_its_interrupt() {
 fn a_tagged_resolver_answers_every_submitted_request() {
     let resolver = resolver(|reqs| Ok(reqs.iter().map(|req| req.id.to_string()).collect()));
 
-    // Effects are one-shot descriptions, so each request is built where it
-    // runs; only the resolver is shared.
-    let all = request(resolver.clone(), GetNameById { id: 1 }).flat_map(move |a| {
-        let resolver = resolver.clone();
-        request(resolver.clone(), GetNameById { id: 2 }).flat_map(move |b| {
-            request(resolver.clone(), GetNameById { id: 3 })
-                .map(move |c| vec![a.clone(), b.clone(), c])
+    let all = request(&resolver, GetNameById { id: 1 }).flat_map(move |a| {
+        let first = resolver.clone();
+        request(&first, GetNameById { id: 2 }).flat_map(move |b| {
+            let second = resolver.clone();
+            request(&second, GetNameById { id: 3 }).map(move |c| vec![a.clone(), b.clone(), c])
         })
     });
 
@@ -129,12 +130,16 @@ fn a_tagged_resolver_refuses_a_tag_nobody_claimed() {
         }
     }
 
-    let resolver = TaggedResolver::<Unclaimed>::new();
-    match resolver.run(&[Entry::new(Unclaimed)]) {
-        Ok(_) => panic!("an unclaimed tag must not be answered"),
-        Err(cause) => assert!(
+    let resolver = TaggedResolver::<Unclaimed>::new().into_resolver();
+    let exit = match Runtime::run(request(&resolver, Unclaimed).exit()) {
+        Exit::Success(exit) => exit,
+        Exit::Failure(cause) => panic!("exit turns the outcome into a value: {cause:?}"),
+    };
+    match exit {
+        Exit::Failure(cause) => assert!(
             cause.defects()[0].message.contains("Unclaimed"),
             "the defect names the tag: {cause:?}"
         ),
+        Exit::Success(()) => panic!("an unclaimed tag must not be answered"),
     }
 }

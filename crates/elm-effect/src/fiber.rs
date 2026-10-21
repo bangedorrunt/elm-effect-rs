@@ -256,6 +256,13 @@ thread_local! {
     static CURRENT_FIBER: RefCell<Option<Arc<FiberControl>>> = const { RefCell::new(None) };
 }
 
+/// The fiber running on this thread, if any. A request waits for its answer
+/// through this control block: the interrupt flag is the only way a parked
+/// caller learns it was interrupted.
+pub(crate) fn current() -> Option<Arc<FiberControl>> {
+    CURRENT_FIBER.with(|c| c.borrow().clone())
+}
+
 /// Restores the previous thread-local fiber on drop, so a panic anywhere in
 /// the task still clears the registration.
 pub(crate) struct CurrentGuard {
