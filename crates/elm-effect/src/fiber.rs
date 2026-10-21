@@ -170,12 +170,19 @@ impl FiberControl {
         MaskGuard { control: self }
     }
 
-    /// `restore` at the pin: lower the depth and hand back a guard that raises
-    /// it on drop, so a panic inside an interruptible region cannot leave the
-    /// fiber permanently unmasked.
+    /// `restore` at the pin: make the fiber interruptible for one region and
+    /// hand back a guard that puts the previous depth back on drop.
+    ///
+    /// Swaps to zero rather than decrementing because the pin models this as a
+    /// flag, not a count: `interruptible` inside two nested `uninterruptible`
+    /// regions is still interruptible (`alternating interruptibility` needs
+    /// exactly that). Decrementing would leave depth 1 and stay masked.
     pub(crate) fn unmask_guard(&self) -> UnmaskGuard<'_> {
-        self.unmask();
-        UnmaskGuard { control: self }
+        let previous = self.depth.swap(0, Ordering::SeqCst);
+        UnmaskGuard {
+            control: self,
+            previous,
+        }
     }
 
     /// Register this fiber as the current one for this thread until the
@@ -227,15 +234,16 @@ impl Drop for MaskGuard<'_> {
     }
 }
 
-/// Raises the interruptibility depth when dropped: the other half of
+/// Puts the interruptibility depth back when dropped: the other half of
 /// [`FiberControl::unmask_guard`].
 pub(crate) struct UnmaskGuard<'a> {
     control: &'a FiberControl,
+    previous: usize,
 }
 
 impl Drop for UnmaskGuard<'_> {
     fn drop(&mut self) {
-        self.control.mask();
+        self.control.depth.store(self.previous, Ordering::SeqCst);
     }
 }
 

@@ -333,6 +333,159 @@ where
     all(rt, bodies, concurrency)
 }
 
+/// `Effect.all` at the pin, run from inside a fiber: the same fan-out and
+/// fail-fast as [`all`], with the caller's fiber as the parent.
+///
+/// The two things [`all`] cannot do are what an interrupt row needs: the
+/// workers are children (so an interrupt of the parent reaches them) and the
+/// caller notices its own interrupt between deliveries, so a batch ends
+/// `interrupted` instead of returning whatever it had collected.
+///
+/// Fail-fast rides on the result channel, not on join order: a failing body
+/// that finishes early interrupts the siblings that are still running, even
+/// while an earlier body has not answered yet.
+pub fn all_in<A, E>(
+    ctx: &Ctx,
+    bodies: Vec<Body<A, E>>,
+    concurrency: Concurrency,
+) -> Exit<Vec<A>, E>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    match concurrency {
+        Concurrency::Sequential | Concurrency::Bounded(0) => all_sequential_in(ctx, bodies),
+        Concurrency::Bounded(n) => all_bounded_in(ctx, bodies, n),
+        Concurrency::Unbounded => all_bounded_in(ctx, bodies, usize::MAX),
+    }
+}
+
+fn all_sequential_in<A, E>(ctx: &Ctx, bodies: Vec<Body<A, E>>) -> Exit<Vec<A>, E>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    let mut out = Vec::with_capacity(bodies.len());
+    for body in bodies {
+        if ctx.is_interrupted() {
+            return Exit::Failure(Cause::interrupt(None));
+        }
+        match ctx.fork_child(body, ForkOpts::immediate()).join() {
+            Exit::Success(a) => out.push(a),
+            Exit::Failure(cause) => return Exit::Failure(cause),
+        }
+    }
+    Exit::Success(out)
+}
+
+fn all_bounded_in<A, E>(ctx: &Ctx, bodies: Vec<Body<A, E>>, bound: usize) -> Exit<Vec<A>, E>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    let total = bodies.len();
+    if total == 0 {
+        return Exit::Success(Vec::new());
+    }
+    let bound = bound.min(total).max(1);
+    enum Done<A, E> {
+        Ok(usize, A),
+        Failed(usize, Cause<E>),
+    }
+    let (tx, rx) = std::sync::mpsc::channel::<Done<A, E>>();
+    let mut queue: std::collections::VecDeque<(usize, Body<A, E>)> =
+        bodies.into_iter().enumerate().collect();
+    let mut live: std::collections::HashMap<usize, FiberHandle<(), std::convert::Infallible>> =
+        std::collections::HashMap::new();
+    let mut results: Vec<Option<A>> = (0..total).map(|_| None).collect();
+    let mut finished = 0usize;
+    // How many bodies were actually started. The loop below ends on this, not
+    // on `total`: after a failure the queued bodies are dropped, so waiting
+    // for `total` answers would wait forever for workers that never existed.
+    let mut launched = 0usize;
+    let mut failure: Option<Cause<E>> = None;
+
+    let mut launch_one = |queue: &mut std::collections::VecDeque<(usize, Body<A, E>)>,
+                          live: &mut std::collections::HashMap<
+        usize,
+        FiberHandle<(), std::convert::Infallible>,
+    >| -> bool {
+        let Some((index, body)) = queue.pop_front() else {
+            return false;
+        };
+        let tx = tx.clone();
+        let handle = ctx.fork_child(
+            move |c: &Ctx| {
+                let exit = body(c);
+                let _ = tx.send(match exit {
+                    Exit::Success(a) => Done::Ok(index, a),
+                    Exit::Failure(cause) => Done::Failed(index, cause),
+                });
+                Exit::<(), std::convert::Infallible>::succeed(())
+            },
+            ForkOpts::immediate(),
+        );
+        live.insert(index, handle);
+        true
+    };
+
+    while live.len() < bound && launch_one(&mut queue, &mut live) {
+        launched += 1;
+    }
+
+    while finished < launched {
+        if ctx.is_interrupted() {
+            for handle in live.values() {
+                handle.interrupt_unsafe();
+            }
+            for (_, handle) in live.drain() {
+                let _ = handle.join();
+            }
+            return Exit::Failure(Cause::interrupt(None));
+        }
+        match rx.recv_timeout(std::time::Duration::from_millis(5)) {
+            Ok(Done::Ok(index, value)) => {
+                live.remove(&index);
+                if failure.is_none() {
+                    results[index] = Some(value);
+                    if launch_one(&mut queue, &mut live) {
+                        launched += 1;
+                    }
+                }
+                finished += 1;
+            }
+            Ok(Done::Failed(index, cause)) => {
+                live.remove(&index);
+                if failure.is_none() {
+                    failure = Some(cause);
+                    for handle in live.values() {
+                        handle.interrupt_unsafe();
+                    }
+                }
+                finished += 1;
+            }
+            // Nothing delivered in this slice: loop so the interrupt check
+            // above can run while the batch is quiet, and so a queued body
+            // starts as soon as a slot frees.
+            Err(_) => {
+                while live.len() < bound && launch_one(&mut queue, &mut live) {
+                    launched += 1;
+                }
+            }
+        }
+    }
+
+    match failure {
+        Some(cause) => Exit::Failure(cause),
+        None => Exit::Success(
+            results
+                .into_iter()
+                .map(|slot| slot.expect("every finished body recorded its value"))
+                .collect(),
+        ),
+    }
+}
+
 /// `Effect.forEach` at the pin, run from inside a fiber: same fan-out as
 /// [`for_each`], with the caller's fiber as the parent.
 ///

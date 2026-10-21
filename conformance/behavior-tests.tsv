@@ -1248,7 +1248,7 @@ ported	packages/effect/test/Effect.test.ts	968	it.effect	record discard	all_disc
 ported	packages/effect/test/Effect.test.ts	978	it.effect	iterable	all_runs_over_any_iterable
 ported	packages/effect/test/Effect.test.ts	990	it.effect	tuple result mode	all_result_mode_collects_a_failure_as_a_value
 ported	packages/effect/test/Effect.test.ts	1021	it.effect	record result mode	all_result_mode_keys_its_results
-unported	packages/effect/test/Effect.test.ts	1039	it.effect	concurrency interrupts started siblings on failure	
+ported	packages/effect/test/Effect.test.ts	1039	it.effect	concurrency interrupts started siblings on failure	all_concurrency_interrupts_started_siblings_on_failure
 ported	packages/effect/test/Effect.test.ts	1070	it.effect	collects only successes	partition_collects_only_successes
 ported	packages/effect/test/Effect.test.ts	1078	it.effect	collects only failures	partition_collects_only_failures
 ported	packages/effect/test/Effect.test.ts	1086	it.effect	collects successes and failures	partition_collects_successes_and_failures
@@ -1310,9 +1310,9 @@ not-applicable	packages/effect/test/Effect.test.ts	1878	it.live	slow fallback ca
 not-applicable	packages/effect/test/Effect.test.ts	1920	it.live	source and fallback inherit caller context	Effect.timeoutOrElse, Effect.provideService, Effect.currentSpan and Effect.fiberId are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate never function is basics.rs:115 Predicate, not an Effect constructor
 unported	packages/effect/test/Effect.test.ts	1972	it.live	external interruption stops a pending fallback	
 ported	packages/effect/test/Effect.test.ts	2004	it.live	timeout a long computation	timeout_option_returns_none_for_a_long_computation
-unported	packages/effect/test/Effect.test.ts	2013	it.live	timeout a long computation with a failure	
-unported	packages/effect/test/Effect.test.ts	2028	it.effect	timeout repetition of uninterruptible effect	
-unported	packages/effect/test/Effect.test.ts	2041	it.effect	timeout in uninterruptible region	
+ported	packages/effect/test/Effect.test.ts	2013	it.live	timeout a long computation with a failure	timeout_or_else_can_die_on_its_own_terms
+ported	packages/effect/test/Effect.test.ts	2028	it.effect	timeout repetition of uninterruptible effect	a_timeout_still_ends_an_uninterruptible_repeat
+ported	packages/effect/test/Effect.test.ts	2041	it.effect	timeout in uninterruptible region	timeout_inside_an_uninterruptible_region_still_completes
 ported	packages/effect/test/Effect.test.ts	2049	it.effect	timeout produces a useful error message	timeout_fail_renders_seconds_and_millis
 ported	packages/effect/test/Effect.test.ts	2064	it.live	timeout a long computation	timeout_fail_reports_the_pins_message
 ported	packages/effect/test/Effect.test.ts	2077	it.effect	timeout interrupts the effect	timeout_fail_interrupts_the_effect
@@ -1392,10 +1392,10 @@ not-applicable	packages/effect/test/Effect.test.ts	3296	it	passes defects throug
 not-applicable	packages/effect/test/Effect.test.ts	3306	it	passes only the value to callbacks regardless of declared arity	JS-only calling convention: the row reads the callback's arguments.length and this, which a Rust closure cannot have (arity is checked at compile time); the port's flat_map is crates/elm-effect/src/effect.rs:734, and there is no observable behavior to port.
 not-applicable	packages/effect/test/Effect.test.ts	3316	it.effect	concurrent: false	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns), and forkChild exists only as the runtime method at fiber.rs:243, not the effect-last form
 not-applicable	packages/effect/test/Effect.test.ts	3334	it.effect	concurrent: true	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns), and forkChild exists only as the runtime method at fiber.rs:243, not the effect-last form
-unported	packages/effect/test/Effect.test.ts	3352	it.effect	concurrent: true interrupts the other side on failure	
+ported	packages/effect/test/Effect.test.ts	3352	it.effect	concurrent: true interrupts the other side on failure	concurrent_zip_interrupts_the_other_side_on_failure
 not-applicable	packages/effect/test/Effect.test.ts	3369	it.effect	concurrent: false	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns), and forkChild exists only as the runtime method at fiber.rs:243, not the effect-last form
 not-applicable	packages/effect/test/Effect.test.ts	3387	it.effect	concurrent: true	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns), and forkChild exists only as the runtime method at fiber.rs:243, not the effect-last form
-unported	packages/effect/test/Effect.test.ts	3405	it.effect	concurrent: true interrupts the other side on failure	
+ported	packages/effect/test/Effect.test.ts	3405	it.effect	concurrent: true interrupts the other side on failure	concurrent_zip_with_interrupts_the_other_side_on_failure
 ported	packages/effect/test/Effect.test.ts	3424	it.effect	first argument as success	catch_cause_filter_first_argument_as_success
 ported	packages/effect/test/Effect.test.ts	3429	it.effect	first argument as failure and predicate return false	catch_cause_filter_declined_cause_is_re_raised
 ported	packages/effect/test/Effect.test.ts	3436	it.effect	first argument as failure and predicate return true	catch_cause_filter_accepted_cause_recovers_through_the_handler

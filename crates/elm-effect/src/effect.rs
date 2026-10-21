@@ -452,6 +452,279 @@ where
     }
 }
 
+/// `Effect.zip(..., { concurrent: true })` as a step.
+#[cfg(feature = "tokio")]
+struct ZipConcurrent<A, B, E, RA, RB>
+where
+    A: Send + 'static,
+    B: Send + 'static,
+    E: Send + 'static,
+    RA: Requirement,
+    RB: Requirement,
+{
+    left: Effect<A, E, RA>,
+    right: Effect<B, E, RB>,
+    env: crate::service::Services,
+    marker: PhantomData<fn() -> (A, B)>,
+}
+
+#[cfg(feature = "tokio")]
+impl<A, B, E, RA, RB> ErasedStep<(A, B), E> for ZipConcurrent<A, B, E, RA, RB>
+where
+    A: Send + 'static,
+    B: Send + 'static,
+    E: Send + 'static,
+    RA: Requirement,
+    RB: Requirement,
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<(A, B), Cause<E>> {
+        let Self {
+            left,
+            right,
+            env,
+            ..
+        } = *self;
+        let services = crate::service::merged_services(scope, &env);
+        let Some(fiber) = ambient_fiber(&services) else {
+            return Err(Cause::die(Defect::new(
+                "zip concurrent outside a fiber: run the effect through Ctx::spawn_effect or Runtime::spawn_effect",
+            )));
+        };
+        enum Leg<A, B, E> {
+            Left(Result<A, Cause<E>>),
+            Right(Result<B, Cause<E>>),
+        }
+        let (tx, rx) = std::sync::mpsc::channel::<Leg<A, B, E>>();
+        let tx_left = tx.clone();
+        let left_handle = fiber.fork_child(
+            move |c| {
+                let ambient = c.services_with_fiber();
+                let _ = tx_left.send(Leg::Left(left.run_sync_with(&ambient)));
+                Exit::<(), std::convert::Infallible>::succeed(())
+            },
+            crate::ForkOpts::immediate(),
+        );
+        let right_handle = fiber.fork_child(
+            move |c| {
+                let ambient = c.services_with_fiber();
+                let _ = tx.send(Leg::Right(right.run_sync_with(&ambient)));
+                Exit::<(), std::convert::Infallible>::succeed(())
+            },
+            crate::ForkOpts::immediate(),
+        );
+
+        // First answer decides: a failure settles the pair and stops the
+        // sibling; a success waits for the other leg's value.
+        match rx.recv().expect("a zip leg always answers") {
+            Leg::Left(Err(cause)) | Leg::Right(Err(cause)) => {
+                left_handle.interrupt();
+                right_handle.interrupt();
+                let _ = left_handle.join();
+                let _ = right_handle.join();
+                Err(cause)
+            }
+            Leg::Left(Ok(a)) => match rx.recv().expect("the other zip leg answers") {
+                Leg::Right(Ok(b)) => {
+                    let _ = left_handle.join();
+                    let _ = right_handle.join();
+                    Ok((a, b))
+                }
+                Leg::Right(Err(cause)) => {
+                    let _ = left_handle.join();
+                    let _ = right_handle.join();
+                    Err(cause)
+                }
+                Leg::Left(_) => unreachable!("the left leg answers once"),
+            },
+            Leg::Right(Ok(b)) => match rx.recv().expect("the other zip leg answers") {
+                Leg::Left(Ok(a)) => {
+                    let _ = left_handle.join();
+                    let _ = right_handle.join();
+                    Ok((a, b))
+                }
+                Leg::Left(Err(cause)) => {
+                    let _ = left_handle.join();
+                    let _ = right_handle.join();
+                    Err(cause)
+                }
+                Leg::Right(_) => unreachable!("the right leg answers once"),
+            },
+        }
+    }
+}
+
+/// The clock in scope, or the wall clock when nothing provided one.
+#[cfg(feature = "tokio")]
+fn ambient_clock(scope: &crate::service::Services) -> std::sync::Arc<dyn crate::ClockImpl> {
+    use crate::ServiceTag;
+    scope
+        .get_tag(<crate::time::Clock as ServiceTag>::ID)
+        .and_then(|any| {
+            any.downcast_ref::<std::sync::Arc<dyn crate::ClockImpl>>()
+                .cloned()
+        })
+        .unwrap_or_else(|| std::sync::Arc::new(crate::time::SystemClock) as std::sync::Arc<dyn crate::ClockImpl>)
+}
+
+/// Race an effect against the clock's deadline. `Ok(Some(value))` when the
+/// effect finished first, `Ok(None)` when the deadline won, and the effect's
+/// own cause when it failed. The loser is interrupted and joined before this
+/// returns, so its finalizers have run by the time the caller sees the answer.
+#[cfg(feature = "tokio")]
+fn race_deadline<A, E, R>(
+    inner: Effect<A, E, R>,
+    duration: crate::Duration,
+    services: &crate::service::Services,
+) -> Result<Option<A>, Cause<E>>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+{
+    let Some(fiber) = ambient_fiber(services) else {
+        return Err(Cause::die(Defect::new(
+            "timeout outside a fiber: run the effect through Ctx::spawn_effect or Runtime::spawn_effect",
+        )));
+    };
+    let clock = ambient_clock(services);
+    let deadline = clock
+        .now_millis()
+        .saturating_add(duration.as_millis() as u64);
+    let child = fiber.fork_child(
+        move |c| {
+            let ambient = c.services_with_fiber();
+            match inner.run_sync_with(&ambient) {
+                Ok(value) => Exit::Success(value),
+                Err(cause) => Exit::Failure(cause),
+            }
+        },
+        crate::ForkOpts::immediate(),
+    );
+    loop {
+        if child.is_done() {
+            return match child.join() {
+                Exit::Success(value) => Ok(Some(value)),
+                Exit::Failure(cause) => Err(cause),
+            };
+        }
+        if fiber.is_interrupted() && !fiber.is_masked() {
+            child.interrupt();
+            let _ = child.join();
+            return Err(Cause::interrupt(Some(fiber.id())));
+        }
+        if clock.now_millis() >= deadline {
+            child.interrupt();
+            let _ = child.join();
+            return Ok(None);
+        }
+        // ponytail: 1ms poll; the clock has no notification channel to wait on.
+        std::thread::park_timeout(std::time::Duration::from_millis(1));
+    }
+}
+
+/// `Effect.timeoutOption` as a step.
+#[cfg(feature = "tokio")]
+struct TimeoutOption<A: Send + 'static, E: Send + 'static, R: Requirement> {
+    inner: Effect<A, E, R>,
+    duration: crate::Duration,
+    env: crate::service::Services,
+    marker: PhantomData<fn() -> (A, E)>,
+}
+
+#[cfg(feature = "tokio")]
+impl<A, E, R> ErasedStep<Option<A>, E> for TimeoutOption<A, E, R>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<Option<A>, Cause<E>> {
+        let Self {
+            inner,
+            duration,
+            env,
+            ..
+        } = *self;
+        let services = crate::service::merged_services(scope, &env);
+        race_deadline(inner, duration, &services)
+    }
+}
+
+/// `Effect.timeoutOrElse` as a step.
+#[cfg(feature = "tokio")]
+struct TimeoutOrElse<A: Send + 'static, E: Send + 'static, R: Requirement, F> {
+    inner: Effect<A, E, R>,
+    duration: crate::Duration,
+    on_timeout: F,
+    env: crate::service::Services,
+    marker: PhantomData<fn() -> (A, E)>,
+}
+
+#[cfg(feature = "tokio")]
+impl<A, E, R, F> ErasedStep<A, E> for TimeoutOrElse<A, E, R, F>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+    F: FnOnce() -> Exit<A, E> + Send + 'static,
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
+        let Self {
+            inner,
+            duration,
+            on_timeout,
+            env,
+            ..
+        } = *self;
+        let services = crate::service::merged_services(scope, &env);
+        match race_deadline(inner, duration, &services) {
+            Ok(Some(value)) => Ok(value),
+            Ok(None) => match on_timeout() {
+                Exit::Success(value) => Ok(value),
+                Exit::Failure(cause) => Err(cause),
+            },
+            Err(cause) => Err(cause),
+        }
+    }
+}
+
+/// `Effect.forever` as a step: rebuild and run until a run fails, with the
+/// repeat boundary as the interrupt delivery point.
+#[cfg(feature = "tokio")]
+struct Forever<A: Send + 'static, E: Send + 'static, R: Requirement, F> {
+    build: F,
+    env: crate::service::Services,
+    marker: PhantomData<fn() -> (A, E, R)>,
+}
+
+#[cfg(feature = "tokio")]
+impl<A, E, R, F> ErasedStep<A, E> for Forever<A, E, R, F>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+    F: FnMut() -> Effect<A, E, R> + Send + 'static,
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
+        let Self {
+            mut build, env, ..
+        } = *self;
+        let services = crate::service::merged_services(scope, &env);
+        loop {
+            if let Some(fiber) = ambient_fiber(&services)
+                && fiber.is_interrupted()
+                && !fiber.is_masked()
+            {
+                return Err(Cause::interrupt(Some(fiber.id())));
+            }
+            match build().run_sync_with(&services) {
+                Ok(_) => continue,
+                Err(cause) => return Err(cause),
+            }
+        }
+    }
+}
+
 /// The handle `Effect::uninterruptible_mask` gives its callback: `restore` at
 /// the pin. Copy so a callback can use it in more than one arm.
 #[cfg(feature = "tokio")]
@@ -827,6 +1100,100 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
+    /// `Effect.zip(..., { concurrent: true })` at the pin: run both legs at
+    /// once and pair their values.
+    ///
+    /// The first failure interrupts the other leg and wins, which is the
+    /// difference from the sequential `zip` shape: a leg that never ends
+    /// cannot keep a failed sibling from settling the run.
+    #[cfg(feature = "tokio")]
+    pub fn zip_concurrent<B, R2>(self, other: Effect<B, E, R2>) -> Effect<(A, B), E, R>
+    where
+        B: Send + 'static,
+        R2: Requirement,
+    {
+        let env = std::sync::Arc::clone(&self.services);
+        Effect::suspend_op(
+            ZipConcurrent {
+                left: self,
+                right: other,
+                env: std::sync::Arc::clone(&env),
+                marker: PhantomData,
+            },
+            env,
+        )
+    }
+
+    /// `Effect.timeoutOption` at the pin: run the effect against the clock
+    /// service's deadline. `Some(value)` when it finishes first, `None` when
+    /// the deadline wins (the body is interrupted and released before this
+    /// returns).
+    #[cfg(feature = "tokio")]
+    pub fn timeout_option(
+        self,
+        duration: crate::Duration,
+    ) -> Effect<Option<A>, E, crate::service::Cons<crate::time::Clock, R>> {
+        let env = std::sync::Arc::clone(&self.services);
+        Effect::suspend_op(
+            TimeoutOption {
+                inner: self,
+                duration,
+                env: std::sync::Arc::clone(&env),
+                marker: PhantomData,
+            },
+            env,
+        )
+    }
+
+    /// `Effect.timeoutOrElse` at the pin: same race as
+    /// [`timeout_option`](Self::timeout_option), but the deadline runs the
+    /// caller's own exit — which is how a timeout dies or fails on its own
+    /// terms instead of being mapped to `None`.
+    #[cfg(feature = "tokio")]
+    pub fn timeout_or_else<F>(
+        self,
+        duration: crate::Duration,
+        on_timeout: F,
+    ) -> Effect<A, E, crate::service::Cons<crate::time::Clock, R>>
+    where
+        F: FnOnce() -> Exit<A, E> + Send + 'static,
+    {
+        let env = std::sync::Arc::clone(&self.services);
+        Effect::suspend_op(
+            TimeoutOrElse {
+                inner: self,
+                duration,
+                on_timeout,
+                env: std::sync::Arc::clone(&env),
+                marker: PhantomData,
+            },
+            env,
+        )
+    }
+
+    /// `Effect.forever` at the pin: run the effect the factory builds, over
+    /// and over, until one run fails.
+    ///
+    /// A factory rather than a value because this port's descriptions are
+    /// one-shot (a step owns its continuation); the pin can reuse a value.
+    ///
+    /// The repeat boundary is where an interrupt lands: a body may be
+    /// uninterruptible, but it cannot make the next iteration start.
+    pub fn forever<F>(build: F) -> Self
+    where
+        F: FnMut() -> Effect<A, E, R> + Send + 'static,
+    {
+        let env = crate::service::empty_services();
+        Effect::suspend_op(
+            Forever {
+                build,
+                env: std::sync::Arc::clone(&env),
+                marker: PhantomData,
+            },
+            env,
+        )
+    }
+
     /// `Effect.uninterruptibleMask` at the pin: run `f` masked and hand it a
     /// [`Restore`] that puts one effect back in reach of an interrupt.
     ///
@@ -1056,6 +1423,64 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
                 env: std::sync::Arc::clone(&env),
             },
             env,
+        )
+    }
+
+    /// `Effect.onInterrupt` at the pin: run `f` when the effect ends
+    /// interrupted, then pass the exit through unchanged.
+    ///
+    /// Built on `on_exit` on purpose: an interrupt requested from outside ends
+    /// the run without offering it to `catchCause`, but the exit still says
+    /// it was interrupted, which is all this combinator needs.
+    pub fn on_interrupt<F>(self, f: F) -> Self
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        let slot = std::sync::Arc::new(std::sync::Mutex::new(Some(f)));
+        self.on_exit(move |exit| {
+            if let Exit::Failure(cause) = exit
+                && cause.is_interrupted()
+                && let Some(callback) = slot.lock().unwrap().take()
+            {
+                callback();
+            }
+        })
+    }
+
+    /// `Effect.sandbox` at the pin: reify the whole cause as a typed failure,
+    /// so a caller can inspect a defect or an interrupt through the error
+    /// channel.
+    ///
+    /// Deliberately on `fold_e`, not `catch_cause`: sandbox is the spelling
+    /// that *must* see an interrupt, which is the opposite of the rule
+    /// [`CatchCause`] enforces.
+    pub fn sandbox(self) -> Effect<A, Cause<E>, R>
+    where
+        E: Send + 'static,
+    {
+        self.fold_e(Effect::succeed, Effect::fail)
+    }
+
+    /// `Effect.flip` at the pin: swap the success and the typed failure.
+    ///
+    /// Only a clean single typed failure becomes a value; a cause that also
+    /// carries a defect or an interrupt has no `E` to hand back, so it stays
+    /// a failure and names the reason it could not be flipped.
+    pub fn flip(self) -> Effect<E, A, R>
+    where
+        A: Send + Clone + 'static,
+        E: Send + Clone + 'static,
+    {
+        self.fold_e(
+            |value: A| Effect::<E, A, R>::fail(value),
+            |cause: Cause<E>| match cause.failure().cloned() {
+                Some(error) => Effect::<E, A, R>::succeed(error),
+                // Defects and interrupts have no `E` to hand back, so the flip
+                // cannot be made: say so instead of inventing a value.
+                None => Effect::<E, A, R>::die(Defect::new(
+                    "flip applied to a cause with no single typed failure",
+                )),
+            },
         )
     }
 

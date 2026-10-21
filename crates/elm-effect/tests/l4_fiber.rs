@@ -3,8 +3,9 @@
 #![cfg(feature = "tokio")]
 
 use elm_effect::{
-    Cause, ClockImpl, Concurrency, Defect, Deferred, Effect, Exit, FiberHandle, FiberId, ForkOpts,
-    Runtime, SleepOutcome, TestClock, for_each_in,
+    Body, Cause, Clock as ClockTag, ClockImpl, Concurrency, Ctx, Defect, Deferred, Effect, Exit,
+    FiberHandle, FiberId, ForkOpts, Runtime, SleepOutcome, SystemClock, TestClock, all_in,
+    for_each_in,
 };
 use elm_effect::Duration as EffectDuration;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -1244,6 +1245,181 @@ fn for_each_unbounded_failure_cancels_the_slower_workers() {
         vec![1u8, 2, 3],
         "the siblings still in flight never record"
     );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :1039 `concurrency interrupts started siblings on failure`.
+/// The window is three: the failing item and the two beside it start, the
+/// fourth never does, and the failure interrupts the pair that is running.
+#[test]
+fn all_concurrency_interrupts_started_siblings_on_failure() {
+    let started = Arc::new(Mutex::new(Vec::<u8>::new()));
+    let interrupted = Arc::new(Mutex::new(Vec::<u8>::new()));
+    let rt = Runtime::new();
+
+    let bodies: Vec<Body<u8, String>> = (1u8..=4)
+        .map(|i| {
+            let started = started.clone();
+            let interrupted = interrupted.clone();
+            let body: Body<u8, String> = Box::new(move |ctx: &Ctx| {
+                if i == 2 {
+                    std::thread::sleep(Duration::from_millis(100));
+                    return Exit::<u8, String>::fail("boom".to_owned());
+                }
+                started.lock().unwrap().push(i);
+                let deadline = Instant::now() + Duration::from_millis(500);
+                while Instant::now() < deadline {
+                    if ctx.is_interrupted() {
+                        interrupted.lock().unwrap().push(i);
+                        return Exit::Failure(Cause::interrupt(None));
+                    }
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                Exit::Success(i)
+            });
+            body
+        })
+        .collect();
+
+    let fiber = rt.fork_detach_with(
+        move |ctx| all_in(ctx, bodies, Concurrency::Bounded(3)),
+        ForkOpts::immediate(),
+    );
+    let exit = fiber.join();
+
+    match exit {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"boom".to_owned())),
+        Exit::Success(values) => panic!("expected the batch to fail, got {values:?}"),
+    }
+    assert_eq!(*started.lock().unwrap(), vec![1u8, 3], "only the window starts");
+    // Both interrupted siblings notice concurrently, so the order they record
+    // in is arbitrary; the row pins which siblings were interrupted.
+    let mut noticed = interrupted.lock().unwrap().clone();
+    noticed.sort_unstable();
+    assert_eq!(
+        noticed,
+        vec![1u8, 3],
+        "the started siblings are interrupted"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :3352 `concurrent: true interrupts the other side on failure`.
+/// A failing leg settles the pair and stops the leg that would never end.
+#[test]
+fn concurrent_zip_interrupts_the_other_side_on_failure() {
+    let interrupted = flag();
+    let flag = interrupted.clone();
+
+    let left = Effect::<(), String>::never().on_interrupt(move || {
+        flag.store(true, Ordering::SeqCst);
+    });
+    let right = Effect::<(), String>::sync(|| {
+        std::thread::sleep(Duration::from_millis(10));
+    })
+    .flat_map(|_| Effect::<(), String>::fail("boom".to_owned()));
+
+    let (rt, fiber) = spawn_effect_any(left.zip_concurrent(right));
+    let exit = fiber.join();
+
+    assert_eq!(exit, Exit::<((), ()), String>::fail("boom".to_owned()));
+    assert!(
+        is_set(&interrupted),
+        "the endless leg is interrupted when its sibling fails"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :3405 `concurrent: true interrupts the other side on failure`, the
+/// `zipWith` spelling. The pairing is the same race; the port combines the
+/// two values with `map` rather than a separate `zipWith` entry point.
+#[test]
+fn concurrent_zip_with_interrupts_the_other_side_on_failure() {
+    let interrupted = flag();
+    let flag = interrupted.clone();
+
+    let left = Effect::<(), String>::sync(|| {
+        std::thread::sleep(Duration::from_millis(10));
+    })
+    .flat_map(|_| Effect::<(), String>::fail("boom".to_owned()));
+    let right = Effect::<(), String>::never().on_interrupt(move || {
+        flag.store(true, Ordering::SeqCst);
+    });
+
+    let combined = left
+        .zip_concurrent(right)
+        .map(|(a, b)| format!("{a:?}{b:?}"));
+    let (rt, fiber) = spawn_effect_any(combined);
+    let exit = fiber.join();
+
+    assert_eq!(exit, Exit::<String, String>::fail("boom".to_owned()));
+    assert!(
+        is_set(&interrupted),
+        "the endless leg is interrupted when its sibling fails"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2013 `timeout a long computation with a failure`.
+/// The deadline runs the caller's own exit — a defect here — and `sandbox` +
+/// `flip` is how the row reads that defect back as a value.
+#[test]
+fn timeout_or_else_can_die_on_its_own_terms() {
+    let effect = Effect::<bool, String>::sync(|| {
+        std::thread::sleep(Duration::from_millis(200));
+        true
+    })
+    .timeout_or_else(EffectDuration::from_millis(10), || {
+        Exit::Failure(Cause::die(Defect::new("boom")))
+    })
+    .sandbox()
+    .flip()
+    .provide::<ClockTag, ()>(Arc::new(SystemClock) as Arc<dyn ClockImpl>);
+
+    let (rt, fiber) = spawn_effect_any(effect);
+    let exit = fiber.join();
+
+    assert_eq!(
+        exit,
+        Exit::Success(Cause::<String>::die(Defect::new("boom"))),
+        "the deadline's own defect is what the caller sees"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2028 `timeout repetition of uninterruptible effect`.
+/// The repeat boundary is the delivery point: the body is uninterruptible,
+/// but it cannot stop the deadline from ending the batch.
+#[test]
+fn a_timeout_still_ends_an_uninterruptible_repeat() {
+    let clock = Arc::new(TestClock::new());
+    let effect = Effect::<(), String>::forever(|| {
+        Effect::<(), String>::succeed(()).uninterruptible()
+    })
+    .timeout_option(EffectDuration::from_millis(10))
+    .provide::<ClockTag, ()>(clock.clone() as Arc<dyn ClockImpl>);
+
+    let (rt, fiber) = spawn_effect_any(effect);
+    // Let the deadline be taken from the virtual clock before it moves.
+    std::thread::sleep(Duration::from_millis(20));
+    clock.adjust(EffectDuration::from_millis(10));
+
+    assert_eq!(fiber.join(), Exit::Success(None));
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2041 `timeout in uninterruptible region`.
+/// The region's mask does not delay a body that finishes first, so the
+/// timeout answers `Some` and completes long before its 20s deadline.
+#[test]
+fn timeout_inside_an_uninterruptible_region_still_completes() {
+    let effect = Effect::<(), String>::succeed(())
+        .timeout_option(EffectDuration::from_secs(20))
+        .provide::<ClockTag, ()>(Arc::new(SystemClock) as Arc<dyn ClockImpl>)
+        .uninterruptible();
+
+    let (rt, fiber) = spawn_effect_any(effect);
+    assert_eq!(fiber.join(), Exit::Success(Some(())));
     assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
 
