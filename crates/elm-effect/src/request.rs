@@ -51,7 +51,9 @@ pub trait Request: Clone + Send + Sync + 'static {
 
 // Entry
 
-type Hook<R> = Box<dyn FnOnce(&Exit<<R as Request>::Success, <R as Request>::Error>) + Send>;
+type Hook<R> =
+    Arc<dyn Fn(&Exit<<R as Request>::Success, <R as Request>::Error>) + Send + Sync>;
+type Abandon = Arc<dyn Fn() + Send + Sync>;
 
 struct EntryState<R: Request> {
     exit: Mutex<Option<Exit<R::Success, R::Error>>>,
@@ -61,6 +63,13 @@ struct EntryState<R: Request> {
     /// Set when a second caller coalesced onto this entry: withdrawing one
     /// caller must not withdraw an answer the other still waits for.
     shared: AtomicBool,
+    /// Set by a resolver that answers twice on purpose (the persisted
+    /// resolver's stale-while-revalidate refresh): the second answer replaces
+    /// the first instead of being ignored.
+    revisable: AtomicBool,
+    /// What to tell the batch when this entry is withdrawn: a batch with no
+    /// live entries left stops its delay instead of waiting it out.
+    abandon: Mutex<Option<Abandon>>,
     on_complete: Mutex<Vec<Hook<R>>>,
 }
 
@@ -92,33 +101,54 @@ impl<R: Request> Entry<R> {
                 ready: Condvar::new(),
                 cancelled: AtomicBool::new(false),
                 shared: AtomicBool::new(false),
+                revisable: AtomicBool::new(false),
+                abandon: Mutex::new(None),
                 on_complete: Mutex::new(Vec::new()),
             }),
         }
     }
 
     /// Answer this entry. The first answer wins; a later one is ignored, which
-    /// is what makes a cancellation racing a resolver harmless.
+    /// is what makes a cancellation racing a resolver harmless. An entry a
+    /// resolver marked revisable (see [`Self::allow_revision`]) takes the
+    /// later answer instead, and its hooks run again.
     pub fn complete(&self, exit: Exit<R::Success, R::Error>) {
-        let hooks = {
+        let exit = {
             let mut slot = self.state.exit.lock().unwrap();
             if slot.is_some() {
+                let revisable = self.state.revisable.load(Ordering::SeqCst);
+                drop(slot);
+                if revisable {
+                    self.revise(exit);
+                }
                 return;
             }
             *slot = Some(exit);
             self.state.ready.notify_all();
-            std::mem::take(&mut *self.state.on_complete.lock().unwrap())
+            slot.clone().expect("the exit was just stored")
         };
-        let exit = self
-            .state
-            .exit
-            .lock()
-            .unwrap()
-            .clone()
-            .expect("the exit was just stored");
+        self.run_hooks(&exit);
+    }
+
+    /// Run this entry's hooks again with a refreshed answer. The caller that
+    /// asked keeps the answer it was given: only the watchers (the cache row,
+    /// the persisted store) see the refresh, which is what the pin's one-shot
+    /// completion deferred gives you for free.
+    fn revise(&self, exit: Exit<R::Success, R::Error>) {
+        self.run_hooks(&exit);
+    }
+
+    fn run_hooks(&self, exit: &Exit<R::Success, R::Error>) {
+        let hooks = self.state.on_complete.lock().unwrap().clone();
         for hook in hooks {
-            hook(&exit);
+            hook(exit);
         }
+    }
+
+    /// Accept a second answer as the current one. Only a resolver that answers
+    /// twice by design (persisted's stale refresh) should ask for this.
+    pub fn allow_revision(&self) {
+        self.state.revisable.store(true, Ordering::SeqCst);
     }
 
     /// The pin's name for the same contract: answer from inside a resolver
@@ -149,11 +179,15 @@ impl<R: Request> Entry<R> {
             hook(&exit);
             return;
         }
-        hooks.push(Box::new(hook));
+        hooks.push(hook);
     }
 
     fn mark_shared(&self) {
         self.state.shared.store(true, Ordering::SeqCst);
+    }
+
+    fn set_abandon(&self, abandon: Abandon) {
+        *self.state.abandon.lock().unwrap() = Some(abandon);
     }
 
     /// Withdraw this entry. A shared entry stays: another caller still waits
@@ -164,6 +198,10 @@ impl<R: Request> Entry<R> {
         }
         self.state.cancelled.store(true, Ordering::SeqCst);
         self.complete(Exit::Failure(Cause::interrupt(None)));
+        let abandon = self.state.abandon.lock().unwrap().clone();
+        if let Some(abandon) = abandon {
+            abandon();
+        }
     }
 
     fn is_cancelled(&self) -> bool {
@@ -241,6 +279,9 @@ struct Inner<R: Request> {
 struct Group<R: Request> {
     state: Mutex<GroupState<R>>,
     ready: Condvar,
+    /// Stops the batch fiber's delay. Set when the batch is spawned; a group
+    /// that was never spawned has none, and a withdrawn entry cannot stop it.
+    stop: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
 }
 
 struct GroupState<R: Request> {
@@ -258,6 +299,7 @@ impl<R: Request> Default for Group<R> {
                 spawned: false,
             }),
             ready: Condvar::new(),
+            stop: Mutex::new(None),
         }
     }
 }
@@ -465,6 +507,12 @@ impl<R: Request> Resolver<R> {
                     group
                 }
             };
+            let weak = Arc::downgrade(&group);
+            entry.set_abandon(Arc::new(move || {
+                if let Some(group) = weak.upgrade() {
+                    abandon_if_empty(&group);
+                }
+            }));
             let mut state = group.state.lock().unwrap();
             state.pending.push(entry);
             if !(inner.collect_while)(state.pending.len()) {
@@ -479,6 +527,27 @@ impl<R: Request> Resolver<R> {
         if !spawned {
             spawn_batch(Arc::clone(inner), group, key, services);
         }
+    }
+}
+
+/// Stop a batch's delay when its last live entry was withdrawn: nobody is
+/// left to answer, and the pin interrupts the batch's wait at that point (the
+/// delay's own finalizer is what Request.test.ts:500 re-enters from).
+///
+/// The group is closed before the interrupt, so a request submitted from that
+/// finalizer opens a fresh batch instead of joining the dying one.
+fn abandon_if_empty<R: Request>(group: &Group<R>) {
+    {
+        let mut state = group.state.lock().unwrap();
+        if state.closed || state.pending.iter().any(|entry| !entry.is_cancelled()) {
+            return;
+        }
+        state.closed = true;
+        group.ready.notify_all();
+    }
+    let stop = group.stop.lock().unwrap().clone();
+    if let Some(stop) = stop {
+        stop();
     }
 }
 
@@ -545,7 +614,17 @@ fn run_group<R: Request>(inner: Arc<Inner<R>>, group: Arc<Group<R>>, key: u64, s
     if live.is_empty() {
         return;
     }
-    match (inner.run)(live.clone()).run_sync_with(&services) {
+    // A resolver that panics is a defect for its entries, never a batch that
+    // silently dies with its callers parked forever. The pin's synchronous
+    // throw (Request.test.ts:635) is that defect.
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        (inner.run)(live.clone()).run_sync_with(&services)
+    }));
+    let outcome = match outcome {
+        Ok(outcome) => outcome,
+        Err(payload) => Err(Cause::die(panic_defect(payload))),
+    };
+    match outcome {
         Ok(()) => {
             // The pin's documented gotcha: an entry the resolver never
             // completed fails, rather than hanging its caller forever.
@@ -565,6 +644,15 @@ fn rethrow<E: Send + 'static>(exit: Exit<(), E>) -> Effect<(), E> {
         Exit::Success(()) => Effect::sync(|| ()),
         Exit::Failure(cause) => Effect::fail_cause(cause),
     }
+}
+
+fn panic_defect(payload: Box<dyn std::any::Any + Send>) -> Defect {
+    let message = payload
+        .downcast_ref::<&str>()
+        .map(|text| (*text).to_owned())
+        .or_else(|| payload.downcast_ref::<String>().cloned())
+        .unwrap_or_else(|| "a request resolver panicked".to_owned());
+    Defect::new(message)
 }
 
 fn answer_unfinished<R: Request>(entries: &[Entry<R>], cause: &Cause<R::Error>) {
@@ -589,7 +677,8 @@ fn spawn_batch<R: Request>(
     let runtime = BATCH.get_or_init(crate::Runtime::new);
     // Immediate: the batch has no handle to join, so a deferred start latch
     // would never be fired and the batch would never run.
-    runtime.fork_detach_with(
+    let group_for_stop = Arc::clone(&group);
+    let handle = runtime.fork_detach_with(
         move |ctx| {
             let mut maps = (*services).clone();
             maps.replace_tag(
@@ -602,6 +691,11 @@ fn spawn_batch<R: Request>(
         },
         crate::ForkOpts::immediate(),
     );
+    // Withdrawing the last entry interrupts this fiber, so the handle is kept
+    // where the entry's abandon hook can reach it. Interrupt without waiting:
+    // a delay the caller wrote may not poll the flag, and a canceller must
+    // never be parked on it.
+    *group_for_stop.stop.lock().unwrap() = Some(Arc::new(move || handle.interrupt_unsafe()));
 }
 
 /// Without the fiber runtime there is no fiber to give the batch, so it runs
@@ -652,7 +746,7 @@ fn admit<R: Request + Hash + Eq>(cache: &Arc<Mutex<Cache<R>>>, entry: &Entry<R>)
             let shared = row.entry.clone();
             shared.mark_shared();
             let waiter = entry.clone();
-            shared.register_on_complete(Box::new(move |exit: &Exit<R::Success, R::Error>| {
+            shared.register_on_complete(Arc::new(move |exit: &Exit<R::Success, R::Error>| {
                 waiter.complete((*exit).clone())
             }));
             false
@@ -672,7 +766,7 @@ fn admit<R: Request + Hash + Eq>(cache: &Arc<Mutex<Cache<R>>>, entry: &Entry<R>)
             drop(state);
             let weak: Weak<EntryState<R>> = Arc::downgrade(&entry.state);
             let cache = Arc::clone(cache);
-            entry.register_on_complete(Box::new(move |exit| {
+            entry.register_on_complete(Arc::new(move |exit| {
                 let Some(ours) = weak.upgrade() else {
                     return;
                 };
@@ -713,6 +807,156 @@ fn admit<R: Request + Hash + Eq>(cache: &Arc<Mutex<Cache<R>>>, entry: &Entry<R>)
             }));
             true
         }
+    }
+}
+
+// Persistence
+
+/// What [`Resolver::persisted`] needs from storage: the exit stored for a key.
+///
+/// The pin reads and writes through its `Persistence` service. ADR-0002 puts
+/// that service in `elm-effect-unstable`, so the core keeps only this seam and
+/// the resolver's behavior; a caller supplies the store.
+pub trait RequestStore<R: Request>: Send + Sync + 'static {
+    /// The stored answer for `key`, if one was written.
+    fn get(&self, key: &str) -> Option<Exit<R::Success, R::Error>>;
+    /// Write the answer for `key`.
+    fn set(&self, key: &str, exit: Exit<R::Success, R::Error>);
+}
+
+/// An in-memory [`RequestStore`]: the substrate the persisted rows are read
+/// and written through in tests, and the shape a durable store wires up.
+pub struct MemoryRequestStore<R: Request> {
+    rows: Mutex<HashMap<String, Exit<R::Success, R::Error>>>,
+}
+
+impl<R: Request> Default for MemoryRequestStore<R> {
+    fn default() -> Self {
+        Self {
+            rows: Mutex::new(HashMap::new()),
+        }
+    }
+}
+
+impl<R: Request> MemoryRequestStore<R> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// A store already holding one answer.
+    pub fn with(key: impl Into<String>, exit: Exit<R::Success, R::Error>) -> Self {
+        let store = Self::new();
+        store.set(&key.into(), exit);
+        store
+    }
+
+    /// How many answers the store holds.
+    pub fn len(&self) -> usize {
+        self.rows.lock().unwrap().len()
+    }
+
+    /// True when the store holds nothing.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+impl<R: Request> RequestStore<R> for MemoryRequestStore<R> {
+    fn get(&self, key: &str) -> Option<Exit<R::Success, R::Error>> {
+        self.rows.lock().unwrap().get(key).cloned()
+    }
+
+    fn set(&self, key: &str, exit: Exit<R::Success, R::Error>) {
+        self.rows.lock().unwrap().insert(key.to_owned(), exit);
+    }
+}
+
+type RequestKey<R> = Arc<dyn Fn(&R) -> String + Send + Sync>;
+
+// Resolver persistence
+
+impl<R: Request> Resolver<R> {
+    /// `RequestResolver.persisted` at the pin: answer from `store` when it has
+    /// the key, run the wrapped resolver otherwise, and write every answer
+    /// back. Failures and defects are stored like successes; only a store
+    /// lookup decides whether the resolver runs.
+    pub fn persisted(
+        self,
+        store: Arc<dyn RequestStore<R>>,
+        key: impl Fn(&R) -> String + Send + Sync + 'static,
+    ) -> Self {
+        self.persisted_with(store, Arc::new(key), Arc::new(|_, _| false))
+    }
+
+    /// `persisted` with `staleWhileRevalidate`: a stored answer the predicate
+    /// marks stale is returned to the caller, and the wrapped resolver still
+    /// runs so the refreshed answer replaces it for everything watching the
+    /// entry (the store, and any cache around this resolver).
+    pub fn persisted_stale_while_revalidate(
+        self,
+        store: Arc<dyn RequestStore<R>>,
+        key: impl Fn(&R) -> String + Send + Sync + 'static,
+        revalidate: impl Fn(&Exit<R::Success, R::Error>, &R) -> bool + Send + Sync + 'static,
+    ) -> Self {
+        self.persisted_with(store, Arc::new(key), Arc::new(revalidate))
+    }
+
+    fn persisted_with(
+        self,
+        store: Arc<dyn RequestStore<R>>,
+        key: RequestKey<R>,
+        revalidate: Arc<dyn Fn(&Exit<R::Success, R::Error>, &R) -> bool + Send + Sync>,
+    ) -> Self {
+        let run = Arc::clone(&self.inner.run);
+        self.with(|inner| Inner {
+            run: Arc::new(move |entries| {
+                let mut leftover: Vec<Entry<R>> = Vec::new();
+                for entry in &entries {
+                    let request_key = key(&entry.request);
+                    let stored = store.get(&request_key);
+                    let watched = Arc::clone(&store);
+                    let watched_key = request_key.clone();
+                    match stored {
+                        Some(exit) if !revalidate(&exit, &entry.request) => entry.complete(exit),
+                        Some(exit) => {
+                            // Stale: answer now, refresh below. The refresh's
+                            // answer replaces this one for the watchers, which
+                            // is how the pin's patched `completeUnsafe` keeps
+                            // the outside cache in step.
+                            entry.register_on_complete(Arc::new(move |exit| {
+                                watched.set(&watched_key, exit.clone());
+                            }));
+                            entry.allow_revision();
+                            entry.complete(exit);
+                            leftover.push(entry.clone());
+                        }
+                        None => {
+                            entry.register_on_complete(Arc::new(move |exit| {
+                                watched.set(&watched_key, exit.clone());
+                            }));
+                            leftover.push(entry.clone());
+                        }
+                    }
+                }
+                if leftover.is_empty() {
+                    return Effect::sync(|| ());
+                }
+                let run = Arc::clone(&run);
+                run(leftover.clone())
+                    .exit()
+                    .flat_map(move |exit| {
+                        // The pin's `catchCause`: entries the resolver never
+                        // answered take the run's own failure, and the store
+                        // keeps it.
+                        if let Exit::Failure(cause) = &exit {
+                            answer_unfinished(&leftover, cause);
+                        }
+                        Effect::sync(|| ())
+                    })
+                    .map_err(|never| -> R::Error { match never {} })
+            }),
+            ..inner
+        })
     }
 }
 
@@ -847,6 +1091,41 @@ impl<R: Request> crate::effect::ErasedStep<R::Success, R::Error> for RequestStep
         resolver.admit(entry.clone(), Arc::clone(scope));
         entry.wait()
     }
+}
+
+/// A handle that withdraws an unchecked request when called. Calling it twice
+/// is a no-op.
+pub type Cancel = Box<dyn Fn() + Send + Sync>;
+
+/// `Effect.requestUnsafe` at the pin: submit outside a waiting fiber, with a
+/// callback for the answer, and hand back a cancel handle.
+///
+/// The callback does not run for a cancellation, which is the pin's contract:
+/// the caller asked not to hear about it. Withdrawing the last live entry of a
+/// batch stops that batch's delay, so the delay's own finalizer runs (without
+/// waiting for it here).
+pub fn request_unchecked<R: Request>(
+    resolver: &Resolver<R>,
+    request: R,
+    on_exit: impl FnOnce(Exit<R::Success, R::Error>) + Send + 'static,
+) -> Cancel {
+    let entry = Entry::new(request);
+    let weak = Arc::downgrade(&entry.state);
+    let slot = Arc::new(Mutex::new(Some(on_exit)));
+    entry.register_on_complete(Arc::new(move |exit| {
+        let Some(state) = weak.upgrade() else {
+            return;
+        };
+        if state.cancelled.load(Ordering::SeqCst) {
+            return;
+        }
+        let callback = slot.lock().unwrap().take();
+        if let Some(callback) = callback {
+            callback(exit.clone());
+        }
+    }));
+    resolver.admit(entry.clone(), crate::service::empty_services());
+    Box::new(move || entry.cancel())
 }
 
 /// `Effect.request` at the pin: submit `request` to `resolver` and answer with

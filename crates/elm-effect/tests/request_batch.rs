@@ -6,7 +6,10 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use elm_effect::request::{Request, Resolver, TaggedResolver, request};
+use elm_effect::request::{
+    Cancel, Entry, MemoryRequestStore, Request, RequestStore, Resolver, TaggedResolver, request,
+    request_unchecked,
+};
 use elm_effect::{
     Cause, Deferred, Effect, Exit, FiberHandle, ForkOpts, Reference, Runtime, read_reference,
 };
@@ -670,6 +673,129 @@ fn race_keeps_the_winner_and_interrupts_the_loser() {
     assert_eq!(calls.load(Ordering::SeqCst), 1, "the winner ran once");
 }
 
+// Persistence
+
+/// Request.test.ts:585 `withCache accepts refreshed results from
+/// stale-while-revalidate`: the stored answer goes to the first caller while
+/// the wrapped resolver refreshes it, and the refreshed answer is what the
+/// cache serves next. The pin stores through its Persistence service; this
+/// port takes the store as a value (ADR-0002 keeps that service in
+/// elm-effect-unstable), so only the store in the test differs.
+#[test]
+fn persisted_accepts_a_refreshed_stale_answer() {
+    let store = Arc::new(MemoryRequestStore::<GetNameById>::with(
+        "name",
+        Exit::Success("Alice".to_owned()),
+    ));
+    let calls = Arc::new(AtomicUsize::new(0));
+    let finished = Arc::new(Deferred::<(), ()>::new());
+    let counted = Arc::clone(&calls);
+    let persisted = Resolver::<GetNameById>::make_sync(move |entries| {
+        counted.fetch_add(1, Ordering::SeqCst);
+        for entry in entries {
+            entry.complete(Exit::Success("Bob".to_owned()));
+        }
+    })
+    .persisted_stale_while_revalidate(
+        Arc::clone(&store) as Arc<dyn elm_effect::request::RequestStore<GetNameById>>,
+        |_request| "name".to_owned(),
+        |_exit, _request| true,
+    );
+    let done = Arc::clone(&finished);
+    let resolver = persisted
+        .around(
+            |_entries: &[elm_effect::request::Entry<GetNameById>]| Effect::sync(|| ()),
+            move |_entries: &[elm_effect::request::Entry<GetNameById>]| {
+                done.complete(());
+                Effect::sync(|| ())
+            },
+        )
+        .with_cache(10);
+
+    assert_eq!(
+        Runtime::run(request(&resolver, GetNameById { id: 1 })),
+        Exit::Success("Alice".to_owned()),
+        "the stored answer is served first"
+    );
+    finished.wait();
+    assert_eq!(
+        Runtime::run(request(&resolver, GetNameById { id: 1 })),
+        Exit::Success("Bob".to_owned()),
+        "the refresh replaced the cached answer"
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "one refresh");
+}
+
+/// Request.test.ts:610 `persisted propagates failures to unfinished requests`:
+/// the resolver answers one entry and then fails; the rest take that failure
+/// rather than hanging. The pin's `Effect.forEach` order maps the success to
+/// its first request; this port's entries arrive in submission order, so the
+/// assertion counts the outcomes instead of pinning which caller got which.
+#[test]
+fn persisted_propagates_its_failure_to_unfinished_requests() {
+    let error = "backend failed".to_owned();
+    let store = Arc::new(MemoryRequestStore::<GetNameById>::new());
+    let failing = Resolver::<GetNameById>::make({
+        let error = error.clone();
+        move |entries| {
+            entries[0].complete(Exit::Success("first".to_owned()));
+            Effect::fail_cause(Cause::fail(error.clone()))
+        }
+    });
+    let resolver = failing.persisted(
+        Arc::clone(&store) as Arc<dyn elm_effect::request::RequestStore<GetNameById>>,
+        |request| request.id.to_string(),
+    );
+    let rt = Runtime::new();
+
+    let exits = join_all(fan_out(&rt, &resolver, [1, 1, 2]));
+    let successes = exits
+        .iter()
+        .filter(|exit| matches!(exit, Exit::Success(value) if value == "first"))
+        .count();
+    let failures = exits
+        .iter()
+        .filter(|exit| matches!(exit, Exit::Failure(cause) if cause.failure() == Some(&error)))
+        .count();
+    assert_eq!(
+        (successes, failures),
+        (1, 2),
+        "one answered entry and two propagated failures: {exits:?}"
+    );
+    rt.shutdown();
+}
+
+/// Request.test.ts:635 `persisted stores synchronous resolver failures`: a
+/// resolver that throws is a defect, the defect is stored, and the retry
+/// replays it without running the resolver again.
+#[test]
+fn persisted_stores_a_throwing_resolver() {
+    let store = Arc::new(MemoryRequestStore::<GetNameById>::new());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counted = Arc::clone(&calls);
+    let resolver = Resolver::<GetNameById>::make(move |_entries| {
+        counted.fetch_add(1, Ordering::SeqCst);
+        panic!("backend defect")
+    })
+    .persisted(
+        Arc::clone(&store) as Arc<dyn elm_effect::request::RequestStore<GetNameById>>,
+        |_request| "value".to_owned(),
+    );
+
+    for _ in 0..2 {
+        let exit = match Runtime::run(request(&resolver, GetNameById { id: 1 }).exit()) {
+            Exit::Success(exit) => exit,
+            Exit::Failure(cause) => panic!("exit turns the outcome into a value: {cause:?}"),
+        };
+        let cause = match exit {
+            Exit::Failure(cause) => cause,
+            Exit::Success(value) => panic!("the resolver threw, not answered {value:?}"),
+        };
+        assert_eq!(cause.defects()[0].message, "backend defect");
+    }
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "the defect was replayed");
+}
+
 // Interruption
 
 /// Request.test.ts:267 `requests don't break interruption`: interrupting the
@@ -779,4 +905,182 @@ fn a_grouped_batch_held_forever_never_executes() {
     );
     assert!(!executed.load(Ordering::SeqCst), "the resolver never ran");
     rt.shutdown();
+}
+
+fn wait_until(mut done: impl FnMut() -> bool) {
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    while !done() {
+        assert!(std::time::Instant::now() < deadline, "timed out waiting");
+        std::thread::sleep(Duration::from_millis(2));
+    }
+}
+
+/// Request.test.ts:500 `interruption of a batch's delay runs the delay's
+/// finalizer, which may submit again`: withdrawing the last live request of a
+/// batch stops that batch's delay, the delay's onInterrupt runs, and a request
+/// submitted from inside it is answered normally.
+#[test]
+fn a_cancelled_delays_finalizer_can_resubmit() {
+    let finalizers = Arc::new(AtomicUsize::new(0));
+    let submitted = Arc::new(AtomicUsize::new(0));
+    let answered: Arc<Mutex<Vec<Exit<String, String>>>> = Arc::new(Mutex::new(Vec::new()));
+    let cancelled_reports = Arc::new(AtomicUsize::new(0));
+    let started = Arc::new(Deferred::<(), ()>::new());
+    let gate = Arc::new(Gate::default());
+    let slot: Arc<Mutex<Option<Resolver<GetNameById>>>> = Arc::new(Mutex::new(None));
+    let kept: Arc<Mutex<Vec<Cancel>>> = Arc::new(Mutex::new(Vec::new()));
+    let batch_sizes: Arc<Mutex<Vec<usize>>> = Arc::new(Mutex::new(Vec::new()));
+
+    let counted = Arc::clone(&submitted);
+    let sizes = Arc::clone(&batch_sizes);
+    let base = Resolver::<GetNameById>::make_sync(move |entries| {
+        counted.fetch_add(entries.len(), Ordering::SeqCst);
+        sizes.lock().unwrap().push(entries.len());
+        for entry in entries {
+            entry.complete(Exit::Success(user_name(entry.request.id)));
+        }
+    });
+
+    let delay = {
+        let started = Arc::clone(&started);
+        let gate = Arc::clone(&gate);
+        let slot = Arc::clone(&slot);
+        let kept = Arc::clone(&kept);
+        let finalizers = Arc::clone(&finalizers);
+        let answered = Arc::clone(&answered);
+        move || {
+            let started = Arc::clone(&started);
+            let gate = Arc::clone(&gate);
+            // Poll the fiber flag: a delay that ignores interruption is allowed,
+            // but then its finalizer only runs when the delay ends on its own.
+            let body = Effect::with_fiber(move |fiber| {
+                let fiber = fiber.clone();
+                Effect::sync(move || {
+                    started.complete(());
+                    while !gate.is_open() && !fiber.is_interrupted() {
+                        std::thread::sleep(Duration::from_millis(1));
+                    }
+                })
+            });
+            let slot = Arc::clone(&slot);
+            let kept = Arc::clone(&kept);
+            let finalizers = Arc::clone(&finalizers);
+            let answered = Arc::clone(&answered);
+            body.on_interrupt(move || {
+                finalizers.fetch_add(1, Ordering::SeqCst);
+                let held = slot.lock().unwrap();
+                let Some(resolver) = held.as_ref() else {
+                    return;
+                };
+                let answered = Arc::clone(&answered);
+                let cancel = request_unchecked(resolver, GetNameById { id: 1 }, move |exit| {
+                    answered.lock().unwrap().push(exit);
+                });
+                kept.lock().unwrap().push(cancel);
+            })
+        }
+    };
+
+    // The cancelled row must not swallow an equal retry from the finalizer.
+    let resolver = base.set_delay_effect(delay).with_cache(10);
+    *slot.lock().unwrap() = Some(resolver.clone());
+
+    let cancel = request_unchecked(&resolver, GetNameById { id: 1 }, {
+        let cancelled_reports = Arc::clone(&cancelled_reports);
+        move |_exit| {
+            cancelled_reports.fetch_add(1, Ordering::SeqCst);
+        }
+    });
+    // Cancel only once the batch is inside its delay, which is the state the
+    // pin's row interrupts.
+    started.wait();
+    cancel();
+    wait_until(|| finalizers.load(Ordering::SeqCst) == 1);
+    assert_eq!(
+        finalizers.load(Ordering::SeqCst),
+        1,
+        "the delay's finalizer ran exactly once"
+    );
+    assert!(
+        answered.lock().unwrap().is_empty(),
+        "the re-submission still waits on the gate"
+    );
+
+    cancel(); // idempotent
+    gate.open();
+    wait_until(|| !answered.lock().unwrap().is_empty());
+    assert_eq!(
+        answered.lock().unwrap().as_slice(),
+        [Exit::Success(user_name(1))],
+        "the request submitted from the finalizer was answered"
+    );
+    assert_eq!(
+        cancelled_reports.load(Ordering::SeqCst),
+        0,
+        "an unchecked callback never hears about a cancellation"
+    );
+    assert_eq!(
+        submitted.load(Ordering::SeqCst),
+        1,
+        "only the re-submission reached the resolver"
+    );
+    assert_eq!(
+        batch_sizes.lock().unwrap().as_slice(),
+        [1],
+        "the retry ran as its own batch"
+    );
+    assert_eq!(
+        finalizers.load(Ordering::SeqCst),
+        1,
+        "the second batch's delay was not interrupted"
+    );
+}
+
+fn unit() -> Effect<(), String> {
+    Effect::sync(|| ()).map_err(|never: std::convert::Infallible| match never {})
+}
+
+/// Request.test.ts:585 `withCache accepts refreshed results from
+/// stale-while-revalidate`: the first request is answered from the store, the
+/// refresh lands before the batch's `around` release, and the next equal
+/// request reads the refreshed answer without another resolver call.
+#[test]
+fn stale_while_revalidate_replaces_what_the_next_request_reads() {
+    let store = Arc::new(MemoryRequestStore::<GetNameById>::new());
+    RequestStore::set(store.as_ref(), "name", Exit::Success("Alice".to_owned()));
+    let calls = Arc::new(AtomicUsize::new(0));
+    let finished = Arc::new(Deferred::<(), ()>::new());
+
+    let counted = Arc::clone(&calls);
+    let persisted = Resolver::<GetNameById>::make_sync(move |entries| {
+        counted.fetch_add(1, Ordering::SeqCst);
+        for entry in entries {
+            entry.complete(Exit::Success("Bob".to_owned()));
+        }
+    })
+    .persisted_stale_while_revalidate(
+        Arc::clone(&store) as Arc<dyn elm_effect::request::RequestStore<GetNameById>>,
+        |_request: &GetNameById| "name".to_owned(),
+        |_stored: &Exit<String, String>, _request: &GetNameById| true,
+    );
+
+    let released = Arc::clone(&finished);
+    let resolver = persisted
+        .around(|_entries: &[Entry<GetNameById>]| unit(), move |_entries| {
+            released.complete(());
+            unit()
+        })
+        .with_cache(10);
+
+    let first = Runtime::run(request(&resolver, GetNameById { id: 1 }));
+    assert_eq!(first, Exit::Success("Alice".to_owned()));
+    finished.wait();
+
+    let second = Runtime::run(request(&resolver, GetNameById { id: 1 }));
+    assert_eq!(
+        second,
+        Exit::Success("Bob".to_owned()),
+        "the refreshed answer replaced the stored one"
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "one resolver call refreshed it");
 }

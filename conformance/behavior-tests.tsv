@@ -3220,11 +3220,11 @@ ported	packages/effect/test/Request.test.ts	397	it.effect	first	crates/elm-effec
 ported	packages/effect/test/Request.test.ts	427	it.effect	withCache still caches completed failures	crates/elm-effect/tests/request_batch.rs::cache_replays_completed_failures
 ported	packages/effect/test/Request.test.ts	446	it.effect	withCache does not cache interrupted resolver results	crates/elm-effect/tests/request_batch.rs::cache_drops_interrupted_results
 ported	packages/effect/test/Request.test.ts	463	it.effect	withCache cancellation does not evict a replacement entry	crates/elm-effect/tests/request_batch.rs::cache_cancellation_does_not_evict_a_replacement
-unported	packages/effect/test/Request.test.ts	500	it.effect	withCache allows an equal retry from the cancelled delay's finalizer	
+ported	packages/effect/test/Request.test.ts	500	it.effect	withCache allows an equal retry from the cancelled delay's finalizer	a_cancelled_delays_finalizer_can_resubmit
 ported	packages/effect/test/Request.test.ts	548	it.effect	withCache preserves the race winner when the losing resolver is interrupted	crates/elm-effect/tests/request_batch.rs::race_keeps_the_winner_and_interrupts_the_loser
-unported	packages/effect/test/Request.test.ts	585	it.effect	withCache accepts refreshed results from stale-while-revalidate	
-unported	packages/effect/test/Request.test.ts	610	it.effect	persisted propagates failures to unfinished requests	
-unported	packages/effect/test/Request.test.ts	635	it.effect	persisted stores synchronous resolver failures	
+ported	packages/effect/test/Request.test.ts	585	it.effect	withCache accepts refreshed results from stale-while-revalidate	stale_while_revalidate_replaces_what_the_next_request_reads
+ported	packages/effect/test/Request.test.ts	610	it.effect	persisted propagates failures to unfinished requests	persisted_propagates_its_failure_to_unfinished_requests
+ported	packages/effect/test/Request.test.ts	635	it.effect	persisted stores synchronous resolver failures	persisted_stores_a_throwing_resolver
 ported	packages/effect/test/Request.test.ts	654	it.effect	batching preserves individual & identical requests	crates/elm-effect/tests/request_batch.rs::identical_requests_share_one_invocation
 ported	packages/effect/test/Request.test.ts	669	it.effect	grouped requests + batchN	crates/elm-effect/tests/request_batch.rs::grouped_batches_cap_each_key
 ported	packages/effect/test/Request.test.ts	697	it.effect	batchN normalizes the maximum batch size	crates/elm-effect/tests/request_batch.rs::batch_n_normalizes_its_size
