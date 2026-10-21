@@ -1,7 +1,9 @@
 //! Observability: redaction absence, span records, tap passthrough.
 
-#[path = "../src/observability.rs"]
-mod observability;
+// The module is part of the library. It used to be compiled into this test
+// crate by `#[path]` include, which meant nothing outside a test could reach
+// `with_span` at all.
+use elm_effect::observability;
 
 use std::sync::{Arc, Mutex};
 
@@ -677,4 +679,64 @@ fn pipe_supports_extracting_the_protected_value() {
     assert_eq!(Redacted::value(&redacted), &inner);
     // And the Debug side still refuses to show the bytes.
     assert!(!format!("{redacted:?}").contains('2'));
+}
+
+/// Effect.test.ts:270 `caught sandboxed failure captures stack frame`.
+/// A die raised inside a span keeps that span as its stack frame, and the
+/// frame survives `sandbox` + `flip` turning the cause back into a value.
+#[test]
+fn a_sandboxed_failure_captures_the_span_as_its_stack_frame() {
+    use elm_effect::{Defect, Effect, Exit, Runtime};
+    use observability::STACK_TRACE;
+
+    let tracer = Tracer::new();
+    let captured = with_span(
+        &tracer,
+        "test span",
+        Vec::new(),
+        Effect::<(), String>::die(Defect::new("boom")),
+    )
+    .sandbox()
+    .flip();
+
+    let cause = match Runtime::run(captured) {
+        Exit::Success(cause) => cause,
+        Exit::Failure(cause) => panic!("flip turned the sandboxed cause back into a failure: {cause:?}"),
+    };
+    assert!(
+        matches!(cause.reasons.first(), Some(elm_effect::Reason::Die(_))),
+        "the die is the reason: {cause:?}"
+    );
+    assert_eq!(
+        cause.annotation(STACK_TRACE),
+        Some("test span"),
+        "the raise site's span is the frame the cause carries"
+    );
+    // The span itself was still recorded, not just its frame.
+    assert_eq!(tracer.spans().len(), 1);
+}
+
+/// Effect.test.ts:282 `failure without a current frame has no stack annotation
+/// and reuses the original exit`.
+/// Outside any span a failure is passed through untouched: no frame is
+/// invented, and the exit a run produces is the one the failure describes.
+#[test]
+fn a_failure_outside_a_span_carries_no_stack_frame() {
+    use elm_effect::{Effect, Exit, Runtime};
+    use observability::STACK_TRACE;
+
+    let exit = Runtime::run(Effect::<(), String>::fail("boom".to_owned()));
+    assert_eq!(
+        exit,
+        Exit::<(), String>::fail("boom".to_owned()),
+        "the run reproduces the failure's own exit"
+    );
+    match exit {
+        Exit::Failure(cause) => assert_eq!(
+            cause.annotation(STACK_TRACE),
+            None,
+            "no current frame means no stack annotation"
+        ),
+        Exit::Success(()) => panic!("a failing effect must not succeed"),
+    }
 }

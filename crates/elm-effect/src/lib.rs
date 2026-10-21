@@ -46,6 +46,7 @@ mod json_schema;
 mod layer;
 mod metric;
 mod optic;
+pub mod observability;
 mod partitioned_semaphore;
 mod path;
 mod platform_error;

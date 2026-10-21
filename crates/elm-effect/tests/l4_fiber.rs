@@ -1809,38 +1809,38 @@ fn exit_inside_a_masked_region_observes_the_interrupt() {
 /// interrupt, so the continuation after each window runs.
 #[test]
 fn alternating_interruptibility_runs_each_observed_window() {
-    let counter = Arc::new(AtomicU64::new(0));
-    let first = counter.clone();
-    let second = counter.clone();
+    let seen = Arc::new(Mutex::new(Vec::<&'static str>::new()));
+    let first_seen = seen.clone();
+    let second_seen = seen.clone();
 
     let effect = Effect::<(), String>::never()
         .interruptible()
         .exit()
         .flat_map(move |_| {
-            let first = first.clone();
+            let seen = first_seen.clone();
             Effect::<(), std::convert::Infallible>::sync(move || {
-                first.fetch_add(1, Ordering::SeqCst);
+                seen.lock().unwrap().push("first");
             })
         })
         .uninterruptible()
         .interruptible()
         .exit()
         .flat_map(move |_| {
-            let second = second.clone();
+            let seen = second_seen.clone();
             Effect::<(), std::convert::Infallible>::sync(move || {
-                second.fetch_add(1, Ordering::SeqCst);
+                seen.lock().unwrap().push("second");
             })
         })
         .uninterruptible();
 
     let (rt, target) = spawn_effect_any(effect);
     target.interrupt();
-    let _ = target.join();
+    let exit = target.join();
 
     assert_eq!(
-        counter.load(Ordering::SeqCst),
-        2,
-        "both interruptible windows must hand control back"
+        *seen.lock().unwrap(),
+        vec!["first", "second"],
+        "both interruptible windows must hand control back (exit: {exit:?})"
     );
     assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
@@ -1984,6 +1984,67 @@ fn on_exit_sees_the_interrupt_exit() {
     assert!(
         matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
         "the callback observes, it does not swallow"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2297 `defers a pending interrupt until the masked region completes`.
+/// The interrupt lands while the region is parked, the fiber is still alive
+/// afterwards, and the region finishes its work before the interrupt is
+/// delivered.
+#[test]
+fn a_masked_region_defers_a_pending_interrupt_until_it_completes() {
+    let masked = Arc::new(Deferred::<(), String>::new());
+    let resume = Arc::new(Deferred::<(), String>::new());
+    let events = Arc::new(Mutex::new(Vec::<&'static str>::new()));
+
+    let body_masked = masked.clone();
+    let body_resume = resume.clone();
+    let body_events = events.clone();
+    let effect = Effect::uninterruptible_mask(move |_restore| {
+        let completed_events = body_events.clone();
+        Effect::<(), String>::sync(move || {
+            body_masked.complete(());
+        })
+            .flat_map(move |_| {
+                let resume = body_resume.clone();
+                Effect::<(), String>::sync(move || resume.wait())
+            })
+            .flat_map(move |_| {
+                let events = completed_events.clone();
+                Effect::<(), String>::sync(move || {
+                    events.lock().unwrap().push("masked region completed")
+                })
+            })
+    });
+
+    let (rt, target) = spawn_effect_any(effect);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !masked.is_done() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(masked.is_done(), "the masked region never announced itself");
+    events.lock().unwrap().push("masked");
+
+    target.interrupt_unsafe();
+    events.lock().unwrap().push("interrupted");
+    assert!(
+        !target.is_done(),
+        "a masked region must outlive the interrupt that lands inside it"
+    );
+
+    resume.complete(());
+    events.lock().unwrap().push("resumed");
+
+    let exit = target.join();
+    assert_eq!(
+        *events.lock().unwrap(),
+        vec!["masked", "interrupted", "resumed", "masked region completed"],
+        "the region's work runs after the interrupt was requested"
+    );
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "and the fiber still ends interrupted"
     );
     assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }

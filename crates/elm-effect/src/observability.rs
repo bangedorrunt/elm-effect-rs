@@ -10,7 +10,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use elm_effect::{Cause, Effect, Exit, Requirement, ServiceTag};
+use crate::{Cause, Effect, Exit, Requirement, ServiceTag};
 
 // LogLevel
 
@@ -151,7 +151,7 @@ impl ServiceTag for LoggerTag {
 /// Log an event as an effect: resolves the [`LoggerTag`] service, then emits.
 /// Logging itself never fails; building the description runs nothing.
 pub fn log_info(message: String) -> Effect<(), std::convert::Infallible, LoggerTag> {
-    elm_effect::use_service::<LoggerTag>().flat_map(move |logger| {
+    crate::use_service::<LoggerTag>().flat_map(move |logger| {
         Effect::sync(move || {
             logger.log(LogLevel::Info, &message, &[]);
         })
@@ -307,8 +307,20 @@ impl ServiceTag for TracerTag {
     const ID: &'static str = "elm-effect/tracer";
 }
 
+/// The pin's `Cause.StackTrace` annotation key, verbatim.
+///
+/// The pin stores a JS `StackFrame` object here. A Rust frame has no `stack`
+/// thunk to capture and no parent chain, so the frame's name is what a cause
+/// keeps: that is the part the rows assert on (`trace.name`).
+pub const STACK_TRACE: &str = "effect/Cause/StackTrace";
+
 /// Wrap an effect in a span: records name and attributes, then runs the
-/// effect unchanged (success and failure both pass through).
+/// effect, passing its outcome through.
+///
+/// A failure raised inside the span gains the span's name as its stack frame.
+/// Innermost wins: an inner span annotates first, so an outer one leaves an
+/// existing frame alone (the pin records the frame at the raise site, not at
+/// every span the cause travels through).
 pub fn with_span<A, E, R>(
     tracer: &Tracer,
     name: &str,
@@ -325,10 +337,19 @@ where
         name: name.to_string(),
         attributes,
     };
+    let frame = record.name.clone();
     Effect::sync(move || {
         tracer.record(&record.name, record.attributes.clone());
     })
     .flat_map(|_| effect)
+    .catch_cause(move |cause| {
+        let cause = if cause.annotation(STACK_TRACE).is_some() {
+            cause
+        } else {
+            cause.annotate(STACK_TRACE, frame.clone())
+        };
+        Effect::<A, E, R>::fail_cause(cause)
+    })
 }
 
 /// Report an error where operators cannot fail: defects and notes for the
