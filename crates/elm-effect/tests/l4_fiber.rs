@@ -2,7 +2,11 @@
 //! interrupt back-pressure. Bodies cooperate via [`Ctx`](elm_effect::Ctx).
 #![cfg(feature = "tokio")]
 
-use elm_effect::{Cause, Defect, Deferred, Effect, Exit, FiberHandle, FiberId, ForkOpts, Runtime};
+use elm_effect::{
+    Cause, ClockImpl, Concurrency, Defect, Deferred, Effect, Exit, FiberHandle, FiberId, ForkOpts,
+    Runtime, SleepOutcome, TestClock, for_each_in,
+};
+use elm_effect::Duration as EffectDuration;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
 use std::time::{Duration, Instant};
@@ -984,6 +988,263 @@ where
     );
     let handle = rx.recv().expect("the parent hands its effect handle over");
     (rt, handle)
+}
+
+/// Wait until exactly `expected` workers are parked on the virtual clock. The
+/// port's sleepers register when they reach the sleep, so this is also how a
+/// test knows a launched item actually started.
+fn wait_for_sleepers(clock: &TestClock, expected: usize) {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while clock.pending_sleepers() != expected && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert_eq!(
+        clock.pending_sleepers(),
+        expected,
+        "the batch never parked where the row expects"
+    );
+}
+
+/// Wait until `done` records `expected` items. Better than a sleeper count
+/// for "this item finished": a removed sleeper and a newly parked one look the
+/// same for a moment, which is exactly when a second adjust would be too early.
+fn wait_for_done(done: &Arc<Mutex<Vec<u8>>>, expected: usize) {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while done.lock().unwrap().len() < expected && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(
+        done.lock().unwrap().len() >= expected,
+        "the batch never reached {expected} finished items"
+    );
+}
+
+/// :709 `sequential interrupt`.
+/// One item at a time: the two whose delay elapsed are done, the third is in
+/// flight when the interrupt lands and never records itself.
+#[test]
+fn for_each_sequential_stops_at_the_interrupt() {
+    let clock = Arc::new(TestClock::new());
+    let done = Arc::new(Mutex::new(Vec::<u8>::new()));
+    let rt = Runtime::new();
+
+    let body_clock = clock.clone();
+    let body_done = done.clone();
+    let fiber = rt.fork_detach_with(
+        move |ctx| -> Exit<Vec<u8>, String> {
+            for_each_in(
+                ctx,
+                vec![1u8, 2, 3, 4, 5, 6],
+                Concurrency::Sequential,
+                move |i, c| {
+                    let clock = Arc::clone(&body_clock);
+                    let done = Arc::clone(&body_done);
+                    match clock.sleep(EffectDuration::from_millis(300), &|| c.is_interrupted()) {
+                        SleepOutcome::Elapsed => {
+                            done.lock().unwrap().push(i);
+                            Exit::Success(i)
+                        }
+                        SleepOutcome::Interrupted => Exit::Failure(Cause::interrupt(None)),
+                    }
+                },
+            )
+        },
+        ForkOpts::immediate(),
+    );
+
+    wait_for_sleepers(&clock, 1);
+    clock.adjust(EffectDuration::from_millis(300));
+    wait_for_done(&done, 1);
+    wait_for_sleepers(&clock, 1);
+    clock.adjust(EffectDuration::from_millis(300));
+    wait_for_done(&done, 2);
+    wait_for_sleepers(&clock, 1);
+
+    fiber.interrupt();
+    let exit = fiber.join();
+
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the batch ends interrupted"
+    );
+    let mut recorded = done.lock().unwrap().clone();
+    recorded.sort_unstable();
+    assert_eq!(
+        recorded,
+        vec![1u8, 2],
+        "the third item was in flight and must not record"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :724 `unbounded interrupt`.
+/// Every item starts at once, and none of them finishes before the interrupt,
+/// so nothing is recorded.
+#[test]
+fn for_each_unbounded_interrupt_records_nothing() {
+    let clock = Arc::new(TestClock::new());
+    let done = Arc::new(Mutex::new(Vec::<u8>::new()));
+    let rt = Runtime::new();
+
+    let body_clock = clock.clone();
+    let body_done = done.clone();
+    let fiber = rt.fork_detach_with(
+        move |ctx| -> Exit<Vec<u8>, String> {
+            for_each_in(
+                ctx,
+                vec![1u8, 2, 3],
+                Concurrency::Unbounded,
+                move |i, c| {
+                    let clock = Arc::clone(&body_clock);
+                    let done = Arc::clone(&body_done);
+                    match clock.sleep(EffectDuration::from_millis(150), &|| c.is_interrupted()) {
+                        SleepOutcome::Elapsed => {
+                            done.lock().unwrap().push(i);
+                            Exit::Success(i)
+                        }
+                        SleepOutcome::Interrupted => Exit::Failure(Cause::interrupt(None)),
+                    }
+                },
+            )
+        },
+        ForkOpts::immediate(),
+    );
+
+    wait_for_sleepers(&clock, 3);
+    clock.adjust(EffectDuration::from_millis(50));
+    fiber.interrupt();
+    let exit = fiber.join();
+
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the batch ends interrupted"
+    );
+    assert!(
+        done.lock().unwrap().is_empty(),
+        "no worker may finish after the interrupt"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :739 `bounded interrupt`.
+/// Two at a time: the first pair completes, the second pair is parked when
+/// the interrupt lands, and nothing beyond the first pair is recorded.
+#[test]
+fn for_each_bounded_interrupt_stops_the_window() {
+    let clock = Arc::new(TestClock::new());
+    let done = Arc::new(Mutex::new(Vec::<u8>::new()));
+    let rt = Runtime::new();
+
+    let body_clock = clock.clone();
+    let body_done = done.clone();
+    let fiber = rt.fork_detach_with(
+        move |ctx| -> Exit<Vec<u8>, String> {
+            for_each_in(
+                ctx,
+                vec![1u8, 2, 3, 4, 5, 6],
+                Concurrency::Bounded(2),
+                move |i, c| {
+                    let clock = Arc::clone(&body_clock);
+                    let done = Arc::clone(&body_done);
+                    match clock.sleep(EffectDuration::from_millis(200), &|| c.is_interrupted()) {
+                        SleepOutcome::Elapsed => {
+                            done.lock().unwrap().push(i);
+                            Exit::Success(i)
+                        }
+                        SleepOutcome::Interrupted => Exit::Failure(Cause::interrupt(None)),
+                    }
+                },
+            )
+        },
+        ForkOpts::immediate(),
+    );
+
+    wait_for_sleepers(&clock, 2);
+    clock.adjust(EffectDuration::from_millis(200));
+    wait_for_done(&done, 2);
+    // The next window is parked when the interrupt lands.
+    wait_for_sleepers(&clock, 2);
+
+    fiber.interrupt();
+    let exit = fiber.join();
+
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the batch ends interrupted"
+    );
+    // One adjust wakes both workers, so their record order is arbitrary; the
+    // row pins that only the first window's items finish.
+    let mut recorded = done.lock().unwrap().clone();
+    recorded.sort_unstable();
+    assert_eq!(
+        recorded,
+        vec![1u8, 2],
+        "only the first window may finish"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :802 `unbounded fail`.
+/// The failing item cancels the slower siblings in flight, so the items whose
+/// delays had not elapsed never record themselves.
+#[test]
+fn for_each_unbounded_failure_cancels_the_slower_workers() {
+    let clock = Arc::new(TestClock::new());
+    let done = Arc::new(Mutex::new(Vec::<u8>::new()));
+    let rt = Runtime::new();
+
+    let body_clock = clock.clone();
+    let body_done = done.clone();
+    let fiber = rt.fork_detach_with(
+        move |ctx| -> Exit<Vec<u8>, String> {
+            for_each_in(
+                ctx,
+                vec![1u8, 2, 3, 4, 5],
+                Concurrency::Unbounded,
+                move |i, c| {
+                    let clock = Arc::clone(&body_clock);
+                    let done = Arc::clone(&body_done);
+                    let wait = u64::from(i) * 100;
+                    match clock.sleep(EffectDuration::from_millis(wait), &|| c.is_interrupted()) {
+                        SleepOutcome::Elapsed => {
+                            done.lock().unwrap().push(i);
+                            if i == 3 {
+                                Exit::<u8, String>::fail("error".to_owned())
+                            } else {
+                                Exit::Success(i)
+                            }
+                        }
+                        SleepOutcome::Interrupted => Exit::Failure(Cause::interrupt(None)),
+                    }
+                },
+            )
+        },
+        ForkOpts::immediate(),
+    );
+
+    wait_for_sleepers(&clock, 5);
+    clock.adjust(EffectDuration::from_millis(300));
+
+    let exit = fiber.join();
+    match exit {
+        Exit::Failure(cause) => assert_eq!(
+            cause.failure(),
+            Some(&"error".to_owned()),
+            "the first failure wins"
+        ),
+        Exit::Success(values) => panic!("expected the batch to fail, got {values:?}"),
+    }
+    // The port's TestClock wakes every due sleeper at once, so the three that
+    // were due record in an arbitrary order. What the row pins is which items
+    // record at all: 4 and 5 were still in flight and must not.
+    let mut recorded = done.lock().unwrap().clone();
+    recorded.sort_unstable();
+    assert_eq!(
+        recorded,
+        vec![1u8, 2, 3],
+        "the siblings still in flight never record"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
 
 /// :1265 `releases on interrupt`.

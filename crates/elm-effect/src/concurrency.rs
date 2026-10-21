@@ -333,6 +333,80 @@ where
     all(rt, bodies, concurrency)
 }
 
+/// `Effect.forEach` at the pin, run from inside a fiber: same fan-out as
+/// [`for_each`], with the caller's fiber as the parent.
+///
+/// The difference is what an interrupt can do. Workers here are children of
+/// `ctx`'s fiber, so an interrupt of the parent reaches them; the batch stops
+/// launching once the parent is interrupted, and the first failure interrupts
+/// the live siblings rather than waiting them out. Successes still come back
+/// in input order however the workers interleave, because the join walks the
+/// launch order.
+///
+/// [`for_each`] stays the detached spelling: it has no parent to be
+/// interrupted through, which is why the interrupt rows use this one.
+pub fn for_each_in<T, A, E>(
+    ctx: &Ctx,
+    items: Vec<T>,
+    concurrency: Concurrency,
+    f: impl Fn(T, &Ctx) -> Exit<A, E> + Send + Sync + 'static,
+) -> Exit<Vec<A>, E>
+where
+    T: Send + 'static,
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    let bound = match concurrency {
+        Concurrency::Sequential | Concurrency::Bounded(0) => 1,
+        Concurrency::Bounded(n) => n,
+        Concurrency::Unbounded => usize::MAX,
+    };
+    let f: Arc<dyn Fn(T, &Ctx) -> Exit<A, E> + Send + Sync> = Arc::new(f);
+    let mut pending = items.into_iter();
+    let mut launched: std::collections::VecDeque<FiberHandle<A, E>> =
+        std::collections::VecDeque::new();
+    let mut out: Vec<A> = Vec::new();
+    let mut interrupted = false;
+
+    loop {
+        while !interrupted && launched.len() < bound {
+            let Some(item) = pending.next() else { break };
+            if ctx.is_interrupted() {
+                break;
+            }
+            let f = Arc::clone(&f);
+            launched.push_back(
+                ctx.fork_child(move |c: &Ctx| f(item, c), ForkOpts::immediate()),
+            );
+        }
+        if ctx.is_interrupted() && !interrupted {
+            interrupted = true;
+            // Neither the queued items nor the live workers get to finish.
+            pending.by_ref().for_each(drop);
+            for handle in &launched {
+                handle.interrupt_unsafe();
+            }
+        }
+        let Some(handle) = launched.pop_front() else {
+            break;
+        };
+        match handle.join() {
+            Exit::Success(a) => out.push(a),
+            Exit::Failure(cause) => {
+                for handle in &launched {
+                    handle.interrupt_unsafe();
+                }
+                return Exit::Failure(cause);
+            }
+        }
+    }
+
+    if interrupted {
+        return Exit::Failure(Cause::interrupt(None));
+    }
+    Exit::Success(out)
+}
+
 /// `Effect.reduce` at the pin: fold items in order, sequentially, passing the
 /// index. `init` is evaluated once per run, so a lazy zero stays lazy. Stops
 /// at the first failure; the items after the failing one are not seen.
