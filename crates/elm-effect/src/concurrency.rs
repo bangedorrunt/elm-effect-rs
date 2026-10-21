@@ -398,6 +398,10 @@ where
     let mut live: std::collections::HashMap<usize, FiberHandle<(), std::convert::Infallible>> =
         std::collections::HashMap::new();
     let mut results: Vec<Option<A>> = (0..total).map(|_| None).collect();
+    // Indexes whose body reported over the channel. A body that panicked never
+    // reports: the supervisor turns the panic into a Die on the handle, so the
+    // scan below is what notices it instead of waiting forever.
+    let mut delivered: std::collections::HashSet<usize> = std::collections::HashSet::new();
     let mut finished = 0usize;
     // How many bodies were actually started. The loop below ends on this, not
     // on `total`: after a failure the queued bodies are dropped, so waiting
@@ -435,16 +439,31 @@ where
 
     while finished < launched {
         if ctx.is_interrupted() {
+            // An interrupt from outside does not erase what the batch already
+            // knows: a failure recorded before it keeps its reasons, and the
+            // cleanup defects of the workers it stops are appended too (an
+            // interrupt and a defect can share one cause).
+            let mut cause = Cause::interrupt(None);
+            for pending in rx.try_iter() {
+                if let Done::Failed(_, sibling) = pending {
+                    cause.reasons.extend(sibling.reasons);
+                }
+            }
             for handle in live.values() {
                 handle.interrupt_unsafe();
             }
+            let mut defects = Vec::new();
             for (_, handle) in live.drain() {
-                let _ = handle.join();
+                if let Exit::Failure(sibling) = handle.join() {
+                    defects.extend(sibling.defects().into_iter().cloned());
+                }
             }
-            return Exit::Failure(Cause::interrupt(None));
+            cause.append_defects(defects);
+            return Exit::Failure(cause);
         }
         match rx.recv_timeout(std::time::Duration::from_millis(5)) {
             Ok(Done::Ok(index, value)) => {
+                delivered.insert(index);
                 live.remove(&index);
                 if failure.is_none() {
                     results[index] = Some(value);
@@ -455,12 +474,32 @@ where
                 finished += 1;
             }
             Ok(Done::Failed(index, cause)) => {
+                delivered.insert(index);
                 live.remove(&index);
                 if failure.is_none() {
-                    failure = Some(cause);
+                    let mut cause = cause;
+                    // The failure wins, but the siblings it stops still get to
+                    // run their cleanups, and a cleanup that dies rides along
+                    // in the same cause instead of vanishing.
                     for handle in live.values() {
                         handle.interrupt_unsafe();
                     }
+                    let mut defects = Vec::new();
+                    for (_, handle) in live.drain() {
+                        if let Exit::Failure(sibling) = handle.join() {
+                            defects.extend(sibling.defects().into_iter().cloned());
+                        }
+                    }
+                    cause.append_defects(defects);
+                    // An interrupt that landed while the cleanup above ran does
+                    // not replace the recorded failure: the two share one
+                    // cause, the same way the interpreter merges them.
+                    if ctx.is_interrupted() && !cause.is_interrupted() {
+                        cause.reasons.push(Reason::Interrupt { fiber_id: None });
+                    }
+                    failure = Some(cause);
+                    finished = launched;
+                    continue;
                 }
                 finished += 1;
             }
@@ -468,6 +507,52 @@ where
             // above can run while the batch is quiet, and so a queued body
             // starts as soon as a slot frees.
             Err(_) => {
+                // A finished handle that never reported is a body that
+                // panicked (or was killed): its exit is the cause.
+                let silent: Vec<usize> = live
+                    .iter()
+                    .filter(|(index, handle)| !delivered.contains(*index) && handle.is_done())
+                    .map(|(index, _)| *index)
+                    .collect();
+                for index in silent {
+                    let Some(handle) = live.remove(&index) else {
+                        continue;
+                    };
+                    // The wrapper's own exit carries no typed failure (it
+                    // always succeeds after sending), so only its defects can
+                    // describe what went wrong.
+                    let defects = match handle.join() {
+                        Exit::Failure(cause) => {
+                            cause.defects().into_iter().cloned().collect::<Vec<_>>()
+                        }
+                        // It did report after all; the channel will deliver it.
+                        Exit::Success(_) => continue,
+                    };
+                    let mut cause: Cause<E> = Cause::from_defects(defects);
+                    if cause.reasons.is_empty() && !ctx.is_interrupted() {
+                        continue;
+                    }
+                    if failure.is_none() {
+                        for handle in live.values() {
+                            handle.interrupt_unsafe();
+                        }
+                        let mut defects = Vec::new();
+                        for (_, handle) in live.drain() {
+                            if let Exit::Failure(sibling) = handle.join() {
+                                defects.extend(sibling.defects().into_iter().cloned());
+                            }
+                        }
+                        cause.append_defects(defects);
+                        if ctx.is_interrupted() && !cause.is_interrupted() {
+                            cause.reasons.push(Reason::Interrupt { fiber_id: None });
+                        }
+                        failure = Some(cause);
+                        finished = launched;
+                    }
+                }
+                if failure.is_some() {
+                    continue;
+                }
                 while live.len() < bound && launch_one(&mut queue, &mut live) {
                     launched += 1;
                 }

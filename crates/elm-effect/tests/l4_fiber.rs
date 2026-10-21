@@ -1248,6 +1248,268 @@ fn for_each_unbounded_failure_cancels_the_slower_workers() {
     assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
 
+/// :754 `preserves interruption when a child cleanup dies`.
+/// The interrupt and the cleanup's own defect share one cause: the batch does
+/// not trade one for the other.
+#[test]
+fn an_interrupt_preserves_a_child_cleanup_defect() {
+    let started = Arc::new(Deferred::<(), String>::new());
+    let rt = Runtime::new();
+    let body_started = started.clone();
+
+    let park = |ctx: &Ctx| {
+        while !ctx.is_interrupted() {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        Exit::Failure(Cause::interrupt(None))
+    };
+    let bodies: Vec<Body<(), String>> = vec![
+        Box::new(move |ctx: &Ctx| {
+            // A held resource whose release dies: the cleanup runs when the
+            // interrupt closes the scope.
+            let _held = ctx.acquire_release(
+                Effect::<(), String>::succeed(()),
+                |_: ()| Effect::<(), String>::die(Defect::new("cleanup defect")),
+            );
+            body_started.complete(());
+            park(ctx)
+        }),
+        Box::new(park),
+    ];
+
+    let fiber = rt.fork_detach_with(
+        move |ctx| all_in(ctx, bodies, Concurrency::Bounded(2)),
+        ForkOpts::immediate(),
+    );
+    started.wait();
+    fiber.interrupt();
+
+    let cause = match fiber.join() {
+        Exit::Failure(cause) => cause,
+        Exit::Success(_) => panic!("an interrupted batch must not succeed"),
+    };
+    assert!(cause.is_interrupted(), "the interrupt survives the cleanup");
+    assert!(
+        cause
+            .defects()
+            .iter()
+            .any(|defect| defect.message.contains("cleanup defect")),
+        "the cleanup defect rides along in the same cause"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :772 `preserves a recorded sibling failure on external interruption`.
+/// The sibling's typed failure was recorded first; the interrupt that lands
+/// while its cleanup is running is appended, never substituted.
+#[test]
+fn an_interrupt_keeps_a_sibling_failure_that_was_already_recorded() {
+    let started = Arc::new(Deferred::<(), String>::new());
+    let cleanup_started = Arc::new(Deferred::<(), String>::new());
+    let release_cleanup = Arc::new(Deferred::<(), String>::new());
+    let rt = Runtime::new();
+
+    let (body_started, body_cleanup, body_release) = (
+        started.clone(),
+        cleanup_started.clone(),
+        release_cleanup.clone(),
+    );
+    let sibling_started = started.clone();
+    let bodies: Vec<Body<(), String>> = vec![
+        Box::new(move |ctx: &Ctx| {
+            body_started.complete(());
+            while !ctx.is_interrupted() {
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            body_cleanup.complete(());
+            body_release.wait();
+            Exit::Failure(Cause::interrupt(None))
+        }),
+        Box::new(move |_ctx: &Ctx| {
+            while !sibling_started.is_done() {
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            Exit::fail("sibling failure".to_owned())
+        }),
+    ];
+
+    let fiber = rt.fork_detach_with(
+        move |ctx| all_in(ctx, bodies, Concurrency::Bounded(2)),
+        ForkOpts::immediate(),
+    );
+    cleanup_started.wait();
+    fiber.interrupt_unsafe();
+    release_cleanup.complete(());
+
+    let cause = match fiber.join() {
+        Exit::Failure(cause) => cause,
+        Exit::Success(_) => panic!("an interrupted batch must not succeed"),
+    };
+    assert!(cause.is_interrupted(), "the interrupt is part of the cause");
+    assert_eq!(
+        cause.failure(),
+        Some(&"sibling failure".to_owned()),
+        "the recorded failure keeps its reason"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :818 `interrupts started workers when the mapper throws during initial
+/// pumping`. A body that panics is a defect, and the worker already running is
+/// interrupted and waited out before the batch reports.
+#[test]
+fn a_mapper_defect_interrupts_the_workers_that_started() {
+    let interrupt_started = Arc::new(Deferred::<(), String>::new());
+    let interrupt_finished = Arc::new(Deferred::<(), String>::new());
+    let rt = Runtime::new();
+
+    let (body_started, body_finished) = (interrupt_started.clone(), interrupt_finished.clone());
+    let bodies: Vec<Body<(), String>> = vec![
+        Box::new(move |ctx: &Ctx| {
+            while !ctx.is_interrupted() {
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            body_started.complete(());
+            body_finished.wait();
+            Exit::Failure(Cause::interrupt(None))
+        }),
+        Box::new(|_ctx: &Ctx| panic!("mapper defect")),
+    ];
+
+    let fiber = rt.fork_detach_with(
+        move |ctx| all_in(ctx, bodies, Concurrency::Bounded(2)),
+        ForkOpts::immediate(),
+    );
+    interrupt_started.wait();
+    assert!(
+        !fiber.is_done(),
+        "the batch waits for the interrupted worker's cleanup"
+    );
+    interrupt_finished.complete(());
+
+    let cause = match fiber.join() {
+        Exit::Failure(cause) => cause,
+        Exit::Success(_) => panic!("a panicking body must not succeed"),
+    };
+    assert!(
+        cause
+            .defects()
+            .iter()
+            .any(|defect| defect.message.contains("mapper defect")),
+        "the mapper's panic is the cause"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :844 `preserves a sibling cleanup defect when the mapper throws`.
+/// The mapper's defect comes first and the cleanup that dies while the batch
+/// stops the sibling is appended to it, in that order.
+#[test]
+fn a_mapper_defect_keeps_a_sibling_cleanup_defect() {
+    let cleaned_up = flag();
+    let cleaned = cleaned_up.clone();
+
+    let bodies: Vec<Body<(), String>> = vec![
+        Box::new(move |ctx: &Ctx| {
+            let _held = ctx.acquire_release(
+                Effect::<(), String>::succeed(()),
+                |_: ()| Effect::<(), String>::die(Defect::new("cleanup defect")),
+            );
+            while !ctx.is_interrupted() {
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            cleaned.store(true, Ordering::SeqCst);
+            Exit::Failure(Cause::interrupt(None))
+        }),
+        Box::new(|_ctx: &Ctx| panic!("mapper defect")),
+    ];
+
+    let rt = Runtime::new();
+    let fiber = rt.fork_detach_with(
+        move |ctx| all_in(ctx, bodies, Concurrency::Bounded(2)),
+        ForkOpts::immediate(),
+    );
+    let cause = match fiber.join() {
+        Exit::Failure(cause) => cause,
+        Exit::Success(_) => panic!("a panicking body must not succeed"),
+    };
+
+    assert!(is_set(&cleaned_up), "the sibling's cleanup ran");
+    let messages: Vec<String> = cause
+        .defects()
+        .iter()
+        .map(|defect| defect.message.clone())
+        .collect();
+    assert_eq!(messages.len(), 2, "both defects are in the cause: {messages:?}");
+    assert_eq!(messages[0], "mapper defect", "the mapper's defect leads");
+    // A scope finalizer renders its own failure with a prefix, so the cleanup
+    // defect is carried inside that rendering rather than bare.
+    assert!(
+        messages[1].contains("cleanup defect"),
+        "the cleanup's defect follows: {messages:?}"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :871 `interrupts started workers when observer-driven refill throws`.
+/// The throwing body is only launched once the first slot frees, and the
+/// worker already running is interrupted and waited out before the report.
+#[test]
+fn a_refill_defect_interrupts_the_workers_that_started() {
+    let release = Arc::new(Deferred::<(), String>::new());
+    let interrupt_started = Arc::new(Deferred::<(), String>::new());
+    let interrupt_finished = Arc::new(Deferred::<(), String>::new());
+
+    let (body_release, body_started, body_finished) = (
+        release.clone(),
+        interrupt_started.clone(),
+        interrupt_finished.clone(),
+    );
+    let bodies: Vec<Body<(), String>> = vec![
+        Box::new(move |_ctx: &Ctx| {
+            body_release.wait();
+            Exit::Success(())
+        }),
+        Box::new(move |ctx: &Ctx| {
+            while !ctx.is_interrupted() {
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            body_started.complete(());
+            body_finished.wait();
+            Exit::Failure(Cause::interrupt(None))
+        }),
+        Box::new(|_ctx: &Ctx| panic!("refill defect")),
+    ];
+
+    let rt = Runtime::new();
+    let fiber = rt.fork_detach_with(
+        move |ctx| all_in(ctx, bodies, Concurrency::Bounded(2)),
+        ForkOpts::immediate(),
+    );
+    assert!(!fiber.is_done(), "the batch parks while a worker waits");
+
+    release.complete(());
+    interrupt_started.wait();
+    assert!(
+        !fiber.is_done(),
+        "the batch waits for the interrupted worker's cleanup"
+    );
+    interrupt_finished.complete(());
+
+    let cause = match fiber.join() {
+        Exit::Failure(cause) => cause,
+        Exit::Success(_) => panic!("a panicking body must not succeed"),
+    };
+    assert!(
+        cause
+            .defects()
+            .iter()
+            .any(|defect| defect.message.contains("refill defect")),
+        "the refill's panic is the cause"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
 /// :1039 `concurrency interrupts started siblings on failure`.
 /// The window is three: the failing item and the two beside it start, the
 /// fourth never does, and the failure interrupts the pair that is running.

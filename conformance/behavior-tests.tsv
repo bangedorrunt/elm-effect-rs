@@ -1231,12 +1231,12 @@ ported	packages/effect/test/Effect.test.ts	703	it.effect	bounded	for_each_bounde
 ported	packages/effect/test/Effect.test.ts	709	it.effect	sequential interrupt	for_each_sequential_stops_at_the_interrupt
 ported	packages/effect/test/Effect.test.ts	724	it.effect	unbounded interrupt	for_each_unbounded_interrupt_records_nothing
 ported	packages/effect/test/Effect.test.ts	739	it.effect	bounded interrupt	for_each_bounded_interrupt_stops_the_window
-unported	packages/effect/test/Effect.test.ts	754	it.effect	preserves interruption when a child cleanup dies	
-unported	packages/effect/test/Effect.test.ts	772	it.effect	preserves a recorded sibling failure on external interruption	
+ported	packages/effect/test/Effect.test.ts	754	it.effect	preserves interruption when a child cleanup dies	an_interrupt_preserves_a_child_cleanup_defect
+ported	packages/effect/test/Effect.test.ts	772	it.effect	preserves a recorded sibling failure on external interruption	an_interrupt_keeps_a_sibling_failure_that_was_already_recorded
 ported	packages/effect/test/Effect.test.ts	802	it.effect	unbounded fail	for_each_unbounded_failure_cancels_the_slower_workers
-unported	packages/effect/test/Effect.test.ts	818	it.effect	interrupts started workers when the mapper throws during initial pumping	
-unported	packages/effect/test/Effect.test.ts	844	it.effect	preserves a sibling cleanup defect when the mapper throws	
-unported	packages/effect/test/Effect.test.ts	871	it.effect	interrupts started workers when observer-driven refill throws	
+ported	packages/effect/test/Effect.test.ts	818	it.effect	interrupts started workers when the mapper throws during initial pumping	a_mapper_defect_interrupts_the_workers_that_started
+ported	packages/effect/test/Effect.test.ts	844	it.effect	preserves a sibling cleanup defect when the mapper throws	a_mapper_defect_keeps_a_sibling_cleanup_defect
+ported	packages/effect/test/Effect.test.ts	871	it.effect	interrupts started workers when observer-driven refill throws	a_refill_defect_interrupts_the_workers_that_started
 ported	packages/effect/test/Effect.test.ts	901	it.effect	length = 0	crates/elm-effect/tests/effect_collections.rs::for_each_over_no_items_yields_an_empty_result
 ported	packages/effect/test/Effect.test.ts	907	it.effect	string	for_each_over_a_string_visits_its_characters
 ported	packages/effect/test/Effect.test.ts	915	it.effect	returns the first element	head_returns_the_first_element
