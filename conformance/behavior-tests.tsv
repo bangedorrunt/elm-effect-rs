@@ -7574,7 +7574,7 @@ ported	packages/effect/test/schema/Schema.test.ts	666	it	ignore strips undeclare
 not-applicable	packages/effect/test/schema/Schema.test.ts	680	it	error ignores non-enumerable undeclared own properties without reading them	the row's subject is non-enumerable own properties and a getter that must not be read; a BTreeMap input has no property attributes and no getters
 not-applicable	packages/effect/test/schema/Schema.test.ts	703	it	error validates non-enumerable declared string and symbol properties	the row's subject is non-enumerable declared properties, including a symbol key, still being validated; the port's inputs have no enumerability and no symbol keys
 not-applicable	packages/effect/test/schema/Schema.test.ts	719	it	error accepts Error internals in an open record	the row's input is a JavaScript Error object whose non-enumerable internals must not surface as excess properties; the port's inputs are JSON-shaped values with no hidden internals
-unported	packages/effect/test/schema/Schema.test.ts	727	it	error encodes tagged errors carrying runtime internals	
+ported	packages/effect/test/schema/Schema.test.ts	727	it	error encodes tagged errors carrying runtime internals	an_error_class_encodes_without_its_runtime_internals
 not-applicable	packages/effect/test/schema/Schema.test.ts	735	it	should corectly handle __proto__	the row's two inputs differ only by JavaScript prototype semantics: {["__proto__"]: "a"} is an own key while {__proto__: "a"} sets the literal's prototype, so one decodes and the other reports a missing key; a Rust map makes both spellings the same entry, so the second observable cannot exist
 ported	packages/effect/test/schema/Schema.test.ts	750	it	a	a_required_string_field_is_read_and_required
 ported	packages/effect/test/schema/Schema.test.ts	790	it	a	a_transformation_field_reads_its_wire_spelling
@@ -7659,7 +7659,7 @@ ported	packages/effect/test/schema/Schema.test.ts	2237	it	TimeZoneNamedFromStrin
 ported	packages/effect/test/schema/Schema.test.ts	2256	it	TimeZoneFromString	time_zone_from_string_decodes_named_and_offset
 ported	packages/effect/test/schema/Schema.test.ts	2277	it	DateTimeZonedFromString	date_time_zoned_from_string_reads_and_writes_the_zoned_text
 ported	packages/effect/test/schema/Schema.test.ts	2298	it	FiniteFromString & isGreaterThan	a_check_on_a_transforming_schema_reads_the_decoded_number
-unported	packages/effect/test/schema/Schema.test.ts	2319	it	should expose the source and the target schemas	
+ported	packages/effect/test/schema/Schema.test.ts	2319	it	should expose the source and the target schemas	a_link_exposes_its_source_and_its_target
 ported	packages/effect/test/schema/Schema.test.ts	2326	it	required to required	a_required_field_refuses_a_missing_key_on_both_axes
 not-applicable	packages/effect/test/schema/Schema.test.ts	2354	it	required to optional	the row asserts that a required source field maps to an optional target whose ENCODE getter supplies a default (`{}` encodes to `{ a: "default" }`) via `SchemaGetter.withDefault` on the encode axis; this port's only encode-side field hook is `omit_encoding`, so there is no encode-side default to assert — the decode half, that a missing key is refused, is carried by `a_required_field_refuses_a_missing_key_on_both_axes`
 ported	packages/effect/test/schema/Schema.test.ts	2381	it	optionalKey to required	an_absent_optional_key_decodes_to_its_default
@@ -7679,7 +7679,7 @@ ported	packages/effect/test/schema/Schema.test.ts	2684	it	Struct & flip & check 
 ported	packages/effect/test/schema/Schema.test.ts	2710	it	Tuple & flip & check & flip should apply the check to the encoded side	a_tuple_check_after_a_flip_decides_both_directions
 ported	packages/effect/test/schema/Schema.test.ts	2736	it	Union & flip & check & flip should apply the check to the encoded side	a_union_check_after_a_flip_decides_both_directions
 ported	packages/effect/test/schema/Schema.test.ts	2762	it	Declaration & flip & check & flip should apply the check to the encoded side	a_declaration_check_after_a_flip_decides_both_directions
-unported	packages/effect/test/schema/Schema.test.ts	2791	it	Struct & flip & check & flip with encoding chain should check the local value	
+not-applicable	packages/effect/test/schema/Schema.test.ts	2791	it	Struct & flip & check & flip with encoding chain should check the local value	the composition's intermediate is From.Type, and this port's decode channel is Unknown end to end: as_unknown normalizes a typed field back to its wire spelling, so the 'to' schema's local value is never produced
 ported	packages/effect/test/schema/Schema.test.ts	2825	it	should work with withConstructorDefault	a_constructor_default_does_not_survive_a_flip
 ported	packages/effect/test/schema/Schema.test.ts	2850	it	declare	declare_admits_what_its_predicate_admits
 ported	packages/effect/test/schema/Schema.test.ts	2863	it	should expose the value	a_box_exposes_the_schema_it_wraps
@@ -7728,19 +7728,19 @@ ported	packages/effect/test/schema/Schema.test.ts	3746	it	should apply construct
 ported	packages/effect/test/schema/Schema.test.ts	3757	it	should construct a Class field from a plain object	a_struct_construction_builds_a_class_field_from_a_plain_object
 ported	packages/effect/test/schema/Schema.test.ts	3768	it	Struct	nested_constructor_defaults_fill_recursively
 ported	packages/effect/test/schema/Schema.test.ts	3782	it	Class	make_option_reports_a_default_that_died
-unported	packages/effect/test/schema/Schema.test.ts	3802	it	applies constructor default when disableChecks is true	
+ported	packages/effect/test/schema/Schema.test.ts	3802	it	applies constructor default when disableChecks is true	a_constructor_with_checks_disabled_still_fills_defaults
 ported	packages/effect/test/schema/Schema.test.ts	3811	it	Struct & Effect sync	constructor_default_fills_an_absent_field_on_make
 ported	packages/effect/test/schema/Schema.test.ts	3822	it	Struct & Effect async	constructor_default_fills_an_absent_field_on_make
 ported	packages/effect/test/schema/Schema.test.ts	3838	it	Effect failing with SchemaIssue propagates as parse failure	constructor_default_failure_lands_on_the_field_path
 ported	packages/effect/test/schema/Schema.test.ts	3855	it	Effect failing via another schema's makeEffect propagates as parse failure	a_default_that_calls_another_failing_make_keeps_its_path
-unported	packages/effect/test/schema/Schema.test.ts	3875	it	Struct & Effect async & service	
+not-applicable	packages/effect/test/schema/Schema.test.ts	3875	it	Struct & Effect async & service	a constructor default is a closure over no environment; a Context.Service read on the construction path has no representation in elm-effect-schema
 ported	packages/effect/test/schema/Schema.test.ts	3906	it	Tuple & Some	tuple_constructor_default_fills_a_missing_slot
 ported	packages/effect/test/schema/Schema.test.ts	3917	it	nested defaults (Struct)	nested_tuple_struct_defaults_fill_recursively
 ported	packages/effect/test/schema/Schema.test.ts	3933	it	inner defaults (Tuple)	nested_tuple_defaults_fill_inner_slots
 ported	packages/effect/test/schema/Schema.test.ts	3948	it	nested defaults (Tuple)	a_defaulted_tuple_fills_its_own_missing_elements
 ported	packages/effect/test/schema/Schema.test.ts	3967	it	Record(String, Number)	record_string_number_decodes_every_value
 ported	packages/effect/test/schema/Schema.test.ts	3994	it	recursive values stay lazy	suspend_recursive_shape_decodes_nested
-unported	packages/effect/test/schema/Schema.test.ts	4009	it.effect	sequential parsing resumes without replaying entries	
+not-applicable	packages/effect/test/schema/Schema.test.ts	4009	it.effect	sequential parsing resumes without replaying entries	the row asserts that an Effect generator resumes without replaying entries; this port's record walk is a synchronous loop, so the assertion would only restate the loop
 ported	packages/effect/test/schema/Schema.test.ts	4028	it	Record(String, optionalKey(Number)) should throw	index_signature_refuses_an_optional_key_value
 ported	packages/effect/test/schema/Schema.test.ts	4035	it	Record(String, optional(Number))	record_optional_values_accept_null_but_reject_wrong_type
 ported	packages/effect/test/schema/Schema.test.ts	4053	it	Record(String.check, Number) should use the key checks to select keys	record_with_a_checked_key_selects_its_entries
@@ -7852,7 +7852,7 @@ ported	packages/effect/test/schema/Schema.test.ts	5917	it	decoding: default & en
 ported	packages/effect/test/schema/Schema.test.ts	5945	it	tagDefaultOmit	tag_fills_default_and_omits_on_encode
 not-applicable	packages/effect/test/schema/Schema.test.ts	5975	it	URL	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.URL does not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/Schema.test.ts	5983	it	RegExp	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.RegExp does not exist on the Rust schema surface, so the schema in the row cannot be built
-unported	packages/effect/test/schema/Schema.test.ts	5991	it	URLFromString	
+ported	packages/effect/test/schema/Schema.test.ts	5991	it	URLFromString	a_url_string_decodes_to_a_url_and_renders_back
 ported	packages/effect/test/schema/Schema.test.ts	6011	it	use case: Unknown <-> JSON string	unknown_from_json_string_decodes_and_encodes
 ported	packages/effect/test/schema/Schema.test.ts	6030	it	use case: create a JSON string serializer for an existing schema	from_json_string_serializes_an_existing_schema
 ported	packages/effect/test/schema/Schema.test.ts	6047	it	reviver option	from_json_string_reviver_runs_on_each_value
@@ -7861,7 +7861,7 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	6071	it	use case: pars
 ported	packages/effect/test/schema/Schema.test.ts	6091	it	fromFormData	form_data_accepts_indexed_array_pairs_and_writes_repeated_keys
 ported	packages/effect/test/schema/Schema.test.ts	6137	it	fromURLSearchParams	url_search_params_decode_and_encode_the_bracket_pairs
 ported	packages/effect/test/schema/Schema.test.ts	6172	it	Trim	trim_decodes_trimmed_and_refuses_untrimmed_on_encode
-unported	packages/effect/test/schema/Schema.test.ts	6195	it	transformEffect	
+ported	packages/effect/test/schema/Schema.test.ts	6195	it	transformEffect	a_transform_effect_step_reports_its_own_issue
 ported	packages/effect/test/schema/Schema.test.ts	6229	it	should expose the parts	template_literal_exposes_its_parts
 ported	packages/effect/test/schema/Schema.test.ts	6235	it	NonEmptyString + String	template_literal_non_empty_string_part
 not-applicable	packages/effect/test/schema/Schema.test.ts	6243	it	rejects checks on Literal, TemplateLiteral, and Union parts	the row asserts a construction-time throw for a part that carries a check; TemplatePart is a closed enum with no checked variant, so the refusal is a type error and there is no runtime path to assert
@@ -7926,7 +7926,7 @@ ported	packages/effect/test/schema/Schema.test.ts	7195	it	constructor ignores ex
 ported	packages/effect/test/schema/Schema.test.ts	7206	it	constructor strips excess properties with explicit ignore	an_explicit_ignore_or_strip_still_leaves_the_key_off
 ported	packages/effect/test/schema/Schema.test.ts	7219	it	constructor rejects excess properties when requested	the_constructor_rejects_excess_properties_when_requested
 ported	packages/effect/test/schema/Schema.test.ts	7231	it	annotate	an_annotation_over_a_class_keeps_the_class
-unported	packages/effect/test/schema/Schema.test.ts	7247	it	basic	
+not-applicable	packages/effect/test/schema/Schema.test.ts	7247	it	basic	the row asserts 'instance instanceof A' for a subclass; a ClassValue carries one identifier and this port has no prototype chain, which class.rs states as its boundary
 ported	packages/effect/test/schema/Schema.test.ts	7280	it	decoding validates the extended struct once	extend_validates_each_sources_check_once
 ported	packages/effect/test/schema/Schema.test.ts	7307	it	constructor preserves subclass fields while ignoring excess properties by default	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
 ported	packages/effect/test/schema/Schema.test.ts	7322	it	constructor keeps subclass fields and strips excess properties with explicit ignore	an_extended_constructor_strips_excess_under_explicit_ignore
@@ -7943,7 +7943,7 @@ ported	packages/effect/test/schema/Schema.test.ts	7503	it	make with void input	a
 ported	packages/effect/test/schema/Schema.test.ts	7510	it	fields argument	an_error_class_is_its_tagged_error_twin_and_prints_like_one
 ported	packages/effect/test/schema/Schema.test.ts	7527	it	constructor ignores excess properties by default	an_error_class_is_its_tagged_error_twin_and_prints_like_one
 ported	packages/effect/test/schema/Schema.test.ts	7543	it	constructor strips excess properties with explicit ignore	an_error_class_is_its_tagged_error_twin_and_prints_like_one
-unported	packages/effect/test/schema/Schema.test.ts	7558	it	Struct argument	
+not-applicable	packages/effect/test/schema/Schema.test.ts	7558	it	Struct argument	the row asserts the JS creation stack (err.stack contains Schema.test.ts:); a ClassValue is plain data and carries no creation stack
 ported	packages/effect/test/schema/Schema.test.ts	7579	it	extend	an_error_class_is_its_tagged_error_twin_and_prints_like_one
 ported	packages/effect/test/schema/Schema.test.ts	7615	it	extended constructor ignores excess properties by default	an_error_class_is_its_tagged_error_twin_and_prints_like_one
 ported	packages/effect/test/schema/Schema.test.ts	7630	it	extended constructor does not treat subclass fields as excess properties	an_error_class_is_its_tagged_error_twin_and_prints_like_one
@@ -7983,10 +7983,10 @@ ported	packages/effect/test/schema/Schema.test.ts	8164	it	Optional Property to E
 ported	packages/effect/test/schema/Schema.test.ts	8183	it	Optional Property with Nullability to Optional Property	an_optional_nullable_property_takes_all_three_shapes
 ported	packages/effect/test/schema/Schema.test.ts	8207	it	optionalKey -> Option	an_optional_key_reads_as_an_option
 ported	packages/effect/test/schema/Schema.test.ts	8230	it	optional -> Option	an_optional_property_reads_as_an_option
-unported	packages/effect/test/schema/Schema.test.ts	8255	it	decodeTo as composition	
-unported	packages/effect/test/schema/Schema.test.ts	8286	it	encodeTo as composition	
-unported	packages/effect/test/schema/Schema.test.ts	8323	it	no context	
-unported	packages/effect/test/schema/Schema.test.ts	8346	it	with context	
+not-applicable	packages/effect/test/schema/Schema.test.ts	8255	it	decodeTo as composition	same typed-intermediate gap as :2791: crossing From.Type to To.Encoded needs a typed value channel this port does not have
+not-applicable	packages/effect/test/schema/Schema.test.ts	8286	it	encodeTo as composition	same typed-intermediate gap as :2791: crossing From.Type to To.Encoded needs a typed value channel this port does not have
+ported	packages/effect/test/schema/Schema.test.ts	8323	it	no context	a_check_effect_reports_its_own_issue
+not-applicable	packages/effect/test/schema/Schema.test.ts	8346	it	with context	the checkEffect reads a Context.Service; elm-effect-schema has no service environment on the parse path
 ported	packages/effect/test/schema/Schema.test.ts	8377	it	FiniteFromString	ffs_decodes_plain_numbers
 ported	packages/effect/test/schema/Schema.test.ts	8386	it	FiniteFromString	ffs_rejects_non_numeric_text
 ported	packages/effect/test/schema/Schema.test.ts	8403	it	FiniteFromString	ffs_rejects_non_text
@@ -7998,10 +7998,10 @@ ported	packages/effect/test/schema/Schema.test.ts	8532	it	FiniteFromString	ffs_r
 ported	packages/effect/test/schema/Schema.test.ts	8566	it	should throw an error when the cause contains both a schema issue and a defect	the_result_adapter_refuses_a_mixed_cause
 ported	packages/effect/test/schema/Schema.test.ts	8594	it	FiniteFromString	ffs_round_trips
 ported	packages/effect/test/schema/Schema.test.ts	8619	it	should throw an error when the cause contains both a schema issue and a defect	the_sync_adapter_refuses_a_mixed_cause
-unported	packages/effect/test/schema/Schema.test.ts	8647	it	should throw on async decoding	
-unported	packages/effect/test/schema/Schema.test.ts	8662	it	should throw on missing dependency	
-unported	packages/effect/test/schema/Schema.test.ts	8680	it	should die on async decoding	
-unported	packages/effect/test/schema/Schema.test.ts	8696	it	should die on missing dependency	
+ported	packages/effect/test/schema/Schema.test.ts	8647	it	should throw on async decoding	the_result_adapter_refuses_an_async_schema
+not-applicable	packages/effect/test/schema/Schema.test.ts	8662	it	should throw on missing dependency	the missing-dependency case needs a service environment; a pre-resolved step cannot be missing one
+ported	packages/effect/test/schema/Schema.test.ts	8680	it	should die on async decoding	the_exit_adapter_dies_on_an_async_schema
+not-applicable	packages/effect/test/schema/Schema.test.ts	8696	it	should die on missing dependency	the missing-dependency case needs a service environment; a pre-resolved step cannot be missing one
 ported	packages/effect/test/schema/Schema.test.ts	8714	it	should preserve mixed schema issue and defect causes	an_exit_keeps_a_mixed_cause_whole
 ported	packages/effect/test/schema/Schema.test.ts	8746	it	Struct	a_missing_key_reports_the_message_its_key_schema_annotated
 ported	packages/effect/test/schema/Schema.test.ts	8760	it	Tuple	tuple_checks_length_and_order

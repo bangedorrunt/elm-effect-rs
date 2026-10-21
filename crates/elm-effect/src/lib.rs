@@ -70,6 +70,8 @@ mod schema_defect;
 mod schema_duration;
 #[cfg(feature = "schema")]
 mod schema_exit;
+#[cfg(feature = "schema")]
+mod schema_parser;
 #[cfg(feature = "tokio")]
 mod scope;
 mod service;
@@ -155,6 +157,8 @@ pub use schema_defect::defect_schema;
 pub use schema_duration::{duration_from_millis, duration_from_string};
 #[cfg(feature = "schema")]
 pub use schema_exit::{ExitSchema, exit_schema};
+#[cfg(feature = "schema")]
+pub use schema_parser::{ASYNC_DEFECT, decode_unknown_exit, decode_unknown_result};
 #[cfg(feature = "tokio")]
 pub use scope::{Scope, ScopeTag};
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};

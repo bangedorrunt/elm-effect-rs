@@ -266,6 +266,16 @@ pub struct Schema<T> {
     /// the node because the encoded side is a schema this one links to, not a
     /// field list.
     encoded_annotations: Vec<(String, String)>,
+    /// The schema a refinement wraps, so `without_checks` can answer the base a
+    /// `disableChecks` constructor runs. Kept apart from `wrapped_schema`, which
+    /// `flip_source`/`redacted_value` read for their own wrappers.
+    check_base: Option<Arc<Schema<Unknown>>>,
+    /// Whether some step of this schema came from an Effect spelling
+    /// (`transformEffect`, `checkEffect`) and therefore needs an Effect runtime.
+    /// The port runs such a step through the closure the caller resolved, so
+    /// `decode` works; the SYNC adapters refuse the schema, which is the pin's
+    /// "Sync adapter can only throw schema errors" / dies-on-async behaviour.
+    requires_effect: bool,
 }
 
 /// The two spellings of a decoding default. `withDecodingDefault` takes a wire
@@ -1650,7 +1660,27 @@ impl<T> Schema<T> {
             link_target: None,
             recovering: false,
             encoded_annotations: Vec::new(),
+            check_base: None,
+            requires_effect: false,
         }
+    }
+
+    /// The schema a link was built FROM (`decodeTo`'s `from`), when the
+    /// constructor kept one.
+    pub fn link_from(&self) -> Option<Schema<Unknown>> {
+        self.link_source.as_ref().map(|source| source.as_ref().clone())
+    }
+
+    /// The schema a link was built TO (`decodeTo`'s `to`), when the constructor
+    /// named one.
+    pub fn link_to(&self) -> Option<Schema<Unknown>> {
+        self.link_target.as_ref().map(|target| target.as_ref().clone())
+    }
+
+    /// Whether a sync adapter must refuse this schema because a step of it is
+    /// an Effect (`transformEffect`, `checkEffect`).
+    pub fn requires_effect(&self) -> bool {
+        self.requires_effect
     }
 
     /// `Schema.mutable`: lift the readonly marker a node carries.
@@ -2169,6 +2199,8 @@ impl<T> Schema<T> {
             link_target: schema.link_target.clone(),
             recovering: schema.recovering,
             encoded_annotations: schema.encoded_annotations.clone(),
+            check_base: schema.check_base.clone(),
+            requires_effect: schema.requires_effect,
         }
     }
 
@@ -2271,6 +2303,10 @@ impl<T> Schema<T> {
         out.link_target = schema.link_target.clone();
         out.recovering = schema.recovering;
         out.encoded_annotations = schema.encoded_annotations.clone();
+        out.check_base = schema.check_base.clone();
+        // An effectful step is a property of the codec: a sync adapter must
+        // refuse a re-typing of one exactly as it refuses the schema itself.
+        out.requires_effect = schema.requires_effect;
         // A nested struct must stay reachable for accumulating validation:
         // `decode_collect` recurses through `children`, and every struct
         // field passes through this re-typing.
@@ -2473,6 +2509,25 @@ impl<T> Schema<T> {
         );
         out.link_source = Some(link_source);
         out.carries_encoding = true;
+        out
+    }
+
+    /// `transformEffect`: the link of [`decode_to`], where the caller has
+    /// already run the Effect and handed the transformation its result.
+    ///
+    /// The pair itself is a plain [`Transformation`](crate::transform::Transformation);
+    /// the marker is what a sync adapter reads before deciding it cannot run
+    /// this schema (`Schema.test.ts:8647`).
+    pub fn decode_to_effect<A>(
+        from: Schema<A>,
+        transformation: crate::transform::Transformation<A, T>,
+    ) -> Schema<T>
+    where
+        A: Send + Sync + 'static,
+        T: Clone + Send + Sync + 'static,
+    {
+        let mut out = Self::decode_to(from, transformation);
+        out.requires_effect = true;
         out
     }
 
@@ -6769,6 +6824,16 @@ impl<T> Schema<T> {
 // SchemaRepresentation: the code / type repr
 
 impl Schema<Unknown> {
+    /// The sources this schema was refined from, outermost check first: what a
+    /// constructor runs when checks are disabled (`disableChecks`). A schema
+    /// that is not a refinement answers itself.
+    pub fn without_checks(self) -> Schema<Unknown> {
+        match self.check_base.clone() {
+            Some(base) => base.as_ref().clone().without_checks(),
+            None => self,
+        }
+    }
+
     /// `Schema.catchDecoding(f)`: a decode the base refuses falls back to the
     /// value `f` answers for that refusal, and the fallback then travels the
     /// rest of the chain, so a check on top decides it like any other value
@@ -6933,16 +6998,13 @@ impl Schema<Unknown> {
         Schema::annotated_with(base, self.encoded_annotations.clone())
     }
 
-    /// The schema a link was built FROM (`decodeTo`'s `from`), when the
-    /// constructor kept one.
-    pub fn link_from(&self) -> Option<Schema<Unknown>> {
-        self.link_source.as_ref().map(|source| source.as_ref().clone())
-    }
-
-    /// The schema a link was built TO (`decodeTo`'s `to`), when the constructor
-    /// named one.
-    pub fn link_to(&self) -> Option<Schema<Unknown>> {
-        self.link_target.as_ref().map(|target| target.as_ref().clone())
+    /// `checkEffect`: a check whose effect the caller resolved before handing
+    /// it over. It runs on both axes like any filter; the marker is what makes
+    /// a sync adapter die rather than silently run an effect.
+    pub fn checked_effect(base: Schema<Unknown>, filter: FilterSpec) -> Self {
+        let mut out = Schema::filtered(base, vec![filter], false);
+        out.requires_effect = true;
+        out
     }
 
     /// A struct field whose key may be absent (`optionalKey`). Decode delegates
@@ -8301,6 +8363,7 @@ impl Schema<Unknown> {
         out.union_members = inner.union_members.clone();
         out.class_meta = inner.class_meta.clone();
         out.record_key = inner.record_key.clone();
+        out.check_base = Some(inner.clone());
         out
     }
 

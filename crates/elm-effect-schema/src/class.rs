@@ -344,6 +344,24 @@ fn build_with(meta: ClassMeta, source: Schema<Unknown>) -> Schema<ClassValue> {
     out
 }
 
+/// Build a class value from `input` through `source`, applying the class's
+/// discriminant rule and excess policy. Shared by the constructor on the schema
+/// and by `make_unchecked`, so the two cannot disagree about what a class
+/// instance is.
+fn construct_value(
+    meta: &ClassMeta,
+    source: &Schema<Unknown>,
+    unknown: Unknown,
+) -> Result<ClassValue, ConstructError> {
+    let input = match &meta.tag {
+        Some(tag) => strip_tag_constructing(unknown, tag)?,
+        None => unknown,
+    };
+    let input = apply_excess(input, &meta.declared(), meta.excess)?;
+    class_value(&meta.identifier, meta.tag.clone(), source.construct(input)?)
+        .map_err(ConstructError::from)
+}
+
 /// The discriminant is a required key on the way in, and only the tag this class
 /// declares is its value; a missing or foreign `_tag` is refused by name.
 fn strip_tag(unknown: Unknown, tag: &str) -> Result<Unknown, SchemaError> {
@@ -531,6 +549,22 @@ impl Schema<ClassValue> {
     /// zero-field class expects (and what an all-optional class accepts).
     pub fn make_void(&self) -> Result<ClassValue, AdapterError> {
         self.construct(Unknown::Object(BTreeMap::new()))
+            .map_err(|error| AdapterError::report(error, CONSTRUCTOR_DIE))
+    }
+
+    /// `new A(props, { disableChecks: true })`: the constructor with the
+    /// source's checks skipped. Constructor defaults still fill, because they
+    /// belong to the field, not to the check (`Schema.test.ts:3802`).
+    pub fn make_unchecked(&self, input: Unknown) -> Result<ClassValue, AdapterError> {
+        let Some(meta) = self.class_meta.as_deref() else {
+            return Err(AdapterError::Issue(SchemaError::TypeMismatch {
+                path: "$".to_string(),
+                expected: "a class schema",
+                got: "no class metadata",
+            }));
+        };
+        let source = meta.source.clone().without_checks();
+        construct_value(meta, &source, input)
             .map_err(|error| AdapterError::report(error, CONSTRUCTOR_DIE))
     }
 

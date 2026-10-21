@@ -30,6 +30,12 @@ required-features = ["schema"]
 name = "schema_adapters"
 required-features = ["schema"]
 
+# The sync adapters are their own surface: they refuse a schema whose steps
+# need an Effect runtime, and this fence is where that refusal is proved.
+[[test]]
+name = "schema_parser"
+required-features = ["schema"]
+
 # The Duration schemas adapt this crate's own `Duration`, so their fence needs
 # the feature that brings the schema crate in.
 [[test]]

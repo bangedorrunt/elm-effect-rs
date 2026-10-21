@@ -194,6 +194,8 @@ impl Schema<Unknown> {
         out.tuple_elements = inner.tuple_elements.clone();
         out.union_members = inner.union_members.clone();
         out.class_meta = inner.class_meta.clone();
+        // The base a `disableChecks` constructor runs instead of this node.
+        out.check_base = Some(inner.clone());
         out.applied_filters = {
             let mut chain = inner.applied_filters.clone();
             chain.extend(recorded);

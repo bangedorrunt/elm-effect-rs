@@ -28,6 +28,9 @@ pub mod cli_ai;
 pub mod schema_obs;
 
 pub mod http;
+/// `Schema.URLFromString`, beside the `Url` value it speaks for.
+pub mod schema_url;
+pub use schema_url::{url_from_string, url_wire};
 pub mod http_compression;
 pub mod http_platform;
 pub mod mime;

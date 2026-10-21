@@ -47,6 +47,17 @@ impl<A, B> Transformation<A, B> {
         Transformation::new(Ok, Ok)
     }
 
+    /// `SchemaTransformation.transformEffect`: an Effectful pair whose effect
+    /// the caller has already run, so both directions are plain closures here.
+    /// The Effect spelling exists in this port because a sync adapter must
+    /// refuse a schema built from one rather than run it silently.
+    pub fn effect(
+        forward: impl Fn(A) -> Result<B, SchemaError> + Send + Sync + 'static,
+        backward: impl Fn(B) -> Result<A, SchemaError> + Send + Sync + 'static,
+    ) -> Self {
+        Self::new(forward, backward)
+    }
+
     /// Run the forward direction.
     pub fn forward(&self, value: A) -> Result<B, SchemaError> {
         (self.forward)(value)

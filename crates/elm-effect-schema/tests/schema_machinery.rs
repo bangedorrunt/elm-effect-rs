@@ -9,8 +9,14 @@
 //! rows name, not the shape of the machinery.
 
 use elm_effect_schema::checks::is_min_length;
+use elm_effect_schema::class::{class_from, tagged_error};
 use elm_effect_schema::filters::{FilterIssue, FilterOutcome, FilterSpec};
-use elm_effect_schema::{Field, Schema, Unknown};
+use elm_effect_schema::transform::{Errors, ParseOptions, Transformation};
+use elm_effect_schema::{ExcessProperty, Field, Schema, SchemaError, Unknown};
+
+fn number_schema() -> Schema<Unknown> {
+    Schema::as_unknown(Schema::number())
+}
 
 fn text(value: &str) -> Unknown {
     Unknown::Text(value.to_string())
@@ -387,3 +393,135 @@ fn a_recovering_member_survives_sentinel_dispatch() {
     );
 }
 
+
+/// `Schema.test.ts:2319` — a link exposes the schema it reads and the schema it
+/// produces, so `FiniteFromString` answers `String` and `Finite`.
+#[test]
+fn a_link_exposes_its_source_and_its_target() {
+    let schema = Schema::<f64>::finite_from_string();
+
+    let from = schema
+        .link_from()
+        .expect("FiniteFromString keeps its source");
+    assert_eq!(from.to_code(), "Schema.String");
+
+    let to = schema.link_to().expect("FiniteFromString keeps its target");
+    assert!(to.decode(Unknown::Number(1.5)).is_ok());
+    assert!(
+        to.decode(Unknown::Number(f64::NAN)).is_err(),
+        "the target is Finite, so a non-finite number is not its value"
+    );
+}
+
+/// `Schema.test.ts:6195` — `transformEffect` runs the caller's step and reports
+/// that step's own issue, on both axes.
+#[test]
+fn a_transform_effect_step_reports_its_own_issue() {
+    let schema = Schema::<String>::decode_to_effect(
+        Schema::string(),
+        Transformation::effect(
+            |value: String| {
+                if value == "a" {
+                    Err(SchemaError::FilterFailed {
+                        path: "$".to_string(),
+                        message: "input should not be \"a\"".to_string(),
+                    })
+                } else {
+                    Ok(value)
+                }
+            },
+            |value: String| {
+                if value == "b" {
+                    Err(SchemaError::FilterFailed {
+                        path: "$".to_string(),
+                        message: "input should not be \"b\"".to_string(),
+                    })
+                } else {
+                    Ok(value)
+                }
+            },
+        ),
+    );
+
+    assert_eq!(schema.decode(text("b")).unwrap(), "b");
+    let refused = schema.decode(text("a")).unwrap_err().to_string();
+    assert!(refused.contains("input should not be \"a\""), "{refused}");
+
+    assert_eq!(schema.try_encode(&"a".to_string()).unwrap(), text("a"));
+    let refused = schema.try_encode(&"b".to_string()).unwrap_err().to_string();
+    assert!(refused.contains("input should not be \"b\""), "{refused}");
+
+    // The step came from an Effect, which is what a sync adapter reads.
+    assert!(schema.requires_effect());
+}
+
+/// `Schema.test.ts:8323` — a `checkEffect` refuses with the issue it produced,
+/// and leaves a passing value alone.
+#[test]
+fn a_check_effect_reports_its_own_issue() {
+    let schema = Schema::checked_effect(
+        string(),
+        filter("input should not be empty string", |value| {
+            !matches!(value, Unknown::Text(text) if text.is_empty())
+        }),
+    );
+
+    assert_eq!(schema.decode(text("a")).unwrap(), text("a"));
+    let refused = decode_error(&schema, text(""));
+    assert!(
+        refused.contains("input should not be empty string"),
+        "{refused}"
+    );
+    assert!(schema.requires_effect());
+}
+
+/// `Schema.test.ts:727` — an error class encodes its discriminant and declared
+/// fields only, so the internals a runtime error carries (a message, a stack)
+/// are not wire properties even under the strictest excess policy.
+#[test]
+fn an_error_class_encodes_without_its_runtime_internals() {
+    let schema = tagged_error("NotFound", "NotFound", vec![("id", number_schema())]);
+    let value = schema
+        .make(obj(vec![("id", Unknown::Number(1.0))]))
+        .expect("the constructor fills the declared field");
+
+    let wire = ParseOptions {
+        errors: Errors::First,
+        on_excess_property: ExcessProperty::Reject,
+    }
+    .scoped(|| schema.try_encode(&value));
+
+    assert_eq!(
+        wire.unwrap(),
+        obj(vec![
+            ("_tag", text("NotFound")),
+            ("id", Unknown::Number(1.0))
+        ]),
+        "only the discriminant and the declared fields travel"
+    );
+}
+
+/// `Schema.test.ts:3802` — `disableChecks` skips the source's checks and still
+/// applies the constructor default, because the default belongs to the field.
+#[test]
+fn a_constructor_with_checks_disabled_still_fills_defaults() {
+    let defaulted = Schema::with_constructor_default(string(), || Ok(text("default")));
+    let source = Schema::filtered(
+        Schema::as_unknown(Schema::struct_shape(vec![Field::required(
+            "a", defaulted,
+        )])),
+        vec![filter("this source refuses every value", |_| false)],
+        false,
+    );
+    let class = class_from("A", source);
+
+    assert!(
+        class.make(obj(vec![])).is_err(),
+        "with checks enabled the source refuses"
+    );
+
+    let instance = class
+        .make_unchecked(obj(vec![]))
+        .expect("checks are disabled for this construction");
+    assert_eq!(instance.get("a"), Some(&text("default")));
+}
