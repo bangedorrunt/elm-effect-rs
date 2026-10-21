@@ -1387,6 +1387,24 @@ fn timeout_or_else_can_die_on_its_own_terms() {
     assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
 
+/// :1444 `is interruptible` (the `repeat` block).
+/// A repeat that has no natural end still answers the deadline, and the answer
+/// is the timeout's `None` rather than a hang.
+#[test]
+fn a_repeat_of_void_is_interruptible_by_its_deadline() {
+    let clock = Arc::new(TestClock::new());
+    let effect = Effect::<(), String>::forever(|| Effect::<(), String>::succeed(()))
+        .timeout_option(EffectDuration::from_millis(50))
+        .provide::<ClockTag, ()>(clock.clone() as Arc<dyn ClockImpl>);
+
+    let (rt, fiber) = spawn_effect_any(effect);
+    std::thread::sleep(Duration::from_millis(20));
+    clock.adjust(EffectDuration::from_millis(50));
+
+    assert_eq!(fiber.join(), Exit::Success(None));
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
 /// :2028 `timeout repetition of uninterruptible effect`.
 /// The repeat boundary is the delivery point: the body is uninterruptible,
 /// but it cannot stop the deadline from ending the batch.

@@ -1279,7 +1279,7 @@ ported	packages/effect/test/Effect.test.ts	1364	it.effect	raceFirst interrupts t
 ported	packages/effect/test/Effect.test.ts	1383	it.effect	raceFirst interrupts the loser when the other side fails	race_first_interrupts_the_loser_when_the_other_side_fails
 ported	packages/effect/test/Effect.test.ts	1404	it.effect	${name} interrupts a loser that settles the race while starting	race_interrupts_a_loser_that_settles_the_race_while_starting
 unported	packages/effect/test/Effect.test.ts	1422	it.effect	${name} interrupts the loser when interrupted while starting	
-unported	packages/effect/test/Effect.test.ts	1444	it.effect	is interruptible	
+ported	packages/effect/test/Effect.test.ts	1444	it.effect	is interruptible	a_repeat_of_void_is_interruptible_by_its_deadline
 ported	packages/effect/test/Effect.test.ts	1456	it.effect	repeat/until - repeats until a condition is true	crates/elm-effect/tests/effect_repeat_retry.rs::repeat_until_repeats_until_a_condition_is_true
 ported	packages/effect/test/Effect.test.ts	1470	it.effect	repeat/until - repeats until an effectful condition is true	crates/elm-effect/tests/effect_repeat_retry.rs::repeat_until_repeats_until_an_effectful_condition_is_true
 ported	packages/effect/test/Effect.test.ts	1484	it.effect	repeat/until - always evaluates at least once	crates/elm-effect/tests/effect_repeat_retry.rs::repeat_until_always_evaluates_at_least_once
