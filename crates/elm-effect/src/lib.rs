@@ -104,6 +104,8 @@ pub use concurrency::{
 };
 pub use context::{Context, ContextReference, Tag};
 pub use effect::{Effect, Requirement};
+#[cfg(feature = "tokio")]
+pub use effect::Restore;
 #[cfg(feature = "schema")]
 pub use elm_effect_schema::{Schema, SchemaError, StructValue, Unknown};
 #[cfg(feature = "tokio")]

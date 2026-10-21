@@ -2,7 +2,7 @@
 //! interrupt back-pressure. Bodies cooperate via [`Ctx`](elm_effect::Ctx).
 #![cfg(feature = "tokio")]
 
-use elm_effect::{Cause, Defect, Effect, Exit, FiberHandle, FiberId, ForkOpts, Runtime};
+use elm_effect::{Cause, Defect, Deferred, Effect, Exit, FiberHandle, FiberId, ForkOpts, Runtime};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
 use std::time::{Duration, Instant};
@@ -984,6 +984,138 @@ where
     );
     let handle = rx.recv().expect("the parent hands its effect handle over");
     (rt, handle)
+}
+
+/// :2149 `run of interruptible`.
+/// `exit` inside an interruptible region sees the interrupt as a failure with
+/// interrupts only, and the surrounding `uninterruptible` still runs to the
+/// end of the chain.
+#[test]
+fn exit_inside_a_masked_region_observes_the_interrupt() {
+    let recovered = flag();
+    let record = recovered.clone();
+
+    let effect = Effect::<(), String>::never()
+        .interruptible()
+        .exit()
+        .flat_map(move |result| {
+            let record = record.clone();
+            Effect::<(), std::convert::Infallible>::sync(move || {
+                if let Exit::Failure(cause) = result {
+                    record.store(cause.has_interrupts_only(), Ordering::SeqCst);
+                }
+            })
+        })
+        .uninterruptible();
+
+    let (rt, target) = spawn_effect_any(effect);
+    target.interrupt();
+    let _ = target.join();
+
+    assert!(
+        is_set(&recovered),
+        "exit must observe the interrupt the region let through"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2167 `alternating interruptibility`.
+/// Two interruptible windows inside one masked chain each observe the
+/// interrupt, so the continuation after each window runs.
+#[test]
+fn alternating_interruptibility_runs_each_observed_window() {
+    let counter = Arc::new(AtomicU64::new(0));
+    let first = counter.clone();
+    let second = counter.clone();
+
+    let effect = Effect::<(), String>::never()
+        .interruptible()
+        .exit()
+        .flat_map(move |_| {
+            let first = first.clone();
+            Effect::<(), std::convert::Infallible>::sync(move || {
+                first.fetch_add(1, Ordering::SeqCst);
+            })
+        })
+        .uninterruptible()
+        .interruptible()
+        .exit()
+        .flat_map(move |_| {
+            let second = second.clone();
+            Effect::<(), std::convert::Infallible>::sync(move || {
+                second.fetch_add(1, Ordering::SeqCst);
+            })
+        })
+        .uninterruptible();
+
+    let (rt, target) = spawn_effect_any(effect);
+    target.interrupt();
+    let _ = target.join();
+
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        2,
+        "both interruptible windows must hand control back"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2337 `delivers a pending interrupt when restore re-enables
+/// interruptibility`.
+/// The interrupt is requested while masked, so it lands at the `restore`
+/// boundary: the restored effect never runs and the exit carries the interrupt.
+#[test]
+fn restore_delivers_a_pending_interrupt_before_the_restored_effect_runs() {
+    let masked = Arc::new(Deferred::<(), String>::new());
+    let resume = Arc::new(Deferred::<(), String>::new());
+    let events = Arc::new(Mutex::new(Vec::<&'static str>::new()));
+
+    let body_masked = masked.clone();
+    let body_resume = resume.clone();
+    let body_events = events.clone();
+    let effect = Effect::uninterruptible_mask(move |restore| {
+        let inner_events = body_events.clone();
+        Effect::<(), String>::sync(move || {
+            body_masked.complete(());
+        })
+            .flat_map(move |_| {
+                let resume = body_resume.clone();
+                Effect::<(), String>::sync(move || resume.wait())
+            })
+            .flat_map(move |_| {
+                let events = inner_events.clone();
+                restore.apply(Effect::<(), String>::suspend(move || {
+                    events.lock().unwrap().push("restored");
+                    Effect::<(), String>::never()
+                }))
+            })
+    });
+
+    let (rt, target) = spawn_effect_any(effect);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !masked.is_done() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(masked.is_done(), "the masked region never announced itself");
+    events.lock().unwrap().push("masked");
+
+    target.interrupt_unsafe();
+    events.lock().unwrap().push("interrupted");
+
+    resume.complete(());
+    events.lock().unwrap().push("resumed");
+
+    let exit = target.join();
+    assert_eq!(
+        *events.lock().unwrap(),
+        vec!["masked", "interrupted", "resumed"],
+        "the restored effect must not run after the pending interrupt"
+    );
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.has_interrupts()),
+        "the fiber still ends interrupted"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
 
 /// :2122 `interrupt of never is interrupted with cause`.

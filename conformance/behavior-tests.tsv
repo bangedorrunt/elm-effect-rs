@@ -1320,8 +1320,8 @@ not-applicable	packages/effect/test/Effect.test.ts	2101	it	a map callback that i
 not-applicable	packages/effect/test/Effect.test.ts	2115	it.effect	sync forever is interruptible	Effect.forever is absent from crates/elm-effect/src/effect.rs (21 pub fns), so an unbounded sync loop has no Rust constructor
 ported	packages/effect/test/Effect.test.ts	2122	it.effect	interrupt of never is interrupted with cause	never_interrupted_reports_an_interrupt_cause
 ported	packages/effect/test/Effect.test.ts	2129	it.effect	catch + ensuring + interrupt	catch_cause_ignores_an_interrupt_and_ensuring_still_runs
-unported	packages/effect/test/Effect.test.ts	2149	it.effect	run of interruptible	
-unported	packages/effect/test/Effect.test.ts	2167	it.effect	alternating interruptibility	
+ported	packages/effect/test/Effect.test.ts	2149	it.effect	run of interruptible	exit_inside_a_masked_region_observes_the_interrupt
+ported	packages/effect/test/Effect.test.ts	2167	it.effect	alternating interruptibility	alternating_interruptibility_runs_each_observed_window
 not-applicable	packages/effect/test/Effect.test.ts	2189	it.live	acquireUseRelease use inherits interrupt status	Effect.acquireUseRelease, Effect.delay, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
 not-applicable	packages/effect/test/Effect.test.ts	2209	it.effect	acquireUseRelease release runs when use is interrupted	Effect.acquireUseRelease, Effect.delay, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
 unported	packages/effect/test/Effect.test.ts	2232	it.live	async can be uninterruptible	
@@ -1330,7 +1330,7 @@ unported	packages/effect/test/Effect.test.ts	2260	it.live	closing scope is unint
 not-applicable	packages/effect/test/Effect.test.ts	2274	it.effect	AbortSignal is aborted	Effect.callback is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate callback is stream.rs:994 Stream::callback, so an AbortSignal-observing callback has no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	2284	it.effect	callback cleanup effect runs on interrupt	Effect.callback is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate callback is stream.rs:994 Stream::callback, so an AbortSignal-observing callback has no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	2297	it.effect	defers a pending interrupt until the masked region completes	Effect.uninterruptibleMask is absent from crates/elm-effect/src/effect.rs (21 pub fns), so deferring a pending interrupt inside a masked region has no Rust combinator
-unported	packages/effect/test/Effect.test.ts	2337	it.effect	delivers a pending interrupt when restore re-enables interruptibility	
+ported	packages/effect/test/Effect.test.ts	2337	it.effect	delivers a pending interrupt when restore re-enables interruptibility	restore_delivers_a_pending_interrupt_before_the_restored_effect_runs
 not-applicable	packages/effect/test/Effect.test.ts	2382	it.effect	region after a restored section stays uninterruptible	Effect.uninterruptibleMask is absent from crates/elm-effect/src/effect.rs (21 pub fns), so deferring a pending interrupt inside a masked region has no Rust combinator
 ported	packages/effect/test/Effect.test.ts	2434	it.effect	completes immediately when no children are forked	await_all_children_completes_immediately_without_children
 ported	packages/effect/test/Effect.test.ts	2440	it.effect	awaits children forked by the wrapped effect	await_all_children_waits_for_the_child_the_body_forked

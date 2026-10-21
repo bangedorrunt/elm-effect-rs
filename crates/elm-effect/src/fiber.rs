@@ -152,9 +152,15 @@ impl FiberControl {
         self.depth.fetch_add(1, Ordering::SeqCst);
     }
 
-    /// Lower it again.
+    /// Lower it again, floored at zero: `interruptible` inside a region nested
+    /// deeper than one still means "deliver now", and an underflow would make
+    /// a later `mask` read as unmasked.
     pub(crate) fn unmask(&self) {
-        self.depth.fetch_sub(1, Ordering::SeqCst);
+        let _ = self
+            .depth
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |depth| {
+                Some(depth.saturating_sub(1))
+            });
     }
 
     /// Raise the depth and hand back a guard that lowers it on drop, so a
@@ -162,6 +168,14 @@ impl FiberControl {
     pub(crate) fn mask_guard(&self) -> MaskGuard<'_> {
         self.mask();
         MaskGuard { control: self }
+    }
+
+    /// `restore` at the pin: lower the depth and hand back a guard that raises
+    /// it on drop, so a panic inside an interruptible region cannot leave the
+    /// fiber permanently unmasked.
+    pub(crate) fn unmask_guard(&self) -> UnmaskGuard<'_> {
+        self.unmask();
+        UnmaskGuard { control: self }
     }
 
     /// Register this fiber as the current one for this thread until the
@@ -210,6 +224,18 @@ pub(crate) struct MaskGuard<'a> {
 impl Drop for MaskGuard<'_> {
     fn drop(&mut self) {
         self.control.unmask();
+    }
+}
+
+/// Raises the interruptibility depth when dropped: the other half of
+/// [`FiberControl::unmask_guard`].
+pub(crate) struct UnmaskGuard<'a> {
+    control: &'a FiberControl,
+}
+
+impl Drop for UnmaskGuard<'_> {
+    fn drop(&mut self) {
+        self.control.mask();
     }
 }
 
@@ -319,6 +345,14 @@ impl Fiber {
     /// by a drop guard so a panic inside `f` still restores it.
     pub(crate) fn with_masked<R>(&self, f: impl FnOnce() -> R) -> R {
         let _guard = self.control.mask_guard();
+        f()
+    }
+
+    /// Run `f` with the depth lowered by one: `restore` at the pin. Raising
+    /// happens on drop, so a panic inside `f` still leaves the depth as it
+    /// was.
+    pub(crate) fn with_unmasked<R>(&self, f: impl FnOnce() -> R) -> R {
+        let _guard = self.control.unmask_guard();
         f()
     }
 

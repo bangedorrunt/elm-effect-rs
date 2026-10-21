@@ -452,6 +452,54 @@ where
     }
 }
 
+/// The handle `Effect::uninterruptible_mask` gives its callback: `restore` at
+/// the pin. Copy so a callback can use it in more than one arm.
+#[cfg(feature = "tokio")]
+#[derive(Clone, Copy, Debug)]
+pub struct Restore;
+
+#[cfg(feature = "tokio")]
+impl Restore {
+    /// Run `effect` interruptible inside the masked region.
+    pub fn apply<A, E, R>(self, effect: Effect<A, E, R>) -> Effect<A, E, R>
+    where
+        A: Send + 'static,
+        E: Send + 'static,
+        R: Requirement,
+    {
+        effect.interruptible()
+    }
+}
+
+/// `Effect.interruptible` at the pin: lower the fiber's interruptibility depth
+/// by one (never below zero) around the wrapped effect. This is the `restore`
+/// half of `uninterruptibleMask`: inside an uninterruptible region it puts the
+/// wrapped effect back in reach of an interrupt, and the depth comes back on
+/// the way out.
+#[cfg(feature = "tokio")]
+struct Interruptible<A: Send + 'static, E: Send + 'static, R: Requirement> {
+    inner: Effect<A, E, R>,
+    marker: PhantomData<fn() -> ()>,
+}
+
+#[cfg(feature = "tokio")]
+impl<A, E, R> ErasedStep<A, E> for Interruptible<A, E, R>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
+        let Self { inner, .. } = *self;
+        match ambient_fiber(scope) {
+            Some(fiber) => fiber.with_unmasked(|| inner.run_sync_with(scope)),
+            // No fiber (a bare `run_sync`): there is no depth to lower and no
+            // request can arrive, so the region already is interruptible.
+            None => inner.run_sync_with(scope),
+        }
+    }
+}
+
 /// Ambient-value reader: innermost override (if any) to a value. Total by
 /// construction: the default fills a missing entry.
 pub(crate) type RefFn<A> =
@@ -771,6 +819,36 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     pub fn uninterruptible(self) -> Self {
         Effect {
             step: Step::Suspend(Box::new(Uninterruptible {
+                inner: self,
+                marker: PhantomData,
+            })),
+            services: crate::service::empty_services(),
+            marker: PhantomData,
+        }
+    }
+
+    /// `Effect.uninterruptibleMask` at the pin: run `f` masked and hand it a
+    /// [`Restore`] that puts one effect back in reach of an interrupt.
+    ///
+    /// The pin's callback shape is kept because it is the only way to express
+    /// "masked except here": a plain `uninterruptible` around a plain
+    /// `interruptible` cannot name the single region.
+    #[cfg(feature = "tokio")]
+    pub fn uninterruptible_mask<F>(f: F) -> Self
+    where
+        F: FnOnce(Restore) -> Self + Send + 'static,
+    {
+        Effect::suspend(move || f(Restore)).uninterruptible()
+    }
+
+    /// `Effect.interruptible` at the pin: the `restore` half of an
+    /// uninterruptible region. The depth drops by one for the wrapped effect
+    /// and comes back afterwards, so an interrupt requested while masked is
+    /// delivered as soon as the region is entered.
+    #[cfg(feature = "tokio")]
+    pub fn interruptible(self) -> Self {
+        Effect {
+            step: Step::Suspend(Box::new(Interruptible {
                 inner: self,
                 marker: PhantomData,
             })),
@@ -1259,6 +1337,17 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         // Frames live here, not on the call stack: a description nested ten
         // thousand `flat_map`s deep runs in one loop.
         let mut frames: Vec<Box<dyn Frame<E>>> = Vec::new();
+        // Poll before the first step, not only between steps. `enter_step` runs
+        // a `Suspend` op (and its own nested run) on the spot, so without this
+        // a pending interrupt would let one more effect start, which is the
+        // "restore delivers the pending interrupt, the restored effect never
+        // runs" row (Effect.test.ts:2337).
+        if let Some(fiber) = &fiber
+            && fiber.is_interrupted()
+            && !fiber.is_masked()
+        {
+            return Err(Cause::interrupt(Some(fiber.id())));
+        }
         let mut drive = enter_step(step, &services, outer);
         loop {
             // Poll between steps, never inside one: an atomic effect runs to
