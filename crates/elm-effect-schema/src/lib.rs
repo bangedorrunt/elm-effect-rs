@@ -8006,6 +8006,20 @@ impl Schema<Unknown> {
     pub fn redacted(inner: Schema<Unknown>, label: Option<&str>) -> Self {
         let label = label.map(|label| label.to_string());
         let inner_for_children = inner.clone();
+        // The pin's `toCode` names the constructor and the wrapped schema, with
+        // the options object only when one was given. A declaration without a
+        // code override rendered as the kind (`Schema.redacted`), which is not
+        // the constructor a persisted document reads back as.
+        let parameter = Schema::as_unknown(inner.clone());
+        let code = match &label {
+            Some(label) => format!(
+                "Schema.Redacted({}, {})",
+                parameter.to_code(),
+                serde_json::json!({ "label": label })
+            ),
+            None => format!("Schema.Redacted({})", parameter.to_code()),
+        };
+        let ty = format!("Redacted.Redacted<{}>", parameter.to_type());
         let decode_inner = Arc::new(inner.clone());
         let encode_inner = Arc::new(inner);
         let decode_label = label.clone();
@@ -8032,8 +8046,10 @@ impl Schema<Unknown> {
         out.declaration = Some(DeclarationInfo {
             id: "effect/schema/Redacted".to_string(),
             payload: serde_json::Value::Null,
-            parameters: vec![Arc::new(Schema::as_unknown(inner_for_children.clone()))],
+            parameters: vec![Arc::new(parameter)],
         });
+        out.code_override = Some(code);
+        out.type_override = Some(ty);
         // The wrapped schema rides `wrapped_schema`, which is what the accessor
         // below reads: that is the pin's `schema.value`.
         out.wrapped_schema = Some(Arc::new(inner_for_children));
