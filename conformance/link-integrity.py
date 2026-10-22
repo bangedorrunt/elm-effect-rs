@@ -182,6 +182,11 @@ def main(argv: list[str]) -> int:
         failures.append(
             f"{path}: recorded unowned but linked by {', '.join(sorted(linked[path]))}"
         )
+    # An entry that names no route is the whole claim, so a blank reason is
+    # indistinguishable from parking a file nobody wants to look at.
+    for path, reason in sorted(recorded.items()):
+        if not reason.strip():
+            failures.append(f"{path}: recorded unowned with no reason")
 
     for failure in failures:
         print(failure)
