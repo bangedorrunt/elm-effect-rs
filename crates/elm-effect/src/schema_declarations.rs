@@ -6,10 +6,10 @@
 //! their revivers do too; [`declaration_revivers`] is composed after the schema
 //! crate's builtins by whoever revives a document that may hold one.
 //!
-//! Only the adapters whose types this crate exports appear here. `Schema.Date`
-//! speaks for the parked `datetime.rs`, which the crate root does not export,
-//! so its reviver has no shipped constructor to rebuild; `Schema.Chunk`,
-//! `Schema.RegExp` and `Schema.Graph` do, and their revivers are below.
+//! Only the adapters whose types this crate exports appear here. `Schema.File`
+//! speaks for a browser `File`, which this crate has no type for, so its
+//! reviver has no shipped constructor to rebuild; every other declaration this
+//! crate writes is below.
 //!
 //! Each reviver answers `Schema<Unknown>`, because a revived document speaks
 //! the wire language: the adapter is re-typed through [`Schema::as_unknown`],
@@ -22,6 +22,7 @@ use crate::graph::Kind;
 use crate::schema_cause::{cause_reason_schema, cause_schema};
 use crate::schema_chunk::chunk;
 use crate::schema_data::byte_size;
+use crate::schema_datetime::date;
 use crate::schema_exit::exit_schema;
 use crate::schema_graph::graph;
 use crate::schema_regexp::regexp;
@@ -36,6 +37,10 @@ pub fn declaration_revivers() -> Vec<DeclarationReviver> {
         DeclarationReviver::new("effect/schema/ByteSize", |input| {
             parameters("effect/schema/ByteSize", input, 0)?;
             Ok(Schema::as_unknown(byte_size()))
+        }),
+        DeclarationReviver::new("effect/schema/Date", |input| {
+            parameters("effect/schema/Date", input, 0)?;
+            Ok(Schema::as_unknown(date()))
         }),
         DeclarationReviver::new("effect/schema/Chunk", |input| {
             let mut parameters = parameters("effect/schema/Chunk", input, 1)?;

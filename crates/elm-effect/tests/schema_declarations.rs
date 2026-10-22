@@ -1,17 +1,19 @@
 //! The `builtInRevivers` rows whose constructors live in this crate:
 //! `Schema.ByteSize` (:966), `Schema.Chunk` (:921), `Schema.RegExp` (:930),
-//! `Schema.Graph` (:894), `Schema.CauseReason` (:840), `Schema.Cause` (:849)
-//! and `Schema.Exit` (:867).
+//! `Schema.Graph` (:894), `Schema.Date` (:948), `Schema.CauseReason` (:840),
+//! `Schema.Cause` (:849) and `Schema.Exit` (:867).
 //!
 //! Each test is the pin's `assertDeclarationReviver`: convert → `to_json` →
 //! `from_json` → revive with the revivers → convert again → compare. The
 //! comparison is what makes the claim evidence rather than a name check, and
 //! the revived schema must still answer its constructor's code.
 //!
-//! The schema crate cannot host these: `ByteSize`, `Graph`, `Cause` and `Exit`
-//! are this crate's own types, and the dependency runs the other way.
+//! The schema crate cannot host these: `ByteSize`, `Graph`, `DateTime`, `Cause`
+//! and `Exit` are this crate's own types, and the dependency runs the other way.
 
-use elm_effect::{Kind, cause_reason_schema, cause_schema, declaration_revivers, exit_schema, graph};
+use elm_effect::{
+    Kind, cause_reason_schema, cause_schema, date, declaration_revivers, exit_schema, graph,
+};
 use elm_effect_schema::representation_doc::{
     Document, ReprError, from_json, from_representation_with_declarations, to_json,
     to_representation,
@@ -128,6 +130,56 @@ fn a_graph_decodes_and_encodes_the_pin_wire_form() {
         schema.try_encode(&value).expect("encodes"),
         Unknown::from_json(wire),
         "the wire form round-trips",
+    );
+}
+
+/// `builtInRevivers.test.ts:948` `revives Date`.
+#[test]
+fn revives_date() {
+    assert_declaration_reviver(
+        Schema::as_unknown(date()),
+        "effect/schema/Date",
+        elm_effect_schema::serde_json::Value::Null,
+        "Schema.Date",
+    );
+}
+
+/// `Schema.Date`'s JSON codec is `toJSON`/`dateFromString`: the text is the
+/// instant, a bare civil date reads as UTC, and a non-ISO string is refused.
+#[test]
+fn a_date_codec_reads_and_writes_the_iso_text() {
+    let schema = date();
+    let millis = schema
+        .decode(Unknown::from_json(elm_effect_schema::serde_json::json!(
+            "2024-01-01T00:00:00.123Z"
+        )))
+        .expect("an ISO instant decodes");
+    assert_eq!(millis.epoch_millis(), 1_704_067_200_123);
+    assert_eq!(
+        schema.try_encode(&millis).expect("encodes"),
+        Unknown::Text("2024-01-01T00:00:00.123Z".to_string()),
+    );
+
+    // The pin reads a bare civil string as UTC (`DateTime.make`), and the value
+    // it answers is a millisecond instant, so the text is the normalized one.
+    let bare = schema
+        .decode(Unknown::from_json(elm_effect_schema::serde_json::json!(
+            "2024-01-01"
+        )))
+        .expect("a civil date decodes");
+    assert_eq!(
+        schema.try_encode(&bare).expect("encodes"),
+        Unknown::Text("2024-01-01T00:00:00.000Z".to_string()),
+    );
+
+    let error = schema
+        .decode(Unknown::Text("not a date".to_string()))
+        .expect_err("garbage is refused");
+    assert!(
+        error
+            .to_string()
+            .contains("a string that will be decoded as a Date"),
+        "{error}"
     );
 }
 

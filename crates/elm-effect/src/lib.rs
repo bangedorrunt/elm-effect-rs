@@ -35,6 +35,9 @@ mod config;
 mod config_provider;
 mod context;
 mod crypto;
+// `Schema.Date` speaks for `DateTime`, so the module is part of the surface
+// rather than only the test targets that include it by path.
+pub mod datetime;
 mod effect;
 mod execution_plan;
 #[cfg(feature = "tokio")]
@@ -78,6 +81,8 @@ mod schema_cause;
 mod schema_chunk;
 #[cfg(feature = "schema")]
 mod schema_data;
+#[cfg(feature = "schema")]
+mod schema_datetime;
 #[cfg(feature = "schema")]
 mod schema_declarations;
 #[cfg(feature = "schema")]
@@ -125,6 +130,7 @@ pub use concurrency::{
     validate_items,
 };
 pub use context::{Context, ContextReference, Tag};
+pub use datetime::DateTime;
 pub use effect::{Effect, Requirement};
 pub use graph::{Graph, Kind};
 #[cfg(feature = "tokio")]
@@ -178,6 +184,8 @@ pub use schema_data::{
 };
 #[cfg(feature = "schema")]
 pub use schema_chunk::chunk;
+#[cfg(feature = "schema")]
+pub use schema_datetime::date;
 #[cfg(feature = "schema")]
 pub use schema_declarations::declaration_revivers;
 #[cfg(feature = "schema")]

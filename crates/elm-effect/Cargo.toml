@@ -61,6 +61,12 @@ required-features = ["schema"]
 name = "schema_declarations"
 required-features = ["schema"]
 
+# The value formatters for the same adapters: `toFormatter` renders what the
+# schema writes out, so these fences need the schema feature too.
+[[test]]
+name = "schema_formatters"
+required-features = ["schema"]
+
 # The time-zone schemas adapt the parked `datetime` types, which arrive through
 # a `cron` include, so their fence needs the schema feature too.
 [[test]]
@@ -87,9 +93,11 @@ tokio = { version = "1", optional = true, features = ["rt", "rt-multi-thread", "
 # bignum pair it needs cannot stay dev-only.
 num-bigint = "0.4"
 num-traits = "0.2"
+# `Schema.Date` speaks for this crate's `DateTime`, which is a `jiff::Zoned`,
+# so the parse/format pair cannot stay dev-only.
+jiff = "0.2"
 
 # Used only by test targets, which compile parts of the source tree through
 # `#[path]` includes (the `data/` and `cron/` modules the port campaign parked).
 [dev-dependencies]
-jiff = "0.2"
 num-integer = "0.1"

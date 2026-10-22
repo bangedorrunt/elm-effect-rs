@@ -1743,6 +1743,19 @@ impl<T> Schema<T> {
         self
     }
 
+    /// Attach the renderer this schema answers (`Schema.toFormatter`) when its
+    /// wire form is not what should be printed: `Schema.Date` prints its ISO
+    /// text bare and `Schema.RegExp` prints `/source/flags`, neither of which
+    /// the kind walk can reach. Public because the adapters beside those value
+    /// types live outside this crate.
+    pub fn with_formatter<F>(mut self, formatter: F) -> Self
+    where
+        F: Fn(&Unknown) -> String + Send + Sync + 'static,
+    {
+        self.formatter = Some(std::sync::Arc::new(formatter));
+        self
+    }
+
     /// The pin's `toCode` answer for a declaration whose shape cannot print it:
     /// an adapter outside this crate knows the constructor's own rendering
     /// (`Schema.ByteSize`, `Schema.Cause(Schema.String, Schema.Number)`), and a

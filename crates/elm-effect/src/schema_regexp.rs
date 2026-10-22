@@ -33,6 +33,17 @@ pub fn regexp() -> Schema<RegExp> {
             .collect()
         },
     )
+    // `toFormatter(Schema.RegExp)` prints the pattern literal (`/a/i`), which the
+    // wire object it encodes through cannot render on its own.
+    .with_formatter(|wire| match wire {
+        Unknown::Object(fields) => match (fields.get("source"), fields.get("flags")) {
+            (Some(Unknown::Text(source)), Some(Unknown::Text(flags))) => {
+                format!("/{source}/{flags}")
+            }
+            _ => elm_effect_schema::format_value(wire),
+        },
+        other => elm_effect_schema::format_value(other),
+    })
     .with_declaration(
         "effect/schema/RegExp",
         elm_effect_schema::serde_json::Value::Null,
