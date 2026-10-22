@@ -8,9 +8,10 @@
 //! subclass reports, the `_tag` its wire carries, constructor defaults, the
 //! excess-property policy, and `make` answering an existing instance unchanged.
 //!
-//! Deliberately not instance claims here: `instanceof`, `immer` drafts, static
-//! members, a memoized `ast`. Those are the JS object model;
-//! [`ClassValue::is_instance_of`] is the identity question this port can answer.
+//! Deliberately not instance claims here: `immer` drafts, static members, a
+//! memoized `ast`. Those are the JS object model; [`ClassValue::is_instance_of`]
+//! is the identity question a decoded value can answer, and [`instance_of`] is
+//! the schema the pin builds from an `instanceof` check.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -194,6 +195,47 @@ pub fn tagged_error(
         ExcessProperty::Ignore,
         own(fields),
     ))
+}
+
+/// `Schema.instanceOf(A)`: a value that must already be an instance of the
+/// named class. Decoding and encoding pass it through unchanged, which is the
+/// pin's `declare`, and the formatter prints it the way `format` prints a class
+/// instance: `A({"a":"a"})`, the constructor name around the instance's own
+/// keys.
+///
+/// A class with its own `toString` prints through it instead, which is
+/// [`instance_of_with_to_string`]: a Rust value cannot be asked whether it
+/// defines one, so the caller says so.
+pub fn instance_of(
+    class_name: &str,
+    predicate: impl Fn(&Unknown) -> bool + Send + Sync + 'static,
+) -> Schema<Unknown> {
+    build_instance(class_name, predicate, None)
+}
+
+/// `Schema.instanceOf(A)` for a class that defines a `toString`: the formatter
+/// calls it rather than printing the instance's keys, which is the pin's
+/// `format` rule (`v.toString !== Object.prototype.toString`).
+pub fn instance_of_with_to_string(
+    class_name: &str,
+    predicate: impl Fn(&Unknown) -> bool + Send + Sync + 'static,
+    to_string: impl Fn(&Unknown) -> String + Send + Sync + 'static,
+) -> Schema<Unknown> {
+    build_instance(class_name, predicate, Some(Arc::new(to_string)))
+}
+
+fn build_instance(
+    class_name: &str,
+    predicate: impl Fn(&Unknown) -> bool + Send + Sync + 'static,
+    to_string: Option<Arc<dyn Fn(&Unknown) -> String + Send + Sync>>,
+) -> Schema<Unknown> {
+    let mut out = Schema::declare(predicate, &format!("an instance of {class_name}"));
+    let name = class_name.to_string();
+    out.formatter = Some(Arc::new(move |value: &Unknown| match &to_string {
+        Some(render) => render(value),
+        None => format!("{name}({})", super::format_value(value)),
+    }));
+    out
 }
 
 fn own(fields: Vec<(&str, Schema<Unknown>)>) -> Vec<(String, Schema<Unknown>)> {

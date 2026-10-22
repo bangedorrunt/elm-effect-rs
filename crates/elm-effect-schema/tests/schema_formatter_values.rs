@@ -447,3 +447,49 @@ fn formatter_renders_a_recursive_option() {
         "{ \"a\": \"a\", \"as\": some({ \"a\": \"b\", \"as\": none() }) }"
     );
 }
+
+/// toFormatter.test.ts:635 `custom class`: an instance with no `toString` of its
+/// own prints as its constructor name around its own keys.
+#[test]
+fn formatter_renders_a_custom_class() {
+    // `class A { constructor(readonly a: string) {} }`, an instance of which is
+    // the value `{ a: "a" }` with the constructor name attached.
+    let schema = elm_effect_schema::class::instance_of("A", |value: &Unknown| {
+        matches!(value, Unknown::Object(fields) if fields.contains_key("a"))
+    });
+    let format = schema.formatter();
+    assert_eq!(
+        format(&Unknown::Object(
+            [("a".to_string(), Unknown::Text("a".to_string()))]
+                .into_iter()
+                .collect()
+        )),
+        "A({\"a\":\"a\"})"
+    );
+}
+
+/// toFormatter.test.ts:644 `custom class with a toString() method`: the class's
+/// own `toString` is what prints.
+#[test]
+fn formatter_renders_a_custom_class_through_its_to_string() {
+    let schema = elm_effect_schema::class::instance_of_with_to_string(
+        "A",
+        |value: &Unknown| matches!(value, Unknown::Object(fields) if fields.contains_key("a")),
+        |value: &Unknown| match value {
+            Unknown::Object(fields) => match fields.get("a") {
+                Some(Unknown::Text(a)) => format!("A({a})"),
+                _ => "A()".to_string(),
+            },
+            _ => "A()".to_string(),
+        },
+    );
+    let format = schema.formatter();
+    assert_eq!(
+        format(&Unknown::Object(
+            [("a".to_string(), Unknown::Text("a".to_string()))]
+                .into_iter()
+                .collect()
+        )),
+        "A(a)"
+    );
+}
