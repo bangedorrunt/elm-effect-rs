@@ -55,6 +55,12 @@ required-features = ["schema"]
 name = "schema_data"
 required-features = ["schema"]
 
+# The declaration revivers for those adapters: a revived document speaks the
+# schema crate's representation, so the same feature gates the fence.
+[[test]]
+name = "schema_declarations"
+required-features = ["schema"]
+
 # The time-zone schemas adapt the parked `datetime` types, which arrive through
 # a `cron` include, so their fence needs the schema feature too.
 [[test]]

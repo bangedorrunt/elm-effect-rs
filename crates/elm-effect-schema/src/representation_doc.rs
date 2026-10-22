@@ -256,8 +256,27 @@ pub fn from_representation(
     document: &Document,
     revivers: &[Reviver],
 ) -> Result<Schema<Unknown>, ReprError> {
+    from_representation_with_declarations(document, revivers, &[])
+}
+
+/// [`from_representation`] with declaration revivers: a `Declaration` node is
+/// rebuilt by the reviver whose id it names, which is how a persisted
+/// `Schema.Option` comes back as an Option rather than as a union of tags.
+pub fn from_representation_with_declarations(
+    document: &Document,
+    revivers: &[Reviver],
+    declarations: &[DeclarationReviver],
+) -> Result<Schema<Unknown>, ReprError> {
     for (index, first) in revivers.iter().enumerate() {
         if revivers[..index].iter().any(|seen| seen.id == first.id) {
+            return Err(ReprError::at(
+                format!("[\"revivers\"][{index}][\"id\"]"),
+                format!("Duplicate reviver for {}", first.id),
+            ));
+        }
+    }
+    for (index, first) in declarations.iter().enumerate() {
+        if declarations[..index].iter().any(|seen| seen.id == first.id) {
             return Err(ReprError::at(
                 format!("[\"revivers\"][{index}][\"id\"]"),
                 format!("Duplicate reviver for {}", first.id),
@@ -270,6 +289,7 @@ pub fn from_representation(
         slots: BTreeMap::new(),
         resolving: Vec::new(),
         revivers,
+        declarations,
     };
     revive_named(&mut state, &document.representation, "[\"representation\"]")
 }
@@ -480,6 +500,25 @@ fn convert_schema_enclosing(
     enclosing: Option<&str>,
     path: &str,
 ) -> Result<Value, ReprError> {
+    // A declaration converts to its own node, not to the shape it encodes
+    // through: that is what makes a persisted `Schema.Option(String)` read back
+    // as an Option rather than as a union of tag structs.
+    if let Some(declaration) = schema.declaration() {
+        let mut parameters = Vec::with_capacity(declaration.parameters.len());
+        for (index, parameter) in declaration.parameters.iter().enumerate() {
+            parameters.push(convert_schema(
+                parameter,
+                state,
+                hoist_identifiers,
+                &idx(&seg(path, "typeParameters"), index),
+            )?);
+        }
+        return Ok(serde_json::json!({
+            "_tag": "Declaration",
+            "representation": { "id": declaration.id, "payload": declaration.payload },
+            "typeParameters": parameters,
+        }));
+    }
     // An annotated wrapper converts before the accessors: the wrapper owns
     // the identifier hoisting, and the accessors alone would drop it (a
     // revived struct keeps its fields beside its identifier annotation).
@@ -1210,6 +1249,33 @@ struct Revive<'a> {
     slots: BTreeMap<String, Arc<std::sync::OnceLock<Schema<Unknown>>>>,
     resolving: Vec<String>,
     revivers: &'a [Reviver],
+    declarations: &'a [DeclarationReviver],
+}
+
+/// The parameters a declaration reviver rebuilds from, and the payload its
+/// constructor was annotated with.
+pub struct DeclarationInput {
+    pub payload: Value,
+    pub parameters: Vec<Schema<Unknown>>,
+}
+
+/// A declaration reviver: the pin's `DeclarationReviver`. One per built-in
+/// declaration id, plus whatever a caller registers.
+pub struct DeclarationReviver {
+    pub id: String,
+    pub revive: Arc<dyn Fn(DeclarationInput) -> Result<Schema<Unknown>, ReprError> + Send + Sync>,
+}
+
+impl DeclarationReviver {
+    pub fn new(
+        id: &str,
+        revive: impl Fn(DeclarationInput) -> Result<Schema<Unknown>, ReprError> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            id: id.to_string(),
+            revive: Arc::new(revive),
+        }
+    }
 }
 
 fn revive_named(state: &mut Revive, doc: &Value, path: &str) -> Result<Schema<Unknown>, ReprError> {
@@ -1234,13 +1300,19 @@ fn revive_named(state: &mut Revive, doc: &Value, path: &str) -> Result<Schema<Un
             schema = Schema::annotated_with(schema, pairs);
         }
     }
-    if let Some(representation) = doc.get("representation") {
-        if !representation.is_null() {
-            schema = Schema::annotated_with(
-                schema,
-                vec![("representation".to_string(), representation.to_string())],
-            );
-        }
+    // A `Declaration` node's `representation` IS its identity, which the reviver
+    // already put on the schema. Re-annotating it here would wrap the rebuilt
+    // constructor in a pair the document never carried, and the wrapper renders
+    // the shape underneath (`Schema.Array(Schema.Any)`) instead of the
+    // constructor's own code.
+    if schema.declaration().is_none()
+        && let Some(representation) = doc.get("representation")
+        && !representation.is_null()
+    {
+        schema = Schema::annotated_with(
+            schema,
+            vec![("representation".to_string(), representation.to_string())],
+        );
     }
     Ok(schema)
 }
@@ -1464,17 +1536,48 @@ fn revive_doc(state: &mut Revive, doc: &Value, path: &str) -> Result<Schema<Unkn
             let identity = doc.get("representation");
             let id = identity
                 .and_then(|identity| identity.get("id"))
-                .and_then(Value::as_str);
-            match id {
-                Some(id) => Err(ReprError::at(
-                    seg(path, "representation"),
-                    format!("Missing reviver for {id}"),
-                )),
-                None => Err(ReprError::at(
-                    seg(path, "representation"),
-                    "Missing representation annotation",
-                )),
-            }
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    ReprError::at(
+                        seg(path, "representation"),
+                        "Missing representation annotation",
+                    )
+                })?;
+            let parameters = match doc.get("typeParameters") {
+                Some(Value::Array(parameters)) => {
+                    let mut revived = Vec::with_capacity(parameters.len());
+                    for (index, parameter) in parameters.iter().enumerate() {
+                        revived.push(revive_named(
+                            state,
+                            parameter,
+                            &idx(&seg(path, "typeParameters"), index),
+                        )?);
+                    }
+                    revived
+                }
+                None => Vec::new(),
+                Some(_) => {
+                    return Err(ReprError::at(
+                        seg(path, "typeParameters"),
+                        "a `Declaration` carries a `typeParameters` array",
+                    ));
+                }
+            };
+            let reviver = state
+                .declarations
+                .iter()
+                .find(|reviver| reviver.id == id)
+                .ok_or_else(|| {
+                    ReprError::at(
+                        seg(path, "representation"),
+                        format!("Missing reviver for {id}"),
+                    )
+                })?;
+            let payload = identity
+                .and_then(|identity| identity.get("payload"))
+                .cloned()
+                .unwrap_or(Value::Null);
+            (reviver.revive)(DeclarationInput { payload, parameters })
         }
         other => Err(ReprError::at(
             path,
@@ -1692,33 +1795,20 @@ fn revive_objects(
     Ok(Schema::as_unknown(Schema::struct_shape(fields)))
 }
 
-/// A property name back into text: plain strings stay, typed wrappers decode,
-/// anything else fails instead of guessing.
+/// A property name back into text: plain strings stay, a string-typed wrapper
+/// decodes, and a number-typed one is refused. The pin's `PropertyKey` is a
+/// string or a symbol, so a numeric name is a document the reader rejects
+/// rather than one it coerces into a key (`fromJson.test.ts:295`).
 fn property_name(name: Option<&Value>, path: &str) -> Result<String, ReprError> {
     match name {
         Some(Value::String(text)) => Ok(text.clone()),
-        Some(Value::Object(wrapper)) => {
-            match wrapper
-                .get("type")
+        Some(Value::Object(wrapper))
+            if wrapper.get("type").and_then(Value::as_str) == Some("string") => wrapper
+                .get("value")
                 .and_then(Value::as_str)
-                .unwrap_or_default()
-            {
-                "string" => wrapper
-                    .get("value")
-                    .and_then(Value::as_str)
-                    .map(str::to_string)
-                    .ok_or_else(|| ReprError::at(path, "a string name carries text")),
-                "number" => wrapper
-                    .get("value")
-                    .and_then(Value::as_f64)
-                    .map(render_number)
-                    .ok_or_else(|| ReprError::at(path, "a number name carries a number")),
-                _ => Err(ReprError::at(
-                    path,
-                    "a property name is a string or a number",
-                )),
-            }
-        }
+                .map(str::to_string)
+                .ok_or_else(|| ReprError::at(path, "a string name carries text")),
+        Some(Value::Object(_)) => Err(ReprError::at(path, "a property name is a string")),
         _ => Err(ReprError::at(path, "a property carries a string `name`")),
     }
 }

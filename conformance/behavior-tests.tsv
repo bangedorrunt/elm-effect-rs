@@ -528,7 +528,7 @@ ported	packages/effect/test/Cause.test.ts	911	it	returns true for UnknownError i
 ported	packages/effect/test/Cause.test.ts	915	it	returns false for other values	is_unknown_error_guards
 ported	packages/effect/test/Cause.test.ts	922	it	is a string constant	unknown_error_type_id
 ported	packages/effect/test/CauseMapAnnotations.test.ts	5	it	preserves annotations on mapped failures	cause_map_preserves_annotations
-not-applicable	packages/effect/test/Channel.test.ts	24	it.effect	 work per repetition does not grow	Channel.repeat and Channel.forever are absent (crates/elm-effect/src/channel.rs has 13 free functions, neither present) and Stream::fromChannel is absent, so the repetition source cannot be built
+not-applicable	packages/effect/test/Channel.test.ts	24	it.effect	 work per repetition does not grow	Channel.repeat and Channel.forever are absent from crates/elm-effect/src/channel.rs and Stream::fromChannel is absent, so the repetition source cannot be built
 ported	packages/effect/test/Channel.test.ts	36	it.effect	empty	pull_empty_ends_immediately
 ported	packages/effect/test/Channel.test.ts	44	it.effect	succeed	pull_constructors
 ported	packages/effect/test/Channel.test.ts	52	it.effect	sync	pull_constructors
@@ -567,13 +567,13 @@ ported	packages/effect/test/Channel.test.ts	519	it.effect	catchDefect	channel_ca
 ported	packages/effect/test/Channel.test.ts	535	it.effect	catchIf with refinement	channel_catch_if_refines
 ported	packages/effect/test/Channel.test.ts	552	it.effect	catchIf with predicate	channel_catch_if_recovers_matching
 ported	packages/effect/test/Channel.test.ts	561	it.effect	catchFilter with Filter	channel_filter_map_recovers
-unported	packages/effect/test/Channel.test.ts	575	it.effect	catchCauseFilter with Filter	
+ported	packages/effect/test/Channel.test.ts	575	it.effect	catchCauseFilter with Filter	channel_catch_cause_filter_recovers_the_extracted_error
 ported	packages/effect/test/Channel.test.ts	587	it.effect	catchTag orElse	channel_catch_or_else_splits_match_and_fallback
 ported	packages/effect/test/Channel.test.ts	603	it.effect	catchReason orElse	channel_catch_or_else_nests_reason_match
 ported	packages/effect/test/Channel.test.ts	619	it.effect	catchReason ignores non-matching parent tag	channel_catch_or_else_splits_match_and_fallback
 ported	packages/effect/test/Channel.test.ts	635	it.effect	catchReasons orElse	channel_catch_or_else_nests_reason_match
 ported	packages/effect/test/Channel.test.ts	670	it.effect	extracts reason into error channel	channel_unwrap_reason_extracts_nested_failure
-unported	packages/effect/test/Channel.test.ts	681	it.effect	extracts second reason type	
+ported	packages/effect/test/Channel.test.ts	681	it.effect	extracts second reason type	channel_unwrap_reason_extracts_nested_failure
 ported	packages/effect/test/Channel.test.ts	692	it.effect	preserves other errors	channel_unwrap_reason_extracts_nested_failure
 ported	packages/effect/test/Chunk.test.ts	27	it	Equal.equals	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	36	it	toString	chunk_extra
@@ -1183,20 +1183,20 @@ ported	packages/effect/test/Duration.test.ts	703	it	CombinerMax	duration_finite_
 ported	packages/effect/test/Duration.test.ts	707	it	CombinerMin	duration_finite_zero_and_reducers
 ported	packages/effect/test/Effect.test.ts	79	it.effect	scoped closes its scope when interrupted after installing it	scoped_closes_its_scope_when_interrupted_after_installing_it
 not-applicable	packages/effect/test/Effect.test.ts	124	it.effect	provideService restores the original context if interrupted before its body	Effect.withFiber now hands over a Fiber handle, but this row restores `fiber.context`, the fiber's own mutable services snapshot; the port's services are baked per run and its Fiber handle carries identity and the interrupt flag only, so a run has no original context to restore
-not-applicable	packages/effect/test/Effect.test.ts	155	it.effect	 never strands a second caller when the owner yields before registering cleanup	Effect.cached and Effect.cachedInvalidateWithTTL are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present), so this cache-invalidation row has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	155	it.effect	 never strands a second caller when the owner yields before registering cleanup	Effect.cached and Effect.cachedInvalidateWithTTL are absent from crates/elm-effect/src/effect.rs, so this cache-invalidation row has no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	209	it	isEffect	Effect.isEffect is a TS runtime type guard with no Rust equivalent (is_effect is absent from the crate); whether a value is an Effect is a compile-time fact in Rust, not a runtime observable
 not-applicable	packages/effect/test/Effect.test.ts	215	it.effect	runs using asEffect	Effectable.Class and its asEffect() method have no Rust analog: the crate has no Effectable trait and no as_effect fn, and the runtime interprets an Effect rather than an arbitrary Effectable
 not-applicable	packages/effect/test/Effect.test.ts	226	it.effect	evaluates asEffect on every execution	same Effectable.Class gap: the crate has no Effectable trait or as_effect fn, so re-evaluating asEffect on every execution cannot be observed
 not-applicable	packages/effect/test/Effect.test.ts	244	it	should pass structural comparison	assert.deepEqual over two Effects needs structural comparison; Effect (crates/elm-effect/src/effect.rs:128) carries boxed closures and derives no PartialEq, so there is no structural equality to assert
 not-applicable	packages/effect/test/Effect.test.ts	247	it	should fail structural comparison	same gap: Effect (crates/elm-effect/src/effect.rs:128) derives no PartialEq, so the structural inequality of succeed(0) and succeed(1) cannot be asserted
-not-applicable	packages/effect/test/Effect.test.ts	253	it	terminal root failure captures stack frame	Effect.runForkWith is absent from crates/elm-effect/src/effect.rs (21 pub fns) and the row's custom Scheduler has no Rust analog, so the terminal root stack frame cannot be captured
+not-applicable	packages/effect/test/Effect.test.ts	253	it	terminal root failure captures stack frame	Effect.runForkWith is absent from crates/elm-effect/src/effect.rs and the row's custom Scheduler has no Rust analog, so the terminal root stack frame cannot be captured
 ported	packages/effect/test/Effect.test.ts	270	it.effect	caught sandboxed failure captures stack frame	a_sandboxed_failure_captures_the_span_as_its_stack_frame
 ported	packages/effect/test/Effect.test.ts	282	it	failure without a current frame has no stack annotation and reuses the original exit	a_failure_outside_a_span_carries_no_stack_frame
-unported	packages/effect/test/Effect.test.ts	294	it	callback can branch over sync/async	
-not-applicable	packages/effect/test/Effect.test.ts	310	it	runPromise	Effect.runPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns); the edge here is Runtime::run (crates/elm-effect/src/runtime.rs:286), which returns an Exit rather than a promise
-not-applicable	packages/effect/test/Effect.test.ts	315	it	acquireUseRelease interrupt	Effect.acquireUseRelease is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are runFork, runPromise and delay, so the interrupt row has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	342	it.effect	acquireUseRelease runs release when use throws	Effect.acquireUseRelease is absent from crates/elm-effect/src/effect.rs (21 pub fns), so release-when-use-throws cannot be carried
-unported	packages/effect/test/Effect.test.ts	370	it	acquireUseRelease uninterruptible	
+ported	packages/effect/test/Effect.test.ts	294	it	callback can branch over sync/async	callback_answers_from_a_sync_or_async_registration
+not-applicable	packages/effect/test/Effect.test.ts	310	it	runPromise	Effect.runPromise is absent from crates/elm-effect/src/effect.rs; the edge here is Runtime::run (crates/elm-effect/src/runtime.rs:286), which returns an Exit rather than a promise
+ported	packages/effect/test/Effect.test.ts	315	it	acquireUseRelease interrupt	acquire_use_release_skips_the_use_when_the_acquire_was_interrupted
+ported	packages/effect/test/Effect.test.ts	342	it.effect	acquireUseRelease runs release when use throws	acquire_use_release_releases_after_a_panicking_use
+ported	packages/effect/test/Effect.test.ts	370	it	acquireUseRelease uninterruptible	acquire_use_release_still_releases_when_interrupted_inside_the_region
 ported	packages/effect/test/Effect.test.ts	398	it.effect	Context.Service	crates/elm-effect/tests/service_provide.rs::context_service_is_provided_and_read
 ported	packages/effect/test/Effect.test.ts	405	it.effect	from a some	from_option_some_succeeds
 ported	packages/effect/test/Effect.test.ts	411	it.effect	from a none	crates/elm-effect/tests/effect_conversions.rs::from_option_none_defaults_to_no_such_element
@@ -1207,21 +1207,21 @@ ported	packages/effect/test/Effect.test.ts	443	it.effect	transposes a some conta
 ported	packages/effect/test/Effect.test.ts	449	it.effect	transposes a some containing a failure	transpose_option_some_of_failure_keeps_the_error
 ported	packages/effect/test/Effect.test.ts	457	it.effect	from a success	from_result_success_succeeds
 ported	packages/effect/test/Effect.test.ts	463	it.effect	from a failure	from_result_failure_fails_with_its_error
-not-applicable	packages/effect/test/Effect.test.ts	472	it.effect	succeeds with the returned value in direct-thunk form	Effect.try is absent from crates/elm-effect/src/effect.rs (21 pub fns), so the direct-thunk success row has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	478	it.effect	maps thrown values to UnknownError in direct-thunk form	Effect.try is absent from crates/elm-effect/src/effect.rs (21 pub fns), so mapping a thrown value to UnknownError has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	487	it.effect	succeeds with the returned value	Effect.try is absent from crates/elm-effect/src/effect.rs (21 pub fns), so the resolved-value row has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	501	it.effect	maps thrown values into typed failures	Effect.try is absent from crates/elm-effect/src/effect.rs (21 pub fns), so a throwing thunk cannot map into a typed failure
-not-applicable	packages/effect/test/Effect.test.ts	514	it.effect	turns a throwing catch mapper into a defect	Effect.try is absent from crates/elm-effect/src/effect.rs (21 pub fns), so a throwing thunk cannot map into a typed failure
-not-applicable	packages/effect/test/Effect.test.ts	531	it.effect	succeeds with the resolved value in direct-thunk form	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns) and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
-not-applicable	packages/effect/test/Effect.test.ts	537	it.effect	does not allocate AbortController for zero-argument thunks	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns) and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
-not-applicable	packages/effect/test/Effect.test.ts	570	it.effect	maps synchronous throws to UnknownError in direct-thunk form	Effect.try and Effect.tryPromise are both absent from crates/elm-effect/src/effect.rs (21 pub fns), so the thunk-to-UnknownError mapping rows have no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	579	it.effect	maps promise rejections to UnknownError in direct-thunk form	Effect.try and Effect.tryPromise are both absent from crates/elm-effect/src/effect.rs (21 pub fns), so the thunk-to-UnknownError mapping rows have no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	586	it.effect	succeeds with the resolved value in options form	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns) and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
-not-applicable	packages/effect/test/Effect.test.ts	600	it.effect	maps synchronous throws with catch in options form	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns) and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
-not-applicable	packages/effect/test/Effect.test.ts	613	it.effect	maps promise rejections with catch in options form	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns) and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
-not-applicable	packages/effect/test/Effect.test.ts	624	it.effect	turns a throwing catch mapper for a synchronous throw into a defect	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns) and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
-not-applicable	packages/effect/test/Effect.test.ts	639	it.effect	turns a throwing catch mapper for a promise rejection into a defect	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns) and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
-not-applicable	packages/effect/test/Effect.test.ts	652	it.effect	aborts the provided AbortSignal on interruption	Effect.runPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns) and AbortSignal has no Rust analog, so aborting the provided signal on interruption cannot be carried
+not-applicable	packages/effect/test/Effect.test.ts	472	it.effect	succeeds with the returned value in direct-thunk form	Effect.try is absent from crates/elm-effect/src/effect.rs, so the direct-thunk success row has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	478	it.effect	maps thrown values to UnknownError in direct-thunk form	Effect.try is absent from crates/elm-effect/src/effect.rs, so mapping a thrown value to UnknownError has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	487	it.effect	succeeds with the returned value	Effect.try is absent from crates/elm-effect/src/effect.rs, so the resolved-value row has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	501	it.effect	maps thrown values into typed failures	Effect.try is absent from crates/elm-effect/src/effect.rs, so a throwing thunk cannot map into a typed failure
+not-applicable	packages/effect/test/Effect.test.ts	514	it.effect	turns a throwing catch mapper into a defect	Effect.try is absent from crates/elm-effect/src/effect.rs, so a throwing thunk cannot map into a typed failure
+not-applicable	packages/effect/test/Effect.test.ts	531	it.effect	succeeds with the resolved value in direct-thunk form	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
+not-applicable	packages/effect/test/Effect.test.ts	537	it.effect	does not allocate AbortController for zero-argument thunks	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
+not-applicable	packages/effect/test/Effect.test.ts	570	it.effect	maps synchronous throws to UnknownError in direct-thunk form	Effect.try and Effect.tryPromise are both absent from crates/elm-effect/src/effect.rs, so the thunk-to-UnknownError mapping rows have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	579	it.effect	maps promise rejections to UnknownError in direct-thunk form	Effect.try and Effect.tryPromise are both absent from crates/elm-effect/src/effect.rs, so the thunk-to-UnknownError mapping rows have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	586	it.effect	succeeds with the resolved value in options form	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
+not-applicable	packages/effect/test/Effect.test.ts	600	it.effect	maps synchronous throws with catch in options form	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
+not-applicable	packages/effect/test/Effect.test.ts	613	it.effect	maps promise rejections with catch in options form	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
+not-applicable	packages/effect/test/Effect.test.ts	624	it.effect	turns a throwing catch mapper for a synchronous throw into a defect	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
+not-applicable	packages/effect/test/Effect.test.ts	639	it.effect	turns a throwing catch mapper for a promise rejection into a defect	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
+not-applicable	packages/effect/test/Effect.test.ts	652	it.effect	aborts the provided AbortSignal on interruption	Effect.runPromise is absent from crates/elm-effect/src/effect.rs and AbortSignal has no Rust analog, so aborting the provided signal on interruption cannot be carried
 ported	packages/effect/test/Effect.test.ts	665	it	gen	gen_yields_the_value_and_returns_it
 ported	packages/effect/test/Effect.test.ts	672	it	gen with context	gen_with_self_binding_uses_the_bound_values
 not-applicable	packages/effect/test/Effect.test.ts	679	it	iterator yields the effect once, then completes with the sent value	effect[Symbol.iterator]() is the TS yieldable protocol; Rust's Effect has no iterator entry point, so the yield-once-then-complete behavior cannot be expressed
@@ -1271,7 +1271,7 @@ ported	packages/effect/test/Effect.test.ts	1237	it.live	iterable	crates/elm-effe
 ported	packages/effect/test/Effect.test.ts	1245	it.effect	releases disposables	crates/elm-effect/tests/l5_scope.rs::a_scope_releases_both_disposable_kinds_exactly_once
 ported	packages/effect/test/Effect.test.ts	1254	it.effect	releases async disposables	crates/elm-effect/tests/l5_scope.rs::a_scope_releases_both_disposable_kinds_exactly_once
 ported	packages/effect/test/Effect.test.ts	1265	it.live	releases on interrupt	acquire_release_still_releases_after_an_interrupt
-not-applicable	packages/effect/test/Effect.test.ts	1283	it.effect	supports release dependencies	Effect.acquireRelease and Effect.provideService are absent from crates/elm-effect/src/effect.rs (21 pub fns), so release dependencies have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	1283	it.effect	supports release dependencies	Scope::acquire_release exists at scope.rs:140 but it is a direct call on a Scope, not an effect node, so the pin's Effect.provideService(acquireRelease(...), ATag, "A") wrapper has nowhere to sit: the release runs through add_finalizer_effect and render with the empty outer service map (run_sync), so a finalizer cannot inherit a service its bracket was provided
 ported	packages/effect/test/Effect.test.ts	1306	it.effect	raceAll	race_all_completes_on_the_first_success_not_the_first_completion
 ported	packages/effect/test/Effect.test.ts	1325	it.effect	raceAllFirst	race_all_first_completes_on_the_first_completion_even_a_failure
 ported	packages/effect/test/Effect.test.ts	1345	it.effect	race interrupts the loser when the other side succeeds	race_interrupts_the_loser_when_the_other_side_succeeds
@@ -1302,12 +1302,12 @@ ported	packages/effect/test/Effect.test.ts	1679	it.effect	retry/schedule - with 
 ported	packages/effect/test/Effect.test.ts	1693	it.effect	retry/schedule - until errors	crates/elm-effect/tests/effect_repeat_retry.rs::retry_schedule_until_errors
 ported	packages/effect/test/Effect.test.ts	1708	it.effect	retry/schedule - with while	crates/elm-effect/tests/effect_repeat_retry.rs::retry_schedule_with_while
 ported	packages/effect/test/Effect.test.ts	1722	it.effect	retry/schedule - while errors	crates/elm-effect/tests/effect_repeat_retry.rs::retry_schedule_while_errors
-not-applicable	packages/effect/test/Effect.test.ts	1737	it.effect	retry/schedule - CurrentMetadata	Schedule.CurrentMetadata is absent from crates/elm-effect/src/schedule.rs and Effect.flip is absent from effect.rs (21 pub fns), so the metadata-collecting retry row has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	1795	it.effect	uses monotonic time when wall time moves backward	Effect.timed is absent from crates/elm-effect/src/effect.rs (21 pub fns), so measuring a run in wall time has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	1737	it.effect	retry/schedule - CurrentMetadata	Schedule.CurrentMetadata is absent from crates/elm-effect/src/schedule.rs, so the metadata-collecting retry row has no Rust constructor (Effect.flip is present at effect.rs)
+not-applicable	packages/effect/test/Effect.test.ts	1795	it.effect	uses monotonic time when wall time moves backward	Effect.timed is absent from crates/elm-effect/src/effect.rs, so measuring a run in wall time has no Rust constructor
 ported	packages/effect/test/Effect.test.ts	1813	it.live	${form}: factory and body follow cleanup and replay	a_timeout_fallback_runs_after_cleanup_and_again_on_the_next_run
-not-applicable	packages/effect/test/Effect.test.ts	1864	it.live	a ready source value is not confused with a zero-duration timeout	Effect.timeoutOrElse and Effect.as are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the slow-fallback timeout rows have no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	1878	it.live	slow fallback cannot let the original source win after timeout	Effect.timeoutOrElse and Effect.as are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the slow-fallback timeout rows have no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	1920	it.live	source and fallback inherit caller context	Effect.timeoutOrElse, Effect.provideService, Effect.currentSpan and Effect.fiberId are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate never function is basics.rs:115 Predicate, not an Effect constructor
+ported	packages/effect/test/Effect.test.ts	1864	it.live	a ready source value is not confused with a zero-duration timeout	a_ready_source_beats_a_zero_duration_timeout
+ported	packages/effect/test/Effect.test.ts	1878	it.live	slow fallback cannot let the original source win after timeout	a_late_source_does_not_win_after_the_timeout
+not-applicable	packages/effect/test/Effect.test.ts	1920	it.live	source and fallback inherit caller context	Effect.currentSpan is absent from crates/elm-effect/src/effect.rs (timeoutOrElse is present at :1551, provideService is `provide`), so a run has no span value to observe
 ported	packages/effect/test/Effect.test.ts	1972	it.live	external interruption stops a pending fallback	an_external_interrupt_stops_a_pending_fallback
 ported	packages/effect/test/Effect.test.ts	2004	it.live	timeout a long computation	timeout_option_returns_none_for_a_long_computation
 ported	packages/effect/test/Effect.test.ts	2013	it.live	timeout a long computation with a failure	timeout_or_else_can_die_on_its_own_terms
@@ -1316,22 +1316,22 @@ ported	packages/effect/test/Effect.test.ts	2041	it.effect	timeout in uninterrupt
 ported	packages/effect/test/Effect.test.ts	2049	it.effect	timeout produces a useful error message	timeout_fail_renders_seconds_and_millis
 ported	packages/effect/test/Effect.test.ts	2064	it.live	timeout a long computation	timeout_fail_reports_the_pins_message
 ported	packages/effect/test/Effect.test.ts	2077	it.effect	timeout interrupts the effect	timeout_fail_interrupts_the_effect
-not-applicable	packages/effect/test/Effect.test.ts	2101	it	a map callback that interrupts its own fiber skips the next map	Effect.runSyncExit is absent from crates/elm-effect/src/effect.rs (21 pub fns), so a map callback interrupting its own fiber cannot be observed at the sync edge
-unported	packages/effect/test/Effect.test.ts	2115	it.effect	sync forever is interruptible	
+not-applicable	packages/effect/test/Effect.test.ts	2101	it	a map callback that interrupts its own fiber skips the next map	Effect.runSyncExit is absent from crates/elm-effect/src/effect.rs; the sync edge is Runtime::run, which answers a whole Exit, and a map callback interrupting its own fiber cannot be staged through it
+ported	packages/effect/test/Effect.test.ts	2115	it.effect	sync forever is interruptible	sync_forever_is_interruptible
 ported	packages/effect/test/Effect.test.ts	2122	it.effect	interrupt of never is interrupted with cause	never_interrupted_reports_an_interrupt_cause
 ported	packages/effect/test/Effect.test.ts	2129	it.effect	catch + ensuring + interrupt	catch_cause_ignores_an_interrupt_and_ensuring_still_runs
 ported	packages/effect/test/Effect.test.ts	2149	it.effect	run of interruptible	exit_inside_a_masked_region_observes_the_interrupt
 ported	packages/effect/test/Effect.test.ts	2167	it.effect	alternating interruptibility	alternating_interruptibility_runs_each_observed_window
-not-applicable	packages/effect/test/Effect.test.ts	2189	it.live	acquireUseRelease use inherits interrupt status	Effect.acquireUseRelease, Effect.delay, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
-not-applicable	packages/effect/test/Effect.test.ts	2209	it.effect	acquireUseRelease release runs when use is interrupted	Effect.acquireUseRelease, Effect.delay, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
+ported	packages/effect/test/Effect.test.ts	2189	it.live	acquireUseRelease use inherits interrupt status	acquire_use_release_still_releases_when_interrupted_inside_the_region
+ported	packages/effect/test/Effect.test.ts	2209	it.effect	acquireUseRelease release runs when use is interrupted	acquire_use_release_releases_when_the_use_is_interrupted
 ported	packages/effect/test/Effect.test.ts	2232	it.live	async can be uninterruptible	a_masked_sleep_runs_to_its_deadline_before_the_interrupt_lands
 ported	packages/effect/test/Effect.test.ts	2246	it.live	callback cannot resume on interrupt	a_callback_cannot_resume_after_the_interrupt
 ported	packages/effect/test/Effect.test.ts	2260	it.live	closing scope is uninterruptible	a_masked_region_closes_its_scope_before_the_interrupt_returns
-unported	packages/effect/test/Effect.test.ts	2274	it.effect	AbortSignal is aborted	
-unported	packages/effect/test/Effect.test.ts	2284	it.effect	callback cleanup effect runs on interrupt	
+not-applicable	packages/effect/test/Effect.test.ts	2274	it.effect	AbortSignal is aborted	the pin hands the callback registration an AbortSignal and asserts it aborts on interrupt; this port's callback has no signal token, and interruption is the ambient fiber flag rather than a value the registration receives
+ported	packages/effect/test/Effect.test.ts	2284	it.effect	callback cleanup effect runs on interrupt	callback_cleanup_runs_on_interrupt
 ported	packages/effect/test/Effect.test.ts	2297	it.effect	defers a pending interrupt until the masked region completes	a_masked_region_defers_a_pending_interrupt_until_it_completes
 ported	packages/effect/test/Effect.test.ts	2337	it.effect	delivers a pending interrupt when restore re-enables interruptibility	restore_delivers_a_pending_interrupt_before_the_restored_effect_runs
-unported	packages/effect/test/Effect.test.ts	2382	it.effect	region after a restored section stays uninterruptible	
+ported	packages/effect/test/Effect.test.ts	2382	it.effect	region after a restored section stays uninterruptible	region_after_a_restored_section_stays_uninterruptible
 ported	packages/effect/test/Effect.test.ts	2434	it.effect	completes immediately when no children are forked	await_all_children_completes_immediately_without_children
 ported	packages/effect/test/Effect.test.ts	2440	it.effect	awaits children forked by the wrapped effect	await_all_children_waits_for_the_child_the_body_forked
 ported	packages/effect/test/Effect.test.ts	2457	it.effect	can be interrupted while awaiting children after success	await_all_children_is_interruptible_after_success
@@ -1340,30 +1340,30 @@ ported	packages/effect/test/Effect.test.ts	2523	it.effect	respects an enclosing 
 ported	packages/effect/test/Effect.test.ts	2556	it.effect	does not await children forked outside the wrapped effect	await_all_children_ignores_a_child_forked_outside_it
 ported	packages/effect/test/Effect.test.ts	2568	it.effect	does not await preexisting children	await_all_children_ignores_a_preexisting_child
 ported	packages/effect/test/Effect.test.ts	2576	it.effect	does not await preexisting children in the same fiber	await_all_children_ignores_a_preexisting_child_in_the_same_fiber
-unported	packages/effect/test/Effect.test.ts	2598	it.effect	is interrupted with parent	
-unported	packages/effect/test/Effect.test.ts	2624	it.effect	is not interrupted with parent	
-unported	packages/effect/test/Effect.test.ts	2650	it.effect	is interrupted when scope is closed	
-unported	packages/effect/test/Effect.test.ts	2668	it.effect	is interrupted when scope is closed	
+ported	packages/effect/test/Effect.test.ts	2598	it.effect	is interrupted with parent	fork_child_immediate_dies_with_its_parent
+ported	packages/effect/test/Effect.test.ts	2624	it.effect	is not interrupted with parent	fork_detach_outlives_its_parent
+ported	packages/effect/test/Effect.test.ts	2650	it.effect	is interrupted when scope is closed	fork_in_is_interrupted_when_its_scope_closes
+ported	packages/effect/test/Effect.test.ts	2668	it.effect	is interrupted when scope is closed	fork_scoped_is_interrupted_when_the_ambient_scope_closes
 ported	packages/effect/test/Effect.test.ts	2687	it.effect	works	a_flat_map_chain_threads_every_do_notation_binding
 ported	packages/effect/test/Effect.test.ts	2704	it.live	recursion	an_endless_flat_map_chain_stops_on_interrupt
 ported	packages/effect/test/Effect.test.ts	2713	it	lazily nested map continuations	deeply_nested_map_continuations_run
 not-applicable	packages/effect/test/Effect.test.ts	2727	it.effect	onExit preserves the original failure when the finalizer throws	Effect.onExit exists (crates/elm-effect/src/effect.rs:270) but takes FnOnce(&Exit) and cannot append the finalizer defect to the cause, so a finalizer that throws cannot raise the combined Exit the pin asserts
-unported	packages/effect/test/Effect.test.ts	2736	it.effect	onExit reports a thrown finalizer on success	
-unported	packages/effect/test/Effect.test.ts	2742	it.effect	an outer onInterrupt still sees the interruption after an inner finalizer throws	
-not-applicable	packages/effect/test/Effect.test.ts	2762	it	nested throwing finalizers do not overflow the stack	Effect.runSyncExit is absent from effect.rs (21 pub fns) and Effect.ensuring takes Fn() rather than an Effect, so nested throwing finalizers have no Rust constructor
+ported	packages/effect/test/Effect.test.ts	2736	it.effect	onExit reports a thrown finalizer on success	on_exit_reports_a_thrown_finalizer_on_success
+ported	packages/effect/test/Effect.test.ts	2742	it.effect	an outer onInterrupt still sees the interruption after an inner finalizer throws	on_interrupt_survives_an_inner_finalizer_panic
+not-applicable	packages/effect/test/Effect.test.ts	2762	it	nested throwing finalizers do not overflow the stack	Effect.runSyncExit is absent from effect.rs and Effect.ensuring takes Fn() rather than an Effect, so nested throwing finalizers have no Rust constructor
 ported	packages/effect/test/Effect.test.ts	2770	it.effect	fail ensuring	ensuring_runs_on_a_typed_failure_and_preserves_it
 ported	packages/effect/test/Effect.test.ts	2783	it.effect	fail on error	on_error_runs_only_on_a_typed_failure
-not-applicable	packages/effect/test/Effect.test.ts	2798	it.effect	finalizer errors merged	Effect.runSyncExit is absent from effect.rs (21 pub fns) and Effect.ensuring takes Fn() rather than an Effect, so nested throwing finalizers have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	2798	it.effect	finalizer errors merged	Effect.runSyncExit is absent from effect.rs and Effect.ensuring takes Fn() rather than an Effect, so nested throwing finalizers have no Rust constructor
 ported	packages/effect/test/Effect.test.ts	2816	it.effect	finalizer errors reported	crates/elm-effect/tests/l5_scope.rs::finalizer_failure_is_appended
 ported	packages/effect/test/Effect.test.ts	2838	it.effect	scoped combines usage and finalizer failures	crates/elm-effect/tests/l5_scope.rs::finalizer_failure_is_appended
 ported	packages/effect/test/Effect.test.ts	2850	it.effect	acquireUseRelease usage result	acquire_use_release_returns_the_usage_result
 ported	packages/effect/test/Effect.test.ts	2860	it.effect	error in just acquisition	acquire_use_release_error_in_just_acquisition
 ported	packages/effect/test/Effect.test.ts	2873	it.effect	error in just release	acquire_use_release_error_in_just_release
 ported	packages/effect/test/Effect.test.ts	2886	it.effect	error in just usage	acquire_use_release_error_in_just_usage
-not-applicable	packages/effect/test/Effect.test.ts	2899	it.effect	combines usage and release failures	Effect.acquireUseRelease and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns), so combining usage and release failures has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	2912	it.effect	rethrown caught error in acquisition	Effect.acquireUseRelease and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns), so combining usage and release failures has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	2922	it.effect	rethrown caught error in release	Effect.acquireUseRelease and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns), so combining usage and release failures has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	2935	it.effect	rethrown caught error in usage	Effect.acquireUseRelease and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns), so combining usage and release failures has no Rust constructor
+ported	packages/effect/test/Effect.test.ts	2899	it.effect	combines usage and release failures	acquire_use_release_combines_use_and_release_failures
+ported	packages/effect/test/Effect.test.ts	2912	it.effect	rethrown caught error in acquisition	acquire_use_release_releases_on_success_and_on_a_failing_use
+ported	packages/effect/test/Effect.test.ts	2922	it.effect	rethrown caught error in release	acquire_use_release_surfaces_a_failing_release
+ported	packages/effect/test/Effect.test.ts	2935	it.effect	rethrown caught error in usage	acquire_use_release_releases_on_success_and_on_a_failing_use
 ported	packages/effect/test/Effect.test.ts	2945	it.effect	onResult - ensures that a cleanup function runs when an effect fails	on_result_runs_the_cleanup_when_the_effect_dies
 ported	packages/effect/test/Effect.test.ts	2962	it.effect	onExit - callback observes interrupt exit when the fiber is interrupted	on_exit_sees_the_interrupt_exit
 ported	packages/effect/test/Effect.test.ts	3007	it.effect	does not log when log is omitted	ignore_omitted_logs_nothing
@@ -1378,23 +1378,23 @@ ported	packages/effect/test/Effect.test.ts	3091	it.effect	does not log when log 
 ported	packages/effect/test/Effect.test.ts	3097	it.effect	logs with the current level when log is true	ignore_cause_true_logs_at_current_level
 ported	packages/effect/test/Effect.test.ts	3105	it.effect	logs with the provided level when log is a LogLevel	ignore_cause_level_overrides_current
 ported	packages/effect/test/Effect.test.ts	3113	it.effect	prepends the provided message when logging	ignore_cause_message_replaces_cause
-not-applicable	packages/effect/test/Effect.test.ts	3127	it.effect	catchTag	Effect.catchTag, Effect.failSync and Effect.orElseSucceed are absent from crates/elm-effect/src/effect.rs (21 pub fns) and no Tagged-error enum exists to tag against
-not-applicable	packages/effect/test/Effect.test.ts	3142	it.effect	catchTag orElse	Effect.catchTag, Effect.failSync and Effect.orElseSucceed are absent from crates/elm-effect/src/effect.rs (21 pub fns) and no Tagged-error enum exists to tag against
-not-applicable	packages/effect/test/Effect.test.ts	3157	it.effect	catchTags orElse	Effect.catchTag, Effect.failSync and Effect.orElseSucceed are absent from crates/elm-effect/src/effect.rs (21 pub fns) and no Tagged-error enum exists to tag against
-not-applicable	packages/effect/test/Effect.test.ts	3176	it.effect	tapErrorTag	Effect.catchTag, Effect.failSync and Effect.orElseSucceed are absent from crates/elm-effect/src/effect.rs (21 pub fns) and no Tagged-error enum exists to tag against
+not-applicable	packages/effect/test/Effect.test.ts	3127	it.effect	catchTag	Effect.catchTag, Effect.failSync and Effect.orElseSucceed are absent from crates/elm-effect/src/effect.rs and no Tagged-error enum exists to tag against
+not-applicable	packages/effect/test/Effect.test.ts	3142	it.effect	catchTag orElse	Effect.catchTag, Effect.failSync and Effect.orElseSucceed are absent from crates/elm-effect/src/effect.rs and no Tagged-error enum exists to tag against
+not-applicable	packages/effect/test/Effect.test.ts	3157	it.effect	catchTags orElse	Effect.catchTag, Effect.failSync and Effect.orElseSucceed are absent from crates/elm-effect/src/effect.rs and no Tagged-error enum exists to tag against
+not-applicable	packages/effect/test/Effect.test.ts	3176	it.effect	tapErrorTag	Effect.catchTag, Effect.failSync and Effect.orElseSucceed are absent from crates/elm-effect/src/effect.rs and no Tagged-error enum exists to tag against
 ported	packages/effect/test/Effect.test.ts	3205	it.effect	catchIf with refinement	crates/elm-effect/tests/effect_catch_if.rs::catch_if_with_refinement_reraises_a_declined_error
 ported	packages/effect/test/Effect.test.ts	3222	it.effect	catchIf with refinement orElse	crates/elm-effect/tests/effect_catch_if.rs::catch_if_with_refinement_or_else
-not-applicable	packages/effect/test/Effect.test.ts	3240	it.effect	catchNoSuchElement	Effect.catchNoSuchElement and Effect.fromNullishOr are absent from crates/elm-effect/src/effect.rs (21 pub fns); from_option (effect.rs:186) takes an explicit on_none rather than defaulting to NoSuchElementError
-not-applicable	packages/effect/test/Effect.test.ts	3249	it.effect	catchNoSuchElement preserves other errors	Effect.catchNoSuchElement and Effect.fromNullishOr are absent from crates/elm-effect/src/effect.rs (21 pub fns); from_option (effect.rs:186) takes an explicit on_none rather than defaulting to NoSuchElementError
-not-applicable	packages/effect/test/Effect.test.ts	3258	it	preserves handler receivers and treats thrown exceptions as defects	Effect.match and Effect.matchCause are absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate matches is cron.rs:368 on a cron spec, not the Effect fold
-not-applicable	packages/effect/test/Effect.test.ts	3284	it	passes only the outcome to handlers	Effect.match and Effect.matchCause are absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate matches is cron.rs:368 on a cron spec, not the Effect fold
-not-applicable	packages/effect/test/Effect.test.ts	3296	it	passes defects through without calling onFailure	Effect.match and Effect.matchCause are absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate matches is cron.rs:368 on a cron spec, not the Effect fold
+not-applicable	packages/effect/test/Effect.test.ts	3240	it.effect	catchNoSuchElement	Effect.catchNoSuchElement and Effect.fromNullishOr are absent from crates/elm-effect/src/effect.rs; from_option takes an explicit on_none rather than defaulting to the NoSuchElementError cause.rs carries
+not-applicable	packages/effect/test/Effect.test.ts	3249	it.effect	catchNoSuchElement preserves other errors	Effect.catchNoSuchElement and Effect.fromNullishOr are absent from crates/elm-effect/src/effect.rs; from_option takes an explicit on_none rather than defaulting to the NoSuchElementError cause.rs carries
+not-applicable	packages/effect/test/Effect.test.ts	3258	it	preserves handler receivers and treats thrown exceptions as defects	Effect.match and Effect.matchCause are absent from crates/elm-effect/src/effect.rs; the crate's `matches` is cron.rs:368 on a cron spec, not the Effect fold
+not-applicable	packages/effect/test/Effect.test.ts	3284	it	passes only the outcome to handlers	Effect.match and Effect.matchCause are absent from crates/elm-effect/src/effect.rs; the crate's `matches` is cron.rs:368 on a cron spec, not the Effect fold
+not-applicable	packages/effect/test/Effect.test.ts	3296	it	passes defects through without calling onFailure	Effect.match and Effect.matchCause are absent from crates/elm-effect/src/effect.rs; the crate's `matches` is cron.rs:368 on a cron spec, not the Effect fold
 not-applicable	packages/effect/test/Effect.test.ts	3306	it	passes only the value to callbacks regardless of declared arity	JS-only calling convention: the row reads the callback's arguments.length and this, which a Rust closure cannot have (arity is checked at compile time); the port's flat_map is crates/elm-effect/src/effect.rs:734, and there is no observable behavior to port.
-not-applicable	packages/effect/test/Effect.test.ts	3316	it.effect	concurrent: false	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns), and forkChild exists only as the runtime method at fiber.rs:243, not the effect-last form
-not-applicable	packages/effect/test/Effect.test.ts	3334	it.effect	concurrent: true	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns), and forkChild exists only as the runtime method at fiber.rs:243, not the effect-last form
+not-applicable	packages/effect/test/Effect.test.ts	3316	it.effect	concurrent: false	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs; Effect::fork_child exists, but zip and delay have no constructor of their own
+not-applicable	packages/effect/test/Effect.test.ts	3334	it.effect	concurrent: true	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs; Effect::fork_child exists, but zip and delay have no constructor of their own
 ported	packages/effect/test/Effect.test.ts	3352	it.effect	concurrent: true interrupts the other side on failure	concurrent_zip_interrupts_the_other_side_on_failure
-not-applicable	packages/effect/test/Effect.test.ts	3369	it.effect	concurrent: false	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns), and forkChild exists only as the runtime method at fiber.rs:243, not the effect-last form
-not-applicable	packages/effect/test/Effect.test.ts	3387	it.effect	concurrent: true	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns), and forkChild exists only as the runtime method at fiber.rs:243, not the effect-last form
+not-applicable	packages/effect/test/Effect.test.ts	3369	it.effect	concurrent: false	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs; Effect::fork_child exists, but zip and delay have no constructor of their own
+not-applicable	packages/effect/test/Effect.test.ts	3387	it.effect	concurrent: true	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs; Effect::fork_child exists, but zip and delay have no constructor of their own
 ported	packages/effect/test/Effect.test.ts	3405	it.effect	concurrent: true interrupts the other side on failure	concurrent_zip_with_interrupts_the_other_side_on_failure
 ported	packages/effect/test/Effect.test.ts	3424	it.effect	first argument as success	catch_cause_filter_first_argument_as_success
 ported	packages/effect/test/Effect.test.ts	3429	it.effect	first argument as failure and predicate return false	catch_cause_filter_declined_cause_is_re_raised
@@ -8575,24 +8575,24 @@ not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.t
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	790	it	normalizes isMinProperties	the row's only assertion is that isMinProperties(-1) records minProperties 0 in annotations.representation, the value being clamped not floored; the Rust schema crate has no annotation layer, so the payload cannot be recorded
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	797	it	normalizes isMaxProperties	the row's only assertion is that isMaxProperties(2.9) records maxProperties 2 in annotations.representation, the value being floored; the Rust schema crate has no annotation layer, so the payload cannot be recorded
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	804	it	normalizes isBetweenProperties	the row's only assertion is that isBetweenProperties(1.9, 3.7) records minimum 1 and maximum 3 in annotations.representation, both bounds being floored; the Rust schema crate has no annotation layer, so the payload cannot be recorded
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	813	it	revives Option	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	822	it	revives Result	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	831	it	revives Redacted	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	813	it	revives Option	revives_option
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	822	it	revives Result	revives_result
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	831	it	revives Redacted	revives_redacted
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	840	it	revives CauseReason	Schema.CauseReason does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	849	it	revives Cause	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	849	it	revives Cause	revives_cause
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	858	it	revives Error	Schema.ErrorInstance does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	867	it	revives Exit	
-not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	876	it	revives ReadonlyMap	Schema.ReadonlyMap does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
-not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	885	it	revives HashMap	Schema.HashMap does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	867	it	revives Exit	revives_exit
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	876	it	revives ReadonlyMap	revives_readonly_map
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	885	it	revives HashMap	revives_hash_map
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	894	it	revives Graph	
-not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	903	it	revives ReadonlySet	Schema.ReadonlySet does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	903	it	revives ReadonlySet	revives_readonly_set
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	912	it	revives HashSet	Schema.HashSet does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	921	it	revives Chunk	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	930	it	revives RegExp	
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	939	it	revives URL	Schema.URL does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	948	it	revives Date	
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	957	it	revives Duration	Schema.Duration does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	966	it	revives ByteSize	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	966	it	revives ByteSize	revives_byte_size
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	975	it	revives BigDecimal	Schema.BigDecimal does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	984	it	revives File	
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	993	it	revives FormData	Schema.FormData does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
@@ -8603,7 +8603,7 @@ not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.t
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	1038	it	revives TimeZoneNamed	Schema.TimeZoneNamed does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	1047	it	revives TimeZone	Schema.TimeZone does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	1056	it	revives DateTimeZoned	Schema.DateTimeZoned does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	1065	it	revives Json	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	1065	it	revives Json	revives_json
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	1074	it	revives MutableJson	Schema.MutableJson does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	1083	it	persists Error includeStack	assertDeclarationReviver round-trips Schema.ErrorInstance's options through toRepresentation/toJson/fromRepresentation, then reads annotations.representation and toCode; the Rust schema crate has no representation document, no reviver registry and no annotation slot
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	1090	it	persists Error excludeCause	assertDeclarationReviver round-trips Schema.ErrorInstance's excludeCause option through the representation document; the Rust schema crate has no representation document, no reviver registry and no annotation slot
@@ -8636,15 +8636,15 @@ ported	packages/effect/test/schema/representation/fromJson.test.ts	234	it	decode
 not-applicable	packages/effect/test/schema/representation/fromJson.test.ts	253	it	decodes bigint structural values	no bigint value in the port's Unknown domain, so a bigint literal cannot be decoded
 ported	packages/effect/test/schema/representation/fromJson.test.ts	270	it	rejects mismatched literal types	literal_rejects_other_values
 ported	packages/effect/test/schema/representation/fromJson.test.ts	282	it	rejects mismatched Enum value types	json_decodes_string_enums
-unported	packages/effect/test/schema/representation/fromJson.test.ts	295	it	rejects mismatched property name types	
-unported	packages/effect/test/schema/representation/fromJson.test.ts	314	it	preserves string literals resembling non-finite numbers	
+ported	packages/effect/test/schema/representation/fromJson.test.ts	295	it	rejects mismatched property name types	rejects_a_number_typed_property_name
+ported	packages/effect/test/schema/representation/fromJson.test.ts	314	it	preserves string literals resembling non-finite numbers	revives_literal_without_changing_its_type
 not-applicable	packages/effect/test/schema/representation/fromJson.test.ts	327	it	decodes global symbols	no symbol value in the port's Unknown domain, so a symbol literal cannot be decoded
 not-applicable	packages/effect/test/schema/representation/fromJson.test.ts	348	it	does not coerce strings resembling symbols	no symbol value in the port's Unknown domain, so a symbol literal cannot be decoded
 ported	packages/effect/test/schema/representation/fromJson.test.ts	360	it	requires representation on persisted Filters	requires_representation_when_persisting_a_filter
-unported	packages/effect/test/schema/representation/fromJson.test.ts	371	it	requires representation on persisted Declarations	
-unported	packages/effect/test/schema/representation/fromJson.test.ts	382	it	rejects empty references	
-unported	packages/effect/test/schema/representation/fromJson.test.ts	393	it	rejects non-JSON annotations	
-unported	packages/effect/test/schema/representation/fromJson.test.ts	408	it	rejects non-JSON roots	
+ported	packages/effect/test/schema/representation/fromJson.test.ts	371	it	requires representation on persisted Declarations	requires_a_representation_on_a_declaration
+ported	packages/effect/test/schema/representation/fromJson.test.ts	382	it	rejects empty references	rejects_an_empty_reference
+not-applicable	packages/effect/test/schema/representation/fromJson.test.ts	393	it	rejects non-JSON annotations	the row feeds a bigint annotation value; serde_json's value domain has no bigint, so the malformed input has no Rust spelling and the check is vacuous here
+ported	packages/effect/test/schema/representation/fromJson.test.ts	408	it	rejects non-JSON roots	rejects_a_non_object_root
 not-applicable	packages/effect/test/schema/representation/fromJson.test.ts	416	it	does not invoke toJSON	JSON.stringify's toJSON hook is a JS object-protocol behavior with no Rust counterpart
 not-applicable	packages/effect/test/schema/representation/fromJsonMultiDocument.test.ts	6	it	decodes every root in order	N/A: Rust SchemaRepresentation has no fromJsonMultiDocument deserializer for multi-root document input
 not-applicable	packages/effect/test/schema/representation/fromJsonMultiDocument.test.ts	28	it	decodes shared references	N/A: Rust SchemaRepresentation has no fromJsonMultiDocument deserializer for multi-root document input
@@ -8666,7 +8666,7 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	242	it	single enum (number)	json_schema_single_member_enums
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	249	it	single enum (boolean)	json_schema_single_member_enums
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	256	it	multiple literal members	json_schema_const_and_enum_import_as_literals
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	267	it	enum containing null	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	267	it	enum containing null	json_schema_document_enum_containing_null_becomes_a_union_with_null
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	275	it	anyOf	json_schema_document_builds_unions_from_any_of_and_one_of
 not-applicable	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	282	it	anyOf with siblings	the row intersects the keywords around the union with the union itself, so the required id the surrounding object declares lands in both members; the port carries no union lane pruning, which is also what the allOf union family needs
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	304	it	oneOf	json_schema_document_builds_unions_from_any_of_and_one_of
@@ -8752,7 +8752,7 @@ not-applicable	packages/effect/test/schema/representation/fromJsonSchemaDocument
 not-applicable	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1648	it	distributes across a nested reference without choices	missing: allOf union/intersection distribution (intersect base compares decomposed repr_kind without ref resolution and without union-member lane pruning; crates/elm-effect-schema/src/lib.rs:3271)
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1684	it	reports unsupported keywords after a false schema	json_schema_document_refuses_the_keywords_it_cannot_lower
 not-applicable	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1696	it	intersects one constraint with many alternatives linearly	missing: allOf union/intersection distribution (intersect base compares decomposed repr_kind without ref resolution and without union-member lane pruning; crates/elm-effect-schema/src/lib.rs:3271)
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1710	it	resolves a root reference before intersecting allOf	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1710	it	resolves a root reference before intersecting allOf	json_schema_document_resolves_a_root_reference_before_intersecting_all_of
 not-applicable	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1726	it	resolves a reference declared inside allOf	missing: allOf union/intersection distribution (intersect base compares decomposed repr_kind without ref resolution and without union-member lane pruning; crates/elm-effect-schema/src/lib.rs:3271)
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1741	it	preserves annotations on array intersections	json_schema_document_keeps_each_intersection_that_survives_its_member
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1758	it	preserves annotations on object intersections	json_schema_document_keeps_each_intersection_that_survives_its_member
@@ -9565,19 +9565,19 @@ not-applicable	packages/effect/test/schema/toFormatter.test.ts	171	it	selects tr
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	186	it	preserves Union member formatter annotations	Schema.overrideToFormatter is absent from the entire crate (grep across schema/src and src returns nothing), so there is no annotation slot for a renderer override
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	198	it	preserves Union member encoding metadata for onBefore	the row needs Schema.decodeTo's transformed Union member selection and an onBefore AST hook, neither of which exists on the Rust schema surface
 ported	packages/effect/test/schema/toFormatter.test.ts	213	it	empty	formatter_empty_tuple_renders_empty_array
-unported	packages/effect/test/schema/toFormatter.test.ts	218	it	elements	
-unported	packages/effect/test/schema/toFormatter.test.ts	225	it	Array	
+ported	packages/effect/test/schema/toFormatter.test.ts	218	it	elements	formatter_renders_a_tuple_of_options
+ported	packages/effect/test/schema/toFormatter.test.ts	225	it	Array	formatter_renders_an_array_of_options
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	231	it	TupleWithRest	TupleWithRest's rest-index and trailing-element layout emits comma-SPACE separators and per-element schemas, while format_value emits a comma with no space and has no element schema to apply
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	242	it	TupleWithRest with multiple post-rest elements	TupleWithRest's rest-index and trailing-element layout emits comma-SPACE separators and per-element schemas, while format_value emits a comma with no space and has no element schema to apply
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	262	it	one trailing element after the rest element	TupleWithRest's rest-index and trailing-element layout emits comma-SPACE separators and per-element schemas, while format_value emits a comma with no space and has no element schema to apply
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	269	it	multiple trailing elements after the rest element	TupleWithRest's rest-index and trailing-element layout emits comma-SPACE separators and per-element schemas, while format_value emits a comma with no space and has no element schema to apply
 ported	packages/effect/test/schema/toFormatter.test.ts	279	it	empty	formatter_empty_struct_renders_shapes
-unported	packages/effect/test/schema/toFormatter.test.ts	290	it	required fields	
-unported	packages/effect/test/schema/toFormatter.test.ts	298	it	required field with undefined	
-unported	packages/effect/test/schema/toFormatter.test.ts	307	it	optionalKey field	
-unported	packages/effect/test/schema/toFormatter.test.ts	316	it	optional field	
-unported	packages/effect/test/schema/toFormatter.test.ts	328	it	Record(String, Option(Number))	
-unported	packages/effect/test/schema/toFormatter.test.ts	334	it	Record(String.check, Option(Number)) should use the key checks to select keys	
+ported	packages/effect/test/schema/toFormatter.test.ts	290	it	required fields	formatter_renders_struct_fields_that_hold_options
+ported	packages/effect/test/schema/toFormatter.test.ts	298	it	required field with undefined	formatter_renders_an_option_of_undefined
+ported	packages/effect/test/schema/toFormatter.test.ts	307	it	optionalKey field	formatter_renders_struct_fields_that_hold_options
+ported	packages/effect/test/schema/toFormatter.test.ts	316	it	optional field	formatter_renders_a_present_undefined_on_an_optional_field
+ported	packages/effect/test/schema/toFormatter.test.ts	328	it	Record(String, Option(Number))	formatter_renders_a_record_of_options
+ported	packages/effect/test/schema/toFormatter.test.ts	334	it	Record(String.check, Option(Number)) should use the key checks to select keys	formatter_renders_only_the_record_keys_its_key_check_selects
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	342	it	Record(Symbol, Option(Number))	Unknown has no variant for this value type (undefined / BigInt / Symbol / a TS enum object), so the input cannot be constructed and there is nothing to render
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	349	it	StructWithRest	SchemaKind has no Struct, Record, or recursive suspend variant (only String, Number, Boolean, Object, Array, Optional, Opaque, Annotated), so a nested-struct formatter cannot be built at all; the whitespace difference in format_value is secondary and would not be enough on its own
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	357	it	Class	SchemaKind has no Struct, Record, or recursive suspend variant (only String, Number, Boolean, Object, Array, Optional, Opaque, Annotated), so a nested-struct formatter cannot be built at all; the whitespace difference in format_value is secondary and would not be enough on its own
@@ -9590,19 +9590,19 @@ ported	packages/effect/test/schema/toFormatter.test.ts	426	it	optional	formatter
 ported	packages/effect/test/schema/toFormatter.test.ts	435	it	Array + Array	formatter_renders_two_array_fields_sharing_a_recursion
 ported	packages/effect/test/schema/toFormatter.test.ts	451	it	optional + Array	formatter_renders_array_of_structs
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	461	it	mutually suspended schemas	SchemaKind has no Struct, Record, or recursive suspend variant (only String, Number, Boolean, Object, Array, Optional, Opaque, Annotated), so a nested-struct formatter cannot be built at all; the whitespace difference in format_value is secondary and would not be enough on its own
-unported	packages/effect/test/schema/toFormatter.test.ts	497	it	Option	
-unported	packages/effect/test/schema/toFormatter.test.ts	510	it	ReadonlySet	
-unported	packages/effect/test/schema/toFormatter.test.ts	518	it	ReadonlyMap	
-unported	packages/effect/test/schema/toFormatter.test.ts	529	it	HashMap	
+ported	packages/effect/test/schema/toFormatter.test.ts	497	it	Option	formatter_renders_a_recursive_option
+ported	packages/effect/test/schema/toFormatter.test.ts	510	it	ReadonlySet	formatter_renders_a_readonly_set
+ported	packages/effect/test/schema/toFormatter.test.ts	518	it	ReadonlyMap	formatter_renders_a_readonly_map
+ported	packages/effect/test/schema/toFormatter.test.ts	529	it	HashMap	formatter_renders_a_hash_map
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	541	it	Date	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	546	it	URL	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	551	it	RegExp	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
-unported	packages/effect/test/schema/toFormatter.test.ts	557	it	Option(String)	
-unported	packages/effect/test/schema/toFormatter.test.ts	563	it	Result(Number, String)	
-unported	packages/effect/test/schema/toFormatter.test.ts	569	it	ReadonlyMap(String, Option(Number))	
-unported	packages/effect/test/schema/toFormatter.test.ts	575	it	HashMap(String, Option(Number))	
-unported	packages/effect/test/schema/toFormatter.test.ts	582	it	Redacted(String)	
-unported	packages/effect/test/schema/toFormatter.test.ts	587	it	with label	
+ported	packages/effect/test/schema/toFormatter.test.ts	557	it	Option(String)	formatter_renders_a_boxed_option
+ported	packages/effect/test/schema/toFormatter.test.ts	563	it	Result(Number, String)	formatter_renders_a_boxed_result
+ported	packages/effect/test/schema/toFormatter.test.ts	569	it	ReadonlyMap(String, Option(Number))	formatter_renders_a_readonly_map_of_options
+ported	packages/effect/test/schema/toFormatter.test.ts	575	it	HashMap(String, Option(Number))	formatter_renders_a_hash_map_of_options
+ported	packages/effect/test/schema/toFormatter.test.ts	582	it	Redacted(String)	formatter_renders_a_redacted_box
+ported	packages/effect/test/schema/toFormatter.test.ts	587	it	with label	formatter_renders_a_redacted_box_with_its_label
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	593	it	Duration	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	601	it	BigDecimal	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	608	it	DateTimeUtc	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built

@@ -44,6 +44,12 @@ pub use tagged::{Tagged, TaggedError, catch_tag};
 pub use tagged_union::{TaggedUnion, TaggedUnionError, tagged_union, to_tagged_union};
 
 /// An untyped value: the decode source and encode target.
+///
+/// The first six variants are the JSON domain. `Undefined` is the one value the
+/// pin's `unknown` has and JSON does not: an absent value that is not `null`,
+/// which `Schema.undefined` and `Schema.UndefinedOr` describe. It rides here as
+/// its own variant because collapsing it into `Null` would make a schema that
+/// refuses null accept an undefined, and `toFormatter` could not print it.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Unknown {
     Null,
@@ -52,6 +58,9 @@ pub enum Unknown {
     Text(String),
     Array(Vec<Unknown>),
     Object(BTreeMap<String, Unknown>),
+    /// `undefined`. Not a JSON value: `to_json` writes `null`, because that is
+    /// the closest JSON spelling and the wire never carries one.
+    Undefined,
 }
 
 impl Unknown {
@@ -63,6 +72,7 @@ impl Unknown {
             Unknown::Text(_) => "string",
             Unknown::Array(_) => "array",
             Unknown::Object(_) => "object",
+            Unknown::Undefined => "undefined",
         }
     }
 }
@@ -131,6 +141,26 @@ fn composite_message(issues: &[SchemaError]) -> String {
 /// Maps a wire value to the value a check attached on top of a schema reads.
 /// See [`Schema::checked`] and the `check_view` field for what sets one.
 pub type CheckView = std::sync::Arc<dyn Fn(&Unknown) -> Unknown + Send + Sync>;
+
+/// The identity a declaration carries into its representation: the pin's
+/// `annotations.representation` (`{ id, payload }`) plus the schemas it was
+/// built from, which the document writes as `typeParameters`.
+///
+/// A declaration converts to its own node kind rather than to its structural
+/// shape, because that is the whole point of one: `Schema.Option(String)` is
+/// persisted as `effect/schema/Option` with one parameter, not as the union of
+/// tag structs it encodes through. A reviver reverses that by id.
+/// A declaration's payload is a JSON value (the pin's `representation.payload`,
+/// and an adapter outside this crate writes one), so the type is re-exported
+/// rather than leaving callers to add a dependency for `Value::Null`.
+pub use serde_json;
+
+#[derive(Clone)]
+pub struct DeclarationInfo {
+    pub id: String,
+    pub payload: serde_json::Value,
+    pub parameters: Vec<std::sync::Arc<Schema<Unknown>>>,
+}
 
 /// A two-way codec between `Unknown` and `T`.
 ///
@@ -276,6 +306,16 @@ pub struct Schema<T> {
     /// `decode` works; the SYNC adapters refuse the schema, which is the pin's
     /// "Sync adapter can only throw schema errors" / dies-on-async behaviour.
     requires_effect: bool,
+    /// The pin's `toCode` answer for a constructor this crate cannot print from
+    /// its shape (see [`Schema::with_code`]).
+    code_override: Option<String>,
+    /// The pin's `toCode(...).Type` answer, beside `code_override`.
+    type_override: Option<String>,
+    /// This schema's representation identity, when it is a declaration: the
+    /// pin's `annotations.representation`. `to_representation` writes a
+    /// `Declaration` node from it instead of the structural shape, and a
+    /// declaration reviver rebuilds the constructor from it.
+    declaration: Option<DeclarationInfo>,
 }
 
 /// The two spellings of a decoding default. `withDecodingDefault` takes a wire
@@ -1556,12 +1596,26 @@ impl Schema<StructValue> {
             };
             let inner: Vec<String> = children
                 .iter()
-                .map(|(name, field)| {
-                    let item = map.get(name).cloned().unwrap_or(Unknown::Null);
+                .filter_map(|(name, field)| {
                     let key = serde_json::to_string(name).unwrap_or_else(|_| "\"\"".to_string());
-                    format!("{key}: {}", field.formatter()(&item))
+                    let item = match map.get(name) {
+                        Some(item) => item,
+                        // An absent `optionalKey` field is absent, not null: the
+                        // pin leaves it out of the rendering entirely, which is
+                        // what makes `{}` print as `{}`.
+                        None if matches!(field.repr_kind(), SchemaKind::OptionalKey(_)) => {
+                            return None;
+                        }
+                        None => &Unknown::Null,
+                    };
+                    Some(format!("{key}: {}", field.formatter()(item)))
                 })
                 .collect();
+            // Every field absent (all of them optional) renders bare, the same
+            // rule an empty Struct follows.
+            if inner.is_empty() {
+                return "{}".to_string();
+            }
             format!("{{ {} }}", inner.join(", "))
         }));
         schema
@@ -1662,7 +1716,41 @@ impl<T> Schema<T> {
             encoded_annotations: Vec::new(),
             check_base: None,
             requires_effect: false,
+            code_override: None,
+            type_override: None,
+            declaration: None,
         }
+    }
+
+    /// Mark this schema as a declaration: the pin's `representation`
+    /// annotation, which makes a persisted one read back as the constructor
+    /// that wrote it instead of as the shape it encodes through.
+    ///
+    /// Public because a constructor can live outside this crate: `Cause`, `Exit`
+    /// and the collections are this crate's own types, so the adapter beside
+    /// each type marks its schema here.
+    pub fn with_declaration(
+        mut self,
+        id: &str,
+        payload: serde_json::Value,
+        parameters: Vec<Schema<Unknown>>,
+    ) -> Self {
+        self.declaration = Some(DeclarationInfo {
+            id: id.to_string(),
+            payload,
+            parameters: parameters.into_iter().map(std::sync::Arc::new).collect(),
+        });
+        self
+    }
+
+    /// The pin's `toCode` answer for a declaration whose shape cannot print it:
+    /// an adapter outside this crate knows the constructor's own rendering
+    /// (`Schema.ByteSize`, `Schema.Cause(Schema.String, Schema.Number)`), and a
+    /// declaration node carries no members for `code_of` to walk.
+    pub fn with_code(mut self, code: &str, ty: &str) -> Self {
+        self.code_override = Some(code.to_string());
+        self.type_override = Some(ty.to_string());
+        self
     }
 
     /// The schema a link was built FROM (`decodeTo`'s `from`), when the
@@ -2201,6 +2289,13 @@ impl<T> Schema<T> {
             encoded_annotations: schema.encoded_annotations.clone(),
             check_base: schema.check_base.clone(),
             requires_effect: schema.requires_effect,
+            // A re-typing keeps the identity: a declaration wrapped for a
+            // struct field still converts to its own node.
+            declaration: schema.declaration.clone(),
+            // An annotation does not change what the constructor's own code
+            // generator answers, so the overrides survive the wrapper.
+            code_override: schema.code_override.clone(),
+            type_override: schema.type_override.clone(),
         }
     }
 
@@ -2307,6 +2402,9 @@ impl<T> Schema<T> {
         // An effectful step is a property of the codec: a sync adapter must
         // refuse a re-typing of one exactly as it refuses the schema itself.
         out.requires_effect = schema.requires_effect;
+        // A re-typing keeps the identity, so a declaration wrapped for a
+        // struct field still converts to its own node.
+        out.declaration = schema.declaration.clone();
         // A nested struct must stay reachable for accumulating validation:
         // `decode_collect` recurses through `children`, and every struct
         // field passes through this re-typing.
@@ -2336,6 +2434,11 @@ impl<T> Schema<T> {
         self.kind = kind;
         self.wrapped = None;
         self
+    }
+
+    /// The identity this schema persists as, when it is a declaration.
+    pub fn declaration(&self) -> Option<&DeclarationInfo> {
+        self.declaration.as_ref()
     }
 
     pub(crate) fn repr_kind(&self) -> SchemaKind {
@@ -2722,6 +2825,7 @@ fn web_json(unknown: &Unknown) -> serde_json::Value {
                 .map(|(name, value)| (name.clone(), web_json(value)))
                 .collect(),
         ),
+        Unknown::Undefined => serde_json::Value::Null,
     }
 }
 
@@ -4276,6 +4380,31 @@ impl Schema<BTreeMap<String, Unknown>> {
             walk_struct(&construct_fields, unknown, true)
         }));
         schema.struct_fields = declared_fields;
+        // A struct renders through its own fields, the way the pin's `Objects`
+        // walk does. Without this the fallback walks the kind, which has no
+        // child schemas, so a field holding an `Option` printed its tag object
+        // instead of `some(...)`.
+        let render_fields = schema.struct_fields.clone().unwrap_or_default();
+        schema.formatter = Some(std::sync::Arc::new(move |value: &Unknown| {
+            let Unknown::Object(map) = value else {
+                return format_value(value);
+            };
+            let inner: Vec<String> = render_fields
+                .iter()
+                .filter_map(|field| {
+                    // The pin's `Object.hasOwn` test: a key the value does not
+                    // carry is not rendered, and a key it carries renders its
+                    // own value even when that value is `undefined`.
+                    let item = map.get(&field.name)?;
+                    let key = json_key(&field.name);
+                    Some(format!("{key}: {}", field.inner().formatter()(item)))
+                })
+                .collect();
+            if inner.is_empty() {
+                return "{}".to_string();
+            }
+            format!("{{ {} }}", inner.join(", "))
+        }));
         schema.check_view = schema.struct_fields.as_ref().and_then(|fields| {
             object_check_view(
                 fields
@@ -4438,7 +4567,9 @@ impl Schema<BTreeMap<String, Unknown>> {
         );
         // A Record renders its entries spaced, the way the pin does, and each
         // entry renders through the value schema so a nested Record or Struct
-        // recurses with the same rule.
+        // recurses with the same rule. A key the key schema refuses is not an
+        // entry this record describes, so it is dropped here too (row 334).
+        let render_key = record_key.clone();
         out.formatter = Some(Arc::new(move |value: &Unknown| {
             let Unknown::Object(map) = value else {
                 return format_value(value);
@@ -4449,6 +4580,12 @@ impl Schema<BTreeMap<String, Unknown>> {
             }
             let inner: Vec<String> = map
                 .iter()
+                .filter(|(name, _)| match &render_key {
+                    Some(key) => key
+                        .decode(Unknown::Text((*name).clone()))
+                        .is_ok(),
+                    None => true,
+                })
                 .map(|(key, item)| {
                     let key = serde_json::to_string(key).unwrap_or_else(|_| "\"\"".to_string());
                     format!(
@@ -4653,7 +4790,12 @@ impl<T: Send + Sync + 'static> Schema<Option<T>> {
             mode: "anyOf",
         };
         let inner = Arc::new(inner);
+        // The formatter reads the tag object and prints the pin's `some(...)` /
+        // `none()`, recursing into the wrapped schema's own formatter so a
+        // nested Option or Struct keeps its spacing.
+        let render = Schema::as_unknown_shared(inner.clone()).formatter();
         let erased = Some(Arc::new(Schema::as_unknown_shared(inner.clone())));
+        let parameter = Arc::new(Schema::as_unknown_shared(inner.clone()));
         let decode_inner = inner.clone();
         let encode_inner = inner;
         let mut schema = Schema::new(
@@ -4693,7 +4835,33 @@ impl<T: Send + Sync + 'static> Schema<Option<T>> {
             },
             kind,
         );
+        schema.formatter = Some(std::sync::Arc::new(move |value: &Unknown| {
+            let Unknown::Object(fields) = value else {
+                return format_value(value);
+            };
+            match fields.get("_tag") {
+                Some(Unknown::Text(tag)) if tag == "Some" => match fields.get("value") {
+                    Some(item) => format!("some({})", render(item)),
+                    None => "some(undefined)".to_string(),
+                },
+                Some(Unknown::Text(tag)) if tag == "None" => "none()".to_string(),
+                _ => format_value(value),
+            }
+        }));
         schema.option_value = erased;
+        // The pin's `Schema.Option` is a declaration, not the union of tag
+        // structs it encodes through: a persisted one reads back by id. Its
+        // code is the constructor, not that union: a declaration answers its
+        // own `toCode`, which is why both are set together.
+        let code = format!("Schema.Option({})", parameter.to_code());
+        let ty = format!("Option.Option<{}>", parameter.to_type());
+        schema.declaration = Some(DeclarationInfo {
+            id: "effect/schema/Option".to_string(),
+            payload: serde_json::Value::Null,
+            parameters: vec![parameter],
+        });
+        schema.code_override = Some(code);
+        schema.type_override = Some(ty);
         schema
     }
 
@@ -4817,6 +4985,51 @@ impl<A: Send + Sync + 'static, E: Send + Sync + 'static> Schema<Result<A, E>> {
             },
             kind,
         );
+        // The pin prints `success(...)` / `failure(...)` from the tag object,
+        // each side through its own schema.
+        let render_success = sides
+            .as_ref()
+            .map(|(success, _)| success.formatter())
+            .expect("result always carries both sides");
+        let render_failure = sides
+            .as_ref()
+            .map(|(_, failure)| failure.formatter())
+            .expect("result always carries both sides");
+        schema.formatter = Some(std::sync::Arc::new(move |value: &Unknown| {
+            let Unknown::Object(fields) = value else {
+                return format_value(value);
+            };
+            match fields.get("_tag") {
+                Some(Unknown::Text(tag)) if tag == "Success" => match fields.get("success") {
+                    Some(item) => format!("success({})", render_success(item)),
+                    None => "success(undefined)".to_string(),
+                },
+                Some(Unknown::Text(tag)) if tag == "Failure" => match fields.get("failure") {
+                    Some(item) => format!("failure({})", render_failure(item)),
+                    None => "failure(undefined)".to_string(),
+                },
+                _ => format_value(value),
+            }
+        }));
+        if let Some((success, failure)) = &sides {
+            schema.declaration = Some(DeclarationInfo {
+                id: "effect/schema/Result".to_string(),
+                payload: serde_json::Value::Null,
+                parameters: vec![success.clone(), failure.clone()],
+            });
+            // A declaration answers its own `toCode`, not the union it encodes
+            // through.
+            schema.code_override = Some(format!(
+                "Schema.Result({}, {})",
+                success.to_code(),
+                failure.to_code()
+            ));
+            schema.type_override = Some(format!(
+                "Result.Result<{}, {}>",
+                success.to_type(),
+                failure.to_type()
+            ));
+        }
         schema.result_sides = sides;
         schema
     }
@@ -5952,20 +6165,44 @@ impl Schema<Unknown> {
                     doc,
                 );
             }
-            let mut union: Option<Schema<Unknown>> = None;
-            for value in values {
-                let literal = Schema::literal(value);
-                union = Some(match union {
-                    None => literal,
-                    Some(accumulated) => Schema::union(accumulated, literal),
-                });
-            }
-            return Self::with_document_annotations(
-                union.ok_or_else(|| SchemaError::TypeMismatch {
+            // `Schema::union` is a decode combinator whose repr is opaque, so
+            // folding the members through it printed `Schema.union` instead of
+            // the union the document named. Build the `Union` node itself; a
+            // null member is the null schema, not `Literal(null)`.
+            if values.is_empty() {
+                return Err(SchemaError::TypeMismatch {
                     path: "$.enum".to_string(),
                     expected: "a non-empty array",
                     got: "an empty array",
-                }),
+                });
+            }
+            let members: Vec<SchemaKind> = values
+                .iter()
+                .map(|value| {
+                    if value == &Unknown::Null {
+                        SchemaKind::Opaque("null")
+                    } else {
+                        SchemaKind::Literal(value.clone())
+                    }
+                })
+                .collect();
+            let kind = SchemaKind::Union {
+                members,
+                mode: "anyOf",
+            };
+            let admitted = values.clone();
+            return Self::with_document_annotations(
+                Ok(Schema::as_unknown(Schema::new(
+                    move |unknown| {
+                        if admitted.iter().any(|value| value == &unknown) {
+                            Ok(unknown)
+                        } else {
+                            mismatch("$", "one of the literals", &unknown)
+                        }
+                    },
+                    |value| Ok(value.clone()),
+                    kind,
+                ))),
                 doc,
             );
         }
@@ -6223,6 +6460,9 @@ impl Unknown {
                     .map(|(key, value)| (key.clone(), value.to_json()))
                     .collect(),
             ),
+            // JSON has no `undefined`; null is its nearest spelling, and the
+            // wire never carries one of these.
+            Unknown::Undefined => serde_json::Value::Null,
         }
     }
 }
@@ -6953,8 +7193,17 @@ impl Schema<Unknown> {
 
     /// Any JSON value (`Json`). The wire shape is unconstrained, which is what
     /// makes it the catch-all for an open object's additional properties.
+    ///
+    /// `Schema.Json` is a declaration in the pin (`effect/schema/Json`), so it
+    /// carries the identity that makes a persisted one read back as Json.
     pub fn json() -> Self {
-        Self::new(Ok, |value| Ok(value.clone()), SchemaKind::Json)
+        let mut out = Self::new(Ok, |value| Ok(value.clone()), SchemaKind::Json);
+        out.declaration = Some(DeclarationInfo {
+            id: "effect/schema/Json".to_string(),
+            payload: serde_json::Value::Null,
+            parameters: Vec::new(),
+        });
+        out
     }
 
     /// A field marked writable (`mutableKey`). In the pin the marker only
@@ -7014,11 +7263,17 @@ impl Schema<Unknown> {
         let kind = SchemaKind::OptionalKey(Box::new(inner.repr_kind()));
         let decode = inner.decode.clone();
         let encode = inner.encode.clone();
-        Self::new(
+        // The wrapper only says the key may be absent, so the value still
+        // renders through the schema it wraps: without this a `some(...)` field
+        // printed as its tag object.
+        let formatter = inner.formatter.clone();
+        let mut out = Self::new(
             move |unknown| decode(unknown),
             move |value| encode(value),
             kind,
-        )
+        );
+        out.formatter = formatter;
+        out
     }
 
     /// A struct plus a catch-all shape (`StructWithRest`): the named fields and
@@ -7229,6 +7484,9 @@ impl Schema<Unknown> {
         let declared_elements = Some(elements.clone());
         let decoders: Vec<Arc<Schema<Unknown>>> = elements.into_iter().map(Arc::new).collect();
         let total = decoders.len();
+        // Each position renders through its own schema, so a position holding an
+        // Option prints `some(...)` instead of its tag object.
+        let render_elements = decoders.clone();
         let construct_decoders = decoders.clone();
         let mut schema = Self::new(
             move |unknown| {
@@ -7281,6 +7539,20 @@ impl Schema<Unknown> {
             |value| Ok(value.clone()),
             kind,
         );
+        schema.formatter = Some(std::sync::Arc::new(move |value: &Unknown| {
+            let Unknown::Array(items) = value else {
+                return format_value(value);
+            };
+            let inner: Vec<String> = items
+                .iter()
+                .enumerate()
+                .map(|(index, item)| match render_elements.get(index) {
+                    Some(element) => element.formatter()(item),
+                    None => format_value(item),
+                })
+                .collect();
+            format!("[{}]", inner.join(", "))
+        }));
         schema.tuple_elements = declared_elements;
         // Construction fills an absent position whose element carries a
         // constructor default; decoding still answers null for an absent
@@ -7742,6 +8014,26 @@ impl Schema<Unknown> {
             move |value| redacted_encode(&encode_inner, label.as_deref(), value),
             SchemaKind::Opaque("redacted"),
         );
+        // The pin prints `<redacted>` and, when the box names one,
+        // `<redacted:label>`. The secret itself is never rendered.
+        out.formatter = Some(std::sync::Arc::new(move |value: &Unknown| {
+            let label = match value {
+                Unknown::Object(map) => match map.get("label") {
+                    Some(Unknown::Text(label)) => Some(label.clone()),
+                    _ => None,
+                },
+                _ => None,
+            };
+            match label {
+                Some(label) => format!("<redacted:{label}>"),
+                None => "<redacted>".to_string(),
+            }
+        }));
+        out.declaration = Some(DeclarationInfo {
+            id: "effect/schema/Redacted".to_string(),
+            payload: serde_json::Value::Null,
+            parameters: vec![Arc::new(Schema::as_unknown(inner_for_children.clone()))],
+        });
         // The wrapped schema rides `wrapped_schema`, which is what the accessor
         // below reads: that is the pin's `schema.value`.
         out.wrapped_schema = Some(Arc::new(inner_for_children));
@@ -8931,6 +9223,9 @@ impl<T> Schema<T> {
     /// `SchemaRepresentation.toCodeDocument` emits (`Schema.String`,
     /// `Schema.Array(Schema.Never)`, `Schema.Union([...])`).
     pub fn to_code(&self) -> String {
+        if let Some(code) = &self.code_override {
+            return code.clone();
+        }
         // A re-typing keeps its own kind opaque, so its code is the code of
         // the schema it wraps.
         match &self.wrapped {
@@ -8942,6 +9237,9 @@ impl<T> Schema<T> {
     /// The TypeScript-style `type` for this schema, the second half of a
     /// `Code` entry (`string`, `ReadonlyArray<never>`, `never | string`).
     pub fn to_type(&self) -> String {
+        if let Some(ty) = &self.type_override {
+            return ty.clone();
+        }
         match &self.wrapped {
             Some(boxed) => boxed.ty.clone(),
             None => type_of(&self.kind, &self.children),
@@ -9262,6 +9560,7 @@ pub fn format_value(value: &Unknown) -> String {
                 .collect();
             format!("{{{}}}", inner.join(","))
         }
+        Unknown::Undefined => "undefined".to_string(),
     }
 }
 
@@ -9452,4 +9751,137 @@ fn format_with(kind: &SchemaKind, value: &Unknown) -> String {
         SchemaKind::Annotated { inner, .. } => format_with(inner, value),
         _ => format_value(value),
     }
+}
+
+// The collection and undefined-value constructors
+//
+// These four are the pin's `Schema.ReadonlySet`, `Schema.ReadonlyMap`,
+// `Schema.HashMap` and `Schema.UndefinedOr`. Their wire (Iso) form is an array:
+// a set is an array of elements, a map is an array of `[key, value]` pairs,
+// which is what the pin's transform links them to. The port keeps that array as
+// the value, so nothing has to model a Set's insertion order or a map's hashing:
+// the rows these constructors carry are about what the formatter prints, and an
+// array is the whole shape the pin's own encoder sees.
+
+impl<T: Send + Sync + Clone + 'static> Schema<Vec<T>> {
+    /// `Schema.ReadonlySet(inner)`: a set, whose wire form is its elements.
+    /// A repeated element is kept rather than deduplicated, because the port's
+    /// value is the array the pin's encoder writes; a decoder that needs the
+    /// set's uniqueness does not have it here.
+    pub fn readonly_set(inner: Schema<T>) -> Self {
+        let parameter = std::sync::Arc::new(Schema::as_unknown_shared(std::sync::Arc::new(
+            inner.clone(),
+        )));
+        let render = Schema::as_unknown_shared(std::sync::Arc::new(inner.clone())).formatter();
+        let mut out = Schema::array(inner);
+        out.kind = SchemaKind::Opaque("ReadonlySet");
+        out.declaration = Some(DeclarationInfo {
+            id: "effect/schema/ReadonlySet".to_string(),
+            payload: serde_json::Value::Null,
+            parameters: vec![parameter],
+        });
+        out.formatter = Some(std::sync::Arc::new(move |value: &Unknown| {
+            collection_text("ReadonlySet", value, &|item| render(item))
+        }));
+        out
+    }
+}
+
+impl<A: Send + Sync + Clone + 'static, B: Send + Sync + Clone + 'static>
+    Schema<Vec<(A, B)>>
+{
+    /// `Schema.ReadonlyMap(key, value)`: a map as ordered `[key, value]` pairs.
+    pub fn readonly_map(key: Schema<A>, value: Schema<B>) -> Self {
+        Self::map_named("ReadonlyMap", key, value)
+    }
+
+    /// `Schema.HashMap(key, value)`: the same wire shape as a `ReadonlyMap`;
+    /// the two differ in the name the formatter prints and in the runtime type
+    /// the pin decodes to, and only the first is observable here.
+    pub fn hash_map(key: Schema<A>, value: Schema<B>) -> Self {
+        Self::map_named("HashMap", key, value)
+    }
+
+    fn map_named(name: &'static str, key: Schema<A>, value: Schema<B>) -> Self {
+        let parameter_key = std::sync::Arc::new(Schema::as_unknown_shared(std::sync::Arc::new(
+            key.clone(),
+        )));
+        let parameter_value = std::sync::Arc::new(Schema::as_unknown_shared(std::sync::Arc::new(
+            value.clone(),
+        )));
+        let render_key = Schema::as_unknown_shared(std::sync::Arc::new(key.clone())).formatter();
+        let render_value =
+            Schema::as_unknown_shared(std::sync::Arc::new(value.clone())).formatter();
+        let mut out = Schema::array(Schema::tuple2(key, value));
+        out.kind = SchemaKind::Opaque(name);
+        out.declaration = Some(DeclarationInfo {
+            id: format!("effect/schema/{name}"),
+            payload: serde_json::Value::Null,
+            parameters: vec![parameter_key, parameter_value],
+        });
+        out.formatter = Some(std::sync::Arc::new(move |unknown: &Unknown| {
+            let Unknown::Array(entries) = unknown else {
+                return format_value(unknown);
+            };
+            let printed: Vec<String> = entries
+                .iter()
+                .filter_map(|entry| match entry {
+                    Unknown::Array(pair) if pair.len() == 2 => {
+                        Some(format!("{} => {}", render_key(&pair[0]), render_value(&pair[1])))
+                    }
+                    _ => None,
+                })
+                .collect();
+            if printed.is_empty() {
+                return format!("{name}(0) {{}}");
+            }
+            format!("{name}({}) {{ {} }}", printed.len(), printed.join(", "))
+        }));
+        out
+    }
+}
+
+impl<T: Send + Sync + Clone + 'static> Schema<Option<T>> {
+    /// `Schema.UndefinedOr(inner)`: the value, or `undefined`. The port's value
+    /// is `None` for undefined and `Some` for a present value, so a schema that
+    /// refuses `undefined` still refuses a null: the two are distinct here, as
+    /// they are in the pin.
+    pub fn undefined_or(inner: Schema<T>) -> Self {
+        let render = Schema::as_unknown_shared(std::sync::Arc::new(inner.clone())).formatter();
+        let decode_inner = std::sync::Arc::new(inner.clone());
+        let encode_inner = std::sync::Arc::new(inner);
+        let mut out = Schema::new(
+            move |unknown| match unknown {
+                Unknown::Undefined => Ok(None),
+                other => decode_inner.decode(other).map(Some),
+            },
+            move |value| match value {
+                None => Ok(Unknown::Undefined),
+                Some(value) => encode_inner.try_encode(value),
+            },
+            SchemaKind::Opaque("undefinedOr"),
+        );
+        out.formatter = Some(std::sync::Arc::new(move |value: &Unknown| match value {
+            Unknown::Undefined => "undefined".to_string(),
+            other => render(other),
+        }));
+        out
+    }
+}
+
+/// The pin's collection rendering: `Name(n) { item, item }`, with the empty
+/// case printed bare (`Name(0) {}`).
+fn collection_text(
+    name: &str,
+    value: &Unknown,
+    render: &impl Fn(&Unknown) -> String,
+) -> String {
+    let Unknown::Array(items) = value else {
+        return format_value(value);
+    };
+    if items.is_empty() {
+        return format!("{name}(0) {{}}");
+    }
+    let inner: Vec<String> = items.iter().map(|item| render(item)).collect();
+    format!("{name}({}) {{ {} }}", items.len(), inner.join(", "))
 }

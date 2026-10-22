@@ -47,6 +47,10 @@ pub fn byte_size() -> Schema<ByteSize> {
         },
         |size: &ByteSize| size.0.to_string(),
     )
+    // `Schema.ByteSize` is a declaration in the pin, so a persisted one reads
+    // back as the constructor rather than as the string it encodes through.
+    .with_declaration("effect/schema/ByteSize", elm_effect_schema::serde_json::Value::Null, Vec::new())
+    .with_code("Schema.ByteSize", "ByteSize")
 }
 
 /// `Schema.ByteSizeFromString`: a byte-size string on the wire (`"1.5 kB"`),

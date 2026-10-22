@@ -46,6 +46,8 @@ where
         let decode_defect = defect.clone();
         let encode_error = error.clone();
         let encode_defect = defect.clone();
+        // `Schema.CauseReason` is a declaration in the pin: the persisted node
+        // carries both value schemas as its type parameters.
         let schema = Schema::<Reason<E, D>>::try_convert(
             wire,
             move |item: Unknown| {
@@ -129,9 +131,24 @@ where
                             },
                         );
                     }
-                }
-                Ok(Unknown::Object(fields))
+                }                Ok(Unknown::Object(fields))
             },
+        )
+        .with_declaration(
+            "effect/schema/CauseReason",
+            elm_effect_schema::serde_json::Value::Null,
+            vec![
+                Schema::as_unknown(error.clone()),
+                Schema::as_unknown(defect.clone()),
+            ],
+        )
+        .with_code(
+            &format!(
+                "Schema.CauseReason({}, {})",
+                error.to_code(),
+                defect.to_code()
+            ),
+            &format!("Cause.CauseReason<{}, {}>", error.to_type(), defect.to_type()),
         );
         Self {
             error,
@@ -139,6 +156,7 @@ where
             schema,
         }
     }
+
 
     /// The error side's schema (`schema.error`).
     pub fn error(&self) -> &Schema<E> {
@@ -205,6 +223,18 @@ where
                     .map(|reason| encode_reason.try_encode(reason))
                     .collect()
             },
+        )
+        .with_declaration(
+            "effect/schema/Cause",
+            elm_effect_schema::serde_json::Value::Null,
+            vec![
+                Schema::as_unknown(error.clone()),
+                Schema::as_unknown(defect.clone()),
+            ],
+        )
+        .with_code(
+            &format!("Schema.Cause({}, {})", error.to_code(), defect.to_code()),
+            &format!("Cause.Cause<{}, {}>", error.to_type(), defect.to_type()),
         );
         Self {
             error,

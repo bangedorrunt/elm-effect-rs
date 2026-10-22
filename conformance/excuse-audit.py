@@ -12,6 +12,14 @@ from a file is checkable against that file. Two of those checks gate:
      excuse that points at a line that has moved is rot, and a reader who
      follows it lands nowhere.
 
+Two more are rot that is worth failing on, because each is a fact the file
+itself can answer:
+
+  3. a reason that states a function count for a file it cites must state the
+     current count, or state none at all.
+  4. a reason that says `Module.name` is absent from a file it cites must not
+     have `fn name` in that same file.
+
 The rest is a report, because name collisions are not proof: a claim that
 `Channel.filterMapEffect` is missing can be true of the effectful variant while
 `fn filter_map_effect` sits in the same file taking a synchronous predicate.
@@ -33,6 +41,29 @@ CRATES = "crates"
 
 CITATION = re.compile(r"(crates/[A-Za-z0-9_./-]+\.rs):(\d+)")
 ABSENT = re.compile(r"\b([A-Z][A-Za-z0-9]*)\.([A-Za-z0-9_]+)\b[^.;]*?\babsent", re.I)
+# A cited file plus the count of public functions the reason claims it has.
+# The line suffix is optional: "absent from effect.rs (21 pub fns)" cites no line.
+STALE_COUNT = re.compile(r"(crates/[A-Za-z0-9_./-]+\.rs)(?::\d+)?[^\n]*?\((\d+) pub fns")
+FREE_COUNT = re.compile(r"(crates/[A-Za-z0-9_./-]+\.rs)(?::\d+)?[^\n]*?(\d+) free functions")
+# Any cited file, with or without a line: an absence claim names the file it
+# means, and the comma-separated spelling cites several at once.
+ANY_CITATION = re.compile(r"crates/[A-Za-z0-9_./-]+\.rs")
+# `effect.rs` on its own, which is how several reasons spell the file. Resolved
+# by basename so the claim is still checked against the right file.
+BARE_CITATION = re.compile(r"(?<![/\w])([a-z_][a-z0-9_]*\.rs)\b")
+
+
+def resolve_bare(name: str) -> list[str]:
+    found: list[str] = []
+    for root, _, files in os.walk(CRATES):
+        if "/target" in root or "/tests" in root:
+            continue
+        if name in files:
+            found.append(os.path.join(root, name))
+    return found
+# Every `Module.member` in an absence sentence, so a list of them is checked
+# in full rather than only its first entry.
+ABSENT_NAME = re.compile(r"\b([A-Z][A-Za-z0-9]*)\.([A-Za-z0-9_]+)\b")
 VAGUE = re.compile(
     r"depend(?:s)? on|not (?:fully )?(?:exposed|implemented|represented|available|ported)"
     r"|internals|parity with Effect",
@@ -98,6 +129,89 @@ def citation_errors(rows: list[list[str]]) -> list[str]:
     return errors
 
 
+def stale_counts(rows: list[list[str]]) -> list[str]:
+    """Reasons that state a function count for a file, checked against it.
+
+    A count is the one part of an excuse that is trivially re-checkable, and
+    the one part that rots on the first commit to that file: "(21 pub fns)"
+    stayed in 48 reasons while the file grew to 59. A reason that needs no
+    number should not carry one.
+    """
+    errors: list[str] = []
+    actual: dict[str, int] = {}
+    for row in rows:
+        if row[0] == "unported":
+            continue
+        for pattern in (STALE_COUNT, FREE_COUNT):
+            for match in pattern.finditer(row[5]):
+                path, claimed = match.group(1), int(match.group(2))
+                if path not in actual:
+                    if not os.path.exists(path):
+                        continue
+                    with open(path, encoding="utf-8", errors="ignore") as handle:
+                        actual[path] = sum(
+                            1 for line in handle if re.match(r"\s*pub fn ", line)
+                        )
+                if actual[path] != claimed:
+                    errors.append(
+                        f"{row[1]}:{row[2]}: claims {claimed} in {path}, which has "
+                        f"{actual[path]}"
+                    )
+    return errors
+
+
+def absent_but_defined_here(rows: list[list[str]]) -> list[str]:
+    """Absence claims contradicted by the very file the reason cites.
+
+    Narrower than the workspace-wide name check below: when a reason says
+    `Effect.flip` is absent from `effect.rs` and `fn flip` is in `effect.rs`,
+    the claim is false, not a collision on a shared name.
+    """
+    errors: list[str] = []
+    cache: dict[str, set[str]] = {}
+    for row in rows:
+        if row[0] == "unported":
+            continue
+        cited = set(ANY_CITATION.findall(row[5]))
+        for bare in BARE_CITATION.findall(row[5]):
+            cited.update(resolve_bare(bare))
+        if not cited:
+            continue
+        names = ABSENT.findall(row[5])
+        # "Effect.acquireUseRelease, Effect.delay and Effect.void are all absent"
+        # names three, so every name in an absence sentence is checked, not just
+        # the first the pattern happened to anchor on.
+        # Split on `;` and on a period that ends a clause, never on the dot in
+        # `Effect.delay`: that dot is part of the name being checked.
+        for sentence in re.split(r";|\.\s", row[5]):
+            marker = re.search(r"\babsent", sentence, re.I)
+            if not marker:
+                continue
+            # Only the names before the word carry the claim: the tail of the
+            # sentence often names an existing API for a different reason
+            # ("... and Effect.ensuring takes Fn() rather than an Effect").
+            names.extend(ABSENT_NAME.findall(sentence[: marker.start()]))
+        for _module, member in names:
+            name = snake(member)
+            for path in cited:
+                if path not in cache:
+                    with open(path, encoding="utf-8", errors="ignore") as handle:
+                        cache[path] = {
+                            found.group(1)
+                            for found in (
+                                re.match(r"\s*(?:pub(?:\([^)]*\))? )?fn\s+([a-z_][a-z0-9_]*)", line)
+                                for line in handle
+                            )
+                            if found
+                        }
+                if name in cache[path]:
+                    errors.append(
+                        f"{row[1]}:{row[2]}: claims `{name}` absent, but "
+                        f"`fn {name}` is in {path}"
+                    )
+    return errors
+
+
 def main(argv: list[str]) -> int:
     path = LEDGER
     if "--ledger" in argv:
@@ -121,6 +235,20 @@ def main(argv: list[str]) -> int:
     if rot:
         print(f"\nCITATIONS: {len(rot)} reasons point at a line that is not there")
         for error in rot[:20]:
+            print(f"  {error}")
+
+    counts = stale_counts(rows)
+    failures.extend(counts)
+    if counts:
+        print(f"\nSTALE COUNTS: {len(counts)} reasons state a count the file contradicts")
+        for error in counts[:20]:
+            print(f"  {error}")
+
+    defined = absent_but_defined_here(rows)
+    failures.extend(defined)
+    if defined:
+        print(f"\nABSENT-BUT-DEFINED: {len(defined)} claims contradicted by the cited file")
+        for error in defined[:20]:
             print(f"  {error}")
 
     excuses = [row for row in rows if row[0] == "not-applicable"]

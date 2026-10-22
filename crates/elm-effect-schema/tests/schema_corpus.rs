@@ -3290,3 +3290,47 @@ fn json_schema_document_reference_variance_rows() {
         assert_eq!(s.to_type(), name);
     }
 }
+
+#[test]
+fn json_schema_document_enum_containing_null_becomes_a_union_with_null() {
+    // fromJsonSchemaDocument.test.ts:267 — an `enum` member that is `null` is
+    // a null literal, not a dropped value: the union carries both members.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let schema = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "enum": ["a", null]
+    }))
+    .expect("imports");
+    assert_eq!(
+        schema.to_code(),
+        r#"Schema.Union([Schema.Literal("a"), Schema.Null])"#
+    );
+    assert!(schema.decode(Unknown::Null).is_ok());
+    assert!(schema.decode(Unknown::Text("a".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text("b".to_string())).is_err());
+}
+
+#[test]
+fn json_schema_document_resolves_a_root_reference_before_intersecting_all_of() {
+    // fromJsonSchemaDocument.test.ts:1710 — the root `$ref` contributes its
+    // definition before the sibling `allOf` members are intersected, so the
+    // result is both the reference's check and the member's.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let schema = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "$ref": "#/$defs/A",
+        "allOf": [{ "type": "string", "maxLength": 2 }],
+        "$defs": { "A": { "type": "string", "minLength": 1 } }
+    }))
+    .expect("imports");
+    assert!(schema.decode(Unknown::Text("a".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text("ab".to_string())).is_ok());
+    assert!(
+        schema.decode(Unknown::Text(String::new())).is_err(),
+        "minLength 1"
+    );
+    assert!(
+        schema.decode(Unknown::Text("abc".to_string())).is_err(),
+        "maxLength 2"
+    );
+}

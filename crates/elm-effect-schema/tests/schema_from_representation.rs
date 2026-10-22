@@ -154,6 +154,16 @@ fn revives_literal_without_changing_its_type() {
         assert!(is_ok(&schema, literal));
         assert!(!is_ok(&schema, different));
     }
+    // fromJson.test.ts:314 — a string that spells a non-finite number stays a
+    // string through the round trip; it is not re-read as a number.
+    for literal in ["NaN", "Infinity", "-Infinity"] {
+        let schema = assert_roundtrip(
+            Schema::as_unknown(Schema::literal(text(literal))),
+            vec![],
+        );
+        assert!(is_ok(&schema, text(literal)), "{literal} must stay a string");
+        assert!(!is_ok(&schema, Unknown::Number(1.0)));
+    }
 }
 
 // 129 (partial): an Enum revives to the literal union it admits. The member
@@ -780,5 +790,82 @@ fn reports_an_invalid_reference() {
             .expect("fails")
             .to_string(),
         "Invalid reference Missing\n  at [\"representation\"][\"$ref\"]"
+    );
+}
+
+// fromJson.test.ts:382 — an empty `$ref` is refused where it is read.
+#[test]
+fn rejects_an_empty_reference() {
+    let document = from_json(&json!({
+        "representation": { "_tag": "Reference", "$ref": "" },
+        "references": {}
+    }))
+    .expect("parses");
+    let err = to_json(&document).expect_err("rejects");
+    assert!(
+        err.to_string().contains("at least 1"),
+        "an empty reference must be refused: {err}"
+    );
+}
+
+// fromJson.test.ts:371 — a persisted Declaration needs a representation, and
+// the refusal names that slot.
+#[test]
+fn requires_a_representation_on_a_declaration() {
+    let document = Document {
+        representation: json!({
+            "_tag": "Declaration",
+            "typeParameters": [],
+            "checks": []
+        }),
+        references: BTreeMap::new(),
+    };
+    // `Schema` has no `Debug`, so the refusal is matched rather than expected.
+    let err = match from_representation(&document, &[]) {
+        Ok(_) => panic!("a Declaration without a representation must be refused"),
+        Err(err) => err,
+    };
+    assert!(
+        err.to_string().contains("representation"),
+        "the refusal must name the representation: {err}"
+    );
+}
+
+// fromJson.test.ts:295 — a number-typed property name is refused: the pin's
+// `PropertyKey` is a string or a symbol, so the document does not carry one.
+#[test]
+fn rejects_a_number_typed_property_name() {
+    let document = Document {
+        representation: json!({
+            "_tag": "Objects",
+            "propertySignatures": [{
+                "name": { "type": "number", "value": "1" },
+                "type": { "_tag": "String", "checks": [] },
+                "isOptional": false,
+                "isMutable": false
+            }],
+            "indexSignatures": [],
+            "checks": []
+        }),
+        references: BTreeMap::new(),
+    };
+    let err = match from_representation(&document, &[]) {
+        Ok(_) => panic!("a numeric property name must be refused"),
+        Err(err) => err,
+    };
+    assert!(
+        err.to_string().contains("property name is a string"),
+        "the refusal must name the string key: {err}"
+    );
+}
+
+// fromJson.test.ts:408 — a root that is not an object is refused before any
+// node is read. Rust cannot pass a function, so the probe is a scalar root.
+#[test]
+fn rejects_a_non_object_root() {
+    let err = from_json(&json!(42)).expect_err("rejects");
+    assert!(
+        err.to_string().contains("representation"),
+        "a scalar root must be refused: {err}"
     );
 }

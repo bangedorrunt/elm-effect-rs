@@ -13,6 +13,7 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, OnceLock};
 
+use crate::representation_doc::DeclarationReviver;
 use crate::{Field, Schema, SchemaError, Unknown};
 
 /// Revive one schema per root representation, sharing the definitions in
@@ -179,4 +180,76 @@ fn revive_doc(
             format!("no reviver for `{other}` without the pin's reviver set"),
         )),
     }
+}
+
+/// The built-in declaration revivers: one per declaration id the pin's
+/// constructors persist (`SchemaRepresentation.ts:1497` onward). A document
+/// that names one of these ids revives to the constructor that wrote it, which
+/// is the only way a persisted `Schema.Option` reads back as an Option.
+///
+/// The collection/value revivers take their parameters in the order the
+/// constructor declares them, so a document with the wrong arity fails here
+/// rather than building a schema from a shifted parameter list.
+pub fn builtin_declaration_revivers() -> Vec<DeclarationReviver> {
+    fn parameters(
+        id: &str,
+        input: crate::representation_doc::DeclarationInput,
+        expected: usize,
+    ) -> Result<Vec<Schema<Unknown>>, crate::representation_doc::ReprError> {
+        if input.parameters.len() != expected {
+            return Err(crate::representation_doc::ReprError {
+                message: format!(
+                    "`{id}` takes {expected} type parameter(s), got {}",
+                    input.parameters.len()
+                ),
+                path: "[\"typeParameters\"]".to_string(),
+            });
+        }
+        Ok(input.parameters)
+    }
+
+    vec![
+        DeclarationReviver::new("effect/schema/Option", move |input| {
+            let mut parameters = parameters("effect/schema/Option", input, 1)?;
+            Ok(Schema::as_unknown(Schema::option(parameters.remove(0))))
+        }),
+        DeclarationReviver::new("effect/schema/Result", move |input| {
+            let mut parameters = parameters("effect/schema/Result", input, 2)?;
+            let failure = parameters.remove(1);
+            let success = parameters.remove(0);
+            Ok(Schema::as_unknown(Schema::result(success, failure)))
+        }),
+        DeclarationReviver::new("effect/schema/Redacted", move |input| {
+            let mut parameters = parameters("effect/schema/Redacted", input, 1)?;
+            // The label rides the payload in the pin; a document written
+            // without one rebuilds the unlabelled box.
+            Ok(Schema::redacted(parameters.remove(0), None))
+        }),
+        DeclarationReviver::new("effect/schema/ReadonlySet", move |input| {
+            let mut parameters = parameters("effect/schema/ReadonlySet", input, 1)?;
+            Ok(Schema::as_unknown(
+                Schema::<Vec<Unknown>>::readonly_set(parameters.remove(0)),
+            ))
+        }),
+        DeclarationReviver::new("effect/schema/ReadonlyMap", move |input| {
+            let mut parameters = parameters("effect/schema/ReadonlyMap", input, 2)?;
+            let value = parameters.remove(1);
+            let key = parameters.remove(0);
+            Ok(Schema::as_unknown(
+                Schema::<Vec<(Unknown, Unknown)>>::readonly_map(key, value),
+            ))
+        }),
+        DeclarationReviver::new("effect/schema/Json", move |input| {
+            parameters("effect/schema/Json", input, 0)?;
+            Ok(Schema::json())
+        }),
+        DeclarationReviver::new("effect/schema/HashMap", move |input| {
+            let mut parameters = parameters("effect/schema/HashMap", input, 2)?;
+            let value = parameters.remove(1);
+            let key = parameters.remove(0);
+            Ok(Schema::as_unknown(
+                Schema::<Vec<(Unknown, Unknown)>>::hash_map(key, value),
+            ))
+        }),
+    ]
 }

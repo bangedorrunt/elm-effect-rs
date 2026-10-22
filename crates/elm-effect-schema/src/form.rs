@@ -119,6 +119,8 @@ fn leaf_text(value: &Unknown) -> String {
         Unknown::Number(number) => crate::js_number_text(*number),
         Unknown::Bool(flag) => flag.to_string(),
         Unknown::Null => String::new(),
+        // An undefined value writes nothing, the same as a null.
+        Unknown::Undefined => String::new(),
         // Containers never reach here: the walk handles them one level up.
         Unknown::Object(_) | Unknown::Array(_) => String::new(),
     }

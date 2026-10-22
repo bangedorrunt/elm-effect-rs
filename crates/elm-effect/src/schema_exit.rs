@@ -103,6 +103,29 @@ where
                     ("cause".to_string(), cause.try_encode(failure)?),
                 ]))),
             },
+        )
+        .with_declaration(
+            "effect/schema/Exit",
+            elm_effect_schema::serde_json::Value::Null,
+            vec![
+                Schema::as_unknown(value.clone()),
+                Schema::as_unknown(error.clone()),
+                Schema::as_unknown(defect.clone()),
+            ],
+        )
+        .with_code(
+            &format!(
+                "Schema.Exit({}, {}, {})",
+                value.to_code(),
+                error.to_code(),
+                defect.to_code()
+            ),
+            &format!(
+                "Exit.Exit<{}, {}, {}>",
+                value.to_type(),
+                error.to_type(),
+                defect.to_type()
+            ),
         );
         Self {
             value,
