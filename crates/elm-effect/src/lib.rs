@@ -45,7 +45,9 @@ mod fiber;
 pub mod filesystem;
 mod formatter;
 mod foundation;
-mod graph;
+// `Schema.Graph` speaks for this type, so the module is part of the surface
+// rather than only the test targets that include it by path.
+pub mod graph;
 mod json;
 mod json_patch;
 mod json_pointer;
@@ -80,6 +82,8 @@ mod schema_data;
 mod schema_declarations;
 #[cfg(feature = "schema")]
 mod schema_defect;
+#[cfg(feature = "schema")]
+mod schema_graph;
 #[cfg(feature = "schema")]
 mod schema_duration;
 #[cfg(feature = "schema")]
@@ -122,6 +126,7 @@ pub use concurrency::{
 };
 pub use context::{Context, ContextReference, Tag};
 pub use effect::{Effect, Requirement};
+pub use graph::{Graph, Kind};
 #[cfg(feature = "tokio")]
 pub use effect::{Resume, Restore};
 #[cfg(feature = "schema")]
@@ -181,6 +186,8 @@ pub use schema_defect::defect_schema;
 pub use schema_duration::{duration_from_millis, duration_from_string};
 #[cfg(feature = "schema")]
 pub use schema_exit::{ExitSchema, exit_schema};
+#[cfg(feature = "schema")]
+pub use schema_graph::graph;
 #[cfg(feature = "schema")]
 pub use schema_parser::{ASYNC_DEFECT, decode_unknown_exit, decode_unknown_result};
 #[cfg(feature = "schema")]

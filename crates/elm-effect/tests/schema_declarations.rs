@@ -1,16 +1,17 @@
 //! The `builtInRevivers` rows whose constructors live in this crate:
-//! `Schema.ByteSize` (:966), `Schema.CauseReason` (:840), `Schema.Cause`
-//! (:849) and `Schema.Exit` (:867).
+//! `Schema.ByteSize` (:966), `Schema.Chunk` (:921), `Schema.RegExp` (:930),
+//! `Schema.Graph` (:894), `Schema.CauseReason` (:840), `Schema.Cause` (:849)
+//! and `Schema.Exit` (:867).
 //!
 //! Each test is the pin's `assertDeclarationReviver`: convert → `to_json` →
 //! `from_json` → revive with the revivers → convert again → compare. The
 //! comparison is what makes the claim evidence rather than a name check, and
 //! the revived schema must still answer its constructor's code.
 //!
-//! The schema crate cannot host these: `ByteSize`, `Cause` and `Exit` are this
-//! crate's own types, and the dependency runs the other way.
+//! The schema crate cannot host these: `ByteSize`, `Graph`, `Cause` and `Exit`
+//! are this crate's own types, and the dependency runs the other way.
 
-use elm_effect::{cause_reason_schema, cause_schema, declaration_revivers, exit_schema};
+use elm_effect::{Kind, cause_reason_schema, cause_schema, declaration_revivers, exit_schema, graph};
 use elm_effect_schema::representation_doc::{
     Document, ReprError, from_json, from_representation_with_declarations, to_json,
     to_representation,
@@ -93,6 +94,96 @@ fn revives_regexp() {
         "effect/schema/RegExp",
         elm_effect_schema::serde_json::Value::Null,
         "Schema.RegExp",
+    );
+}
+
+/// `builtInRevivers.test.ts:894` `revives Graph`: the kind rides in the payload
+/// while node and edge are the two type parameters.
+#[test]
+fn revives_graph() {
+    assert_declaration_reviver(
+        Schema::as_unknown(graph(Kind::Directed, Schema::string(), Schema::number())),
+        "effect/schema/Graph",
+        elm_effect_schema::serde_json::Value::String("directed".to_string()),
+        "Schema.Graph(\"directed\", Schema.String, Schema.Number)",
+    );
+}
+
+/// The pin's documented example (`Schema.Graph`): the wire object decodes into a
+/// graph and encodes back to the same object, indexes included.
+#[test]
+fn a_graph_decodes_and_encodes_the_pin_wire_form() {
+    let schema = graph(Kind::Directed, Schema::string(), Schema::number());
+    let wire = elm_effect_schema::serde_json::json!({
+        "type": "directed",
+        "nodes": [{ "index": 0, "data": "A" }, { "index": 1, "data": "B" }],
+        "edges": [{ "index": 0, "source": 0, "target": 1, "data": 1 }]
+    });
+    let value = schema
+        .decode(Unknown::from_json(wire.clone()))
+        .expect("the pin's own example decodes");
+    assert_eq!(value.node_count(), 2);
+    assert_eq!(value.edge_count(), 1);
+    assert_eq!(
+        schema.try_encode(&value).expect("encodes"),
+        Unknown::from_json(wire),
+        "the wire form round-trips",
+    );
+}
+
+/// The three rules the graph itself enforces: indexes increase, endpoints are
+/// live nodes, and the wire kind is the one the schema declared.
+#[test]
+fn a_graph_refuses_a_snapshot_the_graph_cannot_hold() {
+    let schema = graph(Kind::Directed, Schema::string(), Schema::number());
+    let cases = [
+        (
+            elm_effect_schema::serde_json::json!({
+                "type": "directed",
+                "nodes": [{ "index": 1, "data": "A" }, { "index": 1, "data": "B" }],
+                "edges": []
+            }),
+            "strictly increasing",
+        ),
+        (
+            elm_effect_schema::serde_json::json!({
+                "type": "directed",
+                "nodes": [{ "index": 0, "data": "A" }],
+                "edges": [{ "index": 0, "source": 0, "target": 3, "data": 1 }]
+            }),
+            "Node 3 does not exist",
+        ),
+        (
+            elm_effect_schema::serde_json::json!({ "type": "undirected", "nodes": [], "edges": [] }),
+            "the directed graph kind",
+        ),
+    ];
+    for (wire, expected) in cases {
+        let error = schema
+            .decode(Unknown::from_json(wire))
+            .expect_err("the snapshot is not a directed graph");
+        assert!(error.to_string().contains(expected), "{expected}: {error}");
+    }
+}
+
+/// The kind is a declaration payload, so a document that names neither kind has
+/// no constructor to rebuild.
+#[test]
+fn a_graph_document_without_a_kind_payload_is_refused() {
+    let schema = Schema::as_unknown(graph(Kind::Undirected, Schema::string(), Schema::number()));
+    let mut json = to_json(&to_representation(&schema).expect("converts")).expect("to_json");
+    json["representation"]["representation"]["payload"] =
+        elm_effect_schema::serde_json::Value::Null;
+    let reread: Document = from_json(&json).expect("from_json");
+    let Err(error) = from_representation_with_declarations(&reread, &[], &declaration_revivers())
+    else {
+        panic!("a graph without a kind must not revive");
+    };
+    assert!(
+        error
+            .message
+            .contains("takes a directed/undirected payload"),
+        "{error}"
     );
 }
 

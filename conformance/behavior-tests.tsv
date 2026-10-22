@@ -8584,7 +8584,7 @@ not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.t
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	867	it	revives Exit	revives_exit
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	876	it	revives ReadonlyMap	revives_readonly_map
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	885	it	revives HashMap	revives_hash_map
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	894	it	revives Graph	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	894	it	revives Graph	revives_graph
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	903	it	revives ReadonlySet	revives_readonly_set
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	912	it	revives HashSet	Schema.HashSet does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	921	it	revives Chunk	revives_chunk
