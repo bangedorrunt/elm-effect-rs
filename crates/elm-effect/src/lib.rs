@@ -12,13 +12,21 @@
 //! - Phase 1 has zero `unsafe`.
 
 mod basics;
-// Byte counts and arbitrary-precision decimals, with their schemas below. The
-// rest of the `data/` tree stays test-only; these two are here because the
-// `Schema.ByteSize` and `Schema.BigDecimal` families speak for them.
+// The `data/` values a schema family speaks for: byte counts and arbitrary
+// precision decimals, the chunk sequence and the regexp pattern. The rest of
+// the `data/` tree stays test-only.
 #[path = "data/bigdecimal.rs"]
 pub mod bigdecimal;
 #[path = "data/byte_size.rs"]
 pub mod byte_size;
+#[path = "data/chunk.rs"]
+pub mod chunk;
+// `Chunk::take_nonempty` answers a `NonEmpty`, so the chunk module reaches it
+// as `super::nonempty` and it has to sit beside `chunk` at the crate root.
+#[path = "data/nonempty.rs"]
+pub mod nonempty;
+#[path = "data/regexp.rs"]
+pub mod regexp;
 pub mod cause;
 mod channel;
 #[cfg(feature = "tokio")]
@@ -65,6 +73,8 @@ mod schema_adapter;
 #[cfg(feature = "schema")]
 mod schema_cause;
 #[cfg(feature = "schema")]
+mod schema_chunk;
+#[cfg(feature = "schema")]
 mod schema_data;
 #[cfg(feature = "schema")]
 mod schema_declarations;
@@ -76,6 +86,8 @@ mod schema_duration;
 mod schema_exit;
 #[cfg(feature = "schema")]
 mod schema_parser;
+#[cfg(feature = "schema")]
+mod schema_regexp;
 #[cfg(feature = "tokio")]
 mod scope;
 mod service;
@@ -94,6 +106,7 @@ mod utils_gen;
 
 pub use bigdecimal::Decimal;
 pub use byte_size::ByteSize;
+pub use chunk::Chunk;
 pub use cause::{
     Cause, CauseError, Defect, Done, FiberId, Reason, Squash, is_die_reason, is_done,
     is_exceeded_capacity_error, is_fail_reason, is_illegal_argument_error, is_interrupt_reason,
@@ -159,6 +172,8 @@ pub use schema_data::{
     is_less_than_bigdecimal, is_less_than_or_equal_to_bigdecimal,
 };
 #[cfg(feature = "schema")]
+pub use schema_chunk::chunk;
+#[cfg(feature = "schema")]
 pub use schema_declarations::declaration_revivers;
 #[cfg(feature = "schema")]
 pub use schema_defect::defect_schema;
@@ -168,6 +183,9 @@ pub use schema_duration::{duration_from_millis, duration_from_string};
 pub use schema_exit::{ExitSchema, exit_schema};
 #[cfg(feature = "schema")]
 pub use schema_parser::{ASYNC_DEFECT, decode_unknown_exit, decode_unknown_result};
+#[cfg(feature = "schema")]
+pub use schema_regexp::regexp;
+pub use regexp::RegExp;
 #[cfg(feature = "tokio")]
 pub use scope::{Scope, ScopeTag};
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};

@@ -8587,8 +8587,8 @@ ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	885	it
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	894	it	revives Graph	
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	903	it	revives ReadonlySet	revives_readonly_set
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	912	it	revives HashSet	Schema.HashSet does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	921	it	revives Chunk	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	930	it	revives RegExp	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	921	it	revives Chunk	revives_chunk
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	930	it	revives RegExp	revives_regexp
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	939	it	revives URL	Schema.URL does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	948	it	revives Date	
 not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	957	it	revives Duration	Schema.Duration does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
@@ -9610,8 +9610,8 @@ not-applicable	packages/effect/test/schema/toFormatter.test.ts	613	it	TimeZoneOf
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	618	it	TimeZoneNamed	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	623	it	TimeZone	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	629	it	DateTimeZoned	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
-unported	packages/effect/test/schema/toFormatter.test.ts	635	it	custom class	
-unported	packages/effect/test/schema/toFormatter.test.ts	644	it	custom class with a toString() method	
+ported	packages/effect/test/schema/toFormatter.test.ts	635	it	custom class	formatter_renders_a_custom_class
+ported	packages/effect/test/schema/toFormatter.test.ts	644	it	custom class with a toString() method	formatter_renders_a_custom_class_through_its_to_string
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	658	it	String	Schema.overrideToFormatter is absent from the entire crate (grep across schema/src and src returns nothing), so there is no annotation slot for a renderer override
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	664	it	String & isMinLength(1)	Schema.overrideToFormatter is absent from the whole crate (grep empty) and formatter (schema/src/lib.rs:1175) takes no options, so an annotation-driven renderer override cannot be expressed
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	674	it	should allow for ast-level overrides	Schema.toFormatter's onBefore hook needs an options parameter (Rust formatter at schema/src/lib.rs:1175 takes none) plus an AST walk that never happens, so a Boolean override inside a Tuple cannot be expressed

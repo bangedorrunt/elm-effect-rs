@@ -74,6 +74,28 @@ fn revives_byte_size() {
     );
 }
 
+/// `builtInRevivers.test.ts:921` `revives Chunk`.
+#[test]
+fn revives_chunk() {
+    assert_declaration_reviver(
+        Schema::as_unknown(elm_effect::chunk(Schema::string())),
+        "effect/schema/Chunk",
+        elm_effect_schema::serde_json::Value::Null,
+        "Schema.Chunk(Schema.String)",
+    );
+}
+
+/// `builtInRevivers.test.ts:930` `revives RegExp`.
+#[test]
+fn revives_regexp() {
+    assert_declaration_reviver(
+        Schema::as_unknown(elm_effect::regexp()),
+        "effect/schema/RegExp",
+        elm_effect_schema::serde_json::Value::Null,
+        "Schema.RegExp",
+    );
+}
+
 /// `builtInRevivers.test.ts:840` `revives CauseReason`: the two type parameters
 /// come back in the order the constructor declares them.
 #[test]

@@ -6,12 +6,11 @@
 //! their revivers do too; [`declaration_revivers`] is composed after the schema
 //! crate's builtins by whoever revives a document that may hold one.
 //!
-//! Only the adapters whose types this crate exports appear here. `Schema.Chunk`,
-//! `Schema.RegExp`, `Schema.Date` and `Schema.Graph` speak for the parked
-//! modules `data/chunk.rs`, `data/regexp.rs`, `datetime.rs` and `graph.rs`,
-//! which the crate root does not export yet (their own headers assign that
-//! promotion elsewhere), so their revivers have no shipped constructor to
-//! rebuild.
+//! Only the adapters whose types this crate exports appear here. `Schema.Date`
+//! and `Schema.Graph` speak for the parked modules `datetime.rs` and
+//! `graph.rs`, which the crate root does not export, so their revivers have no
+//! shipped constructor to rebuild; `Schema.Chunk` and `Schema.RegExp` do, and
+//! their revivers are below.
 //!
 //! Each reviver answers `Schema<Unknown>`, because a revived document speaks
 //! the wire language: the adapter is re-typed through [`Schema::as_unknown`],
@@ -21,8 +20,10 @@ use elm_effect_schema::representation_doc::{DeclarationInput, DeclarationReviver
 use elm_effect_schema::{Schema, Unknown};
 
 use crate::schema_cause::{cause_reason_schema, cause_schema};
+use crate::schema_chunk::chunk;
 use crate::schema_data::byte_size;
 use crate::schema_exit::exit_schema;
+use crate::schema_regexp::regexp;
 
 /// The revivers for every declaration this crate's adapters write.
 ///
@@ -34,6 +35,14 @@ pub fn declaration_revivers() -> Vec<DeclarationReviver> {
         DeclarationReviver::new("effect/schema/ByteSize", |input| {
             parameters("effect/schema/ByteSize", input, 0)?;
             Ok(Schema::as_unknown(byte_size()))
+        }),
+        DeclarationReviver::new("effect/schema/Chunk", |input| {
+            let mut parameters = parameters("effect/schema/Chunk", input, 1)?;
+            Ok(Schema::as_unknown(chunk(parameters.remove(0))))
+        }),
+        DeclarationReviver::new("effect/schema/RegExp", |input| {
+            parameters("effect/schema/RegExp", input, 0)?;
+            Ok(Schema::as_unknown(regexp()))
         }),
         DeclarationReviver::new("effect/schema/CauseReason", |input| {
             let mut parameters = parameters("effect/schema/CauseReason", input, 2)?;
