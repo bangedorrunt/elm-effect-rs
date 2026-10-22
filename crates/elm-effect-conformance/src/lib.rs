@@ -35,6 +35,10 @@ impl Ledger {
                     module.class.as_str(),
                     "port" | "unstable-port" | "experimental-port"
                 ) && module.status != "matched"
+                    // `excused` owes nothing: every row is dispositioned, so
+                    // counting it here is the backlog lying in the other
+                    // direction.
+                    && module.status != "excused"
             })
             .collect()
     }

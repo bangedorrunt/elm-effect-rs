@@ -84,7 +84,7 @@ fn ledger_is_well_formed() {
                 assert!(!module.reason.is_empty(), "{}", module.path);
             }
             _ => assert!(
-                module.status == "unmatched" || module.status == "matched",
+                matches!(module.status.as_str(), "unmatched" | "matched" | "excused"),
                 "{}",
                 module.path
             ),
@@ -295,6 +295,28 @@ fn matched_modules_have_no_unported_behaviors() {
             "unmatched" if rows > 0 && unported == 0 && ported > 0 => {
                 drift.push(format!(
                     "{}: unmatched with every behavior row already ported",
+                    module.path
+                ));
+            }
+            // An excuse-only module is not open work: every row it will ever
+            // have is dispositioned, none of them carried. Leaving it in
+            // `unmatched` made the backlog count lie, and calling it
+            // `matched` would claim parity nothing backs.
+            "unmatched" if rows > 0 && unported == 0 && ported == 0 => {
+                drift.push(format!(
+                    "{}: unmatched with every behavior row excused; use excused",
+                    module.path
+                ));
+            }
+            "excused" if unported > 0 => {
+                drift.push(format!(
+                    "{}: excused with {unported} unported behavior rows",
+                    module.path
+                ));
+            }
+            "excused" if ported > 0 => {
+                drift.push(format!(
+                    "{}: excused with {ported} ported behavior rows; use matched",
                     module.path
                 ));
             }

@@ -244,7 +244,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/ExecutionPlan.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/ExecutionPlan.test.ts"]
@@ -260,7 +260,7 @@ tests = ["packages/effect/test/Exit.test.ts"]
 [[module]]
 path = "packages/effect/src/Fiber.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Fiber.test.ts"]
@@ -268,7 +268,7 @@ tests = ["packages/effect/test/Fiber.test.ts"]
 [[module]]
 path = "packages/effect/src/FiberHandle.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/FiberHandle.test.ts"]
@@ -276,7 +276,7 @@ tests = ["packages/effect/test/FiberHandle.test.ts"]
 [[module]]
 path = "packages/effect/src/FiberMap.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/FiberMap.test.ts"]
@@ -420,7 +420,7 @@ tests = ["packages/effect/test/Latch.test.ts"]
 [[module]]
 path = "packages/effect/src/Layer.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Layer.test.ts"]
@@ -436,7 +436,7 @@ tests = ["packages/effect/test/LayerMap.test.ts"]
 [[module]]
 path = "packages/effect/src/LayerRef.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/LayerRef.test.ts"]
@@ -636,7 +636,7 @@ tests = ["packages/effect/test/PubSub.test.ts"]
 [[module]]
 path = "packages/effect/src/Pull.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Pull.test.ts"]
@@ -652,7 +652,7 @@ tests = ["packages/effect/test/Queue.test.ts"]
 [[module]]
 path = "packages/effect/src/Random.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Random.test.ts"]
@@ -668,7 +668,7 @@ tests = ["packages/effect/test/RcMap.test.ts"]
 [[module]]
 path = "packages/effect/src/RcRef.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/RcRef.test.ts"]
@@ -772,7 +772,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Schedule.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Schedule.test.ts"]
@@ -780,7 +780,7 @@ tests = ["packages/effect/test/Schedule.test.ts"]
 [[module]]
 path = "packages/effect/src/Scheduler.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Scheduler.test.ts"]
@@ -796,7 +796,7 @@ tests = ["packages/effect/test/schema/Schema.test.ts"]
 [[module]]
 path = "packages/effect/src/SchemaAST.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/schema/SchemaAST.test.ts"]
@@ -812,7 +812,7 @@ tests = ["packages/effect/test/schema/SchemaGetter.test.ts"]
 [[module]]
 path = "packages/effect/src/SchemaIssue.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/schema/SchemaIssue.test.ts"]
@@ -828,7 +828,7 @@ tests = ["packages/effect/test/schema/SchemaParser.test.ts"]
 [[module]]
 path = "packages/effect/src/SchemaRepresentation.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/http/SchemaRepresentation.test.ts"]
@@ -844,7 +844,7 @@ tests = ["packages/effect/test/schema/SchemaTransformation.test.ts"]
 [[module]]
 path = "packages/effect/src/Scope.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Scope.test.ts"]
@@ -860,7 +860,7 @@ tests = ["packages/effect/test/ScopedCache.test.ts"]
 [[module]]
 path = "packages/effect/src/ScopedRef.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/ScopedRef.test.ts"]
@@ -868,7 +868,7 @@ tests = ["packages/effect/test/ScopedRef.test.ts"]
 [[module]]
 path = "packages/effect/src/Semaphore.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Semaphore.test.ts"]
@@ -964,7 +964,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Tracer.ts"
 class = "port"
-status = "unmatched"
+status = "excused"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Tracer.test.ts"]
@@ -1196,7 +1196,7 @@ tests = ["packages/effect/test/ai/McpServer/McpServer.test.ts", "packages/effect
 [[module]]
 path = "packages/effect/src/ai/Model.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/ai/Model.test.ts"]
@@ -1244,7 +1244,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/ai/Tokenizer.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/ai/Tokenizer.test.ts"]
@@ -1412,7 +1412,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/cluster/ClusterWorkflowEngine.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/cluster/ClusterWorkflowEngine.test.ts"]
@@ -1452,7 +1452,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/cluster/EntityProxy.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/cluster/EntityProxy.test.ts"]
@@ -1484,7 +1484,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/cluster/Envelope.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/cluster/Envelope.test.ts"]
@@ -1500,7 +1500,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/cluster/K8sHttpClient.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/cluster/K8sHttpClient.test.ts"]
@@ -1876,7 +1876,7 @@ tests = ["packages/effect/test/eventlog/EventLogMessage.test.ts"]
 [[module]]
 path = "packages/effect/src/eventlog/EventLogRemote.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/eventlog/EventLogRemote.test.ts"]
@@ -2076,7 +2076,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/http/FetchHttpClient.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/FetchHttpClient.test.ts"]
@@ -2100,7 +2100,7 @@ tests = ["packages/effect/test/http/Headers.test.ts"]
 [[module]]
 path = "packages/effect/src/http/HttpBody.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/HttpBody.test.ts"]
@@ -2228,7 +2228,7 @@ tests = ["packages/effect/test/http/HttpServerResponse.test.ts"]
 [[module]]
 path = "packages/effect/src/http/HttpStaticServer.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/HttpStaticServer.test.ts"]
@@ -2292,7 +2292,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/http/Template.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/Template.test.ts"]
@@ -2372,7 +2372,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/observability/OtlpExporter.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/observability/OtlpExporter.test.ts"]
@@ -2388,7 +2388,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/observability/OtlpMetrics.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/observability/OtlpMetrics.test.ts"]
@@ -2452,7 +2452,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/persistence/PersistedCache.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/persistence/PersistedCache.test.ts", "packages/effect/test/persistence/PersistedCacheTest.ts"]
@@ -2524,7 +2524,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/reactivity/AsyncResult.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/reactivity/AsyncResult.test.ts"]
@@ -2540,7 +2540,7 @@ tests = ["packages/effect/test/reactivity/Atom.test.ts"]
 [[module]]
 path = "packages/effect/src/reactivity/AtomHttpApi.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/reactivity/AtomHttpApi.test.ts"]
@@ -2564,7 +2564,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/reactivity/AtomRpc.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/reactivity/AtomRpc.test.ts"]
@@ -2708,7 +2708,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/schema/SchemaAOTCompiler.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/schema/SchemaAOTCompiler.test.ts"]
@@ -2796,7 +2796,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/sql/Migrator.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = "no surface yet"
 tests = ["packages/effect/test/Migrator.test.ts"]
@@ -2892,7 +2892,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/testing/TestSchema.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/testing/TestSchema.test.ts"]
@@ -2980,7 +2980,7 @@ tests = ["packages/effect/test/workflow/DurableQueue.test.ts"]
 [[module]]
 path = "packages/effect/src/workflow/Workflow.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "excused"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/workflow/Workflow.test.ts"]

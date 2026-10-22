@@ -349,8 +349,15 @@ count=0
         linked_ported=$(( linked_ported + ${ported_in[$t]:-0} ))
         linked_unported=$(( linked_unported + ${unported_in[$t]:-0} ))
       done
-      if (( linked_rows == 0 || linked_ported == 0 || linked_unported > 0 )); then
+      # Three states, not two. `unmatched` means work is owed. `excused`
+      # means the rows are dispositioned and none is ported: there is no
+      # open work, and there is no parity either, so counting it as either
+      # one misleads. Fourty-one modules sat in `unmatched` with nothing
+      # owed before this arm existed.
+      if (( linked_rows == 0 || linked_unported > 0 )); then
         status="unmatched"
+      elif (( linked_ported == 0 )); then
+        status="excused"
       else
         status="matched"
       fi
