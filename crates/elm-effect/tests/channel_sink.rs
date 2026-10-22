@@ -829,31 +829,75 @@ fn channel_catch_or_else_nests_reason_match() {
 
 #[test]
 fn channel_unwrap_reason_extracts_nested_failure() {
+    // Channel.test.ts:670, :681, :692 — the nested reason replaces the parent
+    // in the error channel, both reason types do, and a non-matching parent
+    // passes through unchanged.
+    #[derive(Debug, Clone, PartialEq)]
+    enum Reason {
+        RateLimit(u64),
+        Quota(u64),
+    }
     #[derive(Debug, Clone, PartialEq)]
     enum Problem {
-        Ai(String),
+        Ai(Reason),
         RateLimit(u64),
+        Quota(u64),
+        Other(String),
     }
-    let source = pull::Pull::<i32, Problem>::fail(Problem::Ai("inner".to_string()));
-    let mut piped = channel::unwrap_reason(
-        |e: &Problem| matches!(e, Problem::Ai(_)),
-        |e: Problem| match e {
-            Problem::Ai(s) => Problem::RateLimit(s.len() as u64),
-            other => other,
-        },
+    let hoist = |e: Problem| match e {
+        Problem::Ai(Reason::RateLimit(n)) => Problem::RateLimit(n),
+        Problem::Ai(Reason::Quota(n)) => Problem::Quota(n),
+        other => other,
+    };
+    let run = |problem: Problem| {
+        let source = pull::Pull::<i32, Problem>::fail(problem);
+        let mut piped = channel::unwrap_reason(
+            |e: &Problem| matches!(e, Problem::Ai(_)),
+            hoist,
+        )
+        .run(source);
+        piped.pull()
+    };
+    assert_eq!(
+        run(Problem::Ai(Reason::RateLimit(60))),
+        Take::Fail(Problem::RateLimit(60))
+    );
+    assert_eq!(
+        run(Problem::Ai(Reason::Quota(100))),
+        Take::Fail(Problem::Quota(100)),
+        "the second reason type is hoisted too"
+    );
+    assert_eq!(
+        run(Problem::Other("kept".to_string())),
+        Take::Fail(Problem::Other("kept".to_string())),
+        "a non-matching parent passes through"
+    );
+}
+
+#[test]
+fn channel_catch_cause_filter_recovers_the_extracted_error() {
+    // Channel.test.ts:575 — catchCauseFilter(Cause.findError, handler) over
+    // `Channel.fail("boom")` collects ["recovered: boom"]. The selector
+    // answers the typed error a `Cause` would have carried; a failure it
+    // declines still fails.
+    let source = pull::Pull::<String, String>::fail("boom".to_string());
+    let mut piped = channel::catch_cause_filter(
+        |e: &String| Some(e.clone()),
+        |error: String| pull::Pull::of(vec![format!("recovered: {error}")]),
     )
     .run(source);
-    assert_eq!(piped.pull(), Take::Fail(Problem::RateLimit(5)));
-    let source = pull::Pull::<i32, Problem>::fail(Problem::RateLimit(7));
-    let mut piped = channel::unwrap_reason(
-        |e: &Problem| matches!(e, Problem::Ai(_)),
-        |e: Problem| match e {
-            Problem::Ai(s) => Problem::RateLimit(s.len() as u64),
-            other => other,
-        },
+    assert_eq!(
+        piped.pull(),
+        Take::Items(vec!["recovered: boom".to_string()])
+    );
+
+    let source = pull::Pull::<String, String>::fail("kept".to_string());
+    let mut piped = channel::catch_cause_filter(
+        |_: &String| None::<String>,
+        |error: String| pull::Pull::of(vec![format!("recovered: {error}")]),
     )
     .run(source);
-    assert_eq!(piped.pull(), Take::Fail(Problem::RateLimit(7)));
+    assert_eq!(piped.pull(), Take::Fail("kept".to_string()));
 }
 
 #[test]

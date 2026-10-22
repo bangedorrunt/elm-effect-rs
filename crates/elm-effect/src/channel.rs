@@ -234,6 +234,41 @@ where
     catch_if(|_| true, handler)
 }
 
+/// Catch a cause the selector extracts (`catchCauseFilter`): the pin's
+/// selector reads a `Cause` and answers the error inside it, or nothing. A
+/// channel here carries the typed error rather than a `Cause`, so the
+/// selector reads that error directly; a `Fail` it answers for is replaced by
+/// driving `handler(extracted)` to completion, and anything it declines
+/// passes through.
+pub fn catch_cause_filter<A, E, X, S, F>(mut selector: S, mut handler: F) -> Channel<A, E, A>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    X: Send + 'static,
+    S: FnMut(&E) -> Option<X> + Send + 'static,
+    F: FnMut(X) -> Pull<A, E> + Send + 'static,
+{
+    Channel::from_fn(move |take| match take {
+        Take::Items(items) => vec![Take::Items(items)],
+        Take::End => vec![Take::End],
+        Take::Fail(e) => match selector(&e) {
+            Some(extracted) => {
+                let mut inner = handler(extracted);
+                let mut out = Vec::new();
+                loop {
+                    match inner.pull() {
+                        Take::Items(mut chunk) => out.append(&mut chunk),
+                        Take::End => break,
+                        Take::Fail(e) => return vec![Take::Fail(e)],
+                    }
+                }
+                vec![Take::Items(out)]
+            }
+            None => vec![Take::Fail(e)],
+        },
+    })
+}
+
 /// Catch with a fallback (`catchTag`/`catchReason` orElse shape): a `Fail`
 /// satisfying `predicate` is replaced by driving `on_match(error)` to
 /// completion; any other failure is replaced by driving `or_else(error)`
