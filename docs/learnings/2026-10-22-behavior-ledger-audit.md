@@ -13,8 +13,8 @@ The audit (below) found claims in both directions: rows marked done that no
 test asserted, and rows excused on reasons the code had since invalidated. All
 155 rows it named are repaired.
 
-Final state: **6,135 ported, 3,770 not-applicable, 56 skipped-upstream, 9
-unported.** The open rows fell 41 → 9 across the six passes; the rows those
+Final state: **6,139 ported, 3,770 not-applicable, 56 skipped-upstream, 5
+unported.** The open rows fell 41 → 5 across the seven passes; the rows those
 passes ported beyond the open count had been excused, not open.
 `Effect.ts` is now `matched` (every one of its rows is ported); `Arbitrary.ts`
 stays `unmatched` on its two remaining rows; `Channel.ts` came back to `matched`
@@ -191,21 +191,51 @@ convert → `to_json` → `from_json` → revive → convert round trip, not a n
 check) and `schema_formatter_values.rs` (format the wire value the schema itself
 encoded).
 
-Still open (9), each with its cause rather than a story:
+Still open (9 at the time), each with its cause rather than a story:
 
 - **2 `toFormatter` rows.** `:635` and `:644` need an `instanceOf`/class model,
-  which the port does not have at all.
+  which the port does not have at all. Carried in the seventh pass.
 - **5 `builtInRevivers` rows** revive constructors that do not exist here:
   `Graph`, `Chunk`, `RegExp`, `Date`, `File`. The registry is no longer the
-  blocker — the value types are. `Chunk`, `RegExp` and `Date` have parked port
-  modules (`data/chunk.rs`, `data/regexp.rs`, `datetime.rs`) that `lib.rs` does
-  not export; `Graph` is the whole `graph.rs` surface; `File` has no type in the
-  crate at all.
+  blocker: the value types are. `Chunk`, `RegExp` and `Date` have parked port
+  modules (`data/chunk.rs`, `data/regexp.rs`, `datetime.rs`) that `lib.rs` did
+  not export at the time; `Graph` is the whole `graph.rs` surface; `File` has no
+  type in the crate at all. `Chunk` and `RegExp` were carried in the seventh
+  pass.
 - **2 `Arbitrary` rows** (NaN bounds, infinite interval under `isFinite`) are
   rejected by a test-local predicate in `arbitrary_gen.rs`, not by the port.
   They are back to `unported` on purpose: `witness-audit.py` caught them as a
   ported row whose witness never reaches port code, which is the exact
   tautology this ledger was repaired to stop.
+
+## Seventh pass: the class instance, and two promoted modules
+
+Four rows went in two units, and neither needed a new abstraction.
+
+- **`instanceOf` is a `declare`, not a class model.** The pin's
+  `Schema.instanceOf(A)` is `declare(u => u instanceof A)`, and its formatter is
+  the global `format`: a class instance prints as `A({"a":"a"})`, or through the
+  class's own `toString` when it defines one. `class::instance_of` builds on
+  `Schema::declare` and sets the formatter; `instance_of_with_to_string` takes
+  the class's renderer, because a Rust value cannot be asked whether it defines
+  one. That is rows 635 and 644.
+- **Chunk and RegExp needed the constructor, not the registry.** Both are
+  `declareConstructor` declarations in the pin, so a persisted one has to read
+  back as the constructor. `data/chunk.rs` and `data/regexp.rs` (with
+  `data/nonempty.rs`, which `Chunk::take_nonempty` names) are now promoted the
+  way `byte_size` and `bigdecimal` already were, `Schema::chunk` and
+  `Schema::regexp` carry their declaration ids and code, and
+  `declaration_revivers()` composes the two revivers. That is rows 921 and 930.
+
+Rows: 635, 644, 921, 930. Witnesses: `schema_formatter_values.rs` for the
+class renderings, `schema_declarations.rs` for the two revivals.
+
+Still open (5): `Graph`, `Date` and `File` revive constructors that are not
+here. `Graph` is the whole `graph.rs` codec (a graph encodes as a node and edge
+snapshot, and `graphDecode`/`graphEncode` do not exist); `Date` would need
+`jiff`, now a dev-dependency only, promoted to a real one; `File` has no type in
+this crate at all. The two `Arbitrary` rows still wait on a schema-to-arbitrary
+derivation.
 
 ## What was falsified
 
@@ -288,8 +318,8 @@ still name no API, no file, no line. 83 test files have zero ported rows.
 
 - Every `ported` row now names a test that exists and reaches port code
   (`python3 conformance/witness-audit.py` exits 0).
-- 9 rows are open. That is the honest number, and `matched` is derived from
-  it, so `Arbitrary.ts` cannot claim parity while those rows are open.
+- 5 rows are open. That is the honest number, and `matched` is derived from
+  it, so `Arbitrary.ts` cannot claim parity while its two rows are open.
 - 2,615 excuses are narrative: they state a cause but name no API, file or
   line. They were not re-adjudicated here and should not be read as verified.
   What the second pass did verify is the part a file can answer: every cited
