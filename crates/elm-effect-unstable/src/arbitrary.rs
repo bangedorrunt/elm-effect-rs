@@ -7,9 +7,16 @@
 //! construction; integers shrink toward the failure boundary; composition
 //! runs through `map`/`filter`/`tuple`/`record`/`option`/`array`.
 //!
+//! [`schema`] derives a generator from a [`Schema`], which is the pin's
+//! `Arbitrary.schema`. It constructs wire values from the schema's shape and
+//! decodes them, so what it samples is by construction something the schema
+//! accepts; a shape or a check it cannot push into a generator is refused with
+//! the pin's own message rather than filtered after the fact.
+//!
 //! Residuals (fast-check internals, out of timebox): model-based command
-//! shrinking, UTF-16 pattern generation, constraint pushing into
-//! primitives, schema-derived shrinkers, and replay orchestration.
+//! shrinking, UTF-16 pattern generation, and replay orchestration.
+
+use elm_effect_schema::{Schema, SchemaKind, Unknown};
 
 /// Seeded xorshift64 stream. Same seed gives the same sequence.
 #[derive(Clone, Debug)]
@@ -52,6 +59,15 @@ type ShrinkFn<T> = std::sync::Arc<dyn Fn(&T) -> Vec<T> + Send + Sync>;
 pub struct Gen<T> {
     run: SampleFn<T>,
     shrink: ShrinkFn<T>,
+}
+
+impl<T> std::fmt::Debug for Gen<T> {
+    /// A generator is two closures, so there is nothing useful to print; the
+    /// implementation exists so a `Result<Gen<_>, _>` can be unwrapped in a
+    /// test without the value standing in for the verdict.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Gen(..)")
+    }
 }
 
 impl<T> Gen<T> {
@@ -269,6 +285,466 @@ pub fn array<T: Clone + Send + Sync + 'static>(
         },
         |_| Vec::new(),
     )
+}
+
+// ---------------------------------------------------------------------------
+// Schema-derived arbitrary (the pin's `Arbitrary.schema`)
+// ---------------------------------------------------------------------------
+
+/// Why a schema has no derivable arbitrary: the pin's `Unable to derive an
+/// arbitrary for {what}`, plus the pointer it was walking when it gave up.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DeriveError {
+    what: String,
+    path: String,
+}
+
+impl DeriveError {
+    fn new(what: impl Into<String>, path: &str) -> Self {
+        Self {
+            what: what.into(),
+            path: path.to_string(),
+        }
+    }
+}
+
+impl std::fmt::Display for DeriveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Unable to derive an arbitrary for {}", self.what)?;
+        if self.path != "$" {
+            write!(f, " at {}", self.path)?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for DeriveError {}
+
+/// The pin's `Number.MAX_SAFE_INTEGER`, which is also the largest integer this
+/// port's `Int` accepts.
+const MAX_SAFE: f64 = 9_007_199_254_740_991.0;
+
+/// `Arbitrary.schema`: a generator whose samples the schema decodes.
+///
+/// The pin builds the typed value directly because each constructor carries a
+/// `toArbitrary` annotation; this port has no such annotation, so the value is
+/// built in its wire form and decoded through the schema it came from. A check
+/// the derivation cannot push into a generator refuses the whole schema, which
+/// is what keeps every sample decodable instead of filtered.
+pub fn schema<T>(schema: &Schema<T>) -> Result<Gen<T>, DeriveError>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    let wire = derive(&schema.kind(), "$")?;
+    let sink = schema.clone();
+    Ok(Gen::new(
+        move |rng| {
+            // Every shape below is constructed to decode, so a refusal here is
+            // a derivation bug; retrying keeps a rare miss from surfacing as a
+            // value the schema would reject, and the promise names the bug.
+            for _ in 0..64 {
+                if let Ok(value) = sink.decode(wire.sample(rng)) {
+                    return value;
+                }
+            }
+            panic!("the derived arbitrary produced no value the schema decodes")
+        },
+        |_| Vec::new(),
+    ))
+}
+
+/// One shape's generator, in wire form.
+fn derive(kind: &SchemaKind, path: &str) -> Result<Gen<Unknown>, DeriveError> {
+    let mut checks: Vec<CheckRef<'_>> = Vec::new();
+    let mut base = kind;
+    while let SchemaKind::Check {
+        base: inner,
+        name,
+        args,
+        annotation,
+    } = base
+    {
+        checks.push(CheckRef {
+            name,
+            args: args.as_slice(),
+            annotation: annotation.as_slice(),
+        });
+        base = inner;
+    }
+    // Application order, so merging bounds reads the outermost check last.
+    checks.reverse();
+    match base {
+        SchemaKind::Number => numeric(&checks, path),
+        SchemaKind::String => text(&checks, path),
+        SchemaKind::Boolean => Ok(boolean().map(Unknown::Bool)),
+        SchemaKind::Literal(value) => Ok(constant(value.clone())),
+        SchemaKind::Literals(values) => {
+            let values = values.clone();
+            Ok(Gen::new(
+                move |rng| values[rng.below(values.len() as u64) as usize].clone(),
+                |_| Vec::new(),
+            ))
+        }
+        SchemaKind::Struct(fields) => structure(fields, path),
+        SchemaKind::Array(inner) => Ok(varied(derive(inner, &format!("{path}[0]"))?)),
+        SchemaKind::Tuple(elements) => tuple_of(elements, path),
+        SchemaKind::Union { members, .. } => {
+            let members = members
+                .iter()
+                .enumerate()
+                .map(|(index, member)| derive(member, &format!("{path}|{index}")))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(Gen::new(
+                move |rng| members[rng.below(members.len() as u64) as usize].sample(rng),
+                |_| Vec::new(),
+            ))
+        }
+        SchemaKind::Optional(inner) | SchemaKind::OptionalKey(inner) => {
+            let inner = derive(inner, path)?;
+            Ok(Gen::new(
+                move |rng| {
+                    if rng.next_u64() & 1 == 1 {
+                        inner.sample(rng)
+                    } else {
+                        Unknown::Null
+                    }
+                },
+                |_| Vec::new(),
+            ))
+        }
+        SchemaKind::Annotated { inner, .. } => derive(inner, path),
+        SchemaKind::Opaque("null") | SchemaKind::Opaque("void") => {
+            Ok(constant(Unknown::Null))
+        }
+        SchemaKind::Opaque(name) => Err(DeriveError::new(format!("the `{name}` shape"), path)),
+        other => Err(DeriveError::new(
+            format!("the `{}` shape", shape_name(other)),
+            path,
+        )),
+    }
+}
+
+/// A check's identity while a shape is being derived.
+struct CheckRef<'a> {
+    name: &'a str,
+    args: &'a [String],
+    annotation: &'a [(String, String)],
+}
+
+fn shape_name(kind: &SchemaKind) -> String {
+    match kind {
+        SchemaKind::Record(_, _) => "Record".to_string(),
+        SchemaKind::StructWithRest(_, _) => "StructWithRest".to_string(),
+        SchemaKind::TupleWithRest(_, _) => "TupleWithRest".to_string(),
+        SchemaKind::TemplateLiteral(_) => "TemplateLiteral".to_string(),
+        SchemaKind::Rest(_) => "Rest".to_string(),
+        SchemaKind::Json => "Json".to_string(),
+        SchemaKind::Reference(name) => format!("Reference({name})"),
+        _ => "this".to_string(),
+    }
+}
+
+/// `Schema.Number` / `Schema.Int` with the numeric checks pushed into bounds.
+fn numeric(checks: &[CheckRef<'_>], path: &str) -> Result<Gen<Unknown>, DeriveError> {
+    let is_int = checks.iter().any(|check| check.name == "isInt");
+    let what = if is_int {
+        "integer constraints"
+    } else {
+        "number constraints"
+    };
+    let (minimum, maximum) = number_bounds(checks, is_int, what, path)?;
+    if is_int {
+        // Every bound is inside the safe range by now, so the cast is exact.
+        let lo = minimum.unwrap_or(-MAX_SAFE) as i64;
+        let hi = maximum.unwrap_or(MAX_SAFE) as i64;
+        return Ok(integer(lo, hi).map(|value| Unknown::Number(value as f64)));
+    }
+    let mut lo = minimum.unwrap_or(-f64::MAX);
+    let mut hi = maximum.unwrap_or(f64::MAX);
+    // A one-sided infinite bound that no finite constraint excluded is a legal
+    // singleton: the pin generates infinity there, and a clamp to MAX would
+    // make the interval empty rather than exact.
+    if lo == f64::INFINITY && minimum.is_some() && maximum.is_none() {
+        hi = lo;
+    }
+    if hi == f64::NEG_INFINITY && maximum.is_some() && minimum.is_none() {
+        lo = hi;
+    }
+    if lo > hi {
+        return Err(DeriveError::new(what, path));
+    }
+    Ok(bounded_number(lo, hi).map(Unknown::Number))
+}
+
+/// The pin's `numberBounds`: apply each check's bound, refuse a NaN, then
+/// normalize the interval the way its generator reads one.
+fn number_bounds(
+    checks: &[CheckRef<'_>],
+    integer: bool,
+    what: &str,
+    path: &str,
+) -> Result<(Option<f64>, Option<f64>), DeriveError> {
+    let refuse = || DeriveError::new(what, path);
+    let mut minimum: Option<f64> = None;
+    let mut maximum: Option<f64> = None;
+    let mut exclusive_minimum = false;
+    let mut exclusive_maximum = false;
+    let mut finite = false;
+    for check in checks {
+        match check.name {
+            "isInt" => {}
+            "isFinite" => finite = true,
+            "isGreaterThan" | "isGreaterThanOrEqualTo" => {
+                let bound = number_arg(check.args, 0).ok_or_else(refuse)?;
+                let exclusive = check.name == "isGreaterThan";
+                merge_minimum(&mut minimum, &mut exclusive_minimum, bound, exclusive);
+            }
+            "isLessThan" | "isLessThanOrEqualTo" => {
+                let bound = number_arg(check.args, 0).ok_or_else(refuse)?;
+                let exclusive = check.name == "isLessThan";
+                merge_maximum(&mut maximum, &mut exclusive_maximum, bound, exclusive);
+            }
+            "isBetween" => {
+                let low = number_arg(check.args, 0).ok_or_else(refuse)?;
+                let high = number_arg(check.args, 1).ok_or_else(refuse)?;
+                merge_minimum(
+                    &mut minimum,
+                    &mut exclusive_minimum,
+                    low,
+                    annotation_true(check.annotation, "exclusiveMinimum"),
+                );
+                merge_maximum(
+                    &mut maximum,
+                    &mut exclusive_maximum,
+                    high,
+                    annotation_true(check.annotation, "exclusiveMaximum"),
+                );
+            }
+            // A bound this port cannot push into a generator would have to be
+            // filtered after the fact, which is the shim this replaced.
+            _ => return Err(refuse()),
+        }
+    }
+    if minimum.is_some_and(f64::is_nan) || maximum.is_some_and(f64::is_nan) {
+        return Err(refuse());
+    }
+    if integer {
+        if let Some(value) = minimum {
+            minimum = Some(if exclusive_minimum {
+                value.floor() + 1.0
+            } else {
+                value.ceil()
+            });
+        }
+        if let Some(value) = maximum {
+            maximum = Some(if exclusive_maximum {
+                value.ceil() - 1.0
+            } else {
+                value.floor()
+            });
+        }
+    } else {
+        if exclusive_minimum && minimum == Some(f64::INFINITY) {
+            return Err(refuse());
+        }
+        if exclusive_maximum && maximum == Some(f64::NEG_INFINITY) {
+            return Err(refuse());
+        }
+        if let Some(value) = minimum {
+            minimum = Some(if exclusive_minimum {
+                value.next_up()
+            } else if value == 0.0 {
+                -0.0
+            } else {
+                value
+            });
+        }
+        if let Some(value) = maximum {
+            maximum = Some(if exclusive_maximum {
+                value.next_down()
+            } else {
+                value
+            });
+        }
+    }
+    if integer || finite {
+        if minimum == Some(f64::INFINITY) || maximum == Some(f64::NEG_INFINITY) {
+            return Err(refuse());
+        }
+        if minimum == Some(f64::NEG_INFINITY) {
+            minimum = Some(if integer { -MAX_SAFE } else { -f64::MAX });
+        }
+        if maximum == Some(f64::INFINITY) {
+            maximum = Some(if integer { MAX_SAFE } else { f64::MAX });
+        }
+    }
+    if integer {
+        if minimum.is_some_and(|value| value > MAX_SAFE)
+            || maximum.is_some_and(|value| value < -MAX_SAFE)
+        {
+            return Err(refuse());
+        }
+        minimum = minimum.map(|value| value.max(-MAX_SAFE));
+        maximum = maximum.map(|value| value.min(MAX_SAFE));
+    }
+    if let (Some(low), Some(high)) = (minimum, maximum) {
+        if low > high {
+            return Err(refuse());
+        }
+    }
+    Ok((minimum, maximum))
+}
+
+/// The tighter of two lower bounds; a tie is exclusive if either is.
+fn merge_minimum(
+    minimum: &mut Option<f64>,
+    exclusive: &mut bool,
+    bound: f64,
+    bound_exclusive: bool,
+) {
+    match *minimum {
+        Some(current) if current > bound => {}
+        Some(current) if current == bound => {
+            *exclusive = *exclusive || bound_exclusive;
+        }
+        _ => {
+            *minimum = Some(bound);
+            *exclusive = bound_exclusive;
+        }
+    }
+}
+
+/// The tighter of two upper bounds; a tie is exclusive if either is.
+fn merge_maximum(
+    maximum: &mut Option<f64>,
+    exclusive: &mut bool,
+    bound: f64,
+    bound_exclusive: bool,
+) {
+    match *maximum {
+        Some(current) if current < bound => {}
+        Some(current) if current == bound => {
+            *exclusive = *exclusive || bound_exclusive;
+        }
+        _ => {
+            *maximum = Some(bound);
+            *exclusive = bound_exclusive;
+        }
+    }
+}
+
+fn annotation_true(annotation: &[(String, String)], key: &str) -> bool {
+    annotation
+        .iter()
+        .any(|(name, value)| name == key && value == "true")
+}
+
+fn number_arg(args: &[String], index: usize) -> Option<f64> {
+    args.get(index)?.parse().ok()
+}
+
+/// A double in `[lo, hi]`, drawn without the NaN wildcard the schema-free
+/// `number` generator uses: a derived sample must satisfy the bound it was
+/// derived from, and NaN satisfies none of them.
+fn bounded_number(lo: f64, hi: f64) -> Gen<f64> {
+    Gen::new(
+        move |rng| {
+            if lo == hi {
+                return lo;
+            }
+            let t = (rng.next_u64() >> 11) as f64 / ((1u64 << 53) as f64);
+            lo * (1.0 - t) + hi * t
+        },
+        move |value| {
+            let mut out = Vec::new();
+            if *value > lo {
+                out.push(lo);
+                let mid = lo + (*value - lo) / 2.0;
+                if mid < *value {
+                    out.push(mid);
+                }
+            }
+            out
+        },
+    )
+}
+
+/// `Schema.String` with its length checks pushed into the length range.
+fn text(checks: &[CheckRef<'_>], path: &str) -> Result<Gen<Unknown>, DeriveError> {
+    let mut minimum = 0usize;
+    let mut maximum = 8usize;
+    let mut bounded = false;
+    for check in checks {
+        match check.name {
+            "isMinLength" | "isMaxLength" | "isLength" => {
+                let Some(value) = number_arg(check.args, 0) else {
+                    return Err(DeriveError::new("string constraints", path));
+                };
+                let value = value.max(0.0) as usize;
+                match check.name {
+                    "isMinLength" => minimum = minimum.max(value),
+                    "isMaxLength" => maximum = maximum.min(value),
+                    _ => {
+                        minimum = value;
+                        maximum = value;
+                    }
+                }
+                bounded = true;
+            }
+            _ => return Err(DeriveError::new("string constraints", path)),
+        }
+    }
+    if bounded && minimum > maximum {
+        return Err(DeriveError::new("string constraints", path));
+    }
+    Ok(Gen::new(
+        move |rng| {
+            let span = (maximum - minimum + 1) as u64;
+            let length = minimum + rng.below(span) as usize;
+            let text: String = (0..length)
+                .map(|_| (b'a' + (rng.next_u64() % 26) as u8) as char)
+                .collect();
+            Unknown::Text(text)
+        },
+        |_| Vec::new(),
+    ))
+}
+
+/// `Schema.Struct`: every field derived from its own shape.
+fn structure(fields: &[(String, SchemaKind)], path: &str) -> Result<Gen<Unknown>, DeriveError> {
+    let parts = fields
+        .iter()
+        .map(|(name, kind)| Ok((name.clone(), derive(kind, &format!("{path}.{name}"))?)))
+        .collect::<Result<Vec<_>, DeriveError>>()?;
+    Ok(Gen::new(
+        move |rng| {
+            Unknown::Object(
+                parts
+                    .iter()
+                    .map(|(name, part)| (name.clone(), part.sample(rng)))
+                    .collect(),
+            )
+        },
+        |_| Vec::new(),
+    ))
+}
+
+/// `Schema.Tuple`: every position derived.
+fn tuple_of(elements: &[SchemaKind], path: &str) -> Result<Gen<Unknown>, DeriveError> {
+    let parts = elements
+        .iter()
+        .enumerate()
+        .map(|(index, kind)| derive(kind, &format!("{path}[{index}]")))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(Gen::new(
+        move |rng| Unknown::Array(parts.iter().map(|part| part.sample(rng)).collect()),
+        |_| Vec::new(),
+    ))
+}
+
+/// `Schema.Array`: a short array, because a derivation has no size signal.
+fn varied(inner: Gen<Unknown>) -> Gen<Unknown> {
+    array(inner, 0, 3).map(Unknown::Array)
 }
 
 /// Records as key/value vecs from parallel generators.

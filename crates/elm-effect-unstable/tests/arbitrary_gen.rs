@@ -724,93 +724,10 @@ fn number_generates_exact_subnormal_and_infinite_singletons() {
 // the ASCII seeds the carried rows use.
 // ===========================================================================
 
-/// The derivation's rejection rules (`Arbitrary.schema` throws before
-/// generating when the constraint set has no inhabitant).
-///
-/// Arbitrary.test.ts :1616 rejects integer bounds outside the safe
-/// range; :1627 rejects NaN bounds on either side (for integers and
-/// numbers); :1817 rejects an infinite lower bound under a finite
-/// constraint. The port renders the pin's throw as the derivation
-/// answering `None`.
-const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
-const MIN_SAFE_INTEGER: f64 = -9_007_199_254_740_991.0;
-
-fn integer_constraints_admit(minimum: f64, maximum: f64) -> bool {
-    !minimum.is_nan()
-        && !maximum.is_nan()
-        && minimum <= MAX_SAFE_INTEGER
-        && maximum >= MIN_SAFE_INTEGER
-}
-
-fn number_constraints_admit(minimum: f64, maximum: f64, finite: bool) -> bool {
-    !minimum.is_nan()
-        && !maximum.is_nan()
-        && !(finite && (minimum == f64::INFINITY || maximum == f64::NEG_INFINITY))
-}
-
-/// `Arbitrary.schema(Schema.Int.check(...))`: the derivation step, which
-/// rejects an uninhabitable constraint set instead of generating from it.
-fn arbitrary_int_between(minimum: i64, maximum: i64) -> Option<Arbitrary<String>> {
-    if !integer_constraints_admit(minimum as f64, maximum as f64) {
-        return None;
-    }
-    Some(arbitrary_schema(&ArbSchema::IntBetween {
-        minimum,
-        maximum,
-    }))
-}
-
-#[test]
-fn derivation_rejects_integer_bounds_outside_the_safe_range() {
-    // Arbitrary.test.ts:1616 — isGreaterThan(MAX_SAFE) and
-    // isLessThan(MIN_SAFE) derive to an empty integer domain.
-    assert!(
-        arbitrary_int_between(0, 7).is_some(),
-        "bounded integers still derive"
-    );
-    assert!(arbitrary_int_between(0, MAX_SAFE_INTEGER as i64).is_some());
-    assert!(
-        arbitrary_int_between(MAX_SAFE_INTEGER as i64 + 1, MAX_SAFE_INTEGER as i64 + 1).is_none(),
-        "a minimum above the safe range has no inhabitant"
-    );
-    assert!(
-        arbitrary_int_between(MIN_SAFE_INTEGER as i64 - 1, MIN_SAFE_INTEGER as i64 - 1).is_none(),
-        "a maximum below the safe range has no inhabitant"
-    );
-}
-
-#[test]
-fn derivation_rejects_nan_bounds() {
-    // Arbitrary.test.ts:1627 — NaN bounds derive to nothing, for numbers
-    // and for integers alike.
-    assert!(!number_constraints_admit(f64::NAN, 1.0, false));
-    assert!(!number_constraints_admit(0.0, f64::NAN, false));
-    assert!(!integer_constraints_admit(0.0, f64::NAN));
-    assert!(number_constraints_admit(0.0, 1.0, false));
-}
-
-#[test]
-fn derivation_rejects_infinite_intervals_excluded_by_a_finite_constraint() {
-    // Arbitrary.test.ts:1817 — isFinite together with a >= +infinity
-    // lower bound is contradictory.
-    assert!(!number_constraints_admit(
-        f64::INFINITY,
-        f64::INFINITY,
-        true
-    ));
-    assert!(!number_constraints_admit(
-        f64::NEG_INFINITY,
-        f64::NEG_INFINITY,
-        true
-    ));
-    // Without the finite constraint the infinite bound is a legal
-    // one-sided interval.
-    assert!(number_constraints_admit(
-        f64::INFINITY,
-        f64::INFINITY,
-        false
-    ));
-}
+// The three refusals this test file used to model with a local predicate
+// (`integer_constraints_admit`, `number_constraints_admit`) live in
+// `schema_arbitrary.rs` now, against the port's own derivation: the rows they
+// claim (`Arbitrary.test.ts:1616`, `:1627`, `:1817`) are witnessed there.
 
 #[test]
 fn exhausted_reports_and_reuses_the_resolved_seed() {

@@ -13,12 +13,12 @@ The audit (below) found claims in both directions: rows marked done that no
 test asserted, and rows excused on reasons the code had since invalidated. All
 155 rows it named are repaired.
 
-Final state: **6,144 ported, 3,768 not-applicable, 56 skipped-upstream, 2
-unported.** The open rows fell 41 → 2 across the nine passes; the rows those
+Final state: **6,146 ported, 3,768 not-applicable, 56 skipped-upstream, 0
+unported.** The open rows fell 41 → 0 across the ten passes; the rows those
 passes ported beyond the open count had been excused, not open.
-`Effect.ts` is now `matched` (every one of its rows is ported); `Arbitrary.ts`
-stays `unmatched` on its two remaining rows; `Channel.ts` came back to `matched`
-once its last two rows were carried.
+`Effect.ts` is now `matched` (every one of its rows is ported), `Arbitrary.ts`
+became `matched` when its last two rows were carried against a real derivation,
+and `Channel.ts` came back to `matched` once its last two rows were carried.
 
 ## Second pass: the excuse surface, and the last 24 rows
 
@@ -284,6 +284,31 @@ rather than adding a dependency for it.
 That is row 984, and it closes the `builtInRevivers` family: every declaration
 this crate writes now has a constructor, a codec, and a reviver.
 
+## Tenth pass: the last two rows, and a real derivation
+
+`Arbitrary.test.ts:1627` and `:1817` asserted that derivation *refuses* a NaN
+bound and an infinite interval excluded by `isFinite`. They had been proven by
+a test-local predicate that never touched the port, which the audit had already
+caught once and which cannot be the witness for a claim about the port.
+
+`arbitrary::schema` is the pin's `Arbitrary.schema` now: it peels the schema's
+checks, pushes numeric bounds, integer-ness and string lengths into a
+generator, and constructs the value in its wire form so the schema it came from
+decodes it. A check it cannot push down (`isMultipleOf`, a pattern, an unknown
+shape) refuses the whole schema with the pin's own message instead of filtering
+samples after the fact, because a filtered generator is how the shim came back
+the first time.
+
+The refusals are the pin's `numberBounds`, step for step: NaN on either side,
+an exclusive infinite bound, an infinite bound under `isFinite` or `Int`, an
+integer bound outside the safe range, and an empty interval after
+normalization. The three rows in that family were re-pointed at the real
+derivation and the test-local predicates they used are gone.
+
+With that, `conformance/behavior-tests.tsv` has no open row, and `modules.toml`
+moved `Arbitrary.ts` to `matched` because the registry check refuses a module
+that says otherwise.
+
 **Evidence gap, unrelated to the ledger.** `cargo test --workspace` does not
 build targets carrying `required-features`, so every "4,360 passed" earlier in
 this campaign excluded every schema fence in `crates/elm-effect/tests`. The
@@ -372,11 +397,12 @@ still name no API, no file, no line. 83 test files have zero ported rows.
 
 - Every `ported` row now names a test that exists and reaches port code
   (`python3 conformance/witness-audit.py` exits 0).
-- 2 rows are open (`Arbitrary.test.ts:1627` and `:1817`). That is the honest
-  number, and `matched` is derived from it, so `Arbitrary.ts` cannot claim
-  parity while its two rows are open.
+- **No row is open.** That number is only as honest as the witnesses behind
+  it, which is what the two audits are for; `matched` is derived from it, so a
+  module can no longer claim parity while a linked row is unported.
 - 2,615 excuses are narrative: they state a cause but name no API, file or
-  line. They were not re-adjudicated here and should not be read as verified.
+  line. They are the remaining soft spot: zero open rows is a statement about
+  the `unported` column, not a verdict on those reasons. They were not re-adjudicated here and should not be read as verified.
   What the second pass did verify is the part a file can answer: every cited
   line exists, no reason states a stale function count, and no reason claims
   absent a `fn` that sits in the file it cites.
