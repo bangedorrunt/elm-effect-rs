@@ -112,13 +112,64 @@ def check_ledger(rows: list[list[str]]) -> tuple[list[str], list[str]]:
     if modules_path.exists():
         import tomllib
 
-        for module in tomllib.loads(modules_path.read_text())["module"]:
+        modules = tomllib.loads(modules_path.read_text())["module"]
+        for module in modules:
             if module["status"] == "matched" and module.get("tests"):
                 if sum(ported.get(t, 0) for t in module["tests"]) == 0:
                     hard.append(
                         f"{module['path']}: matched with no ported row (every row excused)"
                     )
+        scope_hard = check_scope(modules, rows)
+        hard += scope_hard
     return hard, warn
+
+
+SCOPE = ROOT / "conformance/modules-without-rows.tsv"
+SCOPE_REASONS = {"barrel", "no-test"}
+
+
+def check_scope(
+    modules: list[dict], rows: list[list[str]]
+) -> list[str]:
+    """Every module the ledger cannot speak for has to be named, and named once.
+
+    `modules-without-rows.tsv` is a scope statement: a module with no behavior
+    rows is either recorded there or invisible, and an invisible module is the
+    one shape of remaining work this tracker can lose. The reverse direction
+    matters as much, because a listed module that has since gained rows reads
+    as a hole that is already filled.
+    """
+    row_paths = {r[1] for r in rows if len(r) > 1}
+    untracked = {
+        m["path"] for m in modules if not any(t in row_paths for t in (m.get("tests") or []))
+    }
+    recorded: dict[str, str] = {}
+    duplicates: list[str] = []
+    if SCOPE.exists():
+        for line in SCOPE.read_text().splitlines():
+            if line.startswith("#") or not line.strip():
+                continue
+            fields = line.split("\t")
+            path = fields[0]
+            if path in recorded:
+                duplicates.append(path)
+            recorded[path] = fields[1] if len(fields) > 1 else ""
+
+    hard: list[str] = []
+    for path in sorted(untracked - set(recorded)):
+        hard.append(f"{path}: no behavior row and not recorded in modules-without-rows.tsv")
+    for path in sorted(set(recorded) - untracked):
+        hard.append(f"{path}: recorded with no rows, but it now carries rows (stale entry)")
+    for path in sorted(set(duplicates)):
+        hard.append(f"{path}: recorded twice in modules-without-rows.tsv")
+    for path, reason in sorted(recorded.items()):
+        if not reason.strip():
+            hard.append(f"{path}: recorded with no reason")
+        elif reason not in SCOPE_REASONS:
+            hard.append(f"{path}: reason {reason!r} is not one of {sorted(SCOPE_REASONS)}")
+        elif reason == "barrel" and not path.endswith("/index.ts"):
+            hard.append(f"{path}: recorded as a barrel, but its path is not an index.ts")
+    return hard
 
 
 def main() -> int:
