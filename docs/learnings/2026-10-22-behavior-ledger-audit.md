@@ -298,6 +298,14 @@ still name no API, no file, no line. 83 test files have zero ported rows.
 - A group witness is still one test standing behind many rows. The audit
   proves the test exists and reaches port code; it cannot prove every row's
   assertion is in it. `TxHashMap.test.ts:57` was that failure mode.
+- **Neither audit runs the witness.** `:831 revives Redacted` was `ported` with
+  a witness that compiled but failed its own last assertion: `Schema.redacted`
+  set no code override, so the revived schema rendered `Schema.redacted` rather
+  than `Schema.Redacted(Schema.String)`. It was found by running the test file,
+  not by either gate. A witness that fails is invisible to a check that only
+  reads file names, so the two audits answer "is there evidence" and never "is
+  the evidence green"; `cargo test` is still the only gate for the second
+  question.
 - The remaining excuse blocks (JS codegen, no JS object model, the effectful
   parser, the absence of `Schema.Date`/`URL`/`RegExp` constructors) still rest
   on one reading per file, and a later change to the crates can falsify them
