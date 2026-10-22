@@ -37,12 +37,29 @@ pub fn is_regexp(_: &RegExp) -> bool {
 }
 
 /// Quote regex metacharacters (`RegExp.escape`).
+///
+/// The set is the pin's character class, `[/\\^$*+?.()|[\]{}]`: the slash
+/// is in it, because a pattern literal is `/…/` and a bare slash would end
+/// it early. `-` is not, which is why `a-b` escapes to itself.
 pub fn escape(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
         if matches!(
             c,
-            '\\' | '^' | '$' | '.' | '|' | '?' | '*' | '+' | '(' | ')' | '[' | ']' | '{' | '}'
+            '/' | '\\'
+                | '^'
+                | '$'
+                | '.'
+                | '|'
+                | '?'
+                | '*'
+                | '+'
+                | '('
+                | ')'
+                | '['
+                | ']'
+                | '{'
+                | '}'
         ) {
             out.push('\\');
         }

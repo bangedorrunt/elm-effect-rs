@@ -768,6 +768,20 @@ fn nonempty_core() {
     );
 }
 
+/// `NonEmptyIterable.ts` `unprepend`: the head comes out alone and the rest
+/// arrives as an iterator, which is the pin's `[first, ...iterator]` shape.
+/// A one-element iterable leaves an empty iterator, not a panic.
+#[test]
+fn nonempty_unprepend_splits_head_from_rest() {
+    let (first, rest) = nonempty::NonEmpty::make(1, vec![2, 3]).unprepend();
+    assert_eq!(first, 1);
+    assert_eq!(rest.collect::<Vec<_>>(), vec![2, 3]);
+
+    let (only, rest) = nonempty::NonEmpty::of(9).unprepend();
+    assert_eq!(only, 9);
+    assert_eq!(rest.count(), 0);
+}
+
 // ---------- MutableList ----------
 
 #[test]

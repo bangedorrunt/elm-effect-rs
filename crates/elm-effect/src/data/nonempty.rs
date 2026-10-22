@@ -1,6 +1,4 @@
 //! `NonEmptyIterable.ts` port: an iterable with a statically known head.
-//!
-//! Residuals: tuple-destructuring helpers (`unprepend` shapes beyond head).
 
 /// A head plus a (possibly empty) tail: never empty by construction.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -79,6 +77,13 @@ impl<T> NonEmpty<T> {
         out.push(self.head);
         out.extend(self.tail);
         out
+    }
+
+    /// Split into the first element and an iterator over the rest
+    /// (`unprepend`). Non-emptiness is the type's invariant here, so the
+    /// pin's runtime "should not be empty" throw has no path to take.
+    pub fn unprepend(self) -> (T, std::vec::IntoIter<T>) {
+        (self.head, self.tail.into_iter())
     }
 
     /// Reverse, still non-empty (`reverse`).

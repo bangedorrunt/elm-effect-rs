@@ -577,3 +577,20 @@ fn regexp_escape_and_shape() {
     assert!(regexp::is_regexp(&re));
     assert_eq!(re.to_pattern(), "/a+/gi");
 }
+
+/// `RegExp.ts`'s escape class is `[/\\^$*+?.()|[\]{}]`, and the slash is the
+/// member a reader is likeliest to drop: a pattern literal is `/…/`, so a
+/// bare slash in escaped text ends the literal early. `-` is deliberately
+/// outside the class, which is why it comes back unchanged.
+#[test]
+fn regexp_escape_quotes_the_pins_exact_class() {
+    assert_eq!(regexp::escape("/"), "\\/");
+    assert_eq!(regexp::escape("a/b"), "a\\/b");
+    for c in ["\\", "^", "$", ".", "|", "?", "*", "+", "(", ")", "[", "]", "{", "}"] {
+        assert_eq!(regexp::escape(c), format!("\\{c}"), "{c} must be quoted");
+    }
+    // Not in the class: escaping these would change a pattern's meaning.
+    for c in ["-", "_", " ", "a", "1", "<", "="] {
+        assert_eq!(regexp::escape(c), c, "{c} must not be quoted");
+    }
+}
