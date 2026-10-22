@@ -458,7 +458,15 @@ def main(argv: list[str]) -> int:
             paths = scoped
         elif not paths:
             needle = snake(module)
-            paths = [path for path in all_src if needle in path.lower()]
+            # `Schema.Date` speaks for the adapter file of that name, and this
+            # crate names adapters `schema_<thing>.rs`, so a stem lookup misses
+            # every one of them: the blindness that let ten `Schema.Date does
+            # not exist` reasons stand after the constructor landed.
+            paths = [
+                path
+                for path in all_src
+                if os.path.basename(path).startswith("schema")
+            ] if needle == "schema" else [path for path in all_src if needle in path.lower()]
         for path in paths:
             if re.search(
                 r"(?m)^[ \t]*(?:pub(?:\([^)]*\))?[ \t]+)?(?:async[ \t]+)?"

@@ -13,8 +13,8 @@ The audit (below) found claims in both directions: rows marked done that no
 test asserted, and rows excused on reasons the code had since invalidated. All
 155 rows it named are repaired.
 
-Final state: **6,139 ported, 3,770 not-applicable, 56 skipped-upstream, 5
-unported.** The open rows fell 41 → 5 across the seven passes; the rows those
+Final state: **6,143 ported, 3,768 not-applicable, 56 skipped-upstream, 3
+unported.** The open rows fell 41 → 3 across the eight passes; the rows those
 passes ported beyond the open count had been excused, not open.
 `Effect.ts` is now `matched` (every one of its rows is ported); `Arbitrary.ts`
 stays `unmatched` on its two remaining rows; `Channel.ts` came back to `matched`
@@ -237,6 +237,47 @@ snapshot, and `graphDecode`/`graphEncode` do not exist); `Date` would need
 this crate at all. The two `Arbitrary` rows still wait on a schema-to-arbitrary
 derivation.
 
+## Eighth pass: Graph, Date, and the reason that was a lie
+
+Four rows went in two units, and the second unit falsified a block of excuses
+that had been sitting in the file since the first pass.
+
+- **`Graph` needed a schema, not a codec.** `graph.rs` already had
+`Graph`/`Snapshot`/`from_snapshot`/`to_snapshot`; what it did not have was a
+way out of the crate or a declaration id. `graph` is now a public module,
+`Schema.Graph(kind, node, edge)` speaks the pin's one wire object, and decoding
+hands the snapshot to `Graph::from_snapshot` so the strictly-increasing-index
+and live-endpoint rules stay in one place. That is row 894.
+- **`Date` needed `jiff` promoted, and that is all it needed.** `datetime.rs`
+already carried the ISO parse and the `toJSON` spelling the pin's Date codec
+translates; it was parked, so nothing could speak for it. It is crate surface
+now, `Schema.Date` is a declaration over `DateTime`, and decoding normalizes to
+milliseconds because a JS `Date` is a millisecond instant (a text carrying more
+precision would otherwise decode to a value that encodes back differently).
+That is row 948.
+- **Two formatter rows needed a value renderer, not a wire renderer.**
+`Schema::with_formatter` is new: `toFormatter` prints the value, and for an
+adapter whose wire form is a string or an object (Date prints
+`1970-01-01T00:00:00.000Z`, RegExp prints `/a/i`) the kind walk cannot reach
+it. That is rows 541 and 551, in the new `schema_formatters.rs` fence.
+
+**The lie.** Ten `toFormatter` rows shared one reason claiming `Schema.Date /
+URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone*` did not exist.
+Four of those had existed for passes (RegExp, Duration, BigDecimal and, after
+this pass, Date), and the audit never said so: `snake("Schema")` matches no
+file, and the fallback needle only looked for `schema` in the path, so
+`Schema.Date does not exist` was never checked against `schema_datetime.rs`. It
+is now scoped to the `schema_*` adapter files, which is the check that would
+have caught it. Each of the ten rows now names only the schema its own test
+needs, and two of them (Date, RegExp) are ported rather than excused.
+
+**Evidence gap, unrelated to the ledger.** `cargo test --workspace` does not
+build targets carrying `required-features`, so every "4,360 passed" earlier in
+this campaign excluded every schema fence in `crates/elm-effect/tests`. The
+honest pair is `cargo test --workspace --no-fail-fast` (4,360) plus `cargo test
+-p elm-effect --features schema --no-fail-fast` (1,837). Neither number alone
+is the suite.
+
 ## What was falsified
 
 **Ported rows no test proved (32).** 30 cited a witness that does not exist.
@@ -318,8 +359,10 @@ still name no API, no file, no line. 83 test files have zero ported rows.
 
 - Every `ported` row now names a test that exists and reaches port code
   (`python3 conformance/witness-audit.py` exits 0).
-- 5 rows are open. That is the honest number, and `matched` is derived from
-  it, so `Arbitrary.ts` cannot claim parity while its two rows are open.
+- 3 rows are open (`Arbitrary.test.ts:1627` and `:1817`, and
+  `builtInRevivers.test.ts:984`). That is the honest number, and `matched` is
+  derived from it, so `Arbitrary.ts` cannot claim parity while its two rows are
+  open.
 - 2,615 excuses are narrative: they state a cause but name no API, file or
   line. They were not re-adjudicated here and should not be read as verified.
   What the second pass did verify is the part a file can answer: every cited
@@ -337,9 +380,11 @@ still name no API, no file, no line. 83 test files have zero ported rows.
   the evidence green"; `cargo test` is still the only gate for the second
   question.
 - The remaining excuse blocks (JS codegen, no JS object model, the effectful
-  parser, the absence of `Schema.Date`/`URL`/`RegExp` constructors) still rest
-  on one reading per file, and a later change to the crates can falsify them
-  again. `witness-audit.py` is the check that catches the API-landed case.
+  parser, the absence of a `Schema.URL` constructor and of the
+  `DateTimeUtc`/`TimeZone` family) still rest on one reading per file, and a
+  later change to the crates can falsify them again. `witness-audit.py` is the
+  check that catches the API-landed case, and the eighth pass showed it only
+  catches the names it knows how to look up.
 
 ## Why it rotted
 
