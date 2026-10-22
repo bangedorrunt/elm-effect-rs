@@ -37,6 +37,25 @@ where
         }
     }
 
+    /// Feed this channel's takes into `next` (`Channel.pipeTo`).
+    ///
+    /// Both steps run per take, so neither channel's state is reset: the
+    /// composition is one channel, not a re-entry into `run`.
+    pub fn pipe<C>(self, next: Channel<B, E, C>) -> Channel<A, E, C>
+    where
+        C: Send + 'static,
+    {
+        let mut first = self.step;
+        let mut second = next.step;
+        Channel::from_fn(move |take| {
+            let mut out = Vec::new();
+            for take in first(take) {
+                out.extend(second(take));
+            }
+            out
+        })
+    }
+
     /// Drive `source` through this channel, yielding transformed takes.
     /// Every take (items, end, failure) flows through `step`: termination
     /// and failure handling belong to the channel, not the driver. If a

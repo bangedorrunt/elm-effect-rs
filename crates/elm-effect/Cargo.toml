@@ -36,6 +36,12 @@ required-features = ["schema"]
 name = "schema_parser"
 required-features = ["schema"]
 
+# ChannelSchema adapts this crate's Channel to the schema crate's encoded form,
+# so its fence needs the schema feature.
+[[test]]
+name = "channel_schema"
+required-features = ["schema"]
+
 # The Duration schemas adapt this crate's own `Duration`, so their fence needs
 # the feature that brings the schema crate in.
 [[test]]

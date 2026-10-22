@@ -35,6 +35,10 @@ pub mod nonempty;
 pub mod regexp;
 pub mod cause;
 pub mod channel;
+// `ChannelSchema` only exists for a schema-encoded boundary, so the feature that
+// brings the schema crate in is the one that carries it.
+#[cfg(feature = "schema")]
+pub mod channel_schema;
 #[cfg(feature = "tokio")]
 mod concurrency;
 mod config;
