@@ -146,13 +146,14 @@ impl<A: Clone> SubscriptionRef<A> {
         let mut guard = self.hub.streams.lock().unwrap();
         guard.retain(|w| match w.upgrade() {
             Some(s) => {
-                if *s.live.lock().unwrap() {
+                // A stream that unsubscribed between the upgrade and the lock
+                // is dropped here, and `retain` prunes it.
+                let live = *s.live.lock().unwrap();
+                if live {
                     s.queue.lock().unwrap().push_back(value.clone());
                     s.wake.notify_all();
-                    true
-                } else {
-                    false
                 }
+                live
             }
             None => false,
         });

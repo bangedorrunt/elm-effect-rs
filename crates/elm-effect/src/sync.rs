@@ -804,15 +804,6 @@ impl<A: Send> Queue<A> {
     }
 
     /// Give up a reservation (a rendezvous that produced nothing).
-    fn release_reservation(&self) {
-        let mut reservations = self.reservations.lock().unwrap();
-        if *reservations > 0 {
-            *reservations -= 1;
-        }
-        drop(reservations);
-        self.not_full.notify_all();
-    }
-
     /// The one place an item enters the buffer: a zero-capacity push
     /// consumes the reservation that permitted it.
     fn push_item(&self, guard: &mut VecDeque<A>, value: A) {
@@ -851,6 +842,10 @@ impl<A: Send> Queue<A> {
     /// (`Ok(Refused(value))`), and an accepted one reports
     /// `Ok(Accepted)`. The port's interruptible-wait pattern, the one the
     /// semaphore uses.
+    // `Err(())` is the interrupt marker itself: it carries no data, and the
+    // caller's only decision is to withdraw the offer. A named zero-sized
+    // error would spell the same thing one type longer.
+    #[allow(clippy::result_unit_err)]
     pub fn offer_interruptible(
         &self,
         value: A,
@@ -918,6 +913,7 @@ impl<A: Send> Queue<A> {
     /// Offer a batch while watching `interrupted`: the suffix that never
     /// got room comes back (`Ok`), or the offer itself was interrupted
     /// (`Err`) and every un-offered item is withdrawn with it.
+    #[allow(clippy::result_unit_err)]
     pub fn offer_all_interruptible(
         &self,
         values: impl IntoIterator<Item = A>,
@@ -983,6 +979,7 @@ impl<A: Send> Queue<A> {
     }
 
     /// Pop while watching `interrupted`.
+    #[allow(clippy::result_unit_err)]
     pub fn take_interruptible(
         &self,
         interrupted: &dyn Fn() -> bool,

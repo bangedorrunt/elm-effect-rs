@@ -108,7 +108,9 @@ impl<T> Predicate<T> {
         Self::make(move |value| self.test(value) || other.test(value))
     }
 
-    /// Negation.
+    /// Negation (`Predicate.not`). The name is the pin's; implementing
+    /// `std::ops::Not` would give the same spelling a different receiver.
+    #[allow(clippy::should_implement_trait)]
     pub fn not(self) -> Self
     where
         T: 'static,

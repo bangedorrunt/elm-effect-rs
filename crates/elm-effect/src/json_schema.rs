@@ -794,7 +794,7 @@ pub fn to_multi_document_open_api3_1(
         let candidate = loop {
             suffix += 1;
             let candidate = format!("{base}_{suffix}");
-            if !used_keys.iter().any(|used| *used == candidate) {
+            if !used_keys.contains(&candidate) {
                 break candidate;
             }
         };
@@ -1113,15 +1113,17 @@ impl Converter {
         }
         let resource_id = self.resource_id(node);
         let mut current = scope.clone();
-        if !source_path.is_empty() && self.options.track_ids && creates_resource(resource_id) {
-            if let Some(uri) = resolve_resource_uri(resource_id, &scope.uri) {
-                current = ResourceScope {
-                    parent: Some(Box::new(scope.clone())),
-                    source_root: source_path.to_vec(),
-                    target_root: target_path.to_vec(),
-                    uri,
-                };
-            }
+        if !source_path.is_empty()
+            && self.options.track_ids
+            && creates_resource(resource_id)
+            && let Some(uri) = resolve_resource_uri(resource_id, &scope.uri)
+        {
+            current = ResourceScope {
+                parent: Some(Box::new(scope.clone())),
+                source_root: source_path.to_vec(),
+                target_root: target_path.to_vec(),
+                uri,
+            };
         }
         self.record_locations(source_path, target_path, &current);
         let current_resource = current.uri.clone();
@@ -1533,10 +1535,10 @@ fn open_api30_to_2020_adapter(source: &Json, context: &mut Context<'_>) -> Outco
     convert_open_api_exclusive_bound(source, &mut out, "minimum");
     convert_open_api_exclusive_bound(source, &mut out, "maximum");
 
-    if field(source, "nullable") == Some(&Json::Bool(true)) {
-        if let Some(Json::Str(kind)) = field(source, "type") {
-            assign(&mut out, "type", Json::Arr(vec![text(kind), text("null")]));
-        }
+    if field(source, "nullable") == Some(&Json::Bool(true))
+        && let Some(Json::Str(kind)) = field(source, "type")
+    {
+        assign(&mut out, "type", Json::Arr(vec![text(kind), text("null")]));
     }
 
     Ok(Json::Obj(out))
@@ -1813,10 +1815,10 @@ fn convert_dependencies(
             // A key that only requires others is a plain list, unless the
             // target dialect cannot spell an empty one.
             (None, required) => {
-                if !omit_required {
-                    if let Some(required) = required {
-                        assign(&mut dependencies, &key, required.clone());
-                    }
+                if !omit_required
+                    && let Some(required) = required
+                {
+                    assign(&mut dependencies, &key, required.clone());
                 }
             }
             // A key with only a schema dependency is that schema.
@@ -1961,11 +1963,11 @@ fn convert_open_api_exclusive_bound(
         }
         return;
     };
-    if *exclusive {
-        if let Some(Json::Num(bound)) = field(source, bound_key) {
-            assign(out, exclusive_key, Json::Num(*bound));
-            out.remove(bound_key);
-        }
+    if *exclusive
+        && let Some(Json::Num(bound)) = field(source, bound_key)
+    {
+        assign(out, exclusive_key, Json::Num(*bound));
+        out.remove(bound_key);
     }
 }
 
@@ -2153,18 +2155,16 @@ fn has_schema_identifier(node: &Json) -> bool {
         return true;
     }
     for (key, value) in map {
-        if is_map_of_schemas(key) {
-            if let Some(inner) = as_object(value) {
-                if inner.values().any(has_schema_identifier) {
-                    return true;
-                }
-            }
-        } else if is_array_of_schemas(key) {
-            if let Json::Arr(items) = value {
-                if items.iter().any(has_schema_identifier) {
-                    return true;
-                }
-            }
+        if is_map_of_schemas(key)
+            && let Some(inner) = as_object(value)
+            && inner.values().any(has_schema_identifier)
+        {
+            return true;
+        } else if is_array_of_schemas(key)
+            && let Json::Arr(items) = value
+            && items.iter().any(has_schema_identifier)
+        {
+            return true;
         } else if is_single_schema(key) && has_schema_identifier(value) {
             return true;
         }

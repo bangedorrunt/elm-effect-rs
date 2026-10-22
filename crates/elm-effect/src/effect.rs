@@ -380,19 +380,17 @@ where
         // during the masked acquire ends the region here: no use, still a
         // release. A caller mask keeps it pending instead, so the check only
         // fires when nothing is masking at this point.
-        if let Some(live) = &fiber {
-            if live.is_interrupted() && !live.is_masked() {
-                let use_exit: Exit<B, E> = Exit::Failure(Cause::interrupt(Some(live.id())));
-                let released = live.with_masked(|| {
-                    release_fn(resource, &use_exit).run_sync_with(&services)
-                });
-                return match released {
-                    Ok(()) => Err(Cause::interrupt(Some(live.id()))),
-                    Err(release) => {
-                        Err(release.combine(Cause::interrupt(Some(live.id()))))
-                    }
-                };
-            }
+        if let Some(live) = &fiber
+            && live.is_interrupted()
+            && !live.is_masked()
+        {
+            let use_exit: Exit<B, E> = Exit::Failure(Cause::interrupt(Some(live.id())));
+            let released =
+                live.with_masked(|| release_fn(resource, &use_exit).run_sync_with(&services));
+            return match released {
+                Ok(()) => Err(Cause::interrupt(Some(live.id()))),
+                Err(release) => Err(release.combine(Cause::interrupt(Some(live.id())))),
+            };
         }
 
         // Use: interruptible, and a panic is a defect the release can see.
@@ -842,7 +840,7 @@ where
     let clock = ambient_clock(services);
     let deadline = clock
         .now_millis()
-        .saturating_add(duration.as_millis() as u64);
+        .saturating_add(duration.as_millis());
     let child = fiber.fork_child(
         move |c| {
             let ambient = c.services_with_fiber();
@@ -1912,10 +1910,10 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         F: FnOnce(&Cause<E>) + Send + 'static,
     {
         self.on_exit(move |exit| {
-            if let Exit::Failure(cause) = exit {
-                if predicate(cause) {
-                    f(cause);
-                }
+            if let Exit::Failure(cause) = exit
+                && predicate(cause)
+            {
+                f(cause);
             }
         })
     }
@@ -1930,10 +1928,10 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         F: FnOnce(B, &Cause<E>) + Send + 'static,
     {
         self.on_exit(move |exit| {
-            if let Exit::Failure(cause) = exit {
-                if let Ok(pass) = selector(cause) {
-                    f(pass, cause);
-                }
+            if let Exit::Failure(cause) = exit
+                && let Ok(pass) = selector(cause)
+            {
+                f(pass, cause);
             }
         })
     }
@@ -2530,7 +2528,7 @@ where
 /// An infallible description satisfies any error channel vacuously: the
 /// step cannot fail, so the target `E` is a widening, not a claim. The
 /// pin gets this from variance over `never`; Rust states it.
-pub(crate) fn widen_infallible<E, A>(
+pub fn widen_infallible<E, A>(
     effect: Effect<A, std::convert::Infallible, ()>,
 ) -> Effect<A, E, ()>
 where

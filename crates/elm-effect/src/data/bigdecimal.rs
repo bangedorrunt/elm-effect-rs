@@ -342,7 +342,7 @@ impl Decimal {
             }
         };
         if up {
-            q = q + 1;
+            q += 1;
         }
         let mantissa = if negative { -q } else { q };
         Self { mantissa, scale }
@@ -481,7 +481,7 @@ impl Eq for Decimal {}
 
 impl PartialOrd for Decimal {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.compare(other))
+        Some(self.cmp(other))
     }
 }
 

@@ -7,10 +7,14 @@
 //! Watching is out of scope here (no async runtime in `std`); the trait
 //! carries no `watch` method on purpose.
 
-#[path = "platform_error.rs"]
-mod platform_error;
+// `PlatformError` is the pin's error value and this trait returns it by value
+// on every method. Boxing it would change the port's public API to satisfy a
+// size lint, so the lint is off for this module.
+#![allow(clippy::result_large_err)]
 
-pub use platform_error::{PlatformError, bad_argument, is_platform_error, system_error};
+// The error type lives at the crate root, so re-export it rather than loading
+// the same file a second time as a module (clippy::duplicate_mod).
+pub use crate::platform_error::{PlatformError, bad_argument, is_platform_error, system_error};
 
 use std::collections::BTreeMap;
 use std::sync::Mutex;
@@ -105,11 +109,11 @@ impl FileSystem for StdFileSystem {
     }
 
     fn write_file(&self, path: &str, bytes: &[u8]) -> Result<(), PlatformError> {
-        if let Some(parent) = std::path::Path::new(path).parent() {
-            if !parent.as_os_str().is_empty() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|e| system_error("FileSystem", "writeFile", Some(path), &e))?;
-            }
+        if let Some(parent) = std::path::Path::new(path).parent()
+            && !parent.as_os_str().is_empty()
+        {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| system_error("FileSystem", "writeFile", Some(path), &e))?;
         }
         std::fs::write(path, bytes)
             .map_err(|e| system_error("FileSystem", "writeFile", Some(path), &e))
@@ -199,11 +203,13 @@ impl FileSystem for StdFileSystem {
                 ));
             }
         }
-        if let Some(parent) = std::path::Path::new(path).parent() {
-            if !parent.as_os_str().is_empty() && flag != "r" && flag != "r+" {
-                std::fs::create_dir_all(parent)
-                    .map_err(|e| system_error("FileSystem", "writeFile", Some(path), &e))?;
-            }
+        if let Some(parent) = std::path::Path::new(path).parent()
+            && !parent.as_os_str().is_empty()
+            && flag != "r"
+            && flag != "r+"
+        {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| system_error("FileSystem", "writeFile", Some(path), &e))?;
         }
         let mut file = opts
             .open(path)

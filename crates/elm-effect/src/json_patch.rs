@@ -81,7 +81,7 @@ fn at(tokens: &[String], key: &str) -> String {
 /// index first; a type change is one root-or-branch `replace`.
 pub fn get(old: &Json, new: &Json) -> Vec<Operation> {
     let mut ops = vec![];
-    diff(old, new, &vec![], &mut ops);
+    diff(old, new, &[], &mut ops);
     ops
 }
 

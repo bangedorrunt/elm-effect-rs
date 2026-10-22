@@ -1570,8 +1570,8 @@ where
             continue;
         }
         for next in adj_impl(graph, current, direction) {
-            if !dist.contains_key(&next) {
-                dist.insert(next, d + 1);
+            if let std::collections::hash_map::Entry::Vacant(slot) = dist.entry(next) {
+                slot.insert(d + 1);
                 queue.push_back(next);
             }
         }
@@ -1911,8 +1911,8 @@ where
             continue;
         }
         for next in adj_impl(graph, current, direction) {
-            if !dist.contains_key(&next) {
-                dist.insert(next, d + 1);
+            if let std::collections::hash_map::Entry::Vacant(slot) = dist.entry(next) {
+                slot.insert(d + 1);
                 queue.push_back(next);
             }
         }
@@ -1964,7 +1964,7 @@ where
     }
     let mut seen: BTreeSet<NodeIndex> = BTreeSet::new();
     let mut order: Vec<(NodeIndex, N)> = vec![];
-    for seed in seeds.to_vec() {
+    for &seed in seeds {
         let mut stack = vec![seed];
         while let Some(current) = stack.pop() {
             if !seen.insert(current) {
@@ -2024,7 +2024,7 @@ where
     }
     let mut seen: BTreeSet<NodeIndex> = BTreeSet::new();
     let mut order: Vec<(NodeIndex, N)> = vec![];
-    for seed in seeds.to_vec() {
+    for &seed in seeds {
         let mut stack: Vec<(NodeIndex, bool)> = vec![(seed, false)];
         while let Some((current, expanded)) = stack.pop() {
             if expanded {
@@ -2602,12 +2602,13 @@ where
         )));
     }
     // Finite-range overflow surfaces when the witness left finite arithmetic.
-    if let Some(d) = dist.get(&target) {
-        if !d.is_finite() && prev.contains_key(&target) {
-            return Err(GraphError(
-                "Bellman-Ford distance calculation exceeded the finite number range".into(),
-            ));
-        }
+    if let Some(d) = dist.get(&target)
+        && !d.is_finite()
+        && prev.contains_key(&target)
+    {
+        return Err(GraphError(
+            "Bellman-Ford distance calculation exceeded the finite number range".into(),
+        ));
     }
     finish_path(
         graph,
@@ -2817,10 +2818,10 @@ where
     let mut stack: Vec<(NodeIndex, Vec<NodeIndex>, Vec<EdgeIndex>)> =
         vec![(target, vec![target], vec![])];
     while let Some((current, node_path, edge_path)) = stack.pop() {
-        if let Some(max) = limit {
-            if out.len() >= max {
-                break;
-            }
+        if let Some(max) = limit
+            && out.len() >= max
+        {
+            break;
         }
         if current == source {
             let mut p = node_path.clone();
@@ -2961,10 +2962,10 @@ where
     start_visited.insert(source);
     stack.push((source, vec![source], vec![], start_visited));
     while let Some((current, nodes, edge_ids, visited)) = stack.pop() {
-        if let Some(max) = limit {
-            if out.len() >= max {
-                break;
-            }
+        if let Some(max) = limit
+            && out.len() >= max
+        {
+            break;
         }
         if current == target && nodes.len() > 1 {
             let costs: Vec<E> = edge_ids
@@ -3033,8 +3034,8 @@ where
             .collect();
         outs.sort_by_key(|(i, _)| *i);
         for (_, e) in outs {
-            if !dist.contains_key(&e.target) {
-                dist.insert(e.target, d + 1);
+            if let std::collections::hash_map::Entry::Vacant(slot) = dist.entry(e.target) {
+                slot.insert(d + 1);
                 queue.push_back(e.target);
             }
         }
@@ -3114,7 +3115,7 @@ where
         while let Some((current, nexts, pos)) = work.pop() {
             if pos < nexts.len() {
                 work.push((current, nexts.clone(), pos + 1));
-                let (edge_id, next) = nexts[pos].clone();
+                let (edge_id, next) = nexts[pos];
                 if color[&next] == 0 {
                     color.insert(next, 1);
                     stack.push(next);
@@ -3387,18 +3388,18 @@ where
         while let Some((current, nexts, pos)) = work.pop() {
             if pos < nexts.len() {
                 work.push((current, nexts.clone(), pos + 1));
-                let (id, next) = nexts[pos].clone();
+                let (id, next) = nexts[pos];
                 if next == current {
                     // A self-loop is always its own biconnected component.
                     biconnected.push(vec![current]);
                     let _ = id;
                     continue;
                 }
-                if !disc.contains_key(&next) {
+                if let std::collections::hash_map::Entry::Vacant(slot) = disc.entry(next) {
                     if current == *root {
                         children += 1;
                     }
-                    disc.insert(next, time);
+                    slot.insert(time);
                     low.insert(next, time);
                     time += 1;
                     parent_edge.insert(next, Some(id));
@@ -3421,10 +3422,10 @@ where
                     if low[&current] >= disc[&parent] && Some(parent) != Some(*root) {
                         articulation.insert(parent);
                     }
-                    if low[&current] > disc[&parent] {
-                        if let Some(eid) = parent_edge.get(&current).copied().flatten() {
-                            bridges.push(eid);
-                        }
+                    if low[&current] > disc[&parent]
+                        && let Some(eid) = parent_edge.get(&current).copied().flatten()
+                    {
+                        bridges.push(eid);
                     }
                     // Pop one biconnected component when the subtree closes.
                     if low[&current] >= disc[&parent] {

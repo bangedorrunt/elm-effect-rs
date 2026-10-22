@@ -42,7 +42,10 @@ pub trait Path: Send + Sync {
     fn format(&self, parsed: &Parsed) -> String;
     /// Relative path from `from` to `to`.
     fn relative(&self, from: &str, to: &str) -> String;
-    /// Convert a `file:` URL string to a path.
+    /// Convert a `file:` URL string to a path (`fromFileUrl`). The `from_`
+    /// prefix is the pin's name; the separator still decides the answer, so
+    /// the receiver earns its place.
+    #[allow(clippy::wrong_self_convention)]
     fn from_file_url(&self, url: &str) -> Result<String, String>;
 }
 

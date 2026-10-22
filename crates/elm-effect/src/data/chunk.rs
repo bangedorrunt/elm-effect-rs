@@ -19,8 +19,9 @@ impl<T> Chunk<T> {
         Self(vec![value])
     }
 
-    /// From any iterable (`fromIterable`, `fromArray`).
-    pub fn from_iter<I: IntoIterator<Item = T>>(iterable: I) -> Self {
+    /// From any iterable (`fromIterable`, `fromArray`). Named for the pin's
+    /// `fromIterable`: `from_iter` would read as the `FromIterator` trait.
+    pub fn from_iterable<I: IntoIterator<Item = T>>(iterable: I) -> Self {
         Self(iterable.into_iter().collect())
     }
 
@@ -186,7 +187,7 @@ impl<T> Default for Chunk<T> {
 
 impl<T> FromIterator<T> for Chunk<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        Self::from_iter(iter)
+        Self::from_iterable(iter)
     }
 }
 

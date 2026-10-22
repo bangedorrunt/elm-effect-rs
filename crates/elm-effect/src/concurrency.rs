@@ -409,7 +409,7 @@ where
     let mut launched = 0usize;
     let mut failure: Option<Cause<E>> = None;
 
-    let mut launch_one = |queue: &mut std::collections::VecDeque<(usize, Body<A, E>)>,
+    let launch_one = |queue: &mut std::collections::VecDeque<(usize, Body<A, E>)>,
                           live: &mut std::collections::HashMap<
         usize,
         FiberHandle<(), std::convert::Infallible>,

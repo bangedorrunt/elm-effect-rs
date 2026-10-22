@@ -330,7 +330,7 @@ impl Config {
     /// Byte count (`"4MB"`, `"2KiB"`, plain bytes).
     pub fn byte_size(name: Option<String>) -> Self {
         Self::leaf(name, |text, path| match text {
-            Some(t) => parse_bytes(&t).map(|n| Value::Int(n)).ok_or_else(|| {
+            Some(t) => parse_bytes(&t).map(Value::Int).ok_or_else(|| {
                 vec![ConfigError::Invalid {
                     path,
                     got: t,
@@ -687,7 +687,7 @@ fn parse_bytes(s: &str) -> Option<i64> {
 /// Ports `packages/effect/src/LogLevel.ts`: levels order
 /// `All < Trace < Debug < Info < Warning < Error < Fatal < None`, and the
 /// default minimum is `Info`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum LogLevel {
     /// Everything passes.
     All,
@@ -696,6 +696,7 @@ pub enum LogLevel {
     /// Debugging detail.
     Debug,
     /// Default minimum.
+    #[default]
     Info,
     /// Potential problems.
     Warning,
@@ -705,12 +706,6 @@ pub enum LogLevel {
     Fatal,
     /// Nothing passes.
     None,
-}
-
-impl Default for LogLevel {
-    fn default() -> Self {
-        Self::Info
-    }
 }
 
 impl LogLevel {

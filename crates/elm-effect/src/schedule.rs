@@ -368,15 +368,15 @@ impl<In: Send + Sync + 'static, E: Send + 'static> LoopOptions<In, E> {
         if self.times.is_some_and(|times| attempt >= times) {
             return Ok(true);
         }
-        if let Some(until) = &self.until {
-            if until(input).run_sync_with(scope)? {
-                return Ok(true);
-            }
+        if let Some(until) = &self.until
+            && until(input).run_sync_with(scope)?
+        {
+            return Ok(true);
         }
-        if let Some(while_) = &self.while_ {
-            if !while_(input).run_sync_with(scope)? {
-                return Ok(true);
-            }
+        if let Some(while_) = &self.while_
+            && !while_(input).run_sync_with(scope)?
+        {
+            return Ok(true);
         }
         Ok(false)
     }

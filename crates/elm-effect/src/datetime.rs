@@ -161,7 +161,7 @@ impl PartialOrd for DateTime {
 
 thread_local! {
     static TEST_NOW_MILLIS: RefCell<Option<i64>> = const { RefCell::new(None) };
-    static CURRENT_ZONE: RefCell<Zone> = RefCell::new(Zone::Utc);
+    static CURRENT_ZONE: RefCell<Zone> = const { RefCell::new(Zone::Utc) };
 }
 
 /// Test override for `now*`: stands in for `TestClock.setTime` rows.
@@ -330,10 +330,8 @@ fn parse_iso(s: &str) -> Result<(jiff::Zoned, Zone), DateTimeError> {
 /// Space separators and `+HHMM` offsets, normalized for the parser.
 fn normalize_iso(s: &str) -> String {
     let mut t = s.trim().to_string();
-    if let Some(i) = t.find(' ') {
-        if t[..i].contains('-') {
-            t.replace_range(i..i + 1, "T");
-        }
+    if let Some(i) = t.find(' ').filter(|i| t[..*i].contains('-')) {
+        t.replace_range(i..i + 1, "T");
     }
     // `+1100` tail to `+11:00`.
     let bytes = t.as_bytes();
@@ -531,12 +529,12 @@ impl DateTime {
         let dt = self.zoned.datetime();
         Parts {
             year: dt.year(),
-            month: dt.month() as i8,
-            day: dt.day() as i8,
-            hour: dt.hour() as i8,
-            minute: dt.minute() as i8,
-            second: dt.second() as i8,
-            millis: (dt.millisecond()) as i16,
+            month: dt.month(),
+            day: dt.day(),
+            hour: dt.hour(),
+            minute: dt.minute(),
+            second: dt.second(),
+            millis: dt.millisecond(),
             weekday: weekday_number(dt.weekday()),
         }
     }

@@ -11,7 +11,13 @@
 //!   never catches.
 //! - Phase 1 has zero `unsafe`.
 
-mod basics;
+// The port's shapes are higher-order by nature: an `Effect` is a boxed
+// transition over boxed handlers, and a family of erased signatures is the
+// pin's own model. Alias-mongering would rename the pin's types rather than
+// describe them, so the complexity lint is off for this crate.
+#![allow(clippy::type_complexity)]
+
+pub mod basics;
 // The `data/` values a schema family speaks for: byte counts and arbitrary
 // precision decimals, the chunk sequence and the regexp pattern. The rest of
 // the `data/` tree stays test-only.
@@ -28,23 +34,23 @@ pub mod nonempty;
 #[path = "data/regexp.rs"]
 pub mod regexp;
 pub mod cause;
-mod channel;
+pub mod channel;
 #[cfg(feature = "tokio")]
 mod concurrency;
 mod config;
-mod config_provider;
+pub mod config_provider;
 mod context;
 mod crypto;
 // `Schema.Date` speaks for `DateTime`, so the module is part of the surface
 // rather than only the test targets that include it by path.
 pub mod datetime;
-mod effect;
-mod execution_plan;
+pub mod effect;
+pub mod execution_plan;
 #[cfg(feature = "tokio")]
 mod executor;
 mod exit;
 #[cfg(feature = "tokio")]
-mod fiber;
+pub mod fiber;
 // `Schema.File` speaks for this value, so it is part of the surface.
 pub mod file;
 pub mod filesystem;
@@ -54,7 +60,7 @@ mod foundation;
 // rather than only the test targets that include it by path.
 pub mod graph;
 mod json;
-mod json_patch;
+pub mod json_patch;
 mod json_pointer;
 mod json_schema;
 #[cfg(feature = "tokio")]
@@ -63,18 +69,18 @@ mod metric;
 mod optic;
 pub mod observability;
 mod partitioned_semaphore;
-mod path;
-mod platform_error;
+pub mod path;
+pub mod platform_error;
 #[cfg(feature = "tokio")]
 mod policy;
 pub mod predicate;
 mod pubsub;
 pub mod request;
-mod pull;
+pub mod pull;
 #[cfg(feature = "tokio")]
 mod runtime;
 mod schedule;
-mod scheduler;
+pub mod scheduler;
 #[cfg(feature = "schema")]
 mod schema_adapter;
 #[cfg(feature = "schema")]
@@ -108,14 +114,14 @@ mod service;
 mod stm;
 #[cfg(feature = "tokio")]
 mod stream;
-mod subscription_ref;
+pub mod subscription_ref;
 #[cfg(feature = "tokio")]
 mod supervision;
 mod supervisor;
-mod sync;
-mod take;
+pub mod sync;
+pub mod take;
 mod time;
-mod utils_gen;
+pub mod utils_gen;
 
 pub use bigdecimal::Decimal;
 pub use byte_size::ByteSize;

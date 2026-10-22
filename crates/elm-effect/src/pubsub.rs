@@ -306,13 +306,12 @@ impl<A: Clone> PubSub<A> {
                 }
                 let mut full = false;
                 for weak in guard.iter() {
-                    if let Some(sub) = weak.upgrade() {
-                        if *sub.live.lock().unwrap()
-                            && sub.queue.lock().unwrap().len() >= self.inner.capacity
-                        {
-                            full = true;
-                            break;
-                        }
+                    if let Some(sub) = weak.upgrade()
+                        && *sub.live.lock().unwrap()
+                        && sub.queue.lock().unwrap().len() >= self.inner.capacity
+                    {
+                        full = true;
+                        break;
                     }
                 }
                 if !full {

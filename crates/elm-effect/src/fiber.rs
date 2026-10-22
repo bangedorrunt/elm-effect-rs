@@ -158,7 +158,7 @@ impl FiberControl {
     pub(crate) fn unmask(&self) {
         let _ = self
             .depth
-            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |depth| {
+            .try_update(Ordering::SeqCst, Ordering::SeqCst, |depth| {
                 Some(depth.saturating_sub(1))
             });
     }
@@ -312,28 +312,6 @@ impl Fiber {
         };
         self.driver
             .spawn(body, Some(self.control.id), Vec::new(), opts.start, mask)
-    }
-
-    /// Run a sync-only effect as this fiber's child, inheriting `ambient` (the
-    /// services the parent's run resolved) with the fiber tag swapped for the
-    /// child's own, so `with_fiber` inside it reports the child.
-    pub(crate) fn fork_effect<A, E, R>(
-        &self,
-        effect: Effect<A, E, R>,
-        ambient: crate::service::Services,
-    ) -> FiberHandle<A, E>
-    where
-        A: Send + 'static,
-        E: Send + 'static,
-        R: crate::effect::Requirement,
-    {
-        self.fork_effect_bound(
-            effect,
-            ambient,
-            true,
-            Vec::new(),
-            ForkOpts::deferred(),
-        )
     }
 
     /// The one spawn entry the four `Effect.fork*` forms share: `parented`
