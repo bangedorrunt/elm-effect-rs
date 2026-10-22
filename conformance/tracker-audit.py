@@ -66,6 +66,61 @@ def resolve(repo: Path, shas: list[str]) -> dict[str, str]:
     return found
 
 
+CLOSED_ROW = {"ported", "not-applicable", "skipped-upstream"}
+
+
+def ledger() -> list[list[str]]:
+    path = ROOT / "conformance/behavior-tests.tsv"
+    if not path.exists():
+        return []
+    rows = [line.rstrip("\n").split("\t") for line in path.read_text().splitlines() if line.strip()]
+    return [r for r in rows if len(r) > 3 and not r[0].startswith("#") and r[0] != "status"]
+
+
+def check_ledger(rows: list[list[str]]) -> tuple[list[str], list[str]]:
+    """The two claims a bead or module row can make that the ledger can falsify.
+
+    A tombstone is a bead retired without ever being closed, so its title is
+    the only statement of what it would have ported. If the test it names
+    still has open rows, the retirement hid work rather than dropping it.
+
+    A `matched` module with no ported row is parity theatre: every row was
+    excused, so nothing was carried. An excused row cannot buy parity.
+    """
+    import collections
+
+    open_rows: collections.Counter[str] = collections.Counter()
+    ported: collections.Counter[str] = collections.Counter()
+    for status, path, *_ in rows:
+        if status not in CLOSED_ROW:
+            open_rows[path] += 1
+        elif status == "ported":
+            ported[path] += 1
+
+    hard, warn = [], []
+    for issue in load("issues.jsonl"):
+        if issue.get("status") != "tombstone":
+            continue
+        name = (issue.get("title") or "").removeprefix("Port ").split(" ")[0]
+        hidden = [p for p in open_rows if p.rsplit("/", 1)[-1].startswith(name)]
+        if hidden:
+            hard.append(f"{issue['id']}: tombstoned but {hidden[0]} still has open rows")
+        if not issue.get("close_reason"):
+            warn.append(f"{issue['id']}: tombstoned with no reason recorded")
+
+    modules_path = ROOT / "conformance/modules.toml"
+    if modules_path.exists():
+        import tomllib
+
+        for module in tomllib.loads(modules_path.read_text())["module"]:
+            if module["status"] == "matched" and module.get("tests"):
+                if sum(ported.get(t, 0) for t in module["tests"]) == 0:
+                    hard.append(
+                        f"{module['path']}: matched with no ported row (every row excused)"
+                    )
+    return hard, warn
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -121,6 +176,10 @@ def main() -> int:
                 warn.append(f"{iid}: pre-ceremony close, no gate row possible")
         if not issue.get("close_verdict"):
             warn.append(f"{iid}: no close_verdict recorded")
+
+    ledger_hard, ledger_warn = check_ledger(ledger())
+    hard += ledger_hard
+    warn += ledger_warn
 
     statuses = collections.Counter(i.get("status") for i in issues)
     verdicts = collections.Counter(i.get("close_verdict") for i in closed)
