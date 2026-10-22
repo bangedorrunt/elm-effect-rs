@@ -45,6 +45,8 @@ mod executor;
 mod exit;
 #[cfg(feature = "tokio")]
 mod fiber;
+// `Schema.File` speaks for this value, so it is part of the surface.
+pub mod file;
 pub mod filesystem;
 mod formatter;
 mod foundation;
@@ -94,6 +96,8 @@ mod schema_duration;
 #[cfg(feature = "schema")]
 mod schema_exit;
 #[cfg(feature = "schema")]
+mod schema_file;
+#[cfg(feature = "schema")]
 mod schema_parser;
 #[cfg(feature = "schema")]
 mod schema_regexp;
@@ -140,6 +144,7 @@ pub use elm_effect_schema::{Schema, SchemaError, StructValue, Unknown};
 #[cfg(feature = "tokio")]
 pub use executor::{BoxFuture, Executor, TokioExecutor};
 pub use exit::Exit;
+pub use file::File;
 #[cfg(feature = "tokio")]
 pub use fiber::{Ctx, Fiber, FiberHandle, ForkOpts, Mask, StartMode};
 pub use foundation::{
@@ -194,6 +199,8 @@ pub use schema_defect::defect_schema;
 pub use schema_duration::{duration_from_millis, duration_from_string};
 #[cfg(feature = "schema")]
 pub use schema_exit::{ExitSchema, exit_schema};
+#[cfg(feature = "schema")]
+pub use schema_file::file;
 #[cfg(feature = "schema")]
 pub use schema_graph::graph;
 #[cfg(feature = "schema")]

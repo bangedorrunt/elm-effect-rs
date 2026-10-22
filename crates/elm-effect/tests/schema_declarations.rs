@@ -12,7 +12,8 @@
 //! and `Exit` are this crate's own types, and the dependency runs the other way.
 
 use elm_effect::{
-    Kind, cause_reason_schema, cause_schema, date, declaration_revivers, exit_schema, graph,
+    File, Kind, cause_reason_schema, cause_schema, date, declaration_revivers, exit_schema, file,
+    graph,
 };
 use elm_effect_schema::representation_doc::{
     Document, ReprError, from_json, from_representation_with_declarations, to_json,
@@ -181,6 +182,56 @@ fn a_date_codec_reads_and_writes_the_iso_text() {
             .contains("a string that will be decoded as a Date"),
         "{error}"
     );
+}
+
+/// `builtInRevivers.test.ts:984` `revives File`.
+#[test]
+fn revives_file() {
+    assert_declaration_reviver(
+        Schema::as_unknown(file()),
+        "effect/schema/File",
+        elm_effect_schema::serde_json::Value::Null,
+        "Schema.File",
+    );
+}
+
+/// `Schema.File`'s JSON codec is `{ data, type, name, lastModified }` with the
+/// bytes Base64-encoded, and a `data` the decoder cannot read is refused at its
+/// own key.
+#[test]
+fn a_file_codec_reads_and_writes_the_wire_object() {
+    let schema = file();
+    let wire = elm_effect_schema::serde_json::json!({
+        "data": "aGVsbG8=",
+        "type": "text/plain",
+        "name": "greeting.txt",
+        "lastModified": 1_704_067_200_000_i64
+    });
+    let value = schema
+        .decode(Unknown::from_json(wire.clone()))
+        .expect("the pin's shape decodes");
+    assert_eq!(value.data(), b"hello");
+    assert_eq!(value.name(), "greeting.txt");
+    assert_eq!(value.media_type(), "text/plain");
+    assert_eq!(value.last_modified(), 1_704_067_200_000);
+    assert_eq!(value.size(), 5);
+    assert_eq!(
+        schema.try_encode(&value).expect("encodes"),
+        Unknown::from_json(wire),
+        "the wire object round-trips",
+    );
+
+    let error = schema
+        .decode(Unknown::from_json(elm_effect_schema::serde_json::json!({
+            "data": "aGVsbG8",
+            "type": "text/plain",
+            "name": "greeting.txt",
+            "lastModified": 0
+        })))
+        .expect_err("unpadded Base64 is the malformed form");
+    assert!(error.to_string().contains("a valid Base64 string"), "{error}");
+
+    assert_eq!(File::new(b"hi".to_vec(), "a", "text/plain", 0).size(), 2);
 }
 
 /// The three rules the graph itself enforces: indexes increase, endpoints are

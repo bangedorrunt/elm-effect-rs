@@ -6,10 +6,8 @@
 //! their revivers do too; [`declaration_revivers`] is composed after the schema
 //! crate's builtins by whoever revives a document that may hold one.
 //!
-//! Only the adapters whose types this crate exports appear here. `Schema.File`
-//! speaks for a browser `File`, which this crate has no type for, so its
-//! reviver has no shipped constructor to rebuild; every other declaration this
-//! crate writes is below.
+//! Every declaration this crate writes is below, and each one rebuilds the
+//! constructor beside the value type it speaks for.
 //!
 //! Each reviver answers `Schema<Unknown>`, because a revived document speaks
 //! the wire language: the adapter is re-typed through [`Schema::as_unknown`],
@@ -24,6 +22,7 @@ use crate::schema_chunk::chunk;
 use crate::schema_data::byte_size;
 use crate::schema_datetime::date;
 use crate::schema_exit::exit_schema;
+use crate::schema_file::file;
 use crate::schema_graph::graph;
 use crate::schema_regexp::regexp;
 
@@ -71,6 +70,10 @@ pub fn declaration_revivers() -> Vec<DeclarationReviver> {
             let edge = parameters.remove(1);
             let node = parameters.remove(0);
             Ok(Schema::as_unknown(graph(kind, node, edge)))
+        }),
+        DeclarationReviver::new("effect/schema/File", |input| {
+            parameters("effect/schema/File", input, 0)?;
+            Ok(Schema::as_unknown(file()))
         }),
         DeclarationReviver::new("effect/schema/CauseReason", |input| {
             let mut parameters = parameters("effect/schema/CauseReason", input, 2)?;

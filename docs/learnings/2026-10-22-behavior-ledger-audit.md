@@ -13,8 +13,8 @@ The audit (below) found claims in both directions: rows marked done that no
 test asserted, and rows excused on reasons the code had since invalidated. All
 155 rows it named are repaired.
 
-Final state: **6,143 ported, 3,768 not-applicable, 56 skipped-upstream, 3
-unported.** The open rows fell 41 → 3 across the eight passes; the rows those
+Final state: **6,144 ported, 3,768 not-applicable, 56 skipped-upstream, 2
+unported.** The open rows fell 41 → 2 across the nine passes; the rows those
 passes ported beyond the open count had been excused, not open.
 `Effect.ts` is now `matched` (every one of its rows is ported); `Arbitrary.ts`
 stays `unmatched` on its two remaining rows; `Channel.ts` came back to `matched`
@@ -271,6 +271,19 @@ is now scoped to the `schema_*` adapter files, which is the check that would
 have caught it. Each of the ten rows now names only the schema its own test
 needs, and two of them (Date, RegExp) are ported rather than excused.
 
+## Ninth pass: File, and the last constructor
+
+`Schema.File` was the one declaration left with no value type. The pin's is an
+`instanceOf(globalThis.File)`, which Rust has nothing to take the shape from, so
+the port now owns the value: `File { data, media_type, name, last_modified }`
+with the pin's four wire keys, `data` carried as the bytes rather than as text.
+The schema refuses a `data` that is not standard Base64 with the pin's own
+message, and reuses the encoder the `StringFromBase64` rows already exercise
+rather than adding a dependency for it.
+
+That is row 984, and it closes the `builtInRevivers` family: every declaration
+this crate writes now has a constructor, a codec, and a reviver.
+
 **Evidence gap, unrelated to the ledger.** `cargo test --workspace` does not
 build targets carrying `required-features`, so every "4,360 passed" earlier in
 this campaign excluded every schema fence in `crates/elm-effect/tests`. The
@@ -359,10 +372,9 @@ still name no API, no file, no line. 83 test files have zero ported rows.
 
 - Every `ported` row now names a test that exists and reaches port code
   (`python3 conformance/witness-audit.py` exits 0).
-- 3 rows are open (`Arbitrary.test.ts:1627` and `:1817`, and
-  `builtInRevivers.test.ts:984`). That is the honest number, and `matched` is
-  derived from it, so `Arbitrary.ts` cannot claim parity while its two rows are
-  open.
+- 2 rows are open (`Arbitrary.test.ts:1627` and `:1817`). That is the honest
+  number, and `matched` is derived from it, so `Arbitrary.ts` cannot claim
+  parity while its two rows are open.
 - 2,615 excuses are narrative: they state a cause but name no API, file or
   line. They were not re-adjudicated here and should not be read as verified.
   What the second pass did verify is the part a file can answer: every cited

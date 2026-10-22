@@ -187,6 +187,19 @@ const BASE64_STANDARD: &[u8; 64] =
     b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 const BASE64_URL: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
+/// The standard-alphabet Base64 text for these bytes. Public because the
+/// `Schema.File` adapter outside this crate carries a blob through the same
+/// two functions its own `StringFromBase64` uses.
+pub fn base64_bytes_encode(bytes: &[u8]) -> String {
+    base64_encode(bytes, false)
+}
+
+/// The bytes a standard-alphabet Base64 text carries, or `None` when the text
+/// is malformed or its padding is not the standard form's.
+pub fn base64_bytes_decode(text: &str) -> Option<Vec<u8>> {
+    base64_decode(text, false)
+}
+
 fn base64_alphabet(url: bool) -> &'static [u8; 64] {
     if url { BASE64_URL } else { BASE64_STANDARD }
 }
