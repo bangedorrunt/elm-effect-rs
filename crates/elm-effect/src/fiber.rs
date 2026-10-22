@@ -327,7 +327,37 @@ impl Fiber {
         E: Send + 'static,
         R: crate::effect::Requirement,
     {
-        self.fork_child(
+        self.fork_effect_bound(
+            effect,
+            ambient,
+            true,
+            Vec::new(),
+            ForkOpts::deferred(),
+        )
+    }
+
+    /// The one spawn entry the four `Effect.fork*` forms share: `parented`
+    /// decides whether the child dies with this fiber, `scopes` are the extra
+    /// scopes whose close interrupts it, and `opts` decides when it starts.
+    pub(crate) fn fork_effect_bound<A, E, R>(
+        &self,
+        effect: Effect<A, E, R>,
+        ambient: crate::service::Services,
+        parented: bool,
+        scopes: Vec<Arc<Scope>>,
+        opts: ForkOpts,
+    ) -> FiberHandle<A, E>
+    where
+        A: Send + 'static,
+        E: Send + 'static,
+        R: crate::effect::Requirement,
+    {
+        let mask = match opts.mask {
+            Mask::Inherit => self.control.depth.load(Ordering::SeqCst) > 0,
+            Mask::On => true,
+            Mask::Off => false,
+        };
+        self.driver.spawn(
             move |ctx| {
                 let mut maps = (*ambient).clone();
                 maps.replace_tag(<FiberTag as crate::ServiceTag>::ID, Arc::new(ctx.fiber()));
@@ -337,7 +367,10 @@ impl Fiber {
                     Err(cause) => Exit::Failure(cause),
                 }
             },
-            ForkOpts::deferred(),
+            parented.then(|| self.control.id),
+            scopes,
+            opts.start,
+            mask,
         )
     }
 

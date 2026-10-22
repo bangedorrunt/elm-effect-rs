@@ -357,7 +357,7 @@ impl Runtime {
         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| effect.run_sync())) {
             Ok(Ok(a)) => Exit::Success(a),
             Ok(Err(cause)) => Exit::Failure(cause),
-            Err(payload) => Exit::Failure(Cause::die(edge_defect(payload))),
+            Err(payload) => Exit::Failure(Cause::die(defect_from_panic(payload))),
         }
     }
 
@@ -396,7 +396,9 @@ impl Runtime {
 /// Render an edge panic as a defect. Same shape as the supervisor's
 /// payload rendering; kept local so the edge owns its boundary.
 // ponytail: mirrors supervisor::defect_from_payload; unify if a third renderer appears.
-fn edge_defect(payload: Box<dyn std::any::Any + Send>) -> Defect {
+/// A panic payload as a [`Defect`]. Shared with `Effect::on_exit`, which
+/// turns a panicking finalizer into a defect beside the body's reasons.
+pub(crate) fn defect_from_panic(payload: Box<dyn std::any::Any + Send>) -> Defect {
     let message = payload
         .downcast_ref::<&str>()
         .map(|s| s.to_string())
@@ -553,7 +555,7 @@ impl ManagedRuntime {
         {
             Ok(Ok(a)) => Exit::Success(a),
             Ok(Err(cause)) => Exit::Failure(cause),
-            Err(payload) => Exit::Failure(Cause::die(edge_defect(payload))),
+            Err(payload) => Exit::Failure(Cause::die(defect_from_panic(payload))),
         }
     }
 

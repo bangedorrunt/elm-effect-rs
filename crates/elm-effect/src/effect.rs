@@ -337,8 +337,105 @@ where
 /// pin's default (a `yieldNow`, an await, or the parent's own completion
 /// fires it).
 #[cfg(feature = "tokio")]
+/// `Effect.acquireUseRelease` as a step.
+#[cfg(feature = "tokio")]
+struct AcquireUseRelease<A: Send + 'static, B: Send + 'static, E: Send + 'static, R: Requirement, U, Rel>
+{
+    acquire: Effect<A, E, R>,
+    use_fn: U,
+    release_fn: Rel,
+    env: crate::service::Services,
+    marker: PhantomData<fn() -> (A, B, E)>,
+}
+
+#[cfg(feature = "tokio")]
+impl<A, B, E, R, U, Rel> ErasedStep<B, E> for AcquireUseRelease<A, B, E, R, U, Rel>
+where
+    A: Clone + Send + 'static,
+    B: Send + 'static,
+    E: PartialEq + Send + 'static,
+    R: Requirement,
+    U: FnOnce(A) -> Effect<B, E, R> + Send + 'static,
+    Rel: FnOnce(A, &Exit<B, E>) -> Effect<(), E> + Send + 'static,
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<B, Cause<E>> {
+        let Self {
+            acquire,
+            use_fn,
+            release_fn,
+            env,
+            ..
+        } = *self;
+        let services = crate::service::merged_services(scope, &env);
+        let fiber = ambient_fiber(&services);
+
+        // Acquire: masked at the pin, so an interrupt requested here waits for
+        // it to finish.
+        let resource = match &fiber {
+            Some(fiber) => fiber.with_masked(|| acquire.run_sync_with(&services)),
+            None => acquire.run_sync_with(&services),
+        }?;
+
+        // Between the phases the use is interruptible. An interrupt that landed
+        // during the masked acquire ends the region here: no use, still a
+        // release. A caller mask keeps it pending instead, so the check only
+        // fires when nothing is masking at this point.
+        if let Some(live) = &fiber {
+            if live.is_interrupted() && !live.is_masked() {
+                let use_exit: Exit<B, E> = Exit::Failure(Cause::interrupt(Some(live.id())));
+                let released = live.with_masked(|| {
+                    release_fn(resource, &use_exit).run_sync_with(&services)
+                });
+                return match released {
+                    Ok(()) => Err(Cause::interrupt(Some(live.id()))),
+                    Err(release) => {
+                        Err(release.combine(Cause::interrupt(Some(live.id()))))
+                    }
+                };
+            }
+        }
+
+        // Use: interruptible, and a panic is a defect the release can see.
+        let used = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            use_fn(resource.clone()).run_sync_with(&services)
+        }));
+        let use_exit = match used {
+            Ok(Ok(value)) => Exit::Success(value),
+            Ok(Err(cause)) => Exit::Failure(cause),
+            Err(payload) => Exit::Failure(Cause::die(crate::runtime::defect_from_panic(payload))),
+        };
+        // Release: masked at the pin, so it runs to completion after an
+        // interrupt and is the last thing the region does.
+        let released = match &fiber {
+            Some(fiber) => fiber.with_masked(|| {
+                release_fn(resource, &use_exit).run_sync_with(&services)
+            }),
+            None => release_fn(resource, &use_exit).run_sync_with(&services),
+        };
+        match (use_exit, released) {
+            (Exit::Success(value), Ok(())) => Ok(value),
+            (Exit::Success(_), Err(release)) => Err(release),
+            (Exit::Failure(used), Ok(())) => Err(used),
+            (Exit::Failure(used), Err(release)) => Err(used.combine(release)),
+        }
+    }
+}
+
+/// Where a forked fiber is bound beyond its parent: nowhere, the ambient
+/// scope `Effect::scoped` installed, or a scope the caller named.
+enum ForkScopes {
+    None,
+    Ambient,
+    Given(std::sync::Arc<crate::Scope>),
+}
+
 struct ForkChild<A: Send + 'static, E: Send + 'static, R: Requirement> {
     inner: Effect<A, E, R>,
+    /// `true` for the child forms: the child dies with this fiber. `false` for
+    /// the daemon (`forkDetach`), which outlives it.
+    parented: bool,
+    scopes: ForkScopes,
+    opts: crate::ForkOpts,
     marker: PhantomData<fn() -> (A, E, R)>,
 }
 
@@ -353,13 +450,34 @@ where
         self: Box<Self>,
         scope: &crate::service::Services,
     ) -> Result<crate::fiber::FiberHandle<A, E>, Cause<E>> {
-        let Self { inner, .. } = *self;
-        match ambient_fiber(scope) {
-            Some(fiber) => Ok(fiber.fork_effect(inner, Arc::clone(scope))),
-            None => Err(Cause::die(Defect::new(
+        let Self {
+            inner,
+            parented,
+            scopes,
+            opts,
+            ..
+        } = *self;
+        let Some(fiber) = ambient_fiber(scope) else {
+            return Err(Cause::die(Defect::new(
                 "forkChild outside a fiber: run the effect through Ctx::spawn_effect or Runtime::spawn_effect",
-            ))),
-        }
+            )));
+        };
+        let scopes = match scopes {
+            ForkScopes::None => Vec::new(),
+            ForkScopes::Given(bound) => vec![bound],
+            // `Effect::scoped` is the only thing that installs the tag, so a
+            // missing one means the fork ran outside a scope: a defect, not a
+            // silent root binding.
+            ForkScopes::Ambient => match ambient_scope(scope) {
+                Some(bound) => vec![bound],
+                None => {
+                    return Err(Cause::die(Defect::new(
+                        "forkScoped outside a scope: wrap the effect in Effect::scoped",
+                    )));
+                }
+            },
+        };
+        Ok(fiber.fork_effect_bound(inner, Arc::clone(scope), parented, scopes, opts))
     }
 }
 
@@ -708,6 +826,14 @@ where
     E: Send + 'static,
     R: Requirement,
 {
+    // A value-level source is ready when the race starts, and the pin's race
+    // gives a ready source the tie against a zero-duration deadline (row 1864).
+    // Reading that off the step rather than polling for it keeps the answer
+    // deterministic under load. `Sync` is deliberately not in this set: a thunk
+    // may block, and a blocking body must still lose to its deadline.
+    if matches!(inner.step, Step::Succeed(_) | Step::Fail(_)) {
+        return inner.run_sync_with(services).map(Some);
+    }
     let Some(fiber) = ambient_fiber(services) else {
         return Err(Cause::die(Defect::new(
             "timeout outside a fiber: run the effect through Ctx::spawn_effect or Runtime::spawn_effect",
@@ -728,6 +854,15 @@ where
         crate::ForkOpts::immediate(),
     );
     loop {
+        // The deadline is read before the child's completion, not after: once
+        // the timeout has fired the source has lost, and a source that lands a
+        // moment later must not win the answer (row 1878). A source that is
+        // already done is handled by the ready-step check above.
+        if clock.now_millis() >= deadline {
+            child.interrupt();
+            let _ = child.join();
+            return Ok(None);
+        }
         if child.is_done() {
             return match child.join() {
                 Exit::Success(value) => Ok(Some(value)),
@@ -738,11 +873,6 @@ where
             child.interrupt();
             let _ = child.join();
             return Err(Cause::interrupt(Some(fiber.id())));
-        }
-        if clock.now_millis() >= deadline {
-            child.interrupt();
-            let _ = child.join();
-            return Ok(None);
         }
         // ponytail: 1ms poll; the clock has no notification channel to wait on.
         std::thread::park_timeout(std::time::Duration::from_millis(1));
@@ -1072,6 +1202,28 @@ impl<A: Send + 'static, E: Send + 'static> Resume<A, E> {
     }
 }
 
+/// Run an `onExit`-family callback, answering the defect when it panicked.
+///
+/// The callback is taken exactly once (the slot is `None` afterwards). A
+/// panic here is the port's spelling of the pin's `throw` inside a finalizer:
+/// a defect that rides beside the body's own reasons instead of unwinding
+/// past the caller's `exit()`.
+fn run_finalizer<A, E, F>(
+    slot: &std::sync::Arc<std::sync::Mutex<Option<F>>>,
+    exit: &Exit<A, E>,
+) -> Option<Defect>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    F: FnOnce(&Exit<A, E>) + Send + 'static,
+{
+    let callback = slot.lock().ok()?.take()?;
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| callback(exit))) {
+        Ok(()) => None,
+        Err(payload) => Some(crate::runtime::defect_from_panic(payload)),
+    }
+}
+
 /// `Effect.callback` as a step: register, then park until the registration
 /// answers or the fiber is interrupted.
 ///
@@ -1392,9 +1544,78 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// Outside a fiber there is nothing to fork from, so asking is a defect.
     #[cfg(feature = "tokio")]
     pub fn fork_child(self) -> Effect<crate::fiber::FiberHandle<A, E>, E, R> {
+        self.fork_with(true, ForkScopes::None, crate::ForkOpts::deferred())
+    }
+
+    /// `Effect.forkChild({ startImmediately: true })`: the child is eligible
+    /// to run before the parent's next yield, which is what lets an interrupt
+    /// the parent receives find the child already running (and run its
+    /// finalizers).
+    #[cfg(feature = "tokio")]
+    pub fn fork_child_immediate(self) -> Effect<crate::fiber::FiberHandle<A, E>, E, R> {
+        self.fork_with(true, ForkScopes::None, crate::ForkOpts::immediate())
+    }
+
+    /// `Effect.forkDetach` at the pin: a daemon child. It starts at once, it
+    /// does not die with this fiber, and this fiber's completion does not wait
+    /// for it.
+    #[cfg(feature = "tokio")]
+    pub fn fork_detach(self) -> Effect<crate::fiber::FiberHandle<A, E>, E, R> {
+        self.fork_with(false, ForkScopes::None, crate::ForkOpts::immediate())
+    }
+
+    /// `Effect.forkIn(scope)` at the pin: a child bound to `scope`, so closing
+    /// the scope interrupts it and runs its finalizers.
+    #[cfg(feature = "tokio")]
+    pub fn fork_in(
+        self,
+        scope: std::sync::Arc<crate::Scope>,
+    ) -> Effect<crate::fiber::FiberHandle<A, E>, E, R> {
+        self.fork_with(true, ForkScopes::Given(scope), crate::ForkOpts::immediate())
+    }
+
+    /// `Effect.forkScoped` at the pin: a child bound to the ambient scope.
+    ///
+    /// The scope comes from `Effect::scoped`, which is the only thing that
+    /// installs [`ScopeTag`](crate::scope::ScopeTag); the pin's `Scope.provide`
+    /// is that wrap here, since this port has no ambient service layer to
+    /// provide a scope into.
+    #[cfg(feature = "tokio")]
+    pub fn fork_scoped(
+        self,
+    ) -> Effect<
+        crate::fiber::FiberHandle<A, E>,
+        E,
+        crate::service::Cons<crate::scope::ScopeTag, R>,
+    > {
         Effect {
             step: Step::Suspend(Box::new(ForkChild {
                 inner: self,
+                parented: true,
+                scopes: ForkScopes::Ambient,
+                opts: crate::ForkOpts::immediate(),
+                marker: PhantomData,
+            })),
+            services: crate::service::empty_services(),
+            marker: PhantomData,
+        }
+    }
+
+    /// The shared body of the four `fork*` constructors: only the parent
+    /// link, the bound scopes and the start mode differ.
+    #[cfg(feature = "tokio")]
+    fn fork_with(
+        self,
+        parented: bool,
+        scopes: ForkScopes,
+        opts: crate::ForkOpts,
+    ) -> Effect<crate::fiber::FiberHandle<A, E>, E, R> {
+        Effect {
+            step: Step::Suspend(Box::new(ForkChild {
+                inner: self,
+                parented,
+                scopes,
+                opts,
                 marker: PhantomData,
             })),
             services: crate::service::empty_services(),
@@ -1597,6 +1818,43 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
+    /// `Effect.acquireUseRelease` at the pin: acquire a resource, run `use`
+    /// with it, then release it whatever the use did.
+    ///
+    /// Masking follows the pin phase by phase: the acquire and the release are
+    /// uninterruptible, the use is not. So an interrupt that lands during the
+    /// acquire still completes it, the use is then skipped, and the release
+    /// runs anyway (row 315). A caller that wraps the whole thing in
+    /// `uninterruptible` defers that interrupt past the use instead (row 370).
+    ///
+    /// The release receives the resource and the use's [`Exit`], which is how
+    /// the pin lets a cleanup react to how the body ended. A panicking use
+    /// becomes a defect in that exit, and the release still runs. When both
+    /// the use and the release fail, both are kept (the pin's `Cause.combine`).
+    ///
+    /// `E: PartialEq` because merging two failures is `Cause::combine`, which
+    /// dedups equal reasons - the pin's own `Equal`/`Hash` rule.
+    pub fn acquire_use_release<B, U, Rel>(self, use_fn: U, release_fn: Rel) -> Effect<B, E, R>
+    where
+        A: Clone + Send + 'static,
+        B: Send + 'static,
+        E: PartialEq,
+        U: FnOnce(A) -> Effect<B, E, R> + Send + 'static,
+        Rel: FnOnce(A, &Exit<B, E>) -> Effect<(), E> + Send + 'static,
+    {
+        let env = std::sync::Arc::clone(&self.services);
+        Effect::suspend_op(
+            AcquireUseRelease {
+                acquire: self,
+                use_fn,
+                release_fn,
+                env: std::sync::Arc::clone(&env),
+                marker: PhantomData,
+            },
+            env,
+        )
+    }
+
     /// `Effect.onExit` at the pin: observe the finished exit, then pass the
     /// original outcome through unchanged. The callback sees exactly the
     /// `Exit` a caller would (success, typed failure, defect, or interrupt),
@@ -1606,6 +1864,11 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// The callback borrows the exit rather than owning it, so no `Clone`
     /// bound on `E` is imposed (the pin hands the exit over by value; a
     /// shared reference carries the same observable claim).
+    ///
+    /// A panicking callback is a defect, the way a panicking body is: the
+    /// panic is caught here and merged into the cause, so `onExit(throwing)`
+    /// on a success is `Exit.die` and on an interrupt it is
+    /// `[Interrupt, Die]` rather than an unwind past the caller's `exit()`.
     pub fn on_exit<F>(self, f: F) -> Self
     where
         F: FnOnce(&Exit<A, E>) + Send + 'static,
@@ -1615,21 +1878,25 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         self.fold_e(
             move |value| {
                 let exit = Exit::Success(value);
-                if let Some(cb) = success_slot.lock().unwrap().take() {
-                    cb(&exit);
-                }
-                match exit {
-                    Exit::Success(a) => Effect::succeed(a),
-                    Exit::Failure(_cause) => unreachable!("just built as success"),
+                let defect = run_finalizer(&success_slot, &exit);
+                match (exit, defect) {
+                    (Exit::Success(a), None) => Effect::succeed(a),
+                    (_, Some(defect)) => Effect::fail_with(Cause::die(defect)),
+                    (Exit::Failure(_), None) => unreachable!("just built as success"),
                 }
             },
             move |cause| {
                 let exit = Exit::Failure(cause);
-                if let Some(cb) = failure_slot.lock().unwrap().take() {
-                    cb(&exit);
-                }
+                let defect = run_finalizer(&failure_slot, &exit);
                 match exit {
-                    Exit::Failure(cause) => Effect::fail_with(cause),
+                    Exit::Failure(mut cause) => {
+                        // The finalizer's own defect rides beside the body's
+                        // reasons, after them, as the pin combines the two.
+                        if let Some(defect) = defect {
+                            cause.reasons.push(Reason::Die(defect));
+                        }
+                        Effect::fail_with(cause)
+                    }
                     Exit::Success(_) => unreachable!("just built as failure"),
                 }
             },
@@ -2204,6 +2471,13 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
 fn ambient_fiber(scope: &crate::service::Services) -> Option<crate::fiber::Fiber> {
     let any = scope.get_tag(<crate::fiber::FiberTag as crate::ServiceTag>::ID)?;
     any.downcast_ref::<crate::fiber::Fiber>().cloned()
+}
+
+/// The scope `Effect::scoped` installed for this run, if any.
+#[cfg(feature = "tokio")]
+fn ambient_scope(scope: &crate::service::Services) -> Option<std::sync::Arc<crate::Scope>> {
+    let any = scope.get_tag(<crate::scope::ScopeTag as crate::ServiceTag>::ID)?;
+    any.downcast_ref::<std::sync::Arc<crate::Scope>>().cloned()
 }
 
 /// One step of the interpreter: resolve the step's own services, then hand it

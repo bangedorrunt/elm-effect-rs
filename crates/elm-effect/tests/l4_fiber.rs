@@ -1668,6 +1668,82 @@ fn timeout_or_else_can_die_on_its_own_terms() {
     assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
 
+/// :1864 `a ready source value is not confused with a zero-duration timeout`.
+/// The source is ready when the race starts, so the answer is its own value and
+/// the fallback never runs.
+#[test]
+fn a_ready_source_beats_a_zero_duration_timeout() {
+    let fallback_ran = flag();
+    let ran = fallback_ran.clone();
+    let effect = Effect::<Option<&'static str>, String>::succeed(None)
+        .timeout_or_else(
+            EffectDuration::ZERO,
+            Effect::sync(move || {
+                ran.store(true, Ordering::SeqCst);
+                Some("unexpected fallback")
+            }),
+        )
+        .provide::<ClockTag, ()>(Arc::new(SystemClock) as Arc<dyn ClockImpl>);
+
+    assert_eq!(
+        Runtime::run(effect),
+        Exit::<Option<&'static str>, String>::Success(None)
+    );
+    assert!(!is_set(&fallback_ran), "the fallback must not run");
+}
+
+/// :1878 `slow fallback cannot let the original source win after timeout`.
+/// The deadline fires first and the source is interrupted at its park, so a
+/// source that would have finished a few milliseconds later still loses.
+#[test]
+fn a_late_source_does_not_win_after_the_timeout() {
+    let source_finished = flag();
+    let finished = source_finished.clone();
+
+    // The source is resumed a moment after the deadline has already fired: it
+    // has lost, and its value must not become the answer.
+    let (resume_tx, resume_rx) = mpsc::channel();
+    let interrupted = flag();
+    let source_interrupted = interrupted.clone();
+    let source = Effect::<&'static str, String>::callback(move |resume| {
+        let _ = resume_tx.send(resume);
+    })
+    .flat_map(move |value| {
+        let finished = finished.clone();
+        Effect::<&'static str, String>::sync(move || {
+            finished.store(true, Ordering::SeqCst);
+            value
+        })
+    })
+    .on_interrupt(move || source_interrupted.store(true, Ordering::SeqCst));
+    let fallback = Effect::<&'static str, String>::sync(|| {
+        std::thread::sleep(Duration::from_millis(30));
+        "fallback"
+    });
+
+    let effect = source
+        .timeout_or_else(EffectDuration::from_millis(5), fallback)
+        .provide::<ClockTag, ()>(Arc::new(SystemClock) as Arc<dyn ClockImpl>);
+
+    let (rt, fiber) = spawn_effect_any(effect);
+    let resume = resume_rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("the source registered its resume handle");
+    // Past the 5ms deadline, while the fallback is still sleeping.
+    std::thread::sleep(Duration::from_millis(20));
+    // Answering the source now changes nothing: the deadline already won.
+    resume.succeed("source");
+    let exit = fiber.join();
+
+    assert_eq!(exit, Exit::Success("fallback"));
+    assert!(
+        !is_set(&source_finished),
+        "the source lost the race, so its value is discarded"
+    );
+    assert!(is_set(&interrupted), "the source was interrupted, not resumed");
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
 /// :1444 `is interruptible` (the `repeat` block).
 /// A repeat that has no natural end still answers the deadline, and the answer
 /// is the timeout's `None` rather than a hang.
@@ -1999,6 +2075,334 @@ fn on_exit_sees_the_interrupt_exit() {
     assert!(
         matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
         "the callback observes, it does not swallow"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2598 `is interrupted with parent`.
+/// A child forked with `startImmediately` is running when the parent is
+/// interrupted, so both the child's and the parent's finalizers run.
+#[test]
+fn fork_child_immediate_dies_with_its_parent() {
+    let child = flag();
+    let parent = flag();
+    let (child_flag, parent_flag) = (Arc::clone(&child), Arc::clone(&parent));
+
+    let effect = Effect::<(), String>::never()
+        .on_interrupt(move || child_flag.store(true, Ordering::SeqCst))
+        .fork_child_immediate()
+        .flat_map(move |_child| {
+            Effect::<(), String>::never()
+                .on_interrupt(move || parent_flag.store(true, Ordering::SeqCst))
+        });
+
+    let (rt, outer) = spawn_effect_any(effect);
+    std::thread::sleep(Duration::from_millis(30));
+    outer.interrupt();
+    let _ = outer.join();
+
+    assert!(is_set(&child), "the forked child must be interrupted with its parent");
+    assert!(is_set(&parent), "the parent's own onInterrupt must run");
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2624 `is not interrupted with parent` (the `forkDaemon` block).
+/// A detached child starts at once and keeps running after its parent is
+/// interrupted, so only the parent's finalizer runs.
+#[test]
+fn fork_detach_outlives_its_parent() {
+    let child = flag();
+    let parent = flag();
+    let (child_flag, parent_flag) = (Arc::clone(&child), Arc::clone(&parent));
+
+    let effect = Effect::<(), String>::never()
+        .on_interrupt(move || child_flag.store(true, Ordering::SeqCst))
+        .fork_detach()
+        .flat_map(move |_child| {
+            Effect::<(), String>::never()
+                .on_interrupt(move || parent_flag.store(true, Ordering::SeqCst))
+        });
+
+    let (rt, outer) = spawn_effect_any(effect);
+    std::thread::sleep(Duration::from_millis(30));
+    outer.interrupt();
+    let _ = outer.join();
+    // The daemon is untouched; give it a moment to prove it did not notice.
+    std::thread::sleep(Duration::from_millis(50));
+
+    assert!(is_set(&parent), "the parent's own onInterrupt must run");
+    assert!(
+        !is_set(&child),
+        "a detached child must outlive its parent's interrupt"
+    );
+    let _ = rt.shutdown();
+}
+
+/// :2650 `is interrupted when scope is closed` (the `forkIn` block).
+#[test]
+fn fork_in_is_interrupted_when_its_scope_closes() {
+    let interrupted = flag();
+    let started = flag();
+    let (child_flag, child_started) = (Arc::clone(&interrupted), Arc::clone(&started));
+
+    let rt = Runtime::new();
+    let scope = rt.create_scope();
+    let child = Effect::<(), String>::sync(move || child_started.store(true, Ordering::SeqCst))
+        .flat_map(|_| Effect::<(), String>::never())
+        .on_interrupt(move || child_flag.store(true, Ordering::SeqCst));
+    let effect = child
+        .fork_in(Arc::clone(&scope))
+        .flat_map(|_| Effect::<(), String>::never());
+
+    let (_rt, outer) = spawn_effect_any(effect);
+    assert!(
+        wait_for(&started, Duration::from_secs(5)),
+        "the scoped child never started"
+    );
+    scope.close();
+    assert!(
+        wait_for(&interrupted, Duration::from_secs(5)),
+        "closing the scope must interrupt its member"
+    );
+    outer.interrupt_unsafe();
+    let _ = outer.join();
+}
+
+/// :2668 `is interrupted when scope is closed` (the `forkScoped` block).
+/// The ambient scope `Effect::scoped` installs is the one this child binds
+/// to, and its close interrupts the child.
+#[test]
+fn fork_scoped_is_interrupted_when_the_ambient_scope_closes() {
+    let interrupted = flag();
+    let started = flag();
+    let observed = Arc::clone(&started);
+    let waited = Arc::clone(&started);
+    let (child_flag, child_started) = (Arc::clone(&interrupted), Arc::clone(&started));
+
+    let inner = Effect::<(), String>::sync(move || child_started.store(true, Ordering::SeqCst))
+        .flat_map(|_| Effect::<(), String>::never())
+        .on_interrupt(move || child_flag.store(true, Ordering::SeqCst))
+        .fork_scoped()
+        .flat_map(|_child| {
+            // `scoped` closes the scope when this body returns, so the body
+            // waits for the child to start; the close is then the interrupt.
+            Effect::<(), String, _>::sync(move || {
+                let deadline = Instant::now() + Duration::from_secs(5);
+                while !waited.load(Ordering::SeqCst) && Instant::now() < deadline {
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+            })
+        });
+
+    let rt = Runtime::new();
+    assert_eq!(rt.spawn_effect(inner.scoped()).join(), Exit::Success(()));
+    assert!(is_set(&observed), "the scoped child never started");
+    assert!(
+        wait_for(&interrupted, Duration::from_secs(5)),
+        "closing the ambient scope must interrupt its member"
+    );
+}
+
+/// :2382 `region after a restored section stays uninterruptible`.
+/// The restored section runs interruptible, then the region parks masked: an
+/// interrupt requested while it parks is deferred until the region completes,
+/// and the events show the deferred order.
+#[test]
+fn region_after_a_restored_section_stays_uninterruptible() {
+    let events = Arc::new(Mutex::new(Vec::<&'static str>::new()));
+    let resume: Arc<Mutex<Option<elm_effect::Resume<(), String>>>> = Arc::new(Mutex::new(None));
+    let parked = flag();
+
+    let restored_events = Arc::clone(&events);
+    let masked_events = Arc::clone(&events);
+    let slot = Arc::clone(&resume);
+    let parked_body = parked.clone();
+    let effect = Effect::<(), String>::uninterruptible_mask(move |restore| {
+        restore
+            .apply(Effect::<(), String>::sync(move || {
+                restored_events
+                    .lock()
+                    .unwrap()
+                    .push("restored section completed")
+            }))
+            .flat_map(move |_| {
+                let slot = Arc::clone(&slot);
+                let parked = parked_body.clone();
+                Effect::<(), String>::callback(move |answer| {
+                    *slot.lock().unwrap() = Some(answer);
+                    parked.store(true, Ordering::SeqCst);
+                })
+            })
+            .flat_map(move |_| {
+                masked_events
+                    .lock()
+                    .unwrap()
+                    .push("masked region completed");
+                Effect::succeed(())
+            })
+    });
+
+    let (rt, fiber) = spawn_effect_any(effect);
+    assert!(
+        wait_for(&parked, Duration::from_secs(5)),
+        "the masked region never parked"
+    );
+    events.lock().unwrap().push("after restore");
+    // `interrupt()` waits for the region to finish, which it cannot do until
+    // the resume below, so the request is the non-blocking one the pin's
+    // `interruptUnsafe` answers.
+    fiber.interrupt_unsafe();
+    events.lock().unwrap().push("interrupted");
+    assert!(
+        !fiber.is_done(),
+        "a masked region must defer the interrupt it was handed"
+    );
+
+    let answer = resume
+        .lock()
+        .unwrap()
+        .take()
+        .expect("the region parked with an answer slot");
+    events.lock().unwrap().push("resumed");
+    answer.succeed(());
+
+    let exit = fiber.join();
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the deferred interrupt still ends the fiber: {exit:?}"
+    );
+    assert_eq!(
+        *events.lock().unwrap(),
+        vec![
+            "restored section completed",
+            "after restore",
+            "interrupted",
+            "resumed",
+            "masked region completed"
+        ]
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2284 `callback cleanup effect runs on interrupt`.
+/// The port's registration returns nothing, so the cleanup is the caller's
+/// `onInterrupt` (the contract `Effect::callback` documents); the observable
+/// is the same: the cleanup runs when the parked callback is interrupted.
+#[test]
+fn callback_cleanup_runs_on_interrupt() {
+    let cleaned_up = flag();
+    let body_flag = cleaned_up.clone();
+    let effect = Effect::<(), String>::callback(|_answer| {})
+        .on_interrupt(move || body_flag.store(true, Ordering::SeqCst));
+
+    let (rt, fiber) = spawn_effect_any(effect);
+    fiber.interrupt();
+    let exit = fiber.join();
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the interrupted callback must end interrupted: {exit:?}"
+    );
+    assert!(
+        is_set(&cleaned_up),
+        "the cleanup must run on the interrupt"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2736 `onExit reports a thrown finalizer on success`.
+/// A panicking finalizer is a defect, not an unwind: the exit the caller
+/// reifies is `Exit.die("finalizer defect")`.
+#[test]
+fn on_exit_reports_a_thrown_finalizer_on_success() {
+    let exit = Runtime::run(
+        Effect::<i32, String>::succeed(1)
+            .on_exit(|_| panic!("finalizer defect"))
+            .exit(),
+    );
+    // `exit()` cannot fail, so the wrapper itself succeeds; the reified exit
+    // is the one `exit()` answered.
+    let Exit::Success(inner) = exit else {
+        panic!("the wrapper must not fail")
+    };
+    let Exit::Failure(cause) = inner else {
+        panic!("a panicking finalizer must not succeed")
+    };
+    assert!(cause.failure().is_none(), "a panic is never a typed error");
+    assert_eq!(cause.defects().len(), 1);
+    assert_eq!(cause.defects()[0].message, "finalizer defect");
+}
+
+/// :2742 `an outer onInterrupt still sees the interruption after an inner
+/// finalizer throws`. The reasons are `[Interrupt, Die]`, in that order, and
+/// the outer finalizer runs even though the inner one panicked.
+#[test]
+fn on_interrupt_survives_an_inner_finalizer_panic() {
+    let finalized = flag();
+    let flag_for_callback = finalized.clone();
+    let exit = Runtime::run(
+        Effect::<i32, String>::interrupt()
+            .on_exit(|_| panic!("finalizer defect"))
+            .on_interrupt(move || flag_for_callback.store(true, Ordering::SeqCst))
+            .exit(),
+    );
+    assert!(is_set(&finalized), "the outer onInterrupt must still run");
+    let Exit::Success(inner) = exit else {
+        panic!("the wrapper must not fail")
+    };
+    let Exit::Failure(cause) = inner else {
+        panic!("an interrupt is not a success")
+    };
+    let tags: Vec<&str> = cause
+        .reasons
+        .iter()
+        .map(|reason| match reason {
+            elm_effect::Reason::Fail(_) => "Fail",
+            elm_effect::Reason::Die(_) => "Die",
+            elm_effect::Reason::Interrupt { .. } => "Interrupt",
+        })
+        .collect();
+    assert_eq!(tags, vec!["Interrupt", "Die"]);
+    match &cause.reasons[1] {
+        elm_effect::Reason::Die(defect) => {
+            assert_eq!(defect.message, "finalizer defect")
+        }
+        other => panic!("expected the finalizer's defect, got {other:?}"),
+    }
+}
+
+/// :294 `callback can branch over sync/async`.
+/// The registration may answer before the park (the sync branch) or from
+/// another thread (the async one); both resolve the same callback.
+#[test]
+fn callback_answers_from_a_sync_or_async_registration() {
+    let sync_answer = Runtime::run(Effect::<i32, String>::callback(|resume| {
+        resume.succeed(1);
+    }));
+    assert_eq!(sync_answer, Exit::Success(1));
+
+    let async_answer = Runtime::run(Effect::<i32, String>::callback(|resume| {
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(20));
+            resume.succeed(2);
+        });
+    }));
+    assert_eq!(async_answer, Exit::Success(2));
+}
+
+/// :2115 `sync forever is interruptible`.
+/// The repeat boundary answers an interrupt even though every iteration
+/// succeeds at once.
+#[test]
+fn sync_forever_is_interruptible() {
+    let (rt, fiber) = spawn_effect_any(Effect::<(), String>::forever(|| {
+        Effect::<(), String>::succeed(())
+    }));
+    std::thread::sleep(Duration::from_millis(30));
+    fiber.interrupt();
+    let exit = fiber.join();
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "forever must end interrupted: {exit:?}"
     );
     assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
@@ -2436,4 +2840,296 @@ fn a_race_interrupts_its_loser_when_the_parent_is_interrupted_while_starting() {
         );
         assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
     }
+}
+
+/// `Effect.acquireUseRelease`: the release runs whatever the use did, and the
+/// acquire's own failure skips it.
+#[test]
+fn acquire_use_release_releases_on_success_and_on_a_failing_use() {
+    for (name, use_fails) in [("success", false), ("failing use", true)] {
+        let released = flag();
+        let flag_for_release = released.clone();
+        let acquire = Effect::<u32, String>::sync(|| 7);
+        let effect = acquire.acquire_use_release(
+            move |resource| {
+                assert_eq!(resource, 7, "the use sees the acquired resource");
+                Effect::<u32, String>::suspend(move || {
+                    if use_fails {
+                        Effect::fail("use failed".to_string())
+                    } else {
+                        Effect::succeed(resource * 2)
+                    }
+                })
+            },
+            move |resource, _| {
+                let released = flag_for_release.clone();
+                Effect::<(), String>::sync(move || {
+                    assert_eq!(resource, 7, "the release sees the resource too");
+                    released.store(true, Ordering::SeqCst);
+                })
+            },
+        );
+
+        let exit = Runtime::run(effect);
+        assert!(is_set(&released), "release must run on {name}");
+        if use_fails {
+            assert_eq!(exit, Exit::Failure(Cause::fail("use failed".to_string())));
+        } else {
+            assert_eq!(exit, Exit::Success(14));
+        }
+    }
+
+    // A failed acquire never reaches the use, so there is nothing to release.
+    let released = flag();
+    let flag_for_release = released.clone();
+    let exit = Runtime::run(
+        Effect::<u32, String>::fail("no resource".to_string()).acquire_use_release(
+            |_| Effect::<u32, String>::succeed(1),
+            move |_, _| {
+                let released = flag_for_release.clone();
+                Effect::<(), String>::sync(move || released.store(true, Ordering::SeqCst))
+            },
+        ),
+    );
+    assert_eq!(exit, Exit::Failure(Cause::fail("no resource".to_string())));
+    assert!(!is_set(&released), "a failed acquire has nothing to release");
+}
+
+/// Both halves can fail, and the pin keeps both (`Cause.combine`).
+#[test]
+fn acquire_use_release_combines_use_and_release_failures() {
+    let exit = Runtime::run(
+        Effect::<u32, String>::succeed(1).acquire_use_release(
+            |_| Effect::<u32, String>::fail("use failed".to_string()),
+            |_, _| Effect::<(), String>::fail("release failed".to_string()),
+        ),
+    );
+    let Exit::Failure(cause) = exit else {
+        panic!("both halves failing is a failure: {exit:?}")
+    };
+    let failures: Vec<&str> = cause.failures().into_iter().map(String::as_str).collect();
+    assert_eq!(failures, vec!["use failed", "release failed"], "{cause:?}");
+}
+
+/// Effect.test.ts:2922 `rethrown caught error in release`. A dying release on
+/// an otherwise successful use is the fiber's failure, and nothing erases it.
+#[test]
+fn acquire_use_release_surfaces_a_failing_release() {
+    let exit = Runtime::run(
+        Effect::<u32, String>::succeed(1).acquire_use_release(
+            |_| Effect::<u32, String>::succeed(2),
+            |_, _| Effect::<(), String>::die(Defect::new("release boom")),
+        ),
+    );
+    let Exit::Failure(cause) = exit else {
+        panic!("a dying release must fail the fiber: {exit:?}")
+    };
+    assert!(cause.failure().is_none(), "a die is not a typed failure");
+    assert_eq!(cause.defects().len(), 1, "the release's defect survives");
+}
+
+/// Effect.test.ts:342 `acquireUseRelease runs release when use throws`.
+/// A panicking use is a defect, the release still runs exactly once, and it
+/// sees that defect in the exit it is handed.
+#[test]
+fn acquire_use_release_releases_after_a_panicking_use() {
+    let releases = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let release_count = releases.clone();
+    let release_saw_defect = flag();
+    let saw_defect = release_saw_defect.clone();
+    let exit = Runtime::run(
+        Effect::<u32, String>::succeed(1).acquire_use_release(
+            |_| -> Effect<u32, String> { panic!("use blew up") },
+            move |resource, use_exit| {
+                let release_count = release_count.clone();
+                let saw_defect = saw_defect.clone();
+                // Read the exit here: the effect it builds must be 'static, so
+                // it cannot carry the borrow.
+                let carried_defect =
+                    matches!(use_exit, Exit::Failure(cause) if !cause.defects().is_empty());
+                Effect::<(), String>::sync(move || {
+                    assert_eq!(resource, 1, "the release sees the resource");
+                    release_count.fetch_add(1, Ordering::SeqCst);
+                    if carried_defect {
+                        saw_defect.store(true, Ordering::SeqCst);
+                    }
+                })
+            },
+        ),
+    );
+    assert_eq!(releases.load(Ordering::SeqCst), 1, "release runs once");
+    assert!(is_set(&release_saw_defect), "the release sees the defect");
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if !cause.defects().is_empty()),
+        "a panicking use is a defect: {exit:?}"
+    );
+}
+
+/// Effect.test.ts:315 `acquireUseRelease interrupt`.
+/// The interrupt lands while the masked acquire is still running: the acquire
+/// completes, the use is skipped, the release still runs, and it is the
+/// release that sees the interrupt in its exit.
+#[test]
+fn acquire_use_release_skips_the_use_when_the_acquire_was_interrupted() {
+    let acquired = flag();
+    let used = flag();
+    let released = flag();
+    let release_saw_interrupt = flag();
+    let started = flag();
+
+    let acquire_started = started.clone();
+    let acquire_done = acquired.clone();
+    let slow_acquire = Arc::new(Deferred::<u32, String>::new());
+    let acquire_resume = slow_acquire.clone();
+    let use_flag = used.clone();
+    let release_flag = released.clone();
+    let release_interrupt = release_saw_interrupt.clone();
+
+    let effect = Effect::<u32, String>::sync(move || {
+        acquire_started.store(true, Ordering::SeqCst);
+        let value = acquire_resume.wait();
+        acquire_done.store(true, Ordering::SeqCst);
+        value
+    })
+    .acquire_use_release(
+        move |resource| {
+            let used = use_flag.clone();
+            Effect::<u32, String>::sync(move || {
+                used.store(true, Ordering::SeqCst);
+                resource
+            })
+        },
+        move |resource, use_exit| {
+            let released = release_flag.clone();
+            let saw_interrupt = release_interrupt.clone();
+            let interrupted =
+                matches!(use_exit, Exit::Failure(cause) if cause.is_interrupted());
+            Effect::<(), String>::sync(move || {
+                assert_eq!(resource, 123, "the release sees the resource");
+                if interrupted {
+                    saw_interrupt.store(true, Ordering::SeqCst);
+                }
+                released.store(true, Ordering::SeqCst);
+            })
+        },
+    );
+
+    let (rt, target) = spawn_effect_any(effect);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !is_set(&started) && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(is_set(&started), "the acquire never started");
+
+    target.interrupt_unsafe();
+    slow_acquire.complete(123);
+    let exit = target.join();
+
+    assert!(is_set(&acquired), "the masked acquire completes");
+    assert!(!is_set(&used), "the use is skipped after the interrupt");
+    assert!(is_set(&released), "the release still runs");
+    assert!(is_set(&release_saw_interrupt), "the release sees the interrupt");
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the fiber ends interrupted: {exit:?}"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// Effect.test.ts:2209 `acquireUseRelease release runs when use is
+/// interrupted`. The use never answers, the interrupt ends it, and the release
+/// runs anyway with that interrupt in its exit.
+#[test]
+fn acquire_use_release_releases_when_the_use_is_interrupted() {
+    let released = flag();
+    let release_saw_interrupt = flag();
+    let release_flag = released.clone();
+    let release_interrupt = release_saw_interrupt.clone();
+
+    let effect = Effect::<u32, String>::succeed(123).acquire_use_release(
+        |_| Effect::<u32, String>::never(),
+        move |resource, use_exit| {
+            let released = release_flag.clone();
+            let saw_interrupt = release_interrupt.clone();
+            let interrupted =
+                matches!(use_exit, Exit::Failure(cause) if cause.is_interrupted());
+            Effect::<(), String>::sync(move || {
+                assert_eq!(resource, 123);
+                if interrupted {
+                    saw_interrupt.store(true, Ordering::SeqCst);
+                }
+                released.store(true, Ordering::SeqCst);
+            })
+        },
+    );
+
+    let (rt, target) = spawn_effect_any(effect);
+    target.interrupt_unsafe();
+    let exit = target.join();
+
+    assert!(is_set(&released), "release runs after an interrupted use");
+    assert!(is_set(&release_saw_interrupt), "the release sees the interrupt");
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the fiber ends interrupted: {exit:?}"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// Effect.test.ts:370 `interruption during acquireUseRelease`.
+/// The interrupt lands while the use is parked; the mask holds it off, the
+/// use still finishes, the release still runs, and the fiber ends interrupted.
+#[test]
+fn acquire_use_release_still_releases_when_interrupted_inside_the_region() {
+    let acquired = flag();
+    let released = flag();
+    let acquire_flag = acquired.clone();
+    let release_flag = released.clone();
+    let resume = Arc::new(Deferred::<u32, String>::new());
+
+    let use_resume = resume.clone();
+    let effect = Effect::<u32, String>::sync(move || {
+        acquire_flag.store(true, Ordering::SeqCst);
+        123
+    })
+    .acquire_use_release(
+        move |resource| {
+            Effect::<u32, String>::sync(move || {
+                assert_eq!(resource, 123, "the use sees the acquired resource");
+                use_resume.wait()
+            })
+        },
+        move |_, _| {
+            let released = release_flag.clone();
+            Effect::<(), String>::sync(move || released.store(true, Ordering::SeqCst))
+        },
+    )
+    .uninterruptible();
+
+    let (rt, target) = spawn_effect_any(effect);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !is_set(&acquired) && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(is_set(&acquired), "the region never acquired");
+
+    target.interrupt_unsafe();
+    assert!(
+        !target.is_done(),
+        "the masked use must outlive the interrupt that lands inside it"
+    );
+    assert!(
+        !is_set(&released),
+        "the release waits for the use, not for the interrupt"
+    );
+
+    resume.complete(123);
+    let exit = target.join();
+
+    assert!(is_set(&released), "the release runs at the region's end");
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the deferred interrupt is delivered at the region's end: {exit:?}"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
