@@ -3570,7 +3570,15 @@ impl<T: Send + Sync + 'static> Schema<Vec<T>> {
                 Ok(Unknown::Array(
                     values
                         .iter()
-                        .map(|value| encode_inner.try_encode(value))
+                        .enumerate()
+                        .map(|(index, value)| {
+                            // Same re-root as the decode side: an element that
+                            // has no wire form must name its own index, or a
+                            // refinement failure inside a chunk reads as `$`.
+                            encode_inner
+                                .try_encode(value)
+                                .map_err(|error| error.at(&format!("$[{index}]")))
+                        })
                         .collect::<Result<Vec<_>, _>>()?,
                 ))
             },

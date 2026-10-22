@@ -123,6 +123,56 @@ fn decode_fails_the_pull_when_the_wire_value_does_not_conform() {
 }
 
 #[test]
+fn decode_names_the_bad_element_mid_chunk_and_emits_no_partial_chunk() {
+    // The middle element is the wrong shape, so the pull must fail naming
+    // `$[1]`: any other path would point at the wrong item, and an `Items`
+    // take before the `Fail` would leak a half-decoded chunk.
+    let takes = take_until_fail(
+        decode::<f64, SchemaError>(Schema::number_from_string())
+            .run(Pull::of(vec![wire("1"), Unknown::Bool(true), wire("3")])),
+    );
+
+    assert_eq!(
+        takes.len(),
+        1,
+        "one take, the failure: nothing of the chunk may escape: {takes:?}"
+    );
+    assert!(
+        matches!(
+            &takes[0],
+            Take::Fail(SchemaError::TypeMismatch { path, .. }) if path == "$[1]"
+        ),
+        "expected the failure to name the middle element, got: {:?}",
+        takes[0]
+    );
+}
+
+#[test]
+fn encode_refuses_a_chunk_whose_element_fails_its_refinement() {
+    // Encoding runs the refinement too, so a chunk holding one negative value
+    // has no wire form at all. The failure names `$[1]`, and the earlier
+    // encodable elements must not be handed downstream on their own.
+    let positive = Schema::number().refine("a positive number", |value| *value > 0.0);
+    let takes = take_until_fail(
+        encode::<f64, SchemaError>(positive).run(Pull::of(vec![1.0, -2.0, 3.0])),
+    );
+
+    assert_eq!(
+        takes.len(),
+        1,
+        "one take, the failure: the encodable head must not be emitted alone: {takes:?}"
+    );
+    assert!(
+        matches!(
+            &takes[0],
+            Take::Fail(SchemaError::TypeMismatch { path, .. }) if path == "$[1]"
+        ),
+        "expected the refusal to name the negative element, got: {:?}",
+        takes[0]
+    );
+}
+
+#[test]
 fn duplex_hands_the_inner_channel_the_encoded_chunk_and_decodes_its_output() {
     // The inner channel stands in for the encoded side of a real boundary. It
     // records what it was handed, which is the whole assertion: it must see the
