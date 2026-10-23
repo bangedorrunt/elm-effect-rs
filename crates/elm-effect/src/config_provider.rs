@@ -29,6 +29,16 @@ pub trait Lookup {
         false
     }
 
+    /// The keys directly under `path`, in the source's own order.
+    ///
+    /// `Config.Record` and a schema `Record` decode whatever keys the source
+    /// has, so they need the list rather than one known path. A source that
+    /// cannot enumerate keeps the old rule (no keys).
+    fn child_keys(&self, path: &[String]) -> Vec<String> {
+        let _ = path;
+        Vec::new()
+    }
+
     /// Value at `path` with the failure channel a source can carry
     /// (`SourceError`): `Ok(None)` is absence, `Err` is a source failure
     /// that a fallback chain must propagate rather than skip. The default
@@ -153,6 +163,33 @@ impl Provider {
         }
     }
 
+    /// Build from `(key, value)` pairs whose keys are literal segments, not
+    /// dotted paths. The pin's object provider keeps `service.name` as one
+    /// key, which [`from_pairs`](Self::from_pairs) cannot: it would split it
+    /// into two path segments.
+    pub fn record(pairs: impl IntoIterator<Item = (String, String)>) -> Self {
+        Self::record_at(Vec::new(), pairs)
+    }
+
+    /// [`record`](Self::record) under a base path: `base` is path segments and
+    /// each key stays one literal segment under it.
+    pub fn record_at(
+        base: Vec<String>,
+        pairs: impl IntoIterator<Item = (String, String)>,
+    ) -> Self {
+        Self {
+            preserve_empty: false,
+            values: pairs
+                .into_iter()
+                .map(|(k, v)| {
+                    let mut path = base.clone();
+                    path.push(k);
+                    (path, v)
+                })
+                .collect(),
+        }
+    }
+
     /// Build from pairs keeping empty values (`preserveEmptyStrings`
     /// opt-out of the missing-by-default rule).
     pub fn from_pairs_preserving(pairs: impl IntoIterator<Item = (String, String)>) -> Self {
@@ -263,6 +300,19 @@ impl Lookup for Provider {
             .keys()
             .any(|key| key.len() > path.len() && key.starts_with(path))
     }
+
+    fn child_keys(&self, path: &[String]) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        for key in self.values.keys() {
+            if key.len() == path.len() + 1 && key.starts_with(path) {
+                let name = key[path.len()].clone();
+                if out.last() != Some(&name) {
+                    out.push(name);
+                }
+            }
+        }
+        out
+    }
 }
 
 /// Prefixed view of a lookup source.
@@ -313,6 +363,12 @@ impl Lookup for Nested<'_> {
         full.extend(path.iter().cloned());
         self.inner.has_children(&full)
     }
+
+    fn child_keys(&self, path: &[String]) -> Vec<String> {
+        let mut full = self.prefix.clone();
+        full.extend(path.iter().cloned());
+        self.inner.child_keys(&full)
+    }
 }
 
 impl Lookup for Fallback<'_> {
@@ -322,6 +378,16 @@ impl Lookup for Fallback<'_> {
 
     fn has_children(&self, path: &[String]) -> bool {
         self.first.has_children(path) || self.second.has_children(path)
+    }
+
+    fn child_keys(&self, path: &[String]) -> Vec<String> {
+        let mut out = self.first.child_keys(path);
+        for key in self.second.child_keys(path) {
+            if !out.contains(&key) {
+                out.push(key);
+            }
+        }
+        out
     }
 
     fn try_get(&self, path: &[String]) -> Result<Option<String>, String> {

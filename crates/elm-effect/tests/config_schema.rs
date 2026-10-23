@@ -578,6 +578,168 @@ fn a_schema_loads_the_encoded_shape_when_it_differs_from_the_decoded_one() {
 }
 
 #[test]
+fn record_reads_object_input_by_literal_key() {
+    // Config.test.ts:1650 — record keys keep their dots: they are keys, not
+    // path segments.
+    let config = Config::record_of(
+        &Schema::string(),
+        &Schema::string(),
+        Some("OTEL_RESOURCE_ATTRIBUTES".to_string()),
+    );
+    let provider = Provider::record_at(
+        vec!["OTEL_RESOURCE_ATTRIBUTES".to_string()],
+        [
+            ("service.name".to_string(), "my-service".to_string()),
+            ("service.version".to_string(), "1.0.0".to_string()),
+            ("custom.attribute".to_string(), "value".to_string()),
+        ],
+    );
+
+    assert_eq!(
+        config.load(&provider),
+        // The provider lists keys in its own order; the assertion is about
+        // which keys exist, not their order.
+        Ok(obj(&[
+            ("custom.attribute", Value::Str("value".to_string())),
+            ("service.name", Value::Str("my-service".to_string())),
+            ("service.version", Value::Str("1.0.0".to_string())),
+        ]))
+    );
+}
+
+#[test]
+fn record_reads_a_separated_string_with_the_default_separators() {
+    // Config.test.ts:1670.
+    let config = Config::record_of(
+        &Schema::string(),
+        &Schema::string(),
+        Some("OTEL_RESOURCE_ATTRIBUTES".to_string()),
+    );
+    let provider = provider(&[(
+        "OTEL_RESOURCE_ATTRIBUTES",
+        "service.name=my-service,service.version=1.0.0",
+    )]);
+
+    assert_eq!(
+        config.load(&provider),
+        Ok(obj(&[
+            ("service.name", Value::Str("my-service".to_string())),
+            ("service.version", Value::Str("1.0.0".to_string())),
+        ]))
+    );
+}
+
+#[test]
+fn record_supports_custom_separators() {
+    // Config.test.ts:1688 — both the path form and the root form.
+    let input = "service.name==my-service&service.version==1.0.0";
+    let expected = obj(&[
+        ("service.name", Value::Str("my-service".to_string())),
+        ("service.version", Value::Str("1.0.0".to_string())),
+    ]);
+
+    let root = Config::record_with(&Schema::string(), &Schema::string(), None, "&", "==");
+    assert_eq!(
+        root.load(&Provider::single(Vec::new(), Some(input.to_string()))),
+        Ok(expected.clone())
+    );
+
+    let named = Config::record_with(
+        &Schema::string(),
+        &Schema::string(),
+        Some("OTEL_RESOURCE_ATTRIBUTES".to_string()),
+        "&",
+        "==",
+    );
+    assert_eq!(
+        named.load(&provider(&[("OTEL_RESOURCE_ATTRIBUTES", input)])),
+        Ok(expected)
+    );
+}
+
+#[test]
+fn config_record_owns_separated_parsing() {
+    // Config.test.ts:1857 — `Config.Record` reads `values` as a separated
+    // string; the schema bridge would read its indexed children instead.
+    let config = Config::record_of(
+        &Schema::string(),
+        &Schema::number(),
+        Some("values".to_string()),
+    );
+
+    assert_eq!(
+        config.load(&provider(&[("values", "first=1,second=2")])),
+        Ok(obj(&[
+            ("first", Value::Num(1.0)),
+            ("second", Value::Num(2.0)),
+        ]))
+    );
+}
+
+#[test]
+fn config_array_reads_a_separated_string_before_indexed_children() {
+    // Config.test.ts:1892 — `Config.Array` owns the scalar form, so `values`
+    // wins over `values_0`, while the schema bridge reads the index.
+    let config = Config::array_of(&Schema::number(), Some("values".to_string()));
+    let provider = provider(&[("values", "1,2"), ("values.0", "3")]);
+
+    assert_eq!(
+        config.load(&provider),
+        Ok(Value::List(vec![Value::Num(1.0), Value::Num(2.0)]))
+    );
+
+    let schema = Config::schema(
+        &Schema::array(Schema::number()),
+        Some("values".to_string()),
+    );
+    assert_eq!(
+        schema.load(&provider),
+        Ok(Value::List(vec![Value::Num(3.0)]))
+    );
+}
+
+#[test]
+fn config_array_supports_options_with_and_without_a_path() {
+    // Config.test.ts:1911.
+    let root = Config::array_with(&Schema::number(), None, ";");
+    assert_eq!(
+        root.load(&Provider::single(Vec::new(), Some("1;2".to_string()))),
+        Ok(Value::List(vec![Value::Num(1.0), Value::Num(2.0)]))
+    );
+
+    let named = Config::array_with(&Schema::number(), Some("values".to_string()), ";");
+    assert_eq!(
+        named.load(&provider(&[("values", "1;2")])),
+        Ok(Value::List(vec![Value::Num(1.0), Value::Num(2.0)]))
+    );
+}
+
+#[test]
+fn schema_record_decodes_and_validates_object_input() {
+    // Config.test.ts:2305 and :2623 — a schema Record over the provider's keys.
+    let schema = Schema::as_unknown(Schema::record(Schema::as_unknown(Schema::number())));
+    let config = Config::schema(&schema, None);
+
+    assert_eq!(
+        config.load(&provider(&[("a", "1")])),
+        Ok(obj(&[("a", Value::Num(1.0))]))
+    );
+    assert_eq!(
+        config.load(&provider(&[("a", "1"), ("b", "2")])),
+        Ok(obj(&[
+            ("a", Value::Num(1.0)),
+            ("b", Value::Num(2.0)),
+        ]))
+    );
+    assert!(
+        config
+            .load(&provider(&[("a", "1"), ("b", "value")]))
+            .is_err(),
+        "an invalid value fails at its key"
+    );
+}
+
+#[test]
 fn a_schema_reads_root_flat_and_nested_paths() {
     // Config.test.ts:2118 — a root read, a dotted path, and an absent root.
     let root = Config::schema(&Schema::string(), None);

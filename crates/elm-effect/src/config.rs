@@ -460,6 +460,168 @@ impl Config {
         }
     }
 
+    /// `Config.Array(valueSchema, path[, options])`: a list read from one
+    /// separated string (`1,2`) when the node has text, or from its indexed
+    /// children otherwise.
+    ///
+    /// The pin builds this as a union of the array shape and a separated
+    /// string shape. The port tries the string form first when the node has
+    /// text, which is what Config.test.ts:1892 asserts: `values=1,2` beside
+    /// `values_0=3` reads `[1, 2]`, while `Config.schema(Schema.Array)` reads
+    /// the indexed child `[3]`.
+    #[cfg(feature = "schema")]
+    pub fn array_of<T>(value: &elm_effect_schema::Schema<T>, name: Option<String>) -> Self
+    where
+        T: Clone + IntoConfigValue + Send + Sync + 'static,
+    {
+        Self::array_with(value, name, ",")
+    }
+
+    /// [`array_of`](Config::array_of) with the pin's `separator` option.
+    #[cfg(feature = "schema")]
+    pub fn array_with<T>(
+        value: &elm_effect_schema::Schema<T>,
+        name: Option<String>,
+        separator: &str,
+    ) -> Self
+    where
+        T: Clone + IntoConfigValue + Send + Sync + 'static,
+    {
+        let value = value.clone();
+        let separator = separator.to_string();
+        let name_owned = name.clone();
+        Self {
+            name,
+            run: std::rc::Rc::new(move |provider, prefix| {
+                let path = schema_path(prefix, name_owned.as_deref());
+                let mut items = Vec::new();
+                if let Some(text) = provider.get(&path) {
+                    for entry in text.split(separator.as_str()) {
+                        if entry.is_empty() {
+                            continue;
+                        }
+                        let decoded = value
+                            .decode(scalar_wire(&value.kind(), entry))
+                            .map_err(|error| vec![schema_error(path.clone(), error)])?;
+                        items.push(decoded.into_config_value());
+                    }
+                    return Ok(Value::List(items));
+                }
+                let mut index = 0usize;
+                loop {
+                    let mut child = path.clone();
+                    child.push(index.to_string());
+                    let Some(raw) = provider.get(&child) else {
+                        break;
+                    };
+                    let decoded = value
+                        .decode(scalar_wire(&value.kind(), &raw))
+                        .map_err(|error| vec![schema_error(child, error)])?;
+                    items.push(decoded.into_config_value());
+                    index += 1;
+                }
+                if items.is_empty() {
+                    Err(vec![ConfigError::Missing { path }])
+                } else {
+                    Ok(Value::List(items))
+                }
+            }),
+        }
+    }
+
+    /// `Config.Record(keySchema, valueSchema, path[, options])`: a key/value
+    /// map read from the provider's children, or from one separated string
+    /// (`k=v,k=v`) when the node has no children.
+    ///
+    /// The pin builds this as a union of the record shape and a separated
+    /// string shape; the port takes the two forms in the same order, so a
+    /// provider holding children never falls back to the string form.
+    #[cfg(feature = "schema")]
+    pub fn record_of<T>(
+        key: &elm_effect_schema::Schema<String>,
+        value: &elm_effect_schema::Schema<T>,
+        name: Option<String>,
+    ) -> Self
+    where
+        T: Clone + IntoConfigValue + Send + Sync + 'static,
+    {
+        Self::record_with(key, value, name, ",", "=")
+    }
+
+    /// [`record_of`](Config::record_of) with the pin's `separator` and
+    /// `keyValueSeparator` options.
+    #[cfg(feature = "schema")]
+    pub fn record_with<T>(
+        key: &elm_effect_schema::Schema<String>,
+        value: &elm_effect_schema::Schema<T>,
+        name: Option<String>,
+        separator: &str,
+        key_value_separator: &str,
+    ) -> Self
+    where
+        T: Clone + IntoConfigValue + Send + Sync + 'static,
+    {
+        let key = key.clone();
+        let value = value.clone();
+        let separator = separator.to_string();
+        let key_value_separator = key_value_separator.to_string();
+        let name_owned = name.clone();
+        Self {
+            name,
+            run: std::rc::Rc::new(move |provider, prefix| {
+                use elm_effect_schema::Unknown;
+                let path = schema_path(prefix, name_owned.as_deref());
+                let keys = provider.child_keys(&path);
+                if !keys.is_empty() {
+                    let mut out = Vec::new();
+                    for key_text in keys {
+                        let mut child = path.clone();
+                        child.push(key_text.clone());
+                        let Some(raw) = provider.get(&child) else {
+                            continue;
+                        };
+                        let decoded_key = key
+                            .decode(Unknown::Text(key_text))
+                            .map_err(|error| vec![schema_error(child.clone(), error)])?;
+                        let decoded = value
+                            .decode(scalar_wire(&value.kind(), &raw))
+                            .map_err(|error| vec![schema_error(child, error)])?;
+                        out.push((decoded_key, decoded.into_config_value()));
+                    }
+                    return Ok(Value::Map(out));
+                }
+                let Some(text) = provider.get(&path) else {
+                    return Err(vec![ConfigError::Missing { path }]);
+                };
+                // Splitting does not honour quoting or escapes: the pin's
+                // `splitKeyValue` does. Keys and values holding the separator
+                // need the object form until that lands.
+                let mut out = Vec::new();
+                for entry in text.split(separator.as_str()) {
+                    if entry.is_empty() {
+                        continue;
+                    }
+                    let Some((raw_key, raw_value)) = entry.split_once(key_value_separator.as_str())
+                    else {
+                        return Err(vec![ConfigError::Invalid {
+                            path,
+                            got: entry.to_string(),
+                            reason: format!("expected key{key_value_separator}value"),
+                        }]);
+                    };
+                    let decoded_key = key
+                        .decode(Unknown::Text(raw_key.to_string()))
+                        .map_err(|error| vec![schema_error(path.clone(), error)])?;
+                    let decoded = value
+                        .decode(scalar_wire(&value.kind(), raw_value))
+                        .map_err(|error| vec![schema_error(path.clone(), error)])?;
+                    out.push((decoded_key, decoded.into_config_value()));
+                }
+                Ok(Value::Map(out))
+            }),
+        }
+    }
+
     /// Always-failing config.
     pub fn fail(message: &str) -> Self {
         let message = message.to_string();
@@ -786,6 +948,32 @@ impl<T: IntoConfigValue> IntoConfigValue for Option<T> {
 }
 
 #[cfg(feature = "schema")]
+fn scalar_wire(
+    kind: &elm_effect_schema::SchemaKind,
+    text: &str,
+) -> elm_effect_schema::Unknown {
+    use elm_effect_schema::{SchemaKind, Unknown};
+    match kind {
+        SchemaKind::Number => number_wire(text),
+        SchemaKind::Boolean => boolean_wire(text),
+        SchemaKind::Check { base, .. } => scalar_wire(base, text),
+        SchemaKind::Annotated { inner, .. } => scalar_wire(inner, text),
+        SchemaKind::OptionalKey(inner) | SchemaKind::Optional(inner) => scalar_wire(inner, text),
+        SchemaKind::Literal(expected) => literal_wire(expected, text),
+        _ => Unknown::Text(text.to_string()),
+    }
+}
+
+#[cfg(feature = "schema")]
+fn schema_error(path: Vec<String>, error: elm_effect_schema::SchemaError) -> ConfigError {
+    ConfigError::Invalid {
+        path,
+        got: "a schema value".to_string(),
+        reason: error.to_string(),
+    }
+}
+
+#[cfg(feature = "schema")]
 fn schema_path(prefix: &[String], name: Option<&str>) -> Vec<String> {
     let mut path = prefix.to_vec();
     if let Some(name) = name.filter(|name| !name.is_empty()) {
@@ -1006,9 +1194,25 @@ fn kind_wires(
             }
         }
         SchemaKind::Rest(inner) => kind_wires(inner, provider, path)?,
-        // Records need the provider's key list, and a declaration or an opaque
-        // kind has no wire shape to walk; the config reports the gap rather
-        // than pretending the path is absent.
+        // A record reads whatever keys the provider has under the path, and
+        // each value through the record's value kind.
+        SchemaKind::Record(_, value_kind) => {
+            let mut object = std::collections::BTreeMap::new();
+            for key in provider.child_keys(path) {
+                let mut child = path.to_vec();
+                child.push(key.clone());
+                if let Some(wire) = kind_wires(value_kind, provider, &child)?.into_iter().next() {
+                    object.insert(key, wire);
+                }
+            }
+            if !object.is_empty() || provider.has_children(path) {
+                vec![Unknown::Object(object)]
+            } else {
+                Vec::new()
+            }
+        }
+        // A declaration or an opaque kind has no wire shape to walk; the config
+        // reports the gap rather than pretending the path is absent.
         _ => return Err("the schema's wire shape is not introspectable"),
     })
 }
