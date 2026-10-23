@@ -194,6 +194,77 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
+    /// `Stream.zipLatest`: both sides' latest values, paired.
+    ///
+    /// The port pulls each side once per output, so a pair appears as soon as
+    /// each side answers a chunk, and the last element of a chunk is that
+    /// side's latest. The stream ends when either side ends, and a failure on
+    /// either side is the stream's failure.
+    ///
+    /// ponytail: lockstep, not push. The pin emits on every arrival, so a side
+    /// that produces two chunks between the other side's one emits two pairs
+    /// there and one here. Grow a per-side pending queue if a row counts pairs.
+    pub fn zip_latest<B>(self, other: Stream<B, E, R>) -> Stream<(A, B), E, R>
+    where
+        B: Send + 'static,
+    {
+        self.zip_latest_with(other, |left, right| (left, right))
+    }
+
+    /// [`zip_latest`](Self::zip_latest) with a combining function.
+    pub fn zip_latest_with<B, C, F>(self, other: Stream<B, E, R>, f: F) -> Stream<C, E, R>
+    where
+        B: Send + 'static,
+        C: Send + 'static,
+        F: Fn(A, B) -> C + Send + Sync + 'static,
+    {
+        let exec = Arc::clone(&self.exec);
+        let left = self.pull;
+        let right = Arc::new(Mutex::new(other.pull));
+        let f = Arc::new(f);
+        // The last value each side answered since the previous pair. A pair
+        // consumes both, so the next output is always built from fresh chunks.
+        let latest: Arc<Mutex<(Option<A>, Option<B>)>> = Arc::new(Mutex::new((None, None)));
+        Self::derive(exec, move || {
+            let (left, right, f, latest) = (
+                Arc::clone(&left),
+                Arc::clone(&right),
+                Arc::clone(&f),
+                Arc::clone(&latest),
+            );
+            call(&left).flat_map(move |chunk| {
+                let Some(mut items) = chunk else {
+                    return Effect::succeed(None);
+                };
+                let Some(latest_left) = items.pop() else {
+                    return Effect::succeed(Some(Vec::new()));
+                };
+                latest.lock().unwrap().0 = Some(latest_left);
+                let (right, f, latest) = (Arc::clone(&right), Arc::clone(&f), Arc::clone(&latest));
+                call(&right.lock().unwrap()).flat_map(move |chunk| {
+                    let Some(mut items) = chunk else {
+                        return Effect::succeed(None);
+                    };
+                    let Some(latest_right) = items.pop() else {
+                        return Effect::succeed(Some(Vec::new()));
+                    };
+                    let pair = {
+                        let mut guard = latest.lock().unwrap();
+                        guard.1 = Some(latest_right);
+                        (guard.0.take(), guard.1.take())
+                    };
+                    match pair {
+                        (Some(left), Some(right)) => Effect::succeed(Some(vec![f(left, right)])),
+                        // Both sides answer a chunk before a pair is built, so
+                        // this is unreachable; ending beats pairing a side that
+                        // never answered.
+                        _ => Effect::succeed(None),
+                    }
+                })
+            })
+        })
+    }
+
     /// `Stream.filterMap` at the pin: keep only elements that map to `Some`.
     /// The pin's `Filter` can fail, but the observable subset here is the
     /// pure `Option` case (a failure maps to `None`).

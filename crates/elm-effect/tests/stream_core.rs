@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use elm_effect::{Defect, Effect, Exit, Stream, from_iter, from_iterator_succeed};
+use elm_effect::{Cause, Defect, Effect, Exit, Stream, from_iter, from_iterator_succeed};
 
 // `ByteSize` is reached by the pin's own `#[path]` include convention rather
 // than through the facade, which does not re-export it. `limit_bytes` takes a
@@ -1144,6 +1144,133 @@ fn zip_with_pairs_positionally_and_stops_at_the_shortest() {
     // right stream's elements.
     let empty_left = zip_with(Vec::<i32>::new(), vec![1, 2, 3], |a, b| (a, b));
     assert!(empty_left.is_empty(), "an empty side pairs to nothing");
+}
+
+// ---------------------------------------------------------------------------
+// zipLatest / zipLatestWith (Stream.test.ts 3842-4036)
+// ---------------------------------------------------------------------------
+
+/// A chunked numeric side. `from_iter` needs both types spelled, and every row
+/// here pairs numbers with words over a `String` failure.
+fn numbers(items: Vec<u32>, chunk: usize) -> Stream<u32, String, ()> {
+    from_iter(items.into_iter(), chunk)
+}
+
+fn words(items: Vec<&'static str>, chunk: usize) -> Stream<&'static str, String, ()> {
+    from_iter(items.into_iter(), chunk)
+}
+
+#[test]
+fn zip_latest_pairs_each_side_with_the_other_s_latest() {
+    // :3842 :3929 — both sides emit and the pairs carry a value from each.
+    // :3919 — the method form is the port of the pipe syntax.
+    let exit = numbers(vec![1, 2, 3], 2)
+        .zip_latest(words(vec!["a", "b", "c", "d"], 2))
+        .run_collect();
+    let Exit::Success(pairs) = exit else {
+        panic!("both sides emit synchronously, got {exit:?}");
+    };
+    assert!(!pairs.is_empty(), "at least one pair is emitted");
+    for (number, text) in &pairs {
+        assert!((1..=3).contains(number), "the pair carries the left side");
+        assert!(!text.is_empty(), "the pair carries the right side");
+    }
+
+    // A chunk's LAST element is that side's latest, which is the whole point of
+    // "latest": with one chunk a side, the single pair carries both ends.
+    let latest = numbers(vec![1, 2, 3], 3)
+        .zip_latest(words(vec!["a", "b", "c"], 3))
+        .run_collect();
+    assert_eq!(latest, Exit::Success(vec![(3u32, "c")]));
+}
+
+#[test]
+fn zip_latest_propagates_either_side_s_failure() {
+    // :3877 :3967 — the left stream's failure is the stream's failure.
+    let left_fails = numbers(vec![1, 2], 2)
+        .concat(Stream::fail("boom".to_string()))
+        .zip_latest(words(vec!["a", "b", "c"], 2))
+        .run_collect();
+    assert_eq!(left_fails, Exit::Failure(Cause::fail("boom".to_string())));
+
+    // :3887 :3978 — and the right stream's, on both forms.
+    let right_fails = numbers(vec![1, 2, 3], 1)
+        .zip_latest(words(vec!["a", "b"], 2).concat(Stream::fail("ouch".to_string())))
+        .run_collect();
+    assert_eq!(right_fails, Exit::Failure(Cause::fail("ouch".to_string())));
+
+    let with_right_fails = numbers(vec![1, 2], 1)
+        .zip_latest_with(
+            words(vec!["a", "b"], 2).concat(Stream::fail("ouch".to_string())),
+            |number, text| format!("{number}-{text}"),
+        )
+        .run_collect();
+    assert_eq!(
+        with_right_fails,
+        Exit::Failure(Cause::fail("ouch".to_string()))
+    );
+}
+
+#[test]
+fn zip_latest_ends_with_either_side() {
+    // :3897 :3989 — the shorter left side ends the stream.
+    let short_left = numbers(vec![1, 2], 1)
+        .zip_latest(words(vec!["a", "b", "c", "d", "e"], 5))
+        .run_collect();
+    let Exit::Success(pairs) = short_left else {
+        panic!("a short left side must not fail, got {short_left:?}");
+    };
+    assert!(!pairs.is_empty(), "the stream pairs before the left ends");
+
+    // :3908 :4000 — and the shorter right side.
+    let short_right = numbers(vec![1, 2, 3, 4, 5], 5)
+        .zip_latest(words(vec!["a", "b"], 2))
+        .run_collect();
+    let Exit::Success(pairs) = short_right else {
+        panic!("a short right side must not fail, got {short_right:?}");
+    };
+    assert!(!pairs.is_empty(), "the stream pairs before the right ends");
+
+    // The combining form ends with either side too.
+    let with_left = numbers(vec![1, 2], 2)
+        .zip_latest_with(numbers(vec![10, 20, 30, 40], 4), |n, m| n + m)
+        .run_collect();
+    assert!(matches!(with_left, Exit::Success(ref values) if !values.is_empty()));
+    let with_right = numbers(vec![1, 2, 3, 4], 4)
+        .zip_latest_with(numbers(vec![10, 20], 2), |n, m| n + m)
+        .run_collect();
+    assert!(matches!(with_right, Exit::Success(ref values) if !values.is_empty()));
+}
+
+#[test]
+fn zip_latest_with_projects_the_pair() {
+    // :3943 :3955 :4024 — the combining function decides the value.
+    let products = numbers(vec![1, 2, 3], 3)
+        .zip_latest_with(numbers(vec![10, 20, 30], 3), |n, m| n * m)
+        .run_collect();
+    let Exit::Success(values) = products else {
+        panic!("both sides emit synchronously, got {products:?}");
+    };
+    assert!(!values.is_empty());
+    assert!(
+        values.iter().all(|value| value % 10 == 0),
+        "every product pairs a left value with a multiple of ten: {values:?}"
+    );
+
+    // :4036 — the string form joins both sides.
+    let joined = words(vec!["Alice", "Bob", "Charlie"], 3)
+        .zip_latest_with(words(vec!["Smith", "Jones"], 2), |first, last| {
+            format!("{first} {last}")
+        })
+        .run_collect();
+    let Exit::Success(names) = joined else {
+        panic!("both sides emit synchronously, got {joined:?}");
+    };
+    assert!(!names.is_empty());
+    assert!(
+        names.iter().all(|name| name.contains(' ')),
+        "every name joins the two sides: {names:?}"
+    );
 }
 
 // ---------------------------------------------------------------------------
