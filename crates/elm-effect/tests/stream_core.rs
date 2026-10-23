@@ -5,7 +5,9 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use elm_effect::{Cause, Defect, Effect, Exit, Stream, from_iter, from_iterator_succeed};
+use elm_effect::{
+    Cause, Defect, Effect, Exit, Queue, Strategy, Stream, from_iter, from_iterator_succeed,
+};
 
 // `ByteSize` is reached by the pin's own `#[path]` include convention rather
 // than through the facade, which does not re-export it. `limit_bytes` takes a
@@ -1144,6 +1146,149 @@ fn zip_with_pairs_positionally_and_stops_at_the_shortest() {
     // right stream's elements.
     let empty_left = zip_with(Vec::<i32>::new(), vec![1, 2, 3], |a, b| (a, b));
     assert!(empty_left.is_empty(), "an empty side pairs to nothing");
+}
+
+// ---------------------------------------------------------------------------
+// fromQueue (Stream.test.ts 3854's mechanism)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn from_queue_streams_offers_and_ends_when_the_queue_closes() {
+    let queue: Arc<Queue<u32>> = Arc::new(Queue::new(8));
+    let stream = Stream::<u32, String, ()>::from_queue(Arc::clone(&queue));
+    assert!(queue.try_offer(1));
+    assert!(queue.try_offer(2));
+    queue.end();
+    assert_eq!(stream.run_collect(), Exit::Success(vec![1, 2]));
+}
+
+#[test]
+fn from_queue_fails_with_the_queue_s_message_and_ends_on_shutdown() {
+    let failed: Arc<Queue<u32>> = Arc::new(Queue::new(4));
+    let stream = Stream::<u32, String, ()>::from_queue(Arc::clone(&failed));
+    assert!(failed.try_offer(7));
+    failed.fail("queue died");
+    let exit = stream.run_collect();
+    let Exit::Failure(cause) = exit else {
+        panic!("a failed queue must fail the stream, got {exit:?}");
+    };
+    assert_eq!(cause.failure().map(String::as_str), Some("queue died"));
+
+    // `shutdown` is an interrupt, which ends the stream rather than failing it.
+    let shut: Arc<Queue<u32>> = Arc::new(Queue::new(4));
+    let stream = Stream::<u32, String, ()>::from_queue(Arc::clone(&shut));
+    shut.shutdown();
+    assert_eq!(stream.run_collect(), Exit::Success(Vec::new()));
+}
+
+// ---------------------------------------------------------------------------
+// buffer / bufferArray (Stream.test.ts 1820-2298)
+// ---------------------------------------------------------------------------
+
+/// A source that answers exactly these chunks, in order.
+fn chunked(chunks: Vec<Vec<u32>>) -> Stream<u32, String, ()> {
+    let chunks = Arc::new(Mutex::new(std::collections::VecDeque::from(chunks)));
+    Stream::from_pull(move || {
+        let chunks = Arc::clone(&chunks);
+        Effect::sync(move || chunks.lock().unwrap().pop_front())
+    })
+}
+
+fn buffer_chunks() -> (Vec<Vec<u32>>, Vec<u32>) {
+    let chunks = vec![vec![0u32, 1, 2], vec![2, 3, 4], vec![3, 4, 5, 6]];
+    let flat: Vec<u32> = chunks.iter().flatten().copied().collect();
+    (chunks, flat)
+}
+
+#[test]
+fn buffer_preserves_elements_and_order() {
+    // :1820 — the buffered stream collects exactly the input.
+    let (chunks, flat) = buffer_chunks();
+    let exit = chunked(chunks).buffer(2.0).run_collect();
+    assert_eq!(exit, Exit::Success(flat));
+}
+
+#[test]
+fn buffer_propagates_a_failure() {
+    // :1834 — the failure after the range is the stream's failure.
+    let exit = from_iter(0u32..10, 3)
+        .concat(Stream::fail("boom".to_string()))
+        .buffer(2.0)
+        .run_collect();
+    assert_eq!(exit, Exit::Failure(Cause::fail("boom".to_string())));
+}
+
+#[test]
+fn buffer_array_preserves_elements_and_order() {
+    // :1866 — re-chunking does not reorder.
+    let (chunks, flat) = buffer_chunks();
+    let exit = chunked(chunks).buffer_array(2.0).run_collect();
+    assert_eq!(exit, Exit::Success(flat));
+}
+
+#[test]
+fn buffer_array_propagates_a_failure() {
+    // :1880 — the failure is the stream's failure at array granularity too.
+    let exit = from_iter(0u32..10, 3)
+        .concat(Stream::fail("boom".to_string()))
+        .buffer_array(2.0)
+        .run_collect();
+    assert_eq!(exit, Exit::Failure(Cause::fail("boom".to_string())));
+}
+
+#[test]
+fn buffer_strategies_keep_a_failure() {
+    // :1913 :1998 :2085 :2175 :2285 — every strategy, element and array: the
+    // failure still decides the exit, and the values after it never appear.
+    for strategy in [Strategy::Backpressure, Strategy::Dropping, Strategy::Sliding] {
+        let element = from_iter(1u32..=10, 3)
+            .concat(Stream::fail("boom".to_string()))
+            .concat(from_iter(11u32..=20, 3))
+            .buffer_with(strategy, 2.0)
+            .run_collect();
+        assert_eq!(
+            element,
+            Exit::Failure(Cause::fail("boom".to_string())),
+            "element strategy {strategy:?}"
+        );
+        let array = from_iter(1u32..=10, 3)
+            .concat(Stream::fail("boom".to_string()))
+            .concat(from_iter(11u32..=20, 3))
+            .buffer_array_with(strategy, 2.0)
+            .run_collect();
+        assert_eq!(
+            array,
+            Exit::Failure(Cause::fail("boom".to_string())),
+            "array strategy {strategy:?}"
+        );
+    }
+}
+
+#[test]
+fn buffer_propagates_a_defect() {
+    // :2261 — a defect travels through the buffer.
+    let exit = Stream::<u32, String, ()>::die(Defect::new("boom"))
+        .buffer_with(Strategy::Sliding, 1.0)
+        .run_collect();
+    let Exit::Failure(cause) = exit else {
+        panic!("a defect must not succeed, got {exit:?}");
+    };
+    assert!(
+        cause
+            .defects()
+            .iter()
+            .any(|defect| defect.message.contains("boom")),
+        "the defect is the cause: {cause:?}"
+    );
+}
+
+#[test]
+fn buffer_unbounded_passes_the_stream() {
+    // :2274 — `capacity: "unbounded"` is the identity for a pull source.
+    let exit: Exit<Vec<u32>, String> = from_iter(0u32..=10, 3)
+        .buffer(f64::INFINITY)
+        .run_collect();
+    assert_eq!(exit, Exit::Success((0u32..=10).collect::<Vec<_>>()));
 }
 
 // ---------------------------------------------------------------------------

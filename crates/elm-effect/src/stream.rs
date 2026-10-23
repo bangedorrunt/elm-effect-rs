@@ -356,6 +356,40 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
+    /// `Stream.buffer`: hold produced elements so the producer runs ahead.
+    ///
+    /// The capacity and the strategy are only observable when the source can
+    /// run AHEAD of the fold. A pull source is pulled exactly once per output,
+    /// so there is no producer to suspend, drop from, or slide: the transform
+    /// is the identity. What the pin's buffered rows still assert, element
+    /// order and the failure travelling through, holds exactly.
+    ///
+    /// ponytail: identity. Feed a bounded queue from a worker thread if a row
+    /// ever needs the producer decoupled.
+    pub fn buffer(self, _capacity: f64) -> Self {
+        self
+    }
+
+    /// [`buffer`](Self::buffer) with the pin's `strategy` spelled out. A pull
+    /// source never fills the buffer, so the strategy has nothing to act on.
+    pub fn buffer_with(self, _strategy: crate::sync::Strategy, _capacity: f64) -> Self {
+        self
+    }
+
+    /// `Stream.bufferArray`: the same buffering at ARRAY granularity, where the
+    /// capacity is how many elements each output chunk carries. A pull source
+    /// has no producer to run ahead either, but the chunk size IS observable,
+    /// so this re-chunks.
+    pub fn buffer_array(self, capacity: f64) -> Self {
+        self.rechunk(capacity)
+    }
+
+    /// [`buffer_array`](Self::buffer_array) with the pin's `strategy` spelled
+    /// out, which a pull source never reaches.
+    pub fn buffer_array_with(self, _strategy: crate::sync::Strategy, capacity: f64) -> Self {
+        self.rechunk(capacity)
+    }
+
     /// `Stream.takeWhile` at the pin: take while `f` holds. The element that
     /// failed is NOT taken, and nothing after it is seen. A chunk that
     /// becomes empty without a stop pumps again, like the pin's `pump`.
@@ -985,6 +1019,29 @@ where
 /// of [`normalize_non_empty`]: `NaN` and non-positive values become 0, a
 /// positive value floors. The pin keeps these as two functions because a
 /// chunk size and an element count have different empty behavior.
+impl<A: Send + 'static> Stream<A, String, ()> {
+    /// `Stream.fromQueue`: take from a queue as items arrive.
+    ///
+    /// The take BLOCKS, which is the whole point: a producer offering after the
+    /// fold asked is what a queue decouples, and a pull source has no other way
+    /// to see it. `end` and `shutdown` end the stream; a queue that failed
+    /// fails it with the queue's message.
+    ///
+    /// The take runs inside the pull's effect, not when the stream is built, so
+    /// describing the stream never blocks.
+    pub fn from_queue(queue: Arc<crate::sync::Queue<A>>) -> Self {
+        Stream::from_pull(move || {
+            let queue = Arc::clone(&queue);
+            Effect::sync(move || queue.take()).flat_map(|taken| match taken {
+                Ok(item) => Effect::succeed(Some(vec![item])),
+                Err(crate::sync::QueueError::Done)
+                | Err(crate::sync::QueueError::Interrupted) => Effect::succeed(None),
+                Err(crate::sync::QueueError::Failed(message)) => Effect::fail(message),
+            })
+        })
+    }
+}
+
 pub fn normalize(n: f64) -> usize {
     if n > 0.0 { n.floor() as usize } else { 0 }
 }
