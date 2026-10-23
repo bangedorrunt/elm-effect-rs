@@ -578,6 +578,87 @@ fn catch_cause_recovers_and_exposes_the_original_cause() {
     assert_eq!(*seen.lock().unwrap(), vec![true]);
 }
 
+/// `Data.TaggedError("LayerError")`: the error the tagged-recovery row names.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct LayerError;
+
+impl elm_effect::TaggedError for LayerError {
+    fn tag(&self) -> &'static str {
+        "LayerError"
+    }
+}
+
+/// A layer that records its own acquire and release under `label`, so a
+/// witness can see which layers a recovery built and in what order.
+fn labelled_resource<T>(
+    label: &'static str,
+    arr: &Arc<Mutex<Vec<String>>>,
+    value: T::Service,
+) -> Layer<T, LayerError, ()>
+where
+    T: ServiceTag,
+    T::Service: Clone + Send + Sync + 'static,
+{
+    let arr = Arc::clone(arr);
+    Layer::from_scoped_factory(move |scope| {
+        arr.lock().unwrap().push(format!("acquire{label}"));
+        let released = Arc::clone(&arr);
+        scope.add_finalizer(move || released.lock().unwrap().push(format!("release{label}")));
+        Effect::succeed(value.clone())
+    })
+    .expect("a single closed constructor cannot cycle")
+}
+
+#[test]
+fn catch_tag_builds_the_fallback_only_for_its_own_tag() {
+    // Layer.test.ts:143. `catchTag("LayerError", ...)` replaces a failure that
+    // carries that tag: the failed attempt releases what it acquired before
+    // the fallback builds, so the record runs acquire1, release1, acquire2,
+    // release2. A build that names another tag leaves the cause alone.
+    let arr = Arc::new(Mutex::new(Vec::new()));
+    let provider = labelled_resource::<Db>("1", &arr, DbConn(1));
+    let failing = Layer::<Cache, LayerError, Db>::from_factory(|| Effect::fail(LayerError))
+        .expect("a single constructor cannot cycle")
+        .provide_layer(provider)
+        .expect("the provider satisfies the consumer");
+    let layer = failing.catch_tag("LayerError", {
+        let arr = Arc::clone(&arr);
+        move |_error: &LayerError| labelled_resource::<Cache>("2", &arr, CacheConn(2))
+    });
+    let scope = Scope::new(101);
+    let built = layer
+        .build(&scope)
+        .expect("the fallback replaces the tagged failure");
+    assert_eq!(built.get::<Cache>().unwrap().0, 2);
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec!["acquire1", "release1", "acquire2"],
+        "the failed attempt released before the fallback acquired"
+    );
+    scope.close();
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec!["acquire1", "release1", "acquire2", "release2"]
+    );
+
+    // The tag decides: an unmatched tag is not this layer's to recover.
+    let other = Arc::new(Mutex::new(Vec::new()));
+    let provider = labelled_resource::<Db>("1", &other, DbConn(1));
+    let failing = Layer::<Cache, LayerError, Db>::from_factory(|| Effect::fail(LayerError))
+        .expect("a single constructor cannot cycle")
+        .provide_layer(provider)
+        .expect("the provider satisfies the consumer");
+    let layer = failing.catch_tag("OtherError", {
+        let other = Arc::clone(&other);
+        move |_error: &LayerError| labelled_resource::<Cache>("2", &other, CacheConn(2))
+    });
+    let scope = Scope::new(102);
+    let cause = layer.build(&scope).expect_err("an unmatched tag passes through");
+    assert_eq!(cause.failure(), Some(&LayerError));
+    assert!(!cause.has_dies(), "a typed failure never becomes a defect");
+    assert_eq!(*other.lock().unwrap(), vec!["acquire1", "release1"]);
+}
+
 #[test]
 fn with_span_installs_the_parent_span_and_runs_the_on_end_finalizer() {
     // Layer.test.ts:717. The layer's constructor sees the created span as the

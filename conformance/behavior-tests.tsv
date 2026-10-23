@@ -2462,7 +2462,7 @@ ported	packages/effect/test/Layer.test.ts	86	it.effect	suspend is lazy	suspend_i
 ported	packages/effect/test/Layer.test.ts	101	it.effect	suspend preserves sharing	a_suspended_handle_merged_with_itself_evaluates_once
 ported	packages/effect/test/Layer.test.ts	116	it.effect	finalizers	merge_finalizes_both_layers
 ported	packages/effect/test/Layer.test.ts	129	it.effect	catch - uses an alternative layer	catch_uses_an_alternative_layer
-not-applicable	packages/effect/test/Layer.test.ts	143	it.effect	catchTag - uses an alternative layer	Would need a tagged-error vocabulary (`Types.Tags` on `E`); `Effect.catchTag` dispatches on `_tag`, and this port's `E` is opaque.
+ported	packages/effect/test/Layer.test.ts	143	it.effect	catchTag - uses an alternative layer	catch_tag_builds_the_fallback_only_for_its_own_tag
 ported	packages/effect/test/Layer.test.ts	158	it.effect	catchCause recovers with a fallback layer and exposes the original cause	catch_cause_recovers_and_exposes_the_original_cause
 ported	packages/effect/test/Layer.test.ts	177	it.effect	tap - executes effect with success services and preserves output	tap_runs_with_the_built_services_and_preserves_them
 ported	packages/effect/test/Layer.test.ts	194	it.effect	tapError - executes effect and preserves original error	tap_error_runs_and_preserves_the_original_error

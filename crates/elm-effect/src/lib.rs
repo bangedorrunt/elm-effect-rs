@@ -128,6 +128,7 @@ pub mod subscription_ref;
 mod supervision;
 mod supervisor;
 pub mod sync;
+mod tagged;
 pub mod take;
 mod time;
 // `Tracer.ts`: the span model the observability port already pointed at.
@@ -243,6 +244,7 @@ pub use sync::{
     Deferred, MutableRef, PartitionedSemaphore, Queue, QueueError, Ref, Semaphore, Strategy,
     SubscriptionRef, SynchronizedRef, is_dequeue, is_enqueue, is_queue,
 };
+pub use tagged::TaggedError;
 pub use time::{
     Clock, ClockImpl, Duration, DurationJson, Parts, SleepOutcome, SystemClock, TestClock,
     is_duration,

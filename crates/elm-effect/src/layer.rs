@@ -1242,6 +1242,36 @@ impl<O: RequirementIds, E: Clone + Send + 'static> Layer<O, E, ()> {
     }
 }
 
+impl<O: RequirementIds, E: Clone + crate::tagged::TaggedError + Send + 'static> Layer<O, E, ()> {
+    /// `Layer.catchTag`: build an alternative layer only when the failure
+    /// carries `tag` (`Layer.test.ts:143`). A defect, an interruption, or a
+    /// typed failure with another tag passes through as it was; use
+    /// [`catch`](Layer::catch) to recover every typed failure.
+    ///
+    /// The handler sees the error value, so it can read the fields the tag
+    /// brought with it; the fallback then builds exactly where the failed
+    /// attempt did.
+    pub fn catch_tag<F>(self, tag: &'static str, on_error: F) -> Self
+    where
+        F: Fn(&E) -> Self + Send + Sync + 'static,
+    {
+        self.with_hook(Hook::Recover(Arc::new(
+            move |cause: &Cause<E>,
+                  memo: &LayerMemo,
+                  scope: &Scope,
+                  base: &Services,
+                  fiber: Option<&Fiber>| {
+                cause
+                    .failure()
+                    .filter(|error| error.tag() == tag)
+                    .map(|error| {
+                        build_node(&on_error(error).node, memo, scope, base, Ctx::from(fiber))
+                    })
+            },
+        )))
+    }
+}
+
 impl<O, E: Clone + Send + std::fmt::Debug + 'static, I> Layer<O, E, I> {
     /// `Layer.orDie`: narrow the construction error to `never` by turning a
     /// typed failure into a defect. The child keeps its identity, so wrapping
