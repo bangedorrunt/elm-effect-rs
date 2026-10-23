@@ -72,6 +72,8 @@ mod json_schema;
 #[cfg(feature = "tokio")]
 mod layer;
 mod metric;
+#[cfg(feature = "tokio")]
+mod mock;
 mod optic;
 pub mod observability;
 // `observability/OtlpTracer.ts`: the tracer's `layer` builds on `Layer`.
@@ -177,6 +179,8 @@ pub use layer::{BuiltServices, Cycle, Layer, LayerMemo, LayerSpanOptions, Requir
 pub use metric::{
     Attributes, Counter, CounterState, Gauge, GaugeState, MetricRegistry, Series, SeriesState,
 };
+#[cfg(feature = "tokio")]
+pub use mock::{Mock, Unimplemented, UnimplementedError};
 pub use optic::{
     Iso, Lens, OpticError, Optional, Prism, Traversal, at_map, at_vec, at_vec_exact, failure, none,
     some, success,

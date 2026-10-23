@@ -28,6 +28,7 @@ use std::sync::{Arc, Condvar, Mutex, mpsc};
 
 use crate::effect::Requirement;
 use crate::fiber::{Fiber, FiberTag, ForkOpts};
+use crate::mock::Mock;
 use crate::scope::Scope;
 use crate::service::{Cons, Provide, ServiceMaps, ServiceTag, Services, empty_services};
 use crate::tracer::{
@@ -875,6 +876,27 @@ impl<O, E, I> Layer<O, E, I> {
             memo: self.memo,
             marker: PhantomData,
         }
+    }
+}
+
+impl<T: ServiceTag> Layer<T, std::convert::Infallible, ()>
+where
+    T::Service: crate::mock::Mock,
+{
+    /// `Layer.mock`: a test layer from a partial implementation
+    /// (`Layer.test.ts:402`). `missing` names the members the implementation
+    /// left out; each becomes an [`Unimplemented`](crate::Unimplemented)
+    /// placeholder, so exercising one fails naming the service and the member
+    /// instead of quietly answering a wrong value.
+    ///
+    /// The pin finds the omitted keys through a Proxy. Rust cannot see a
+    /// struct's fields, so the caller names them: that is the whole difference,
+    /// and it is why `missing` exists at all.
+    ///
+    /// A mock never fails to build, so its construction error is `Infallible`,
+    /// the pin's `Layer<I>` with no error channel.
+    pub fn mock(implementation: T::Service, missing: &'static [&'static str]) -> Self {
+        Self::from_value(implementation.fill_missing(T::ID, missing))
     }
 }
 

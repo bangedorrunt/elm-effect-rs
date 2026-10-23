@@ -7,9 +7,11 @@ use std::sync::{
 };
 use std::time::{Duration, Instant};
 
+use elm_effect::channel::Channel;
 use elm_effect::{
     BuiltServices, Defect, Effect, Exit, FiberHandle, ForkOpts, Layer, LayerMemo, ManagedRuntime,
-    Runtime, Scope, ServiceTag, use_service,
+    Runtime, Scope, ServiceTag, Unimplemented, UnimplementedError, channel, pull::Pull, take::Take,
+    use_service,
 };
 
 struct Db;
@@ -653,7 +655,9 @@ fn catch_tag_builds_the_fallback_only_for_its_own_tag() {
         move |_error: &LayerError| labelled_resource::<Cache>("2", &other, CacheConn(2))
     });
     let scope = Scope::new(102);
-    let cause = layer.build(&scope).expect_err("an unmatched tag passes through");
+    let cause = layer
+        .build(&scope)
+        .expect_err("an unmatched tag passes through");
     assert_eq!(cause.failure(), Some(&LayerError));
     assert!(!cause.has_dies(), "a typed failure never becomes a defect");
     assert_eq!(*other.lock().unwrap(), vec!["acquire1", "release1"]);
@@ -1808,5 +1812,152 @@ fn launch_keeps_the_layer_open_until_interrupted() {
         *arr.lock().unwrap(),
         vec!["acquire", "release"],
         "interruption closes the layer's scope and runs its finalizers"
+    );
+}
+
+// ---- Layer.mock (Layer.test.ts:402, :430, :452).
+// A test service with a value member and a method: the pin's
+// `{ one: Effect<number>, two(): Effect<number> }`, with each member a recipe
+// because an `Effect` in this port is a description, not a clonable value.
+
+#[derive(Clone)]
+struct MockedService {
+    one: Arc<dyn Fn() -> Effect<u64, String, ()> + Send + Sync>,
+    two: Arc<dyn Fn() -> Effect<u64, String, ()> + Send + Sync>,
+}
+
+struct MockedTag;
+
+impl ServiceTag for MockedTag {
+    type Service = MockedService;
+    const ID: &'static str = "test/mocked";
+}
+
+impl elm_effect::Mock for MockedService {
+    fn fill_missing(self, service: &'static str, missing: &'static [&'static str]) -> Self {
+        let mut out = self;
+        for member in missing {
+            match *member {
+                "two" => out.two = Arc::new(Unimplemented::new(service, "two").call()),
+                other => panic!("the witness declares no placeholder for {other}"),
+            }
+        }
+        out
+    }
+}
+
+#[test]
+fn mock_serves_the_implemented_member_and_fails_the_omitted_one() {
+    // Layer.test.ts:402, and :430 with it: the pin also accepts the
+    // implementation in the data-first position, so both rows ride this
+    // witness; Rust has one call shape, not two.
+    let layer = Layer::<MockedTag, std::convert::Infallible, ()>::mock(
+        MockedService {
+            one: Arc::new(|| Effect::succeed(123)),
+            // Replaced by the fill, because "two" is the member left out.
+            two: Arc::new(|| Effect::succeed(0)),
+        },
+        &["two"],
+    );
+    let scope = Scope::new(103);
+    let built = layer
+        .build(&scope)
+        .expect("a mock layer never fails to build");
+    let service = built
+        .get::<MockedTag>()
+        .expect("the mock provides its service");
+    assert_eq!(Runtime::run((service.one)()), Exit::Success(123));
+
+    let cause = match Runtime::run((service.two)()) {
+        Exit::Failure(cause) => cause,
+        Exit::Success(_) => panic!("an omitted member must not answer"),
+    };
+    assert!(cause.has_dies(), "an omitted member dies: {cause:?}");
+    let defect = cause.defects()[0].to_string();
+    assert!(
+        defect.contains("UnimplementedError") && defect.contains("test/mocked.two"),
+        "the defect names the service and the member: {defect}"
+    );
+}
+
+/// The pin's `{ effect(): Effect<number>, channel: Channel<number, never, void> }`:
+/// a method and a channel member, with the channel behind a recipe because a
+/// `Channel` owns its step and cannot be cloned.
+type MockChannel = Arc<dyn Fn() -> Channel<u64, UnimplementedError, u64> + Send + Sync>;
+
+#[derive(Clone)]
+struct UnimplementedService {
+    method: Arc<dyn Fn() -> Effect<u64, String, ()> + Send + Sync>,
+    channel: MockChannel,
+}
+
+struct UnimplementedTag;
+
+impl ServiceTag for UnimplementedTag {
+    type Service = UnimplementedService;
+    const ID: &'static str = "test/unimplemented";
+}
+
+impl elm_effect::Mock for UnimplementedService {
+    fn fill_missing(self, service: &'static str, missing: &'static [&'static str]) -> Self {
+        let mut out = self;
+        for member in missing {
+            match *member {
+                "method" => out.method = Arc::new(Unimplemented::new(service, "method").call()),
+                "channel" => {
+                    let placeholder = Unimplemented::new(service, "channel");
+                    out.channel = Arc::new(move || placeholder.channel::<u64, u64>());
+                }
+                other => panic!("the witness declares no placeholder for {other}"),
+            }
+        }
+        out
+    }
+}
+
+#[test]
+fn mock_missing_members_fail_as_unimplemented_effects_and_channels() {
+    // Layer.test.ts:452. Every shape of an omitted member fails naming
+    // `UnimplementedError`: the method dies, and the channel fails on the
+    // first take that carries items, driven directly or through `pipe`.
+    let layer = Layer::<UnimplementedTag, std::convert::Infallible, ()>::mock(
+        UnimplementedService {
+            method: Arc::new(|| Effect::succeed(0)),
+            channel: Arc::new(|| Channel::from_fn(|take| vec![take])),
+        },
+        &["method", "channel"],
+    );
+    let scope = Scope::new(104);
+    let built = layer
+        .build(&scope)
+        .expect("a mock layer never fails to build");
+    let service = built
+        .get::<UnimplementedTag>()
+        .expect("the mock provides its service");
+
+    let cause = match Runtime::run((service.method)()) {
+        Exit::Failure(cause) => cause,
+        Exit::Success(_) => panic!("an omitted method must not answer"),
+    };
+    let defect = cause.defects()[0].to_string();
+    assert!(
+        defect.contains("UnimplementedError") && defect.contains("test/unimplemented.method"),
+        "the defect names the service and the member: {defect}"
+    );
+
+    let mut driven = (service.channel)().run(Pull::single(1u64));
+    match driven.pull() {
+        Take::Fail(UnimplementedError { service, member }) => {
+            assert_eq!(service, "test/unimplemented");
+            assert_eq!(member, "channel");
+        }
+        other => panic!("an omitted channel member must fail, got {other:?}"),
+    }
+    let mut piped = (service.channel)()
+        .pipe(channel::identity())
+        .run(Pull::single(1u64));
+    assert!(
+        matches!(piped.pull(), Take::Fail(_)),
+        "piping an omitted channel member keeps the failure"
     );
 }
