@@ -17,9 +17,12 @@
 mod config;
 #[path = "../src/config_provider.rs"]
 mod config_provider;
+// The path-included config modules name `crate::Defect`, so the host has to
+// provide that name; the library's own root re-exports the same type.
+pub use elm_effect::Defect;
 
 use config::{Config, ConfigError, Value};
-use config_provider::{Failing, Lookup, Node, Provider};
+use config_provider::{Failing, Lookup, Node, Provider, ProviderError};
 use elm_effect_schema::{Field, Schema, SchemaError, StructValue, Unknown, transform::Transformation};
 use std::collections::BTreeMap;
 
@@ -93,9 +96,9 @@ impl Lookup for FailingAt {
         self.inner.node(path)
     }
 
-    fn try_get(&self, path: &[String]) -> Result<Option<String>, String> {
+    fn try_get(&self, path: &[String]) -> Result<Option<String>, ProviderError> {
         if self.fail.iter().any(|failed| failed.as_slice() == path) {
-            Err("source unavailable".to_string())
+            Err(ProviderError::source("source unavailable"))
         } else {
             Ok(self.inner.get(path))
         }
@@ -1831,5 +1834,84 @@ fn a_union_does_not_try_another_member_after_a_failure() {
             "value".to_string(),
             "child".to_string()
         ])])
+    );
+}
+
+/// Build a config that the pin refuses, and answer the refusal's message.
+fn opaque_refusal(build: impl FnOnce()) -> String {
+    let payload = std::panic::catch_unwind(std::panic::AssertUnwindSafe(build))
+        .expect_err("the config was built from an opaque encoding");
+    payload.downcast_ref::<String>().cloned().unwrap_or_default()
+}
+
+/// Config.test.ts:1936 — `Any`, `Unknown`, `ObjectKeyword`, and `Json` name
+/// data a StringTree wire cannot carry, so the descriptor refuses to be built.
+/// The pin's fifth name, `MutableJson`, has no constructor in this port.
+///
+/// The refusal is the construction's, not the load's: the pin builds the
+/// descriptor eagerly and throws there, which is why a schema mistake surfaces
+/// before a provider is ever consulted.
+#[test]
+fn an_opaque_schema_is_refused_when_the_config_is_built() {
+    let schemas: [(&str, Schema<Unknown>); 4] = [
+        ("Any", Schema::any()),
+        ("Unknown", Schema::unknown()),
+        ("ObjectKeyword", Schema::object_keyword()),
+        ("Json", Schema::json()),
+    ];
+    for (name, schema) in schemas {
+        let message = opaque_refusal(|| {
+            Config::schema(&schema, None);
+        });
+        assert!(
+            message.contains("Config.schema does not support opaque StringTree encodings"),
+            "{name}: {message}"
+        );
+        assert!(message.contains(name), "{name}: {message}");
+    }
+}
+
+/// Config.test.ts:1944 — an opaque shape nested in an object is refused by the
+/// same walk that refuses a top-level one.
+#[test]
+fn an_opaque_shape_nested_in_an_object_is_refused() {
+    let message = opaque_refusal(|| {
+        Config::schema(&Schema::struct_([("value", Schema::unknown())]), None);
+    });
+    assert!(
+        message.contains("opaque StringTree encodings") && message.contains("Unknown"),
+        "{message}"
+    );
+}
+
+/// Config.test.ts:1951 — a union member is reached, and an opaque one refused.
+///
+/// The union here is `union_with_mode`, the builder that spells its members as
+/// a `Union` kind: a plain `union` reports its shape opaquely and its members
+/// are not part of the walk.
+#[test]
+fn an_opaque_union_member_is_refused() {
+    let message = opaque_refusal(|| {
+        Config::schema(
+            &Schema::union_with_mode(vec![string(), Schema::unknown()], "anyOf"),
+            None,
+        );
+    });
+    assert!(
+        message.contains("opaque StringTree encodings") && message.contains("Unknown"),
+        "{message}"
+    );
+}
+
+/// Config.test.ts:1958 — a suspension is resolved before the walk decides, so an
+/// opaque shape behind one is refused rather than accepted until load time.
+#[test]
+fn an_opaque_shape_behind_a_suspension_is_refused() {
+    let message = opaque_refusal(|| {
+        Config::schema(&Schema::<Unknown>::suspend(|| Schema::unknown()), None);
+    });
+    assert!(
+        message.contains("opaque StringTree encodings") && message.contains("Unknown"),
+        "{message}"
     );
 }

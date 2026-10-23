@@ -16,7 +16,11 @@
 // describe the test's coverage, not a defect in the crate, so they are
 // allowed here rather than fixed one by one.
 #![allow(dead_code)]
-use super::config_provider::{Lookup, Provider};
+use super::config_provider::{Lookup, Provider, ProviderError};
+
+// The crate root re-exports `Defect`; a path-included test host provides the
+// same name at its own root.
+use crate::Defect;
 
 /// Stringly value with its source path.
 #[derive(Clone, Debug, PartialEq)]
@@ -53,6 +57,14 @@ pub enum ConfigError {
         /// The source's own message.
         message: String,
     },
+    /// The provider died. Not a typed failure: no default, option, or
+    /// `or_else` recovers it (`Config.test.ts:65`), and [`Config::load_effect`]
+    /// reifies it as the effect's defect so `catch_defect` sees the provider's
+    /// own value.
+    Defect {
+        /// The provider's defect.
+        defect: Defect,
+    },
 }
 
 impl std::fmt::Display for ConfigError {
@@ -69,6 +81,7 @@ impl std::fmt::Display for ConfigError {
             Self::Source { path, message } => {
                 write!(f, "config source at {}: {message}", path.join("."))
             }
+            Self::Defect { defect } => write!(f, "config provider defect: {defect}"),
         }
     }
 }
@@ -167,8 +180,15 @@ impl Config {
                 match provider.try_get(&path) {
                     Ok(text) => f(text, path),
                     // A failed read is not an absent key: it keeps its own kind
-                    // so a default and an option leave it alone.
-                    Err(message) => Err(vec![ConfigError::Source { path, message }]),
+                    // so a default and an option leave it alone. A provider
+                    // that died is not a failed read either, so it stays a
+                    // defect that `or_else` may not answer for.
+                    Err(ProviderError::Source(message)) => {
+                        Err(vec![ConfigError::Source { path, message }])
+                    }
+                    Err(ProviderError::Defect(defect)) => {
+                        Err(vec![ConfigError::Defect { defect }])
+                    }
                 }
             }),
         }
@@ -788,19 +808,26 @@ impl Config {
             name: None,
             run: std::rc::Rc::new(move |provider, prefix| match (*run)(provider, prefix) {
                 ok @ Ok(_) => ok,
+                // A defect is not a config failure: the fallback would be
+                // answering for the provider dying, which the pin forbids
+                // (Config.test.ts:65).
+                Err(errors) if errors.iter().any(is_defect) => Err(errors),
                 Err(_) => (*run_other)(provider, prefix),
             }),
         }
     }
 
     /// Fall back with the failure in hand (`orElse` with a recovery
-    /// function): the fallback sees every [`ConfigError`].
+    /// function): the fallback sees every [`ConfigError`], but a provider
+    /// defect is not offered to it at all — the pin's `orElse` never runs on a
+    /// defect (`Config.test.ts:65`).
     pub fn or_else_with(self, f: impl Fn(Vec<ConfigError>) -> Config + 'static) -> Self {
         let run = self.run.clone();
         Self {
             name: None,
             run: std::rc::Rc::new(move |provider, prefix| match (*run)(provider, prefix) {
                 ok @ Ok(_) => ok,
+                Err(errors) if errors.iter().any(is_defect) => Err(errors),
                 Err(errors) => {
                     let fallback = f(errors);
                     (fallback.run)(provider, prefix)
@@ -866,11 +893,21 @@ impl Config {
     }
 }
 
+/// Whether a failure is the provider dying, which no wrapper recovers.
+fn is_defect(error: &ConfigError) -> bool {
+    matches!(error, ConfigError::Defect { .. })
+}
+
 /// Group-error selection (`Config.all`): a present-but-undecodable child
 /// outranks a missing sibling, so a mixed group reports only the invalid
 /// errors (Config.test.ts:990). An all-missing group keeps every missing
 /// error, which is what `withDefault` and `option` recover from.
 fn group_errors(errors: Vec<ConfigError>) -> Vec<ConfigError> {
+    // A provider defect outranks everything: it is the reason nothing could be
+    // read, and no wrapper may recover it (Config.test.ts:65).
+    if errors.iter().any(is_defect) {
+        return errors.into_iter().filter(is_defect).collect();
+    }
     // A failed read is reported alone, ahead of a missing or invalid sibling:
     // the failure is the reason the group could not be read, and a wrapper may
     // not recover it (Config.test.ts:1021).
@@ -1168,14 +1205,19 @@ enum WireError {
     Opaque(&'static str),
     /// The provider failed at this path (`ConfigProvider.SourceError`).
     Source { path: Vec<String>, message: String },
+    /// The provider died at this path: not a config error any wrapper recovers.
+    Defect(Defect),
 }
 
 /// Read one path through the source's failure channel.
 #[cfg(feature = "schema")]
 fn read(provider: &dyn Lookup, path: &[String]) -> Result<Option<String>, WireError> {
-    provider.try_get(path).map_err(|message| WireError::Source {
-        path: path.to_vec(),
-        message,
+    provider.try_get(path).map_err(|error| match error {
+        ProviderError::Source(message) => WireError::Source {
+            path: path.to_vec(),
+            message,
+        },
+        ProviderError::Defect(defect) => WireError::Defect(defect),
     })
 }
 
@@ -1713,6 +1755,121 @@ fn array_present(provider: &dyn Lookup, path: &[String]) -> bool {
     }
 }
 
+/// The pin's refusal for a schema whose StringTree encoding is opaque
+/// (`Config.ts`, matched by every opaque row in `Config.test.ts`).
+#[cfg(feature = "schema")]
+const OPAQUE_ENCODING: &str = "Config.schema does not support opaque StringTree encodings";
+
+/// The opaque encoding a schema carries, by the pin's own name for it.
+///
+/// A StringTree wire is a string, an array of strings, or an object of strings,
+/// so a schema that decodes arbitrary data has no wire to read a config path
+/// with. The pin refuses `Any`, `Unknown`, `ObjectKeyword`, `Json`, and
+/// `MutableJson` where the config descriptor is built rather than where a
+/// provider is read, which is why a nested one is refused too
+/// (`Config.test.ts:1936`, `:1944`, `:1951`, `:1958`). `MutableJson` has no
+/// constructor in this port.
+#[cfg(feature = "schema")]
+fn opaque_encoding(
+    schema: &elm_effect_schema::Schema<elm_effect_schema::Unknown>,
+) -> Option<&'static str> {
+    opaque_walk(schema, &mut Vec::new())
+}
+
+/// The walk itself. `visiting` holds the resolved schemas already on the path,
+/// because a recursive schema below a suspension resolves to the same schema
+/// again: without that bound the walk never reaches a leaf.
+#[cfg(feature = "schema")]
+fn opaque_walk(
+    schema: &elm_effect_schema::Schema<elm_effect_schema::Unknown>,
+    visiting: &mut Vec<*const elm_effect_schema::Schema<elm_effect_schema::Unknown>>,
+) -> Option<&'static str> {
+    use elm_effect_schema::SchemaKind;
+    // A suspension resolves to the schema it names: its kind is `suspend`, which
+    // says nothing about what the thunk will produce.
+    if let Some(resolved) = schema.suspended_schema() {
+        let key = resolved as *const elm_effect_schema::Schema<elm_effect_schema::Unknown>;
+        if visiting.contains(&key) {
+            return None;
+        }
+        visiting.push(key);
+        let found = opaque_walk(resolved, visiting);
+        visiting.pop();
+        return found;
+    }
+    // `Schema.fromJsonString` carries its inner schema as a codec, not as a
+    // nested wire: the wire is the JSON text itself, which is exactly how
+    // arbitrary JSON is carried (`Config.test.ts:1965`), so a `Json` inside it
+    // is supported rather than opaque.
+    if matches!(schema.wire_kind(), SchemaKind::Opaque("fromJsonString")) {
+        return None;
+    }
+    // `Schema.Redacted`'s wire is the wrapped schema's own.
+    if let Some(inner) = elm_effect_schema::redacted_value(schema) {
+        return opaque_walk(&inner, visiting);
+    }
+    if let Some(fields) = schema.fields() {
+        for field in fields {
+            if let Some(opaque) = opaque_walk(field.inner(), visiting) {
+                return Some(opaque);
+            }
+        }
+    }
+    if let Some(children) = schema.child_schemas() {
+        for (_, child) in children {
+            if let Some(opaque) = opaque_walk(child, visiting) {
+                return Some(opaque);
+            }
+        }
+    }
+    if let Some(elements) = schema.elements() {
+        for element in elements {
+            if let Some(opaque) = opaque_walk(element, visiting) {
+                return Some(opaque);
+            }
+        }
+    }
+    if let Some(element) = schema.array_element_schema() {
+        return opaque_walk(element, visiting);
+    }
+    opaque_kind(&schema.wire_kind())
+}
+
+/// The opaque kind inside a [`SchemaKind`](elm_effect_schema::SchemaKind),
+/// walking the positions a wire actually reaches.
+#[cfg(feature = "schema")]
+fn opaque_kind(kind: &elm_effect_schema::SchemaKind) -> Option<&'static str> {
+    use elm_effect_schema::SchemaKind;
+    match kind {
+        SchemaKind::Opaque("any") => Some("Any"),
+        SchemaKind::Opaque("unknown") => Some("Unknown"),
+        SchemaKind::Opaque("objectKeyword") => Some("ObjectKeyword"),
+        SchemaKind::Json => Some("Json"),
+        SchemaKind::Array(inner)
+        | SchemaKind::Optional(inner)
+        | SchemaKind::OptionalKey(inner)
+        | SchemaKind::Rest(inner) => opaque_kind(inner),
+        SchemaKind::Check { base, .. } => opaque_kind(base),
+        SchemaKind::Annotated { inner, .. } => opaque_kind(inner),
+        SchemaKind::Struct(fields) => fields.iter().find_map(|(_, field)| opaque_kind(field)),
+        SchemaKind::StructWithRest(fields, rest) => fields
+            .iter()
+            .find_map(|(_, field)| opaque_kind(field))
+            .or_else(|| opaque_kind(rest)),
+        SchemaKind::Record(key, value) => opaque_kind(key).or_else(|| opaque_kind(value)),
+        SchemaKind::Tuple(items) => items.iter().find_map(opaque_kind),
+        SchemaKind::TupleWithRest(items, rest) => items
+            .iter()
+            .find_map(opaque_kind)
+            .or_else(|| rest.iter().find_map(opaque_kind)),
+        SchemaKind::Union { members, .. } => members.iter().find_map(opaque_kind),
+        SchemaKind::TemplateLiteral(parts) => parts.iter().find_map(opaque_kind),
+        // A declaration's encoding lives behind a reference this walk cannot
+        // resolve, and every other kind names a wire a StringTree can carry.
+        _ => None,
+    }
+}
+
 #[cfg(feature = "schema")]
 impl Config {
     /// `Config.schema(codec, path)`: a config whose value is the provider's
@@ -1732,6 +1889,13 @@ impl Config {
         T: Clone + IntoConfigValue + Send + Sync + 'static,
     {
         let walker = elm_effect_schema::Schema::as_unknown(codec.clone());
+        // The pin builds the descriptor eagerly and throws on an opaque
+        // encoding, so the refusal is the construction's and never a load's.
+        // A Rust constructor for a static schema argument has no other way to
+        // refuse, so this is the pin's synchronous throw.
+        if let Some(opaque) = opaque_encoding(&walker) {
+            panic!("{OPAQUE_ENCODING}: Schema.{opaque}");
+        }
         let codec = codec.clone();
         let name_owned = name.clone();
         Self {
@@ -1751,6 +1915,11 @@ impl Config {
                     // a shape the bridge could not build from it.
                     Err(WireError::Source { path, message }) => {
                         return Err(vec![ConfigError::Source { path, message }]);
+                    }
+                    // The provider died: a defect, not a config error the
+                    // caller may recover (Config.test.ts:65).
+                    Err(WireError::Defect(defect)) => {
+                        return Err(vec![ConfigError::Defect { defect }]);
                     }
                 };
                 if wires.is_empty() {
@@ -1789,6 +1958,9 @@ impl Config {
                     Ok(relevant) => relevant,
                     Err(WireError::Source { path, message }) => {
                         return Err(vec![ConfigError::Source { path, message }]);
+                    }
+                    Err(WireError::Defect(defect)) => {
+                        return Err(vec![ConfigError::Defect { defect }]);
                     }
                     // `has_schema_input` never refuses a shape, only reads.
                     Err(WireError::Opaque(_)) => false,

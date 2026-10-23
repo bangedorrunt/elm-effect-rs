@@ -549,9 +549,13 @@ pub enum SeriesState {
     Summary(SummaryState),
 }
 
-/// One registered series: its attributes (absent when unattributed) and state.
+/// One registered series: what it was described with, plus its state.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Series {
+    /// The metric id.
+    pub id: String,
+    /// The description, when the metric carried one.
+    pub description: Option<String>,
     /// `None` for the series an empty attribute set shares.
     pub attributes: Option<Attributes>,
     /// The state, by metric type.
@@ -832,39 +836,109 @@ impl MetricRegistry {
             .unwrap_or_else(|| SummaryState::empty(summary.quantiles()))
     }
 
-    /// Every series' attributes and state (TS `snapshot`).
+    /// Every series' description, attributes, and state (TS `snapshot`).
     pub fn snapshot(&self) -> Vec<Series> {
         self.counters
-            .values()
-            .map(|(state, attributes)| Series {
+            .iter()
+            .map(|(key, (state, attributes))| Series {
+                id: key.id.clone(),
+                description: key.description.clone(),
                 attributes: reported(attributes),
                 state: SeriesState::Counter(*state),
             })
-            .chain(self.gauges.values().map(|(state, attributes)| Series {
+            .chain(self.gauges.iter().map(|(key, (state, attributes))| Series {
+                id: key.id.clone(),
+                description: key.description.clone(),
                 attributes: reported(attributes),
                 state: SeriesState::Gauge(*state),
             }))
             .chain(
                 self.frequencies
-                    .values()
-                    .map(|(state, attributes)| Series {
+                    .iter()
+                    .map(|(key, (state, attributes))| Series {
+                        id: key.id.clone(),
+                        description: key.description.clone(),
                         attributes: reported(attributes),
                         state: SeriesState::Frequency(state.clone()),
                     }),
             )
             .chain(
                 self.histograms
-                    .values()
-                    .map(|(state, attributes)| Series {
+                    .iter()
+                    .map(|(key, (state, attributes))| Series {
+                        id: key.id.clone(),
+                        description: key.description.clone(),
                         attributes: reported(attributes),
                         state: SeriesState::Histogram(state.clone()),
                     }),
             )
-            .chain(self.summaries.values().map(|(state, attributes, _)| Series {
-                attributes: reported(attributes),
-                state: SeriesState::Summary(state.clone()),
-            }))
+            .chain(
+                self.summaries
+                    .iter()
+                    .map(|(key, (state, attributes, _))| Series {
+                        id: key.id.clone(),
+                        description: key.description.clone(),
+                        attributes: reported(attributes),
+                        state: SeriesState::Summary(state.clone()),
+                    }),
+            )
             .collect()
+    }
+
+    /// Every series as the pin's text dump (`Metric.dump`,
+    /// `Metric.test.ts:318`).
+    ///
+    /// Columns are padded to the widest value plus two spaces, so the dump is
+    /// a table: `name=`, `description=`, `type=`, then the attribute set
+    /// (itself padded), then the state. Series are sorted by id and then by
+    /// their attribute text, which the pin gets for free from its insertion
+    /// ordered map; a hash map has no order to inherit, so the dump imposes
+    /// one and stays stable across runs.
+    pub fn dump(&self) -> String {
+        let mut series = self.snapshot();
+        if series.is_empty() {
+            return String::new();
+        }
+        let name_pad = series.iter().map(|s| s.id.len()).max().unwrap_or(0) + 2;
+        let description_pad = series
+            .iter()
+            .map(|s| s.description.as_deref().map_or(0, str::len))
+            .max()
+            .unwrap_or(0)
+            + 2;
+        let type_pad = series
+            .iter()
+            .map(|s| state_type(&s.state).len())
+            .max()
+            .unwrap_or(0)
+            + 2;
+        let attributes_pad = series
+            .iter()
+            .map(|s| attributes_text(s.attributes.as_ref()).len())
+            .max()
+            .unwrap_or(0)
+            + 2;
+        series.sort_by(|a, b| {
+            a.id
+                .cmp(&b.id)
+                .then_with(|| attributes_text(a.attributes.as_ref()).cmp(&attributes_text(b.attributes.as_ref())))
+        });
+        series
+            .into_iter()
+            .map(|series| {
+                let mut line = String::new();
+                line.push_str("name=");
+                line.push_str(&pad(&series.id, name_pad));
+                line.push_str("description=");
+                line.push_str(&pad(series.description.as_deref().unwrap_or(""), description_pad));
+                line.push_str("type=");
+                line.push_str(&pad(state_type(&series.state), type_pad));
+                line.push_str(&pad(&attributes_text(series.attributes.as_ref()), attributes_pad));
+                line.push_str(&state_text(&series.state));
+                line
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 
     /// Drop every series.
@@ -1083,6 +1157,102 @@ pub fn exponential_boundaries(start: f64, factor: f64, count: usize) -> Vec<f64>
 pub fn timer(id: impl Into<String>) -> Histogram {
     Histogram::new(id, exponential_boundaries(0.5, 2.0, 35))
         .with_attributes(Attributes::from_pairs([("time_unit", "milliseconds")]))
+}
+
+/// The type name a series reports (`Metric.Snapshot.type`).
+fn state_type(state: &SeriesState) -> &'static str {
+    match state {
+        SeriesState::Counter(_) => "Counter",
+        SeriesState::Gauge(_) => "Gauge",
+        SeriesState::Frequency(_) => "Frequency",
+        SeriesState::Histogram(_) => "Histogram",
+        SeriesState::Summary(_) => "Summary",
+    }
+}
+
+/// One state as the dump's `state=[...]` column.
+fn state_text(state: &SeriesState) -> String {
+    match state {
+        SeriesState::Counter(state) => format!("state=[count: [{}]]", number_text(state.count)),
+        SeriesState::Gauge(state) => format!("state=[value: [{}]]", number_text(state.value)),
+        SeriesState::Frequency(state) => format!(
+            "state=[occurrences: {}]",
+            // A frequency's keys are strings, so they print as they are.
+            state
+                .occurrences
+                .iter()
+                .map(|(value, count)| format!("({value} -> {count})"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        SeriesState::Histogram(state) => format!(
+            "state=[buckets: [{}], count: [{}], min: [{}], max: [{}], sum: [{}]]",
+            key_values(state.buckets.iter().map(|(key, value)| (*key, *value as f64))),
+            state.count,
+            number_text(state.min),
+            number_text(state.max),
+            number_text(state.sum)
+        ),
+        SeriesState::Summary(state) => format!(
+            "state=[quantiles: [{}], count: [{}], min: [{}], max: [{}], sum: [{}]]",
+            key_values(
+                state
+                    .quantiles
+                    .iter()
+                    .map(|(quantile, value)| (*quantile, value.unwrap_or(0.0)))
+            ),
+            state.count,
+            number_text(state.min),
+            number_text(state.max),
+            number_text(state.sum)
+        ),
+    }
+}
+
+/// `(key -> value)` pairs, joined the way the pin joins them.
+fn key_values(pairs: impl Iterator<Item = (f64, f64)>) -> String {
+    pairs
+        .map(|(key, value)| format!("({} -> {})", number_text(key), number_text(value)))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// A number as JavaScript prints it: `Infinity`, not `inf`, and no `.0` on a
+/// whole value.
+fn number_text(value: f64) -> String {
+    if value.is_nan() {
+        "NaN".to_string()
+    } else if value == f64::INFINITY {
+        "Infinity".to_string()
+    } else if value == f64::NEG_INFINITY {
+        "-Infinity".to_string()
+    } else {
+        format!("{value}")
+    }
+}
+
+/// The attribute column (`attributesToString`): pairs sorted by name.
+fn attributes_text(attributes: Option<&Attributes>) -> String {
+    let mut entries = attributes.map(Attributes::pairs).unwrap_or_default();
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+    format!(
+        "attributes=[{}]",
+        entries
+            .into_iter()
+            .map(|(name, value)| format!("{name}: {value}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+/// Pad to `width` with spaces (`padEnd`). A longer value is not truncated:
+/// the width is the widest value plus two, so this only ever pads.
+fn pad(text: &str, width: usize) -> String {
+    let mut padded = text.to_string();
+    while padded.len() < width {
+        padded.push(' ');
+    }
+    padded
 }
 
 /// A series reports no attributes rather than an empty set.

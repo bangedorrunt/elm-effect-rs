@@ -10,6 +10,40 @@
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
+// The crate root re-exports `Defect`, which is the one name the path-included
+// test hosts have to provide for this module to build outside the library.
+use crate::Defect;
+
+/// A source failure, with the two kinds kept apart.
+///
+/// The separation is the whole point (`Config.test.ts:65`): [`Source`] is a
+/// typed `ConfigProvider.SourceError` that `Config.orElse` may recover, while
+/// [`Defect`] is a provider that died, which no default, option, or fallback
+/// may answer for. A single `String` channel could not tell them apart, so
+/// every provider failure looked recoverable.
+///
+/// [`Source`]: ProviderError::Source
+/// [`Defect`]: ProviderError::Defect
+#[derive(Clone, Debug, PartialEq)]
+pub enum ProviderError {
+    /// A typed read failure (`ConfigProvider.SourceError`).
+    Source(String),
+    /// The provider itself failed: the defect travels instead of a result.
+    Defect(Defect),
+}
+
+impl ProviderError {
+    /// A typed source failure.
+    pub fn source(message: impl Into<String>) -> Self {
+        Self::Source(message.into())
+    }
+
+    /// A provider that died while answering.
+    pub fn defect(defect: Defect) -> Self {
+        Self::Defect(defect)
+    }
+}
+
 /// A container node a source stores explicitly, with no value of its own.
 ///
 /// A flat map cannot hold one: `{ a: {} }` and `{}` store the same nothing, so
@@ -65,10 +99,11 @@ pub trait Lookup {
     }
 
     /// Value at `path` with the failure channel a source can carry
-    /// (`SourceError`): `Ok(None)` is absence, `Err` is a source failure
-    /// that a fallback chain must propagate rather than skip. The default
+    /// ([`ProviderError`]): `Ok(None)` is absence, `Err(Source)` is a read
+    /// failure a fallback chain must propagate rather than skip, and
+    /// `Err(Defect)` is the provider dying, which nothing recovers. The default
     /// is the infallible shape every value source has.
-    fn try_get(&self, path: &[String]) -> Result<Option<String>, String> {
+    fn try_get(&self, path: &[String]) -> Result<Option<String>, ProviderError> {
         Ok(self.get(path))
     }
 
@@ -444,9 +479,10 @@ impl Lookup for Fallback<'_> {
         self.first.node(path).or_else(|| self.second.node(path))
     }
 
-    fn try_get(&self, path: &[String]) -> Result<Option<String>, String> {
+    fn try_get(&self, path: &[String]) -> Result<Option<String>, ProviderError> {
         // Absence falls through; a FAILED source poisons the chain, so the
-        // fallback is never consulted — the pin's `SourceError` rule.
+        // fallback is never consulted — the pin's `SourceError` rule, and a
+        // defect poisons it the same way.
         match self.first.try_get(path)? {
             Some(hit) => Ok(Some(hit)),
             None => self.second.try_get(path),
@@ -474,8 +510,8 @@ impl Lookup for Failing {
         None
     }
 
-    fn try_get(&self, _path: &[String]) -> Result<Option<String>, String> {
-        Err(self.message.clone())
+    fn try_get(&self, _path: &[String]) -> Result<Option<String>, ProviderError> {
+        Err(ProviderError::source(self.message.clone()))
     }
 }
 

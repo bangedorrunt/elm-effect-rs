@@ -79,8 +79,10 @@ hooks are ported as `Effect::track`/`track_errors`/`track_defects`/
 `crates/elm-effect/tests/metric_track.rs` (16 rows, including `trackDuration`
 against a `TestClock` and its monotonic reading). The hook shape differs from
 the pin in one way only: the registry is an explicit handle, because a
-description here has no fiber to own one. The four left need an interval
-collector, a dump format, fiber runtime metrics, and an OTLP exporter.
+description here has no fiber to own one. `Metric.dump` landed as
+`MetricRegistry::dump` (a padded table per series, sorted by id then attribute
+text because a hash map has no insertion order to inherit). The three left need
+an interval collector, fiber runtime metrics, and an OTLP exporter.
 
 `ExecutionPlan.test.ts` was the sixth: 22 of its 23 rows are runtime plan
 machinery (step layers, requirement capture, partial streams, observer events),

@@ -6,6 +6,9 @@
 mod config;
 #[path = "../src/config_provider.rs"]
 mod config_provider;
+// The path-included config modules name `crate::Defect`, so the host has to
+// provide that name; the library's own root re-exports the same type.
+pub use elm_effect::Defect;
 #[path = "../src/crypto.rs"]
 mod crypto;
 
@@ -1864,16 +1867,19 @@ fn provider_source_error_is_not_swallowed_by_or_else() {
     // reports its failure rather than answering None) must not fall through
     // to the fallback; the port models a failing source as an explicit
     // failure variant, and orElse only consults the fallback on absence.
-    use config_provider::{Failing, Lookup};
+    use config_provider::{Failing, Lookup, ProviderError};
     let error = "source unavailable";
     let primary = Failing::new(error);
     let fallback = provider(&[("KEY", "fallback")]);
     let joined = Lookup::or_else(&primary, &fallback);
     // The primary's failure reaches the caller instead of the fallback's hit.
-    assert_eq!(joined.try_get(&["KEY".to_string()]), Err(error.to_string()));
+    assert_eq!(
+        joined.try_get(&["KEY".to_string()]),
+        Err(ProviderError::source(error))
+    );
     assert_eq!(
         joined.try_get(&["OTHER".to_string()]),
-        Err(error.to_string()),
+        Err(ProviderError::source(error)),
         "the fallback must not answer for a failed source"
     );
 }

@@ -545,3 +545,38 @@ fn gauge_set_with_negative_bigint_constant() {
     registry.set_with(&gauge, -2.0, &contextual);
     assert_eq!(registry.gauge_value_with(&gauge, &contextual).value, -1.0);
 }
+
+/// Metric.test.ts:318 — the dump is one padded table line per series, grouped
+/// by id and ordered inside a group by attribute text.
+///
+/// The row drives three tracked effects: two counters with the same id and
+/// attributes share a series and count twice, the third is its own series.
+#[test]
+fn dump_renders_every_series_as_a_padded_table() {
+    use elm_effect::{Effect, Metrics, Runtime};
+
+    let metrics = Metrics::new();
+    let attributed = Attributes::from_pairs([("x", "a"), ("y", "b")]);
+    let counter1 = Counter::new("counter")
+        .with_attributes(attributed.clone())
+        .with_constant_input(1.0);
+    let counter2 = Counter::new("counter")
+        .with_attributes(attributed)
+        .with_constant_input(1.0);
+    let counter3 = Counter::new("counter")
+        .with_attributes(Attributes::from_pairs([("z", "c")]))
+        .with_constant_input(1.0);
+
+    for counter in [&counter1, &counter2, &counter3] {
+        let counter = counter.clone();
+        let _ = Runtime::run(
+            Effect::<(), std::convert::Infallible, ()>::succeed(())
+                .track(&metrics, move |_, registry| registry.update(&counter, 1.0)),
+        );
+    }
+
+    let dumped = metrics.read(MetricRegistry::dump);
+    let expected = "name=counter  description=  type=Counter  attributes=[x: a, y: b]  state=[count: [2]]\n\
+                    name=counter  description=  type=Counter  attributes=[z: c]        state=[count: [1]]";
+    assert_eq!(dumped, expected);
+}
