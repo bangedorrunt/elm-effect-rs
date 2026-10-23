@@ -193,7 +193,8 @@ pub use runtime::{
     timeout, timeout_fail,
 };
 pub use schedule::{
-    LoopOptions, LoopPredicate, Random, RandomTag, Schedule, repeat, repeat_with, retry, retry_with,
+    LoopOptions, LoopPredicate, Random, RandomError, RandomTag, Schedule, repeat, repeat_with,
+    retry, retry_with,
 };
 #[cfg(feature = "schema")]
 pub use schema_adapter::{

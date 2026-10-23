@@ -652,7 +652,7 @@ tests = ["packages/effect/test/Queue.test.ts"]
 [[module]]
 path = "packages/effect/src/Random.ts"
 class = "port"
-status = "excused"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Random.test.ts"]
@@ -772,7 +772,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Schedule.ts"
 class = "port"
-status = "excused"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Schedule.test.ts"]

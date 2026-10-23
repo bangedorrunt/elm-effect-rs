@@ -415,31 +415,6 @@ vague-reason	packages/effect/test/Queue.test.ts	682	the row's observable is a fi
 vague-reason	packages/effect/test/Queue.test.ts	755	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
 vague-reason	packages/effect/test/Queue.test.ts	836	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
 vague-reason	packages/effect/test/Queue.test.ts	850	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
-vague-reason	packages/effect/test/Random.test.ts	8	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	18	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	25	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	35	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	52	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	63	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	84	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	96	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	108	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	117	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	129	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	139	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	149	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	161	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	175	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	185	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	197	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	209	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	217	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	233	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	247	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	261	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	274	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	291	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-vague-reason	packages/effect/test/Random.test.ts	306	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
 vague-reason	packages/effect/test/RcRef.test.ts	15	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
 vague-reason	packages/effect/test/RcRef.test.ts	66	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
 vague-reason	packages/effect/test/RcRef.test.ts	97	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.

@@ -19,36 +19,166 @@ use crate::{Cause, Effect, Reason};
 
 /// A seeded, shareable random source (the `Random` service).
 pub struct Random {
-    state: Mutex<u64>,
+    state: Mutex<RandomState>,
 }
+
+enum RandomState {
+    Seed(u64),
+    /// Values supplied by [`Random::from_draws`], consumed in order.
+    Draws(std::collections::VecDeque<f64>),
+}
+
+/// The one failure a draw can produce (`NoSuchElementError`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RandomError {
+    /// [`Random::choice`] was handed an empty slice.
+    NoSuchElement,
+}
+
+impl RandomError {
+    /// The pin's message text.
+    pub fn message(&self) -> &'static str {
+        match self {
+            Self::NoSuchElement => "Cannot select a random element from an empty array",
+        }
+    }
+}
+
+impl std::fmt::Display for RandomError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.message())
+    }
+}
+
+impl std::error::Error for RandomError {}
 
 impl Random {
     /// A generator with a fixed seed. Same seed, same sequence.
     pub fn with_seed(seed: u64) -> Self {
         Self {
-            state: Mutex::new(seed | 1),
+            state: Mutex::new(RandomState::Seed(seed | 1)),
+        }
+    }
+
+    /// A generator seeded from a string. The pin hashes its seeds; the hash
+    /// only has to separate seeds, not reproduce the pin's sequence.
+    pub fn with_string_seed(seed: &str) -> Self {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        seed.hash(&mut hasher);
+        Self::with_seed(hasher.finish())
+    }
+
+    /// A source pinned to `draws`, the port's stand-in for providing a fake
+    /// `Random.Random` service. Exhausted draws read as `0.0`.
+    pub fn from_draws(draws: impl IntoIterator<Item = f64>) -> Self {
+        Self {
+            state: Mutex::new(RandomState::Draws(draws.into_iter().collect())),
         }
     }
 
     /// Next pseudorandom unit in `[0, 1)`.
     pub fn next_unit(&self) -> f64 {
         let mut guard = self.state.lock().unwrap();
-        // SplitMix64: good enough for jitter, no dependency.
-        *guard = guard.wrapping_add(0x9E3779B97F4A7C15);
-        let mut z = *guard;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
-        z ^= z >> 31;
-        drop(guard);
-        let bits = (z >> 11) | 0x3FF0000000000000u64;
-        f64::from_bits(bits) - 1.0
+        match &mut *guard {
+            RandomState::Draws(draws) => draws.pop_front().unwrap_or(0.0),
+            RandomState::Seed(seed) => {
+                // SplitMix64: good enough for jitter, no dependency.
+                *seed = seed.wrapping_add(0x9E3779B97F4A7C15);
+                let mut z = *seed;
+                z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+                z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+                z ^= z >> 31;
+                let bits = (z >> 11) | 0x3FF0000000000000u64;
+                f64::from_bits(bits) - 1.0
+            }
+        }
     }
+
+    /// A boolean above a strict `0.5` threshold (`nextBoolean`).
+    pub fn next_boolean(&self) -> bool {
+        self.next_unit() > 0.5
+    }
+
+    /// A safe integer across the full range (`nextInt`).
+    pub fn next_int(&self) -> i64 {
+        ((self.next_unit() * 2.0 - 1.0) * 9_007_199_254_740_991.0) as i64
+    }
+
+    /// A half-open `[min, max)` draw (`nextBetween`). A draw that rounds up
+    /// to the bound steps down to its predecessor instead of returning `max`.
+    pub fn next_between(&self, min: f64, max: f64) -> f64 {
+        if min == max {
+            return min;
+        }
+        let value = min + self.next_unit() * (max - min);
+        if value >= max {
+            predecessor(max)
+        } else {
+            value
+        }
+    }
+
+    /// An integer in `[min, max]` (`nextIntBetween`).
+    pub fn next_int_between(&self, min: i64, max: i64) -> i64 {
+        if min >= max {
+            return min;
+        }
+        let offset = (self.next_unit() * (max - min + 1) as f64) as i64;
+        min + offset.clamp(0, max - min)
+    }
+
+    /// An integer in `[min, max)` (`nextIntBetween` with `halfOpen`).
+    pub fn next_int_between_half_open(&self, min: i64, max: i64) -> i64 {
+        if min >= max {
+            return min;
+        }
+        let offset = (self.next_unit() * (max - min) as f64) as i64;
+        min + offset.clamp(0, max - min - 1)
+    }
+
+    /// A shuffled copy (`shuffle`); the input keeps its order.
+    pub fn shuffle<T: Clone>(&self, values: &[T]) -> Vec<T> {
+        let mut out = values.to_vec();
+        for index in (1..out.len()).rev() {
+            let other = self.next_int_between_half_open(0, index as i64 + 1) as usize;
+            out.swap(index, other);
+        }
+        out
+    }
+
+    /// One element (`choice`), or `NoSuchElement` when there is nothing to
+    /// pick.
+    pub fn choice<'a, T>(&self, values: &'a [T]) -> Result<&'a T, RandomError> {
+        if values.is_empty() {
+            return Err(RandomError::NoSuchElement);
+        }
+        let index = self.next_int_between_half_open(0, values.len() as i64) as usize;
+        Ok(&values[index])
+    }
+}
+
+/// The float just below `x`. Infinities are unchanged so the pin's unsupported
+/// bounds (`nextBetween(10, Infinity)`) pass through.
+fn predecessor(x: f64) -> f64 {
+    if x.is_nan() || x.is_infinite() {
+        return x;
+    }
+    if x == 0.0 {
+        return -f64::from_bits(1);
+    }
+    let bits = x.to_bits();
+    f64::from_bits(if x > 0.0 { bits - 1 } else { bits + 1 })
 }
 
 impl Clone for Random {
     fn clone(&self) -> Self {
+        let state = match &*self.state.lock().unwrap() {
+            RandomState::Seed(seed) => RandomState::Seed(*seed),
+            RandomState::Draws(draws) => RandomState::Draws(draws.clone()),
+        };
         Self {
-            state: Mutex::new(*self.state.lock().unwrap()),
+            state: Mutex::new(state),
         }
     }
 }
