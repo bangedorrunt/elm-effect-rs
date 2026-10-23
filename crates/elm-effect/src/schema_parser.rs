@@ -14,27 +14,36 @@
 //!
 //! `Schema::effect_codec` lets a node carry an Effect step instead of a
 //! resolved closure. [`Effect`]'s adapter resolves those steps first
-//! ([`resolve_steps`]) and decodes the answers second, so a product whose
-//! children yield runs them in declaration order rather than running none.
+//! ([`resolve`]) and decodes the answers second, so a product whose children
+//! yield gets every step's answer without a sync adapter ever pretending to run
+//! one.
+//!
+//! # Scheduling
+//!
+//! A product fans its step-carrying children out under
+//! `ParseOptions.concurrency`: `bounded(n)` keeps `n` open and starts the next
+//! as a slot frees, `unbounded` starts them all, and the default sequential runs
+//! one at a time in declaration order. Each child reads the same option for its
+//! own children, which is the pin's nesting rule. Under `errors: first` the
+//! first failure to complete wins and the children still open are dropped, the
+//! carrier's interruption; under `all` the issues accumulate in completion
+//! order, and a record assembles its keys in that order too.
 //!
 //! # Ceiling
 //!
-//! The resolution is sequential. The pin schedules siblings under
-//! `ParseOptions.concurrency` with interruption of pending children and
-//! completion-order accumulation; this port runs one step to completion before
-//! starting the next, so the bounded-concurrency rows are excused on that
-//! scheduler rather than on the schema. A union member or a record key that
-//! carries a step is not resolved either: the walk only descends the shapes it
-//! can name, and the second phase then reports the node's synchronous refusal
-//! instead of a silently wrong value. The `transformEffect` spelling, whose
-//! caller already ran the effect, still dies with [`ASYNC_DEFECT`].
+//! A union member that carries a step is not resolved: the walk only descends
+//! the shapes it can name, and the second phase then reports the node's
+//! synchronous refusal instead of a silently wrong value. A constructor default
+//! fills in that second phase as well, so the concurrency knob has no default to
+//! schedule. The `transformEffect` spelling, whose caller already ran the
+//! effect, still dies with [`ASYNC_DEFECT`].
 //!
 //! The mixed-decode-cause rows (a `Cause` holding an issue and a defect) are
 //! excused on this port's decode having a single error channel, not on steps.
 
 use elm_effect_schema::transform::{Errors, ParseOptions};
 use elm_effect_schema::{
-    AdapterError, CONSTRUCTOR_DIE, EffectStep, IntoUnknown, Schema, SchemaError, StepFuture, Unknown,
+    AdapterError, CONSTRUCTOR_DIE, EffectStep, IntoUnknown, Schema, SchemaError, Unknown,
 };
 
 use crate::cause::Defect;
@@ -84,12 +93,16 @@ where
     }
     let schema = schema.clone();
     Effect::suspend(move || {
-        let mut issues = Vec::new();
-        let resolved = resolve_steps(&schema, input, "$", Direction::Decode, &options, &mut issues);
-        let outcome = if issues.is_empty() {
-            schema.decode_after_steps(resolved, &options)
-        } else {
-            Err(combined_issues(issues))
+        let resolved = block_on(resolve(
+            schema.clone(),
+            input,
+            "$".to_string(),
+            Direction::Decode,
+            options,
+        ));
+        let outcome = match resolved {
+            Ok(input) => schema.decode_after_steps(input, &options),
+            Err(error) => Err(error),
         };
         Effect::from_result(outcome)
     })
@@ -126,13 +139,14 @@ where
     let schema = schema.clone();
     let value = value.clone().into_unknown();
     Effect::suspend(move || {
-        let mut issues = Vec::new();
-        let resolved = resolve_steps(&schema, value, "$", Direction::Encode, &options, &mut issues);
-        Effect::from_result(if issues.is_empty() {
-            Ok(resolved)
-        } else {
-            Err(combined_issues(issues))
-        })
+        let resolved = block_on(resolve(
+            schema.clone(),
+            value,
+            "$".to_string(),
+            Direction::Encode,
+            options,
+        ));
+        Effect::from_result(resolved)
     })
 }
 
@@ -152,106 +166,268 @@ impl Direction {
     }
 }
 
-/// Run every Effect step under `schema`, replacing each node's input with the
-/// step's answer, and hand the resulting input to the ordinary decoder.
+/// One node's resolved value, or the issue that stopped it.
+type ResolveFuture = std::pin::Pin<
+    Box<dyn std::future::Future<Output = Result<Unknown, SchemaError>> + Send + 'static>,
+>;
+
+/// Resolve every Effect step under `schema`, replacing each node's input with
+/// the step's answer.
 ///
-/// This is the pin's sequential parser for the shapes it can see here: a struct
-/// walks its declared fields, a tuple its positions, an array its elements. A
-/// union or a record is left unresolved, and the second phase then reports the
-/// node's synchronous refusal rather than a silent value.
-///
-/// A step's own failure becomes an issue at the occurrence it was reading,
-/// `errors: \"first\"` stops at it, and `errors: \"all\"` keeps walking the
-/// siblings; both are the composite rules the exit adapter already applies.
-fn resolve_steps<T>(
-    schema: &Schema<T>,
+/// A product fans its step-carrying children out under
+/// `ParseOptions.concurrency`, and each child that is itself a product fans out
+/// under the same option independently: that is the pin's nesting rule
+/// (`SchemaParser.test.ts:247`). `errors: \"first\"` returns the first failure
+/// that completes and drops every child still open, which is this carrier's
+/// interruption; `\"all\"` reports the failures in completion order.
+fn resolve<T>(
+    schema: Schema<T>,
     input: Unknown,
-    path: &str,
+    path: String,
     direction: Direction,
-    options: &ParseOptions,
-    issues: &mut Vec<SchemaError>,
-) -> Unknown
+    options: ParseOptions,
+) -> ResolveFuture
 where
-    T: Send + Sync + 'static,
+    T: Clone + Send + Sync + 'static,
 {
-    if let Some(step) = direction.step(schema) {
-        return match block_on(step.run(input)) {
-            Ok(answer) => answer,
-            Err(error) => {
-                issues.push(error.at(path));
-                Unknown::Undefined
+    Box::pin(async move {
+        // A node that carries the step answers with it; its children are the
+        // step's own business.
+        if let Some(step) = direction.step(&schema) {
+            let future = step.run(input);
+            return future.await.map_err(|error| error.at(&path));
+        }
+        // A node with no step below it is left exactly as it arrived, so the
+        // ordinary decoder does all of its own work.
+        if !schema.has_effect_steps() {
+            return Ok(input);
+        }
+        match input {
+            Unknown::Object(object) => {
+                resolve_object(&schema, object, path, direction, options).await
             }
-        };
-    }
-    // A node with no step below it is left exactly as it arrived, so the
-    // ordinary decoder does all of its own work.
-    if !schema.has_effect_steps() {
-        return input;
-    }
-    match input {
-        Unknown::Object(mut object) => {
-            for field in schema.fields().unwrap_or_default() {
-                let Some(value) = object.remove(field.name()) else {
+            Unknown::Array(items) => {
+                resolve_array(&schema, items, path, direction, options).await
+            }
+            other => Ok(other),
+        }
+    })
+}
+
+/// The object shapes: a struct walks its declared fields, a record walks every
+/// entry under its one value schema.
+fn resolve_object<T>(
+    schema: &Schema<T>,
+    object: std::collections::BTreeMap<String, Unknown>,
+    path: String,
+    direction: Direction,
+    options: ParseOptions,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Unknown, SchemaError>> + Send + '_>>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    Box::pin(async move {
+        let limit = options.concurrency.slots();
+        let fail_fast = options.errors == Errors::First;
+        if let Some(fields) = schema.fields() {
+            let mut names = Vec::new();
+            let mut tasks = Vec::new();
+            for field in fields {
+                let Some(value) = object.get(field.name()) else {
                     continue;
                 };
                 if !field.inner().has_effect_steps() {
-                    object.insert(field.name().to_string(), value);
                     continue;
                 }
-                let child = format!("{path}.{}", field.name());
-                let resolved =
-                    resolve_steps(field.inner(), value, &child, direction, options, issues);
-                object.insert(field.name().to_string(), resolved);
-                if options.errors == Errors::First && !issues.is_empty() {
-                    return Unknown::Object(object);
+                names.push(field.name().to_string());
+                tasks.push(resolve(
+                    field.inner().clone(),
+                    value.clone(),
+                    format!("{path}.{}", field.name()),
+                    direction,
+                    options,
+                ));
+            }
+            let done = FanOut::new(tasks, limit, fail_fast).await?;
+            let mut out = object;
+            for (index, value) in done {
+                out.insert(names[index].clone(), value);
+            }
+            return Ok(Unknown::Object(out));
+        }
+        // A record names one value schema for every key its index signature
+        // covers. Entries are assembled in COMPLETION order, so two wire keys
+        // that decode onto one name are decided the way the pin decides them
+        // (`SchemaParser.test.ts:221`).
+        let Some(value_schema) = schema.record_value() else {
+            return Ok(Unknown::Object(object));
+        };
+        if !value_schema.has_effect_steps() {
+            return Ok(Unknown::Object(object));
+        }
+        let keys: Vec<String> = object.keys().cloned().collect();
+        let tasks = keys
+            .iter()
+            .map(|key| {
+                resolve(
+                    value_schema.clone(),
+                    object[key].clone(),
+                    format!("{path}.{key}"),
+                    direction,
+                    options,
+                )
+            })
+            .collect();
+        let done = FanOut::new(tasks, limit, fail_fast).await?;
+        let mut out = std::collections::BTreeMap::new();
+        for (index, value) in done {
+            let wire_key = &keys[index];
+            let name = match schema.record_key() {
+                Some(key_schema) => match key_schema.decode(Unknown::Text(wire_key.clone())) {
+                    Ok(Unknown::Text(name)) => name,
+                    _ => wire_key.clone(),
+                },
+                None => wire_key.clone(),
+            };
+            // Last completion wins, which is the pin's rule for a collision.
+            out.insert(name, value);
+        }
+        Ok(Unknown::Object(out))
+    })
+}
+
+/// The positional shapes: a tuple names each position, an array names one
+/// element schema for every position.
+fn resolve_array<T>(
+    schema: &Schema<T>,
+    items: Vec<Unknown>,
+    path: String,
+    direction: Direction,
+    options: ParseOptions,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Unknown, SchemaError>> + Send + '_>>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    Box::pin(async move {
+        let limit = options.concurrency.slots();
+        let fail_fast = options.errors == Errors::First;
+        let elements: Vec<Schema<Unknown>> = match schema.elements() {
+            Some(elements) => elements.to_vec(),
+            None => schema
+                .array_element_schema()
+                .map(|element| vec![element.clone(); items.len()])
+                .unwrap_or_default(),
+        };
+        let mut positions = Vec::new();
+        let mut tasks = Vec::new();
+        let mut taken = items;
+        for (index, element) in elements.iter().enumerate() {
+            if !element.has_effect_steps() || index >= taken.len() {
+                continue;
+            }
+            positions.push(index);
+            let value = std::mem::replace(&mut taken[index], Unknown::Undefined);
+            tasks.push(resolve(
+                element.clone(),
+                value,
+                format!("{path}[{index}]"),
+                direction,
+                options,
+            ));
+        }
+        let done = FanOut::new(tasks, limit, fail_fast).await?;
+        for (task, value) in done {
+            taken[positions[task]] = value;
+        }
+        Ok(Unknown::Array(taken))
+    })
+}
+
+/// Poll a product's children under a slot limit, answering in completion order.
+///
+/// Every child is polled with the parent's waker, so one child waking makes the
+/// parent re-poll all of them. `ponytail: O(n²)` re-poll over a product's
+/// children; a product is the only place this runs and `n` is its arity, so an
+/// intrusive waker list would be more machinery than it saves.
+struct FanOut {
+    pending: std::collections::VecDeque<(usize, ResolveFuture)>,
+    active: Vec<(usize, ResolveFuture)>,
+    completed: Vec<(usize, Result<Unknown, SchemaError>)>,
+    limit: usize,
+    fail_fast: bool,
+}
+
+impl FanOut {
+    fn new(tasks: Vec<ResolveFuture>, limit: usize, fail_fast: bool) -> Self {
+        Self {
+            pending: tasks.into_iter().enumerate().collect(),
+            active: Vec::new(),
+            completed: Vec::new(),
+            limit,
+            fail_fast,
+        }
+    }
+}
+
+impl std::future::Future for FanOut {
+    type Output = Result<Vec<(usize, Unknown)>, SchemaError>;
+
+    fn poll(
+        self: std::pin::Pin<&mut Self>,
+        context: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        let this = self.get_mut();
+        loop {
+            while this.active.len() < this.limit {
+                match this.pending.pop_front() {
+                    Some(task) => this.active.push(task),
+                    None => break,
                 }
             }
-            // A record names one value schema for every key its index
-            // signature covers; an exact-key record walks the keys it holds.
-            if schema.fields().is_none()
-                && let Some(value_schema) = schema.record_value()
-                && value_schema.has_effect_steps()
-            {
-                for (name, value) in std::mem::take(&mut object) {
-                    let child = format!("{path}.{name}");
-                    let resolved =
-                        resolve_steps(value_schema, value, &child, direction, options, issues);
-                    object.insert(name, resolved);
-                    if options.errors == Errors::First && !issues.is_empty() {
-                        return Unknown::Object(object);
+            if this.active.is_empty() {
+                let mut values = Vec::new();
+                let mut issues = Vec::new();
+                for (index, result) in this.completed.drain(..) {
+                    match result {
+                        Ok(value) => values.push((index, value)),
+                        Err(error) => issues.push(error),
+                    }
+                }
+                return std::task::Poll::Ready(if issues.is_empty() {
+                    Ok(values)
+                } else {
+                    Err(combined_issues(issues))
+                });
+            }
+            let mut progressed = false;
+            let mut index = 0;
+            while index < this.active.len() {
+                let (task, mut future) = this.active.remove(index);
+                match future.as_mut().poll(context) {
+                    std::task::Poll::Ready(result) => {
+                        match result {
+                            Ok(value) => this.completed.push((task, Ok(value))),
+                            Err(error) if this.fail_fast => {
+                                // Dropping the open children is this carrier's
+                                // interruption (`SchemaParser.test.ts:137`).
+                                this.active.clear();
+                                this.pending.clear();
+                                return std::task::Poll::Ready(Err(error));
+                            }
+                            Err(error) => this.completed.push((task, Err(error))),
+                        }
+                        progressed = true;
+                    }
+                    std::task::Poll::Pending => {
+                        this.active.insert(index, (task, future));
+                        index += 1;
                     }
                 }
             }
-            Unknown::Object(object)
-        }
-        Unknown::Array(mut items) => {
-            // A tuple names its positions; an array names one element schema
-            // for every position. Both are walked the same way.
-            let elements: Vec<Schema<Unknown>> = match schema.elements() {
-                Some(elements) => elements.to_vec(),
-                None => schema
-                    .array_element_schema()
-                    .map(|element| vec![element.clone(); items.len()])
-                    .unwrap_or_default(),
-            };
-            for (index, element) in elements.iter().enumerate() {
-                let Some(value) = items.get_mut(index) else {
-                    continue;
-                };
-                let taken = std::mem::replace(value, Unknown::Undefined);
-                if !element.has_effect_steps() {
-                    *value = taken;
-                    continue;
-                }
-                let child = format!("{path}[{index}]");
-                *value = resolve_steps(element, taken, &child, direction, options, issues);
-                if options.errors == Errors::First && !issues.is_empty() {
-                    return Unknown::Array(items);
-                }
+            if !progressed {
+                return std::task::Poll::Pending;
             }
-            Unknown::Array(items)
         }
-        other => other,
     }
 }
 
@@ -265,12 +441,15 @@ fn combined_issues(mut issues: Vec<SchemaError>) -> SchemaError {
     }
 }
 
-/// Drive one step's future to completion on this thread.
+/// Drive a resolver future to completion on this thread.
 ///
 /// A fiber body already owns a thread and never shares it, so parking here is
 /// the same wait the fiber itself would do. The waker unparks this thread, which
-/// is all a step needs to make progress.
-fn block_on(mut future: StepFuture) -> Result<Unknown, SchemaError> {
+/// is all a step or a child product needs to make progress.
+fn block_on<F, R>(future: F) -> R
+where
+    F: std::future::Future<Output = R>,
+{
     use std::sync::Arc;
     use std::task::{Context, Poll, Wake, Waker};
 
@@ -284,6 +463,7 @@ fn block_on(mut future: StepFuture) -> Result<Unknown, SchemaError> {
 
     let waker = Waker::from(Arc::new(Unpark(std::thread::current())));
     let mut context = Context::from_waker(&waker);
+    let mut future = std::pin::pin!(future);
     loop {
         match future.as_mut().poll(&mut context) {
             Poll::Ready(answer) => return answer,

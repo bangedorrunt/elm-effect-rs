@@ -1,10 +1,9 @@
 //! `SchemaParser.test.ts` adapter rows: construction, the sync carrier, and the
 //! lazy `Suspend` factory.
 //!
-//! The effect-driven rows (concurrency, interruption, mixed decode causes) are
-//! excused in the ledger on the mechanism named in `schema_parser.rs`: this
-//! port's schema resolves an effect step before it attaches it, so there is no
-//! step graph for a parser to schedule.
+//! The effect-driven rows are not here: the ones that schedule siblings live in
+//! `schema_parser_concurrency.rs`, and the mixed decode causes stay excused in
+//! the ledger on this port's decode having a single error channel.
 
 #![cfg(all(feature = "schema", feature = "tokio"))]
 

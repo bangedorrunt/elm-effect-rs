@@ -834,6 +834,31 @@ pub enum Errors {
     All,
 }
 
+/// How many children of a product may be parsed at once
+/// (`ParseOptions.concurrency`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Concurrency {
+    /// One child at a time, in declaration order (the default).
+    #[default]
+    Sequential,
+    /// At most `n` children at once.
+    Bounded(usize),
+    /// Every child starts immediately.
+    Unbounded,
+}
+
+impl Concurrency {
+    /// How many children a product may hold open. A bound of zero is read as
+    /// one: a product cannot make progress with no slot to run in.
+    pub fn slots(self) -> usize {
+        match self {
+            Self::Sequential => 1,
+            Self::Bounded(n) => n.max(1),
+            Self::Unbounded => usize::MAX,
+        }
+    }
+}
+
 /// Parse options (`ParseOptions`): the decisions a call site can make about one
 /// parse.
 ///
@@ -858,6 +883,10 @@ pub struct ParseOptions {
     /// expected. The input rides [`SchemaError::WithInput`](crate::SchemaError)
     /// at the occurrence the entry point named.
     pub report_input: bool,
+    /// `concurrency`: how many children of a product the effect parser keeps
+    /// open at once. Read by the parser, not by a codec: a synchronous parse
+    /// has no children to schedule.
+    pub concurrency: Concurrency,
 }
 
 std::thread_local! {
@@ -871,6 +900,7 @@ std::thread_local! {
             on_excess_property: crate::ExcessProperty::Ignore,
             disable_checks: false,
             report_input: false,
+            concurrency: Concurrency::Sequential,
         })
     };
 }
