@@ -1,7 +1,7 @@
 # Excuse clusters: what the 3608 not-applicable rows are waiting on
 
 `python3 conformance/excuse-audit.py` reports two shapes worth acting on: 66
-blanket reasons covering 1295 rows, and 402 reasons that name no API, file or
+blanket reasons covering 1250 rows, and 402 reasons that name no API, file or
 line. The numbers move as rows are swept; re-run the tool, do not trust these. This brief dispositions the clusters that can be named by their reason, so
 the next unit can pick one instead of re-reading the ledger.
 
@@ -9,7 +9,7 @@ the next unit can pick one instead of re-reading the ledger.
 
 One pass over `conformance/behavior-tests.tsv`, matching reason substrings; a
 row lands in the first cluster that matches. Counts are rows, not tests. The
-clusters below cover 650 rows. The remaining 2812 carry per-row reasons that
+clusters below cover 639 rows. The remaining 2812 carry per-row reasons that
 this pass did not re-adjudicate.
 
 ## A. Terminal: no Rust change can make the row observable (290 rows)
@@ -36,7 +36,7 @@ other 11 are excused by representability, listed in A.
 
 | Cluster | Rows | Missing surface | Rust owner |
 |---|---|---|---|
-| Effectful `SchemaParser` | 56 | Parser is Effect-driven (Deferred/Fiber/Cause); the port has only sync adapters | `crates/elm-effect/src/schema_parser.rs` |
+| Effectful `SchemaParser` | 45 | The concurrency, interruption, middleware, and mixed-cause rows need `Schema<T>` to carry an effect step. The port resolves each step before attaching it, so `requires_effect` marks a marker, not a runnable step. Enabler: a schema redesign, not the parser file | `crates/elm-effect-schema/src/lib.rs` |
 | `Config.schema` materialization | 54 | No `Config.schema` constructor, so schema nodes are never built from provider data | `crates/elm-effect/src/config.rs` |
 | Atom surface | 60 | `Atom.fn`/idleTTL/batching (33) and `Atom.swr`/refresh (27); the port has the lifecycle core only | `crates/elm-effect-unstable/src/reactivity.rs` |
 | HTTP client/api/server | 80 | Transport, discovery, handler/middleware wiring | `crates/elm-effect-unstable/src/http.rs` |
@@ -117,8 +117,20 @@ under a stubbed implementation. Eleven stay excused by mechanism: ten `dual`
 rows need runtime arity dispatch, and `absurd` has no caller because
 `Infallible` is uninhabited.
 
+`SchemaParser.test.ts` was the tenth: 56 rows under "no effectful parser".
+Eleven were adapters that only needed the facade, and they are witnessed in
+`crates/elm-effect/tests/schema_parser_adapters.rs`: `make` and `makeOption`
+report a mixed constructor cause, the sync adapter refuses an issue, the effect
+adapter fails with the issue and is eager for a sync schema, and a `Suspend`
+factory stays lazy, memoized, mutually recursive, and retried after a failure.
+The other 45 are excused by one of ten named mechanisms. The effectful engine
+itself is a ceiling, not a missing file: `Schema<T>` carries an already
+resolved closure, so a parser has no step graph to schedule. Clearing the 45
+means `Schema<T>` carries the effect, which is a schema redesign.
+
 ## Next step
 
-No cheap cluster is left. `Config.schema` (54) and `SchemaParser` (56) need the
-schema bridge, and `Atom`/`MCP`/`HTTP` need runtime or transport work. Pick one
-substrate and build it end to end.
+No cheap cluster is left. `Config.schema` (54) needs the schema bridge; the 45
+remaining `SchemaParser` rows need an effect-carrying `Schema`; and
+`Atom`/`MCP`/`HTTP` need runtime or transport work. Pick one substrate and
+build it end to end.

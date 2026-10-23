@@ -159,6 +159,10 @@ let json = schema.encode_json(&text)?;
 
 `decode` takes `Unknown`. `encode` returns `Unknown`. A bad shape is `SchemaError::TypeMismatch`. Bad bytes are `SchemaError::InvalidJson`. `catch_tag` matches a `TaggedError` on its tag.
 
+The parser adapters are in `elm_effect` too. `make(&schema, input)` is the construction path: a constructor default fills a missing field, and a default that died answers `elm_effect_schema::AdapterError::Die` with the adapter's message and the defect. `make_option` answers `None` only for a schema issue, never for a defect. `decode_unknown_sync` and `encode_unknown_sync` answer `Result` where the pin throws. `decode_unknown_effect` answers an `Effect` that is already settled for a sync schema and fails with the schema issue.
+
+A schema marked `requires_effect` is refused by these adapters: the port resolves an effect step before the schema sees it, so there is no step for a parser to run. The effect adapter answers `ASYNC_DEFECT` instead of pretending. Running the pin's concurrent parser needs `Schema` to carry the effect, which this port does not do yet.
+
 ## A metric
 
 `Metrics` is in the default build. A `Counter`, `Gauge`, `Frequency`, `Histogram`, or `Summary` describes the series; the registry holds the state.

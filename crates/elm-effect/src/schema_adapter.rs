@@ -117,6 +117,15 @@ impl<T, E> Exit<T, E> {
         self.into_sync(SYNC_MESSAGE)
     }
 
+    /// [`into_value`](Self::into_value) with the adapter's own wording.
+    ///
+    /// The pin's two test files disagree on that wording for the same adapter
+    /// (`Schema.test.ts` says "schema errors", `SchemaParser.test.ts` says
+    /// "schema issues"), so an entry point passes the text its file asserts.
+    pub fn into_value_with(self, message: &'static str) -> Result<T, AdapterFailure<E>> {
+        self.into_sync(message)
+    }
+
     /// `decodeUnknownPromise`: the value, or what the promise adapter rejects
     /// with. A rejection and a throw differ in wording, not in what they can
     /// carry, so both go through the same split.

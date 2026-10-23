@@ -5,7 +5,9 @@
 says "a Rust test proves this behavior", and the `rust` column names the
 witness. Two claims hide behind that word:
 
-  * the witness exists (a test fn, a test file stem, or `path::fn`), and
+  * the witness exists (a test fn, a test file stem, or `path::fn`, where
+    the path may be a `tests/` file or a `src/` file with an inline
+    `#[cfg(test)]` module), and
   * the witness exercises the port (its body reaches a symbol the crates
     define), not the Rust standard library.
 
@@ -251,6 +253,17 @@ def fn_bodies(path: str) -> dict[str, str]:
     return out
 
 
+def split_witness(token: str) -> tuple[str, str]:
+    """A `path::fn` or `path::module::fn` cell as (path, fn).
+
+    The module segments between the file and the test are noise: a src-inline
+    `mod tests` nests its tests one level down, so `file::tests::row` must
+    resolve like `file::row`.
+    """
+    parts = token.split("::")
+    return parts[0], parts[-1]
+
+
 def test_fns(path: str) -> set[str]:
     """Names carrying #[test]. An audit witness must be a real test."""
     text = read(path)
@@ -327,12 +340,17 @@ class Witnesses:
         self.by_stem: dict[str, str] = {}
         for root, dirs, names in os.walk(CRATES):
             dirs[:] = [d for d in dirs if d != "target"]
-            if f"{os.sep}tests" not in root and not root.endswith(os.sep + "tests"):
-                continue
             for name in names:
                 if not name.endswith(".rs"):
                     continue
                 path = os.path.relpath(os.path.join(root, name))
+                in_tests = f"{os.sep}tests" in root or root.endswith(
+                    os.sep + "tests"
+                )
+                # A src file is a witness host only when it carries an inline
+                # `#[cfg(test)]` module; without one its fns are not tests.
+                if not in_tests and "#[cfg(test)]" not in read(path):
+                    continue
                 found = fn_bodies(path)
                 if not found:
                     continue
@@ -341,7 +359,10 @@ class Witnesses:
                 self.test_names[path] = test_fns(path)
                 for fn_name in self.test_names[path]:
                     self.by_name[fn_name].append(path)
-                self.by_stem[name[:-3]] = path
+                # Only a tests/ file may answer a bare stem: two files named
+                # `config.rs` must not shadow each other.
+                if in_tests:
+                    self.by_stem[name[:-3]] = path
 
     def resolve(self, cell: str) -> tuple[list[tuple[str, str]], list[str]]:
         """(path, fn) pairs the cell names, plus the tokens that resolve nothing."""
@@ -359,8 +380,8 @@ class Witnesses:
                     unresolved.append(token)
                 continue
             if "::" in token:
-                path, _, name = token.rpartition("::")
-                path = os.path.relpath(path) if os.path.isfile(path) else ""
+                raw_path, name = split_witness(token)
+                path = os.path.relpath(raw_path) if os.path.isfile(raw_path) else ""
                 if path and name in self.tests.get(path, {}):
                     resolved.append((path, name))
                 else:
@@ -378,7 +399,7 @@ class Witnesses:
 
 
 def self_test() -> None:
-    """The two traps this audit fell into before it could be trusted.
+    """The traps this audit fell into before it could be trusted.
 
     A witness that builds through a file-local helper is not a substrate test,
     and `Stream.ignore` is a claim about stream.rs, not about any `ignore` in
@@ -396,6 +417,13 @@ def self_test() -> None:
     assert references("let d: Decimal = todo!();", types, fns, {}), (
         "a port type in a signature must count"
     )
+    assert split_witness("crates/x/tests/a.rs::row") == ("crates/x/tests/a.rs", "row"), (
+        "a tests/ witness keeps its file and fn"
+    )
+    assert split_witness("crates/x/src/a.rs::tests::mod::row") == (
+        "crates/x/src/a.rs",
+        "row",
+    ), "module segments between the file and the test are noise"
 
 
 def main(argv: list[str]) -> int:

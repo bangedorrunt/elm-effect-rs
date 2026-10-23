@@ -237,7 +237,12 @@ pub use schema_file::file;
 #[cfg(feature = "schema")]
 pub use schema_graph::graph;
 #[cfg(feature = "schema")]
-pub use schema_parser::{ASYNC_DEFECT, decode_unknown_exit, decode_unknown_result};
+pub use schema_parser::{
+    ASYNC_DEFECT, SYNC_ISSUE_MESSAGE, decode_unknown_effect, decode_unknown_exit,
+    decode_unknown_option, decode_unknown_result, decode_unknown_sync, encode_unknown_effect,
+    encode_unknown_exit, encode_unknown_option, encode_unknown_result, encode_unknown_sync, make,
+    make_option,
+};
 #[cfg(feature = "schema")]
 pub use schema_regexp::regexp;
 pub use regexp::RegExp;
