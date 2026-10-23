@@ -795,7 +795,7 @@ fn an_empty_object_node_is_a_present_struct() {
 
     let empty_tuple = Config::schema(&Schema::tuple_of(vec![]), Some("a".to_string()));
     assert_eq!(
-        empty_tuple.load(&container(&[], &[(&["a"], Node::Array)])),
+        empty_tuple.load(&container(&[], &[(&["a"], Node::Array(0))])),
         Ok(Value::List(vec![]))
     );
 
@@ -1154,7 +1154,7 @@ fn a_recursive_suspended_schema_decodes_nested_arrays() {
 
     let config = Config::schema(&tree, None);
     assert_eq!(
-        config.load(&container(&[("a", "1")], &[(&["as"], Node::Array)])),
+        config.load(&container(&[("a", "1")], &[(&["as"], Node::Array(0))])),
         Ok(obj(&[
             ("a", Value::Str("1".to_string())),
             ("as", Value::List(Vec::new())),
@@ -1163,7 +1163,7 @@ fn a_recursive_suspended_schema_decodes_nested_arrays() {
     assert_eq!(
         config.load(&container(
             &[("a", "1"), ("as.0.a", "2")],
-            &[(&["as"], Node::Array), (&["as", "0", "as"], Node::Array)],
+            &[(&["as"], Node::Array(1)), (&["as", "0", "as"], Node::Array(0))],
         )),
         Ok(obj(&[
             ("a", Value::Str("1".to_string())),
@@ -1175,5 +1175,47 @@ fn a_recursive_suspended_schema_decodes_nested_arrays() {
                 ])]),
             ),
         ]))
+    );
+}
+
+#[test]
+fn a_declared_array_length_keeps_holes_as_undefined() {
+    // Config.test.ts:1873 — the node says the array has two positions, so the
+    // second one is `undefined` even though nothing is stored there. The gap
+    // is a value inside the array, not the end of it.
+    let schema = Schema::as_unknown(Schema::array(Schema::undefined_or(Schema::string())));
+    let config = Config::schema(&schema, None);
+
+    let sparse = container(&[("0", "value")], &[(&[], Node::Array(2))]);
+    assert_eq!(
+        config.load(&sparse),
+        Ok(Value::List(vec![
+            Value::Str("value".to_string()),
+            Value::Undefined,
+        ]))
+    );
+
+    // Every position past the stored one is still a position.
+    let empty_but_long = container(&[], &[(&[], Node::Array(2))]);
+    assert_eq!(
+        config.load(&empty_but_long),
+        Ok(Value::List(vec![Value::Undefined, Value::Undefined]))
+    );
+
+    // A hole is a decode failure for an element schema that refuses undefined:
+    // the array is present, so the default cannot recover it.
+    let strict = Config::schema(&Schema::array(Schema::string()), None).with_default(Value::List(vec![
+        Value::Str("default".to_string()),
+    ]));
+    assert!(
+        strict.load(&sparse).is_err(),
+        "a hole under a String element schema is invalid, not absent"
+    );
+
+    // The declared length is the shape: a stored position past it is not read.
+    let shorter = container(&[("0", "a"), ("1", "b")], &[(&[], Node::Array(1))]);
+    assert_eq!(
+        Config::schema(&Schema::array(Schema::string()), None).load(&shorter),
+        Ok(Value::List(vec![Value::Str("a".to_string())]))
     );
 }

@@ -1086,7 +1086,7 @@ fn field_wires(
     provider: &dyn Lookup,
     path: &[String],
 ) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
-    use elm_effect_schema::{SchemaKind, Unknown};
+    use elm_effect_schema::SchemaKind;
     // Nothing at the path means the object is absent, so its fields are never
     // read. Without this a recursive schema descends forever: every level looks
     // exactly like the one above it.
@@ -1314,7 +1314,7 @@ fn object_or_scalar(
         // An explicit container at the path. An empty object is a present
         // struct the schema validates; an array is not one (Config.test.ts:729).
         Some(Node::Object) => return Ok(vec![Unknown::Object(object)]),
-        Some(Node::Array) => return Ok(Vec::new()),
+        Some(Node::Array(_)) => return Ok(Vec::new()),
         None => {}
     }
     Ok(match provider.get(path) {
@@ -1336,18 +1336,33 @@ fn sequence_wires(
     provider: &dyn Lookup,
     path: &[String],
 ) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+    use super::config_provider::Node;
+    use elm_effect_schema::Unknown;
+    // A node that states its length keeps every position up to it: a missing
+    // position is `undefined`, not the end of the array (Config.test.ts:1873).
+    let declared = match provider.node(path) {
+        Some(Node::Array(length)) => Some(length),
+        _ => None,
+    };
     let mut items = Vec::new();
     let mut index = 0usize;
     loop {
+        // A declared length bounds the array: positions past it do not exist,
+        // however eager an element schema is to materialize an absence (an
+        // `UndefinedOr` element answers every path, holes included).
+        if declared.is_some_and(|length| index >= length) {
+            break;
+        }
         let mut child = path.to_vec();
         child.push(index.to_string());
         match item(&child)?.into_iter().next() {
-            Some(wire) => {
-                items.push(wire);
-                index += 1;
-            }
+            Some(wire) => items.push(wire),
+            // Inside the declared length, so the position exists and holds
+            // `undefined` (Config.test.ts:1873).
+            None if declared.is_some() => items.push(Unknown::Undefined),
             None => break,
         }
+        index += 1;
     }
     // The node and co-located-scalar rules are the same for an array and an
     // empty tuple, so both read through this one tail.
@@ -1368,7 +1383,7 @@ fn positional_or_scalar(
     match provider.node(path) {
         // An empty tuple is an explicit empty array node, not an absent one;
         // an object node supplies no positions (Config.test.ts:729).
-        Some(Node::Array) => return Ok(vec![Unknown::Array(Vec::new())]),
+        Some(Node::Array(_)) => return Ok(vec![Unknown::Array(Vec::new())]),
         Some(Node::Object) => return Ok(Vec::new()),
         None => {}
     }
@@ -1464,7 +1479,7 @@ fn object_present(provider: &dyn Lookup, path: &[String]) -> bool {
     use super::config_provider::Node;
     match provider.node(path) {
         Some(Node::Object) => true,
-        Some(Node::Array) => false,
+        Some(Node::Array(_)) => false,
         None => provider.has_children(path),
     }
 }
@@ -1473,7 +1488,7 @@ fn object_present(provider: &dyn Lookup, path: &[String]) -> bool {
 fn array_present(provider: &dyn Lookup, path: &[String]) -> bool {
     use super::config_provider::Node;
     match provider.node(path) {
-        Some(Node::Array) => true,
+        Some(Node::Array(_)) => true,
         Some(Node::Object) => false,
         None => provider.has_children(path),
     }
@@ -1515,7 +1530,6 @@ impl Config {
                     return Err(vec![ConfigError::Missing { path }]);
                 }
                 let relevant = has_schema_input(&walker, provider, &path);
-                eprintln!("DEBUG wires at {path:?}: {wires:?} relevant={relevant}");
                 let mut last = String::new();
                 for wire in wires {
                     last = format!("{wire:?}");

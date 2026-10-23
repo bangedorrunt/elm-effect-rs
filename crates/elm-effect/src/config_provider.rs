@@ -20,8 +20,11 @@ use std::rc::Rc;
 pub enum Node {
     /// An object node, which may have no children.
     Object,
-    /// An array node, which may have no elements.
-    Array,
+    /// An array node with its declared length. A flat map cannot tell a hole
+    /// from the end of the array, and the pin's node can: `makeArray(2)` with
+    /// only position 0 stored still has position 1, holding `undefined`
+    /// (Config.test.ts:1873).
+    Array(usize),
 }
 
 /// Key/value lookup backing [`Config`](super::Config) descriptors.
