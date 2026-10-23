@@ -81,6 +81,10 @@ pub enum Value {
     Redacted(String),
     /// Milliseconds count.
     Millis(i64),
+    /// JSON null (`Config.schema(Schema.Null)`).
+    Null,
+    /// `undefined`, which a decode can produce and JSON cannot spell.
+    Undefined,
     /// List.
     List(Vec<Value>),
     /// Map.
@@ -99,6 +103,8 @@ impl std::fmt::Debug for Value {
             Self::Secret(_) => write!(f, "Secret(***)"),
             Self::Redacted(_) => write!(f, "Redacted(***)"),
             Self::Millis(ms) => write!(f, "Millis({ms:?})"),
+            Self::Null => write!(f, "Null"),
+            Self::Undefined => write!(f, "Undefined"),
             Self::List(items) => write!(f, "List({items:?})"),
             Self::Map(pairs) => write!(f, "Map({pairs:?})"),
             Self::None => write!(f, "None"),
@@ -680,6 +686,486 @@ fn parse_bytes(s: &str) -> Option<i64> {
         return None;
     }
     Some(raw as i64)
+}
+
+// ---------------------------------------------------------------------------
+// `Config.schema`: the Schema bridge.
+// ---------------------------------------------------------------------------
+
+/// What a decoded schema value becomes on the config side.
+///
+/// `Config` is one monomorphic descriptor over [`Value`], while a schema
+/// decodes to whatever type its codec names. This is the small seam between
+/// them: plain data in, plain data out.
+#[cfg(feature = "schema")]
+pub trait IntoConfigValue {
+    /// The config-side spelling of this decoded value.
+    fn into_config_value(self) -> Value;
+}
+
+#[cfg(feature = "schema")]
+impl IntoConfigValue for Value {
+    fn into_config_value(self) -> Value {
+        self
+    }
+}
+
+#[cfg(feature = "schema")]
+impl IntoConfigValue for String {
+    fn into_config_value(self) -> Value {
+        Value::Str(self)
+    }
+}
+
+#[cfg(feature = "schema")]
+impl IntoConfigValue for f64 {
+    fn into_config_value(self) -> Value {
+        Value::Num(self)
+    }
+}
+
+#[cfg(feature = "schema")]
+impl IntoConfigValue for i64 {
+    fn into_config_value(self) -> Value {
+        Value::Int(self)
+    }
+}
+
+#[cfg(feature = "schema")]
+impl IntoConfigValue for bool {
+    fn into_config_value(self) -> Value {
+        Value::Bool(self)
+    }
+}
+
+#[cfg(feature = "schema")]
+impl IntoConfigValue for elm_effect_schema::Unknown {
+    fn into_config_value(self) -> Value {
+        use elm_effect_schema::Unknown;
+        match self {
+            Unknown::Null => Value::Null,
+            Unknown::Undefined => Value::Undefined,
+            Unknown::Bool(flag) => Value::Bool(flag),
+            Unknown::Number(number) => Value::Num(number),
+            Unknown::Text(text) => Value::Str(text),
+            Unknown::Array(items) => {
+                Value::List(items.into_iter().map(IntoConfigValue::into_config_value).collect())
+            }
+            Unknown::Object(fields) => Value::Map(
+                fields
+                    .into_iter()
+                    .map(|(name, item)| (name, item.into_config_value()))
+                    .collect(),
+            ),
+        }
+    }
+}
+
+#[cfg(feature = "schema")]
+impl IntoConfigValue for elm_effect_schema::StructValue {
+    fn into_config_value(self) -> Value {
+        self.to_unknown().into_config_value()
+    }
+}
+
+#[cfg(feature = "schema")]
+impl<T: IntoConfigValue> IntoConfigValue for Vec<T> {
+    fn into_config_value(self) -> Value {
+        Value::List(self.into_iter().map(IntoConfigValue::into_config_value).collect())
+    }
+}
+
+#[cfg(feature = "schema")]
+impl<T: IntoConfigValue> IntoConfigValue for Option<T> {
+    fn into_config_value(self) -> Value {
+        match self {
+            Some(value) => value.into_config_value(),
+            None => Value::None,
+        }
+    }
+}
+
+#[cfg(feature = "schema")]
+fn schema_path(prefix: &[String], name: Option<&str>) -> Vec<String> {
+    let mut path = prefix.to_vec();
+    if let Some(name) = name.filter(|name| !name.is_empty()) {
+        path.extend(name.split('.').map(str::to_string));
+    }
+    path
+}
+
+/// Text to a number wire. Unparseable text survives as a string so the schema
+/// reports the mismatch at its own path instead of the bridge guessing.
+#[cfg(feature = "schema")]
+fn number_wire(text: &str) -> elm_effect_schema::Unknown {
+    use elm_effect_schema::Unknown;
+    match text {
+        "NaN" => Unknown::Number(f64::NAN),
+        "Infinity" | "+Infinity" => Unknown::Number(f64::INFINITY),
+        "-Infinity" => Unknown::Number(f64::NEG_INFINITY),
+        _ => match text.trim().parse::<f64>() {
+            Ok(number) => Unknown::Number(number),
+            Err(_) => Unknown::Text(text.to_string()),
+        },
+    }
+}
+
+#[cfg(feature = "schema")]
+fn boolean_wire(text: &str) -> elm_effect_schema::Unknown {
+    use elm_effect_schema::Unknown;
+    match text {
+        "true" => Unknown::Bool(true),
+        "false" => Unknown::Bool(false),
+        _ => Unknown::Text(text.to_string()),
+    }
+}
+
+/// Text that is itself JSON (`null`, `[]`, `{}`, a bare number).
+#[cfg(feature = "schema")]
+fn json_wire(text: &str) -> Option<elm_effect_schema::Unknown> {
+    elm_effect_schema::serde_json::from_str::<elm_effect_schema::serde_json::Value>(text)
+        .ok()
+        .map(elm_effect_schema::Unknown::from_json)
+}
+
+/// One literal's wire spelling, decided by the literal's own type.
+#[cfg(feature = "schema")]
+fn literal_wire(expected: &elm_effect_schema::Unknown, text: &str) -> elm_effect_schema::Unknown {
+    use elm_effect_schema::Unknown;
+    match expected {
+        Unknown::Number(_) => number_wire(text),
+        Unknown::Bool(_) => boolean_wire(text),
+        Unknown::Null if text == "null" => Unknown::Null,
+        _ => Unknown::Text(text.to_string()),
+    }
+}
+
+/// Build the wire value a schema expects from the provider's text.
+///
+/// The empty vector is "this path holds nothing", which `Config::schema`
+/// reports as absence. More than one wire means the schema offers several
+/// shapes at this path (a union); they come back in the schema's own order, so
+/// the first one that decodes is the schema's first match.
+///
+/// A declared field list is walked as fields, which is how an optional key
+/// stays absent rather than becoming null. Shapes with no field list (a leaf,
+/// an array, a union) are walked by kind.
+#[cfg(feature = "schema")]
+fn schema_wires(
+    schema: &elm_effect_schema::Schema<elm_effect_schema::Unknown>,
+    provider: &dyn Lookup,
+    path: &[String],
+) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+    if let Some(fields) = schema.fields() {
+        return field_wires(fields, provider, path);
+    }
+    if let Some(elements) = schema.elements() {
+        return element_wires(elements, provider, path);
+    }
+    kind_wires(&schema.kind(), provider, path)
+}
+
+#[cfg(feature = "schema")]
+fn field_wires(
+    fields: &[elm_effect_schema::Field],
+    provider: &dyn Lookup,
+    path: &[String],
+) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+    use elm_effect_schema::{SchemaKind, Unknown};
+    let mut object = std::collections::BTreeMap::new();
+    for field in fields {
+        let mut child = path.to_vec();
+        child.push(field.name().to_string());
+        let wires = match field.inner().kind() {
+            // An absent optional field is omitted, not null
+            // (Config.test.ts:2253, :2261).
+            SchemaKind::Optional(inner) | SchemaKind::OptionalKey(inner) => {
+                kind_wires(inner.as_ref(), provider, &child)?
+            }
+            _ => schema_wires(field.inner(), provider, &child)?,
+        };
+        if let Some(wire) = wires.into_iter().next() {
+            object.insert(field.name().to_string(), wire);
+        }
+    }
+    object_or_scalar(object, provider, path)
+}
+
+#[cfg(feature = "schema")]
+fn kind_wires(
+    kind: &elm_effect_schema::SchemaKind,
+    provider: &dyn Lookup,
+    path: &[String],
+) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+    use elm_effect_schema::{SchemaKind, Unknown};
+    let own = || provider.get(path);
+    Ok(match kind {
+        SchemaKind::String => own().map(|text| vec![Unknown::Text(text)]).unwrap_or_default(),
+        SchemaKind::Number => own().map(|text| vec![number_wire(&text)]).unwrap_or_default(),
+        SchemaKind::Boolean => own()
+            .map(|text| vec![boolean_wire(&text)])
+            .unwrap_or_default(),
+        // `Schema.null()` reports an opaque kind rather than a null one, so the
+        // null leaf is recognised by name.
+        SchemaKind::Opaque(name) if *name == "null" => own()
+            .map(|text| {
+                vec![if text == "null" {
+                    Unknown::Null
+                } else {
+                    Unknown::Text(text)
+                }]
+            })
+            .unwrap_or_default(),
+        SchemaKind::Object | SchemaKind::Json => own()
+            .and_then(|text| json_wire(&text))
+            .map(|value| vec![value])
+            .unwrap_or_default(),
+        SchemaKind::Literal(expected) => own()
+            .map(|text| vec![literal_wire(expected, &text)])
+            .unwrap_or_default(),
+        SchemaKind::Literals(expected) => own()
+            .map(|text| {
+                expected
+                    .iter()
+                    .map(|value| literal_wire(value, &text))
+                    .collect()
+            })
+            .unwrap_or_default(),
+        // A key that may be absent only constrains its enclosing struct, so the
+        // inner shape decides the wire.
+        SchemaKind::OptionalKey(inner) => kind_wires(inner, provider, path)?,
+        // A standalone optional reads absence as null, which its schema turns
+        // into `None`.
+        SchemaKind::Optional(inner) => {
+            let wires = kind_wires(inner, provider, path)?;
+            if wires.is_empty() {
+                vec![Unknown::Null]
+            } else {
+                wires
+            }
+        }
+        SchemaKind::Check { base, .. } => kind_wires(base, provider, path)?,
+        SchemaKind::Annotated { inner, .. } => kind_wires(inner, provider, path)?,
+        SchemaKind::Struct(fields) => {
+            let mut object = std::collections::BTreeMap::new();
+            for (name, field_kind) in fields {
+                let mut child = path.to_vec();
+                child.push(name.clone());
+                let wires = match field_kind {
+                    SchemaKind::Optional(inner) | SchemaKind::OptionalKey(inner) => {
+                        kind_wires(inner, provider, &child)?
+                    }
+                    _ => kind_wires(field_kind, provider, &child)?,
+                };
+                if let Some(wire) = wires.into_iter().next() {
+                    object.insert(name.clone(), wire);
+                }
+            }
+            object_or_scalar(object, provider, path)?
+        }
+        SchemaKind::Array(inner) => sequence_wires(|child| kind_wires(inner, provider, child), provider, path)?,
+        SchemaKind::Tuple(kinds) => {
+            let mut items = Vec::new();
+            for (index, field_kind) in kinds.iter().enumerate() {
+                let mut child = path.to_vec();
+                child.push(index.to_string());
+                match kind_wires(field_kind, provider, &child)?.into_iter().next() {
+                    Some(wire) => items.push(wire),
+                    None => break,
+                }
+            }
+            positional_or_scalar(items, provider, path)?
+        }
+        SchemaKind::Union { members, .. } => {
+            let mut wires = Vec::new();
+            for member in members {
+                wires.extend(kind_wires(member, provider, path)?);
+            }
+            // Object members read the same node: a provider holding both
+            // members' keys is ONE object, which is what lets `oneOf` notice
+            // both matched (Config.test.ts:2411) and `anyOf` take the first
+            // (Config.test.ts:2399). Merging keeps the earlier member's value
+            // when two members claim the same key.
+            if wires.len() > 1 && wires.iter().all(|wire| matches!(wire, Unknown::Object(_))) {
+                let mut merged = std::collections::BTreeMap::new();
+                for wire in wires {
+                    if let Unknown::Object(fields) = wire {
+                        for (name, item) in fields {
+                            merged.entry(name).or_insert(item);
+                        }
+                    }
+                }
+                vec![Unknown::Object(merged)]
+            } else {
+                // A numeric-looking value is read as the number before the
+                // text, whatever order the union declares: Config.test.ts:2435
+                // expects `"1"` to decode as `1` even with String listed
+                // first. The sort is stable, so the rest keeps declared order.
+                wires.sort_by_key(|wire| matches!(wire, Unknown::Text(_)));
+                wires
+            }
+        }
+        SchemaKind::Rest(inner) => kind_wires(inner, provider, path)?,
+        // Records need the provider's key list, and a declaration or an opaque
+        // kind has no wire shape to walk; the config reports the gap rather
+        // than pretending the path is absent.
+        _ => return Err("the schema's wire shape is not introspectable"),
+    })
+}
+
+/// An object built from the fields that were found, or the node's own scalar.
+///
+/// Declared children, or any children at all, make this node an object. A node
+/// with unrelated children is the present empty struct of Config.test.ts:2253,
+/// not an absent one.
+#[cfg(feature = "schema")]
+fn object_or_scalar(
+    object: std::collections::BTreeMap<String, elm_effect_schema::Unknown>,
+    provider: &dyn Lookup,
+    path: &[String],
+) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+    use elm_effect_schema::Unknown;
+    if !object.is_empty() || provider.has_children(path) {
+        return Ok(vec![Unknown::Object(object)]);
+    }
+    Ok(match provider.get(path) {
+        Some(text) => match json_wire(&text) {
+            // An array node where an object belongs reads as absent
+            // (Config.test.ts:1286).
+            Some(Unknown::Array(_)) => Vec::new(),
+            Some(value) => vec![value],
+            None => vec![Unknown::Text(text)],
+        },
+        None => Vec::new(),
+    })
+}
+
+/// Indexed children, in order, stopping at the first gap.
+#[cfg(feature = "schema")]
+fn sequence_wires(
+    mut item: impl FnMut(&[String]) -> Result<Vec<elm_effect_schema::Unknown>, &'static str>,
+    provider: &dyn Lookup,
+    path: &[String],
+) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+    use elm_effect_schema::Unknown;
+    let mut items = Vec::new();
+    let mut index = 0usize;
+    loop {
+        let mut child = path.to_vec();
+        child.push(index.to_string());
+        match item(&child)?.into_iter().next() {
+            Some(wire) => {
+                items.push(wire);
+                index += 1;
+            }
+            None => break,
+        }
+    }
+    if !items.is_empty() {
+        return Ok(vec![Unknown::Array(items)]);
+    }
+    Ok(match provider.get(path) {
+        Some(text) => match json_wire(&text) {
+            // An object node where an array belongs reads as absent, but a
+            // co-located scalar is a value the schema must refuse
+            // (Config.test.ts:2278, :1286).
+            Some(Unknown::Object(_)) => Vec::new(),
+            Some(value) => vec![value],
+            None => vec![Unknown::Text(text)],
+        },
+        None => Vec::new(),
+    })
+}
+
+#[cfg(feature = "schema")]
+fn positional_or_scalar(
+    items: Vec<elm_effect_schema::Unknown>,
+    provider: &dyn Lookup,
+    path: &[String],
+) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+    use elm_effect_schema::Unknown;
+    if !items.is_empty() {
+        return Ok(vec![Unknown::Array(items)]);
+    }
+    Ok(match provider.get(path) {
+        Some(text) => match json_wire(&text) {
+            Some(Unknown::Object(_)) => Vec::new(),
+            Some(value) => vec![value],
+            None => vec![Unknown::Text(text)],
+        },
+        None => Vec::new(),
+    })
+}
+
+/// Indexed children through declared element schemas.
+#[cfg(feature = "schema")]
+fn element_wires(
+    elements: &[elm_effect_schema::Schema<elm_effect_schema::Unknown>],
+    provider: &dyn Lookup,
+    path: &[String],
+) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+    let mut items = Vec::new();
+    for (index, element) in elements.iter().enumerate() {
+        let mut child = path.to_vec();
+        child.push(index.to_string());
+        match schema_wires(element, provider, &child)?.into_iter().next() {
+            Some(wire) => items.push(wire),
+            None => break,
+        }
+    }
+    positional_or_scalar(items, provider, path)
+}
+
+#[cfg(feature = "schema")]
+impl Config {
+    /// `Config.schema(codec, path)`: a config whose value is the provider's
+    /// data decoded through `codec`.
+    ///
+    /// The provider is read through the schema's wire shape (what `kind()`
+    /// reports, so a transformation reads its encoded side), then decoded.
+    /// Nothing under the path is [`ConfigError::Missing`], which [`option`]
+    /// and [`with_default`] recover; data the schema refuses is
+    /// [`ConfigError::Invalid`], which they do not. Config.test.ts:696 is that
+    /// distinction.
+    ///
+    /// [`option`]: Config::option
+    /// [`with_default`]: Config::with_default
+    pub fn schema<T>(codec: &elm_effect_schema::Schema<T>, name: Option<String>) -> Self
+    where
+        T: Clone + IntoConfigValue + Send + Sync + 'static,
+    {
+        let walker = elm_effect_schema::Schema::as_unknown(codec.clone());
+        let codec = codec.clone();
+        let name_owned = name.clone();
+        Self {
+            name,
+            run: std::rc::Rc::new(move |provider, prefix| {
+                let path = schema_path(prefix, name_owned.as_deref());
+                let wires = schema_wires(&walker, provider, &path).map_err(|reason| {
+                    vec![ConfigError::Invalid {
+                        path: path.clone(),
+                        got: "a schema shape".to_string(),
+                        reason: reason.to_string(),
+                    }]
+                })?;
+                if wires.is_empty() {
+                    return Err(vec![ConfigError::Missing { path }]);
+                }
+                let mut last = String::new();
+                for wire in wires {
+                    last = format!("{wire:?}");
+                    if let Ok(value) = codec.decode(wire) {
+                        return Ok(value.into_config_value());
+                    }
+                }
+                Err(vec![ConfigError::Invalid {
+                    path,
+                    got: last,
+                    reason: "the value does not match the schema".to_string(),
+                }])
+            }),
+        }
+    }
 }
 
 /// Log verbosity with `All`/`None` sentinels.

@@ -36,6 +36,12 @@ required-features = ["schema"]
 name = "schema_parser"
 required-features = ["schema"]
 
+# `Config.schema` reads provider text through a schema's wire shape, so its
+# fence needs the schema feature.
+[[test]]
+name = "config_schema"
+required-features = ["schema"]
+
 # ChannelSchema adapts this crate's Channel to the schema crate's encoded form,
 # so its fence needs the schema feature.
 [[test]]

@@ -18,6 +18,17 @@ pub trait Lookup {
     /// unless the source preserves them).
     fn get(&self, path: &[String]) -> Option<String>;
 
+    /// True when anything is stored strictly under `path`.
+    ///
+    /// A schema config reads a node's shape from what is beneath its path, so
+    /// it needs to tell "an object with no matching fields" from "nothing
+    /// here" (Config.test.ts:2253). The default keeps sources that cannot
+    /// enumerate their keys on the old rule.
+    fn has_children(&self, path: &[String]) -> bool {
+        let _ = path;
+        false
+    }
+
     /// Value at `path` with the failure channel a source can carry
     /// (`SourceError`): `Ok(None)` is absence, `Err` is a source failure
     /// that a fallback chain must propagate rather than skip. The default
@@ -246,6 +257,12 @@ impl Lookup for Provider {
             found => found.cloned(),
         }
     }
+
+    fn has_children(&self, path: &[String]) -> bool {
+        self.values
+            .keys()
+            .any(|key| key.len() > path.len() && key.starts_with(path))
+    }
 }
 
 /// Prefixed view of a lookup source.
@@ -290,11 +307,21 @@ impl Lookup for Nested<'_> {
         full.extend(path.iter().cloned());
         self.inner.get(&full)
     }
+
+    fn has_children(&self, path: &[String]) -> bool {
+        let mut full = self.prefix.clone();
+        full.extend(path.iter().cloned());
+        self.inner.has_children(&full)
+    }
 }
 
 impl Lookup for Fallback<'_> {
     fn get(&self, path: &[String]) -> Option<String> {
         self.first.get(path).or_else(|| self.second.get(path))
+    }
+
+    fn has_children(&self, path: &[String]) -> bool {
+        self.first.has_children(path) || self.second.has_children(path)
     }
 
     fn try_get(&self, path: &[String]) -> Result<Option<String>, String> {
