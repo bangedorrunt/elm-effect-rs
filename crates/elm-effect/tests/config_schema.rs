@@ -206,6 +206,89 @@ fn struct_to_scalar() -> Schema<String> {
     )
 }
 
+/// `structToScalar` as a struct field. A struct field is `Schema<Unknown>`, so
+/// the field answers the decoded side in erased form: `Text` where the
+/// top-level schema answers `String` (Config.test.ts:1748).
+fn struct_to_scalar_field() -> Schema<Unknown> {
+    Schema::decode_to(
+        Schema::as_unknown(structure(vec![("value", string())])),
+        Transformation::new(
+            |encoded: Unknown| Ok(Unknown::Text(struct_to_scalar().decode(encoded)?)),
+            |value: Unknown| match value {
+                Unknown::Text(source) => {
+                    Ok(Unknown::Object(BTreeMap::from([(
+                        "value".to_string(),
+                        Unknown::Text(source),
+                    )])))
+                }
+                _ => Err(mismatch("a string")),
+            },
+        ),
+    )
+}
+
+/// `Schema.Array(scalarToStruct)` as a struct field, re-typed to the erased
+/// field form: each element still decodes through `scalarToStruct`, so the
+/// field's value is an array of decoded structs.
+fn scalar_structs_field() -> Schema<Unknown> {
+    Schema::decode_to(
+        Schema::array(scalar_to_struct()),
+        Transformation::new(
+            |items: Vec<Unknown>| Ok(Unknown::Array(items)),
+            |value: Unknown| match value {
+                Unknown::Array(items) => Ok(items),
+                _ => Err(mismatch("an array")),
+            },
+        ),
+    )
+}
+
+#[test]
+fn a_struct_loads_encoded_shapes_somewhere_below_its_fields() {
+    // Config.test.ts:1748 — every field is read through its own encoded shape,
+    // one level down: a scalar that decodes to a struct, a struct that decodes
+    // to a scalar, and an array of the former.
+    let schema = structure(vec![
+        ("fromScalar", scalar_to_struct()),
+        ("fromStruct", struct_to_scalar_field()),
+        ("items", scalar_structs_field()),
+    ]);
+    let config = Config::schema(&schema, None);
+
+    assert_eq!(
+        config.load(&provider(&[
+            ("fromScalar", "one"),
+            ("fromStruct.value", "two"),
+            ("items.0", "three"),
+        ])),
+        Ok(obj(&[
+            ("fromScalar", obj(&[("value", Value::Str("one".to_string()))])),
+            ("fromStruct", Value::Str("two".to_string())),
+            (
+                "items",
+                Value::List(vec![obj(&[("value", Value::Str("three".to_string()))])]),
+            ),
+        ]))
+    );
+}
+
+#[test]
+fn a_union_loads_every_member_from_its_encoded_shape() {
+    // Config.test.ts:1774 — the two members take different encoded shapes, so
+    // each is materialized on its own before first-match decoding.
+    let union = Schema::union_with_mode(vec![scalar_to_struct(), struct_to_scalar_field()], "anyOf");
+    let config = Config::schema(&union, Some("config".to_string()));
+
+    assert_eq!(
+        config.load(&provider(&[("config", "scalar")])),
+        Ok(obj(&[("value", Value::Str("scalar".to_string()))]))
+    );
+    assert_eq!(
+        config.load(&provider(&[("config.value", "struct")])),
+        Ok(Value::Str("struct".to_string()))
+    );
+}
+
 #[test]
 fn leaf_schema_uses_its_own_scalar_over_object_children() {
     // Config.test.ts:2142 — a Number leaf reads `a`, not `a_b`.
@@ -1401,6 +1484,50 @@ fn an_orelse_recovers_a_failed_read() {
             Ok(fallback.clone())
         );
     }
+}
+
+#[test]
+fn a_group_root_read_is_a_failure_or_else_may_answer() {
+    // Config.test.ts:1245 — an unnamed schema config asks its own path for a
+    // node, so the empty path is a read it makes. A source that fails there is
+    // a failed read (`orElse` may answer), never an absent group, and the
+    // group's missing sibling still defaults as a whole.
+    let provider = FailingAt::new(provider(&[]), &[&[]]);
+    let recovered = Config::schema(&field_shape(vec![Field::required("value", string())]), None)
+        .or_else(Config::succeed(obj(&[(
+            "value",
+            Value::Str("fallback".to_string()),
+        )])));
+    let config = Config::record(vec![
+        ("recovered".to_string(), recovered),
+        (
+            "required".to_string(),
+            Config::string(Some("required".to_string())),
+        ),
+    ]);
+
+    // Without `orElse` the failure is the group's answer, so no default
+    // recovers it.
+    let bare = Config::record(vec![(
+        "recovered".to_string(),
+        Config::schema(&field_shape(vec![Field::required("value", string())]), None),
+    )]);
+    assert_eq!(
+        bare.with_default(obj(&[])).load(&provider),
+        Err(vec![FailingAt::source(vec![])])
+    );
+
+    let fallback = obj(&[
+        (
+            "recovered",
+            obj(&[("value", Value::Str("default".to_string()))]),
+        ),
+        ("required", Value::Str("default".to_string())),
+    ]);
+    assert_eq!(
+        config.with_default(fallback.clone()).load(&provider),
+        Ok(fallback)
+    );
 }
 
 #[test]

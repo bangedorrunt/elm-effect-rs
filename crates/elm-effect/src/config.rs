@@ -1140,7 +1140,7 @@ fn field_wires(
     // Nothing at the path means the object is absent, so its fields are never
     // read. Without this a recursive schema descends forever: every level looks
     // exactly like the one above it.
-    if nothing_at(provider, path) {
+    if nothing_at(provider, path)? {
         return Ok(Vec::new());
     }
     let mut object = std::collections::BTreeMap::new();
@@ -1168,7 +1168,7 @@ fn child_wires(
     provider: &dyn Lookup,
     path: &[String],
 ) -> Result<Vec<elm_effect_schema::Unknown>, WireError> {
-    if nothing_at(provider, path) {
+    if nothing_at(provider, path)? {
         return Ok(Vec::new());
     }
     let mut object = std::collections::BTreeMap::new();
@@ -1342,11 +1342,16 @@ fn kind_wires(
 /// Declared children, or any children at all, make this node an object. A node
 /// with unrelated children is the present empty struct of Config.test.ts:2253,
 /// not an absent one.
+///
+/// The probe reads the path itself, through the source's failure channel: an
+/// object group asks its own root whether it holds anything, so a source that
+/// fails there is a failed read rather than an absent group
+/// (Config.test.ts:1245).
 #[cfg(feature = "schema")]
-fn nothing_at(provider: &dyn Lookup, path: &[String]) -> bool {
-    provider.get(path).is_none()
+fn nothing_at(provider: &dyn Lookup, path: &[String]) -> Result<bool, WireError> {
+    Ok(read(provider, path)?.is_none()
         && !provider.has_children(path)
-        && provider.node(path).is_none()
+        && provider.node(path).is_none())
 }
 
 #[cfg(feature = "schema")]
