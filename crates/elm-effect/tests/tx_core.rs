@@ -289,9 +289,11 @@ fn tx_queue_poll_matches_take() {
 
 #[test]
 fn tx_queue_dropping_keeps_first_when_full() {
+    // TxQueue.test.ts:743 — a full dropping queue rejects the new value and
+    // says so; the first value stays put.
     let queue = TxQueue::dropping(1);
     assert!(queue.offer(1));
-    assert!(queue.offer(2));
+    assert!(!queue.offer(2), "the newest value is rejected");
     assert_eq!(queue.take(), Some(1));
     assert_eq!(queue.take(), None);
 }
@@ -1188,8 +1190,11 @@ fn tx_queue_strategies_and_inspection() {
     let dropping = TxQueue::dropping(2);
     assert!(dropping.offer(1));
     assert!(dropping.offer(2));
-    assert!(dropping.offer(3), "dropping stays true when full");
-    assert_eq!(dropping.size(), 2, "the newest value is dropped");
+    assert!(
+        !dropping.offer(3),
+        "dropping rejects the newest value when full"
+    );
+    assert_eq!(dropping.size(), 2);
     assert_eq!(dropping.take(), Some(1));
 
     let sliding = TxQueue::sliding(2);
@@ -1253,8 +1258,20 @@ fn tx_queue_drain_family() {
     );
     assert_eq!(bounded.take_between(2, 8), vec![1, 2, 3]);
     assert_eq!(bounded.take_between(0, 0), Vec::<i32>::new());
-    // :492 — an inverted range takes nothing rather than everything.
+    // :492 — an inverted range takes nothing rather than everything, and a
+    // zero bound is invalid rather than "take up to max".
+    assert!(bounded.offer_all([4, 5, 6]).is_empty());
     assert_eq!(bounded.take_between(4, 1), Vec::<i32>::new());
+    assert_eq!(bounded.take_between(0, 5), Vec::<i32>::new());
+    assert_eq!(bounded.take_between(1, 0), Vec::<i32>::new());
+    assert_eq!(bounded.size(), 3, "an invalid range leaves the queue alone");
+
+    // :356 — asking for more than a full bounded queue holds takes what it
+    // holds and empties it.
+    let at_capacity: TxQueue<i32> = TxQueue::bounded(3);
+    assert!(at_capacity.offer_all([1, 2, 3]).is_empty());
+    assert_eq!(at_capacity.take_n(10), vec![1, 2, 3]);
+    assert_eq!(at_capacity.size(), 0);
 }
 
 #[test]
@@ -1348,12 +1365,13 @@ fn tx_queue_state_transitions() {
 
 #[test]
 fn tx_queue_closing_and_full_behavior() {
-    // :743, :763 — at capacity, dropping discards the newest and sliding
-    // evicts the oldest, and neither refuses the offer.
+    // :743, :763 — at capacity, dropping returns the newest value as rejected
+    // and sliding evicts the oldest to accept the new one.
     let dropping: TxQueue<i32> = TxQueue::dropping(2);
     assert!(dropping.offer_all([1, 2]).is_empty());
-    assert!(dropping.offer(3));
+    assert!(!dropping.offer(3), "a full dropping queue rejects 3");
     assert_eq!(dropping.size(), 2);
+    assert_eq!(dropping.offer_all([4, 5]), vec![4, 5], "both are rejected");
     assert_eq!(dropping.take_all(), vec![1, 2]);
 
     let sliding: TxQueue<i32> = TxQueue::sliding(2);
@@ -1393,4 +1411,84 @@ fn tx_queue_closing_and_full_behavior() {
     assert_eq!(halted.clear(), Vec::<i32>::new());
     assert_eq!(halted.size(), 0);
     assert!(halted.is_shutdown());
+}
+
+#[test]
+fn tx_queue_closing_drains_and_settles() {
+    // :284, :397 — an interrupted queue keeps what it holds, so take_all hands
+    // it over and leaves the queue done.
+    let interrupted: TxQueue<i32> = TxQueue::bounded(10);
+    assert!(interrupted.offer_all([1, 2]).is_empty());
+    assert!(interrupted.interrupt());
+    assert!(interrupted.is_closing(), "two items still wait");
+    assert!(!interrupted.is_done());
+    assert_eq!(interrupted.take_all(), vec![1, 2]);
+    assert!(interrupted.is_done(), "the drain completed the queue");
+    assert!(!interrupted.is_closing());
+
+    // :334, :427 — take_n on a closing queue takes what is there rather than
+    // what was asked for, then settles done.
+    let closing: TxQueue<i32> = TxQueue::bounded(10);
+    assert!(closing.offer_all([1, 2]).is_empty());
+    assert!(closing.interrupt());
+    assert_eq!(closing.take_n(5), vec![1, 2]);
+    assert!(closing.is_done());
+
+    // :526 — take_between drains below its minimum once closing, because no
+    // further item can arrive.
+    let between: TxQueue<i32> = TxQueue::bounded(10);
+    assert!(between.offer_all([1, 2]).is_empty());
+    assert!(between.interrupt());
+    assert_eq!(between.take_between(3, 5), vec![1, 2]);
+    assert!(between.is_done());
+
+    // An open queue still honours the minimum: a short queue waits rather than
+    // handing over a partial batch.
+    let open: TxQueue<i32> = TxQueue::bounded(10);
+    assert!(open.offer_all([1, 2]).is_empty());
+    assert_eq!(open.take_between(3, 5), Vec::<i32>::new());
+    assert!(!open.is_done());
+}
+
+#[test]
+fn tx_queue_end_and_fail_settle() {
+    // :1213 — a closing queue hands items over one take at a time, and the
+    // last one settles it done.
+    let closing: TxQueue<i32> = TxQueue::bounded(5);
+    assert!(closing.offer_all([1, 2, 3]).is_empty());
+    assert!(closing.interrupt());
+    assert_eq!(closing.take(), Some(1));
+    assert_eq!(closing.take(), Some(2));
+    assert!(closing.is_closing(), "one item still waits");
+    assert_eq!(closing.take(), Some(3));
+    assert!(closing.is_done());
+
+    // :1244 — end() on a queue with items closes it without dropping them.
+    let ending: TxQueue<i32> = TxQueue::bounded(5);
+    assert!(ending.offer_all([1, 2]).is_empty());
+    assert!(ending.end());
+    assert!(ending.is_closing());
+    assert_eq!(ending.take_all(), vec![1, 2]);
+    assert!(ending.is_done());
+
+    // :1282 — the write-only face can end the queue too.
+    let via_enqueue: TxQueue<i32> = TxQueue::bounded(5);
+    assert!(via_enqueue.as_enqueue().offer(1));
+    assert!(via_enqueue.as_enqueue().end());
+    assert!(via_enqueue.is_closing());
+    assert_eq!(via_enqueue.take(), Some(1));
+    assert!(via_enqueue.is_done());
+
+    // :1302 — end() reports only the first halt.
+    let once: TxQueue<i32> = TxQueue::bounded(5);
+    assert!(once.end());
+    assert!(!once.end());
+
+    // :1171 — fail() discards what was buffered, so poll finds nothing.
+    let failed: TxQueue<i32> = TxQueue::bounded(5);
+    assert!(failed.offer(42));
+    assert!(failed.fail());
+    assert_eq!(failed.poll(), None);
+    assert_eq!(failed.size(), 0);
+    assert!(failed.is_done());
 }

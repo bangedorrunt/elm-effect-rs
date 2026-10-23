@@ -649,7 +649,11 @@ impl<T> TxQueue<T> {
         }
     }
 
-    /// Push back; `false` when a bounded queue is full, closed, or failed.
+    /// Push back; `false` when the value was not accepted: the queue is
+    /// closed, failed, or a bounded queue is full.
+    ///
+    /// A full back-pressure queue answers `false` because this synchronous
+    /// `atomically` cannot park the transaction; the pin retries instead.
     pub fn offer(&self, value: T) -> bool {
         if *self.closed.lock().unwrap() || *self.failed.lock().unwrap() {
             return false;
@@ -658,7 +662,9 @@ impl<T> TxQueue<T> {
             let mut queue = self.inner.lock().unwrap();
             match (self.capacity, self.strategy) {
                 (Some(limit), QueueStrategy::BackPressure) if queue.len() >= limit => false,
-                (Some(limit), QueueStrategy::Dropping) if queue.len() >= limit => true,
+                // Dropping rejects the newest value, so `offer` reports the
+                // drop; `offer_all` hands it back in the rejected tail.
+                (Some(limit), QueueStrategy::Dropping) if queue.len() >= limit => false,
                 (Some(limit), QueueStrategy::Sliding) if queue.len() >= limit => {
                     queue.pop_front();
                     queue.push_back(value);
@@ -698,8 +704,11 @@ impl<T> TxQueue<T> {
         *self.closed.lock().unwrap() = true;
     }
 
-    /// Halt the queue with a failure (`failCause`); queued items still
-    /// drain. True on the first halt, false when already done.
+    /// Halt the queue with a failure. `fail` goes straight to done and
+    /// discards what was buffered, unlike `interrupt`/`end`, which leave the
+    /// items for a closing drain (the pin's `fail` clears its chunk). True on
+    /// the first halt,
+    /// false when already done.
     pub fn fail(&self) -> bool {
         let mut failed = self.failed.lock().unwrap();
         if *failed || *self.closed.lock().unwrap() {
@@ -707,6 +716,8 @@ impl<T> TxQueue<T> {
         }
         *failed = true;
         *self.closed.lock().unwrap() = true;
+        drop(failed);
+        atomically(|| self.inner.lock().unwrap().clear());
         true
     }
 
@@ -756,7 +767,9 @@ impl<T> TxQueue<T> {
                         taking = false;
                         rejected.push(value);
                     }
-                    (Some(limit), QueueStrategy::Dropping) if queue.len() >= limit => {}
+                    (Some(limit), QueueStrategy::Dropping) if queue.len() >= limit => {
+                        rejected.push(value)
+                    }
                     (Some(limit), QueueStrategy::Sliding) if queue.len() >= limit => {
                         queue.pop_front();
                         queue.push_back(value);
@@ -791,16 +804,20 @@ impl<T> TxQueue<T> {
     }
 
     /// Drain up to `max` items, but nothing when fewer than `min` wait
-    /// or the range is inverted (`takeBetween`).
+    /// or the range is inverted (`takeBetween`). A zero bound is rejected
+    /// outright, and a closing queue hands over whatever it still holds even
+    /// below `min`.
     pub fn take_between(&self, min: usize, max: usize) -> Vec<T> {
+        // Read the state before taking the queue lock: `offer` takes them in
+        // this order, so the reverse would deadlock against a concurrent push.
+        let closing = *self.closed.lock().unwrap();
         atomically(|| {
-            let queue = self.inner.lock().unwrap();
-            if min > max || queue.len() < min {
+            let mut queue = self.inner.lock().unwrap();
+            if min == 0 || max == 0 || min > max || (!closing && queue.len() < min) {
                 return Vec::new();
             }
             let take = max.min(queue.len());
-            drop(queue);
-            self.take_n(take)
+            queue.drain(..take).collect()
         })
     }
 
@@ -826,10 +843,21 @@ impl<T> TxQueue<T> {
         atomically(|| self.inner.lock().unwrap().drain(..).collect())
     }
 
-    /// True when the queue is halted, by `end`, `fail`, `shutdown`, or a
-    /// drain that finished it (`isShutdown`).
+    /// True while a halted queue still holds items to drain (`isClosing`).
+    pub fn is_closing(&self) -> bool {
+        !self.is_open() && !self.is_empty()
+    }
+
+    /// True once the queue is halted and empty (`isDone`): by `shutdown`,
+    /// by `interrupt` on an empty queue, or by draining a closing queue.
+    pub fn is_done(&self) -> bool {
+        !self.is_open() && self.is_empty()
+    }
+
+    /// The pin aliases `isShutdown` to `isDone` (`TxQueue.ts:1502`): a closing
+    /// queue that still holds items is not shut down yet.
     pub fn is_shutdown(&self) -> bool {
-        !self.is_open()
+        self.is_done()
     }
 
     /// Halt and empty the queue (`shutdown`): queued items are dropped rather
