@@ -7,7 +7,8 @@ use std::sync::{
 };
 
 use elm_effect::{
-    BuiltServices, Effect, Exit, Layer, ManagedRuntime, Runtime, Scope, ServiceTag, use_service,
+    BuiltServices, Effect, Exit, Layer, LayerMemo, ManagedRuntime, Runtime, Scope, ServiceTag,
+    use_service,
 };
 
 struct Db;
@@ -264,7 +265,9 @@ fn provide_from_with_a_layer_that_never_built_the_tag_is_a_defect_not_a_default(
 }
 /// A layer that owns a resource: it records its acquire and registers the
 /// release on the build scope, the shape `makeLayer1` has at the pin.
-fn resource_layer(arr: &Arc<std::sync::Mutex<Vec<&'static str>>>) -> Layer<Db, std::convert::Infallible, ()> {
+fn resource_layer(
+    arr: &Arc<std::sync::Mutex<Vec<&'static str>>>,
+) -> Layer<Db, std::convert::Infallible, ()> {
     let arr = Arc::clone(arr);
     Layer::from_scoped_factory(move |scope| {
         arr.lock().unwrap().push("acquire");
@@ -352,7 +355,9 @@ fn tap_runs_with_the_built_services_and_preserves_them() {
             let seen = built.get::<Db>().map(|db| db.0).unwrap_or_default();
             let arr = Arc::clone(&arr);
             Effect::<(), std::convert::Infallible, ()>::sync(move || {
-                arr.lock().unwrap().push(if seen == 1 { "tap" } else { "tap:wrong" })
+                arr.lock()
+                    .unwrap()
+                    .push(if seen == 1 { "tap" } else { "tap:wrong" })
             })
         }
     });
@@ -390,18 +395,17 @@ fn tap_cause_sees_the_defect_and_preserves_the_cause() {
     // Layer.test.ts:211. The callback gets the whole cause, including a
     // defect, and the build still fails with that cause.
     let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
-    let layer = Layer::<Db, String, ()>::from_factory(|| {
-        Effect::die(elm_effect::Defect::new("boom"))
-    })
-    .expect("a single closed constructor cannot cycle")
-    .tap_cause({
-        let seen = Arc::clone(&seen);
-        move |cause: &elm_effect::Cause<String>| {
-            let dies = cause.has_dies();
-            let seen = Arc::clone(&seen);
-            Effect::<(), String, ()>::sync(move || seen.lock().unwrap().push(dies))
-        }
-    });
+    let layer =
+        Layer::<Db, String, ()>::from_factory(|| Effect::die(elm_effect::Defect::new("boom")))
+            .expect("a single closed constructor cannot cycle")
+            .tap_cause({
+                let seen = Arc::clone(&seen);
+                move |cause: &elm_effect::Cause<String>| {
+                    let dies = cause.has_dies();
+                    let seen = Arc::clone(&seen);
+                    Effect::<(), String, ()>::sync(move || seen.lock().unwrap().push(dies))
+                }
+            });
     let scope = Scope::new(95);
     let cause = layer.build(&scope).expect_err("the layer still fails");
     assert!(cause.has_dies());
@@ -479,20 +483,22 @@ fn finalizers_with_provide_release_the_provider_last() {
 }
 
 #[test]
-fn merge_rejects_two_values_for_one_tag() {
-    // The doc claims this: merging a handle with its own fresh sibling is a
-    // double provision, not last-writer-wins. Without the guard, one of the
-    // two connections would be built and released while the other leaked.
+fn merge_keeps_the_last_value_for_one_tag() {
+    // Layer.test.ts :231/:240/:252 — `fresh` puts a second value behind one
+    // tag, and the pin's `Context.merge` keeps the later one. Both builds
+    // still acquire and release; only the winner is observable.
     let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
     let layer = tagged_resource::<Db>(&arr, DbConn(1))
         .merge(tagged_resource::<Db>(&arr, DbConn(2)))
         .expect("the graph has no cycle");
     let scope = Scope::new(98);
-    let cause = layer.build(&scope).expect_err("one tag cannot hold two values");
-    let rendered = format!("{cause:?}");
-    assert!(
-        rendered.contains("double-provision of `test/db`"),
-        "the failure must name the tag, got: {rendered}"
+    let built = layer.build(&scope).expect("both sides build");
+    assert_eq!(built.get::<Db>().unwrap().0, 2, "the later provision wins");
+    assert_eq!(*arr.lock().unwrap(), vec!["acquire", "acquire"]);
+    scope.close();
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec!["acquire", "acquire", "release", "release"]
     );
 }
 
@@ -537,7 +543,9 @@ fn catch_uses_an_alternative_layer() {
         }
     });
     let scope = Scope::new(99);
-    let built = layer.build(&scope).expect("the fallback replaces the failure");
+    let built = layer
+        .build(&scope)
+        .expect("the fallback replaces the failure");
     assert_eq!(built.get::<Cache>().unwrap().0, 2);
     assert_eq!(*arr.lock().unwrap(), vec!["acquire", "release", "acquire"]);
     scope.close();
@@ -562,7 +570,9 @@ fn catch_cause_recovers_and_exposes_the_original_cause() {
             }
         });
     let scope = Scope::new(100);
-    let built = layer.build(&scope).expect("the fallback replaces the failure");
+    let built = layer
+        .build(&scope)
+        .expect("the fallback replaces the failure");
     assert_eq!(built.get::<Db>().unwrap().0, 1);
     assert_eq!(*seen.lock().unwrap(), vec![true]);
 }
@@ -613,8 +623,8 @@ fn with_parent_span_installs_an_external_span_for_construction() {
     // Layer.test.ts:740. An external span becomes the ambient parent without
     // being created or ended by this layer.
     use elm_effect::Exit;
-    use elm_effect::tracer::{AnySpan, CURRENT_SPAN, external_span};
     use elm_effect::read_reference;
+    use elm_effect::tracer::{AnySpan, CURRENT_SPAN, external_span};
 
     let parent = AnySpan::External(external_span(
         "0000000000000001",
@@ -633,4 +643,421 @@ fn with_parent_span_installs_an_external_span_for_construction() {
         elm_effect::Runtime::run(Effect::<u64, std::convert::Infallible, ()>::succeed(1)),
         Exit::Success(1)
     ));
+}
+
+// ---- The pin's MemoMap: sharing is layer identity, and an entry lives while
+// ---- any caller scope still observes it (Layer.test.ts:35..:660).
+
+/// Build through an explicit memo map, failing the test on a construction
+/// failure (the rows below all expect a successful build unless stated).
+fn run_memo<O: elm_effect::RequirementIds, E: std::fmt::Debug + Send + 'static>(
+    layer: &Layer<O, E, ()>,
+    memo: &LayerMemo,
+    scope: &Arc<Scope>,
+) -> BuiltServices {
+    match Runtime::run(layer.build_with_memo(memo, scope)) {
+        Exit::Success(built) => built,
+        Exit::Failure(cause) => panic!("layer build failed: {cause:?}"),
+    }
+}
+
+/// A layer whose only observable is its release count: one constructor, one
+/// finalizer on the build scope the memo owns.
+fn counted_layer(released: &Arc<AtomicUsize>) -> Layer<Db, std::convert::Infallible, ()> {
+    let released = Arc::clone(released);
+    Layer::from_scoped_factory(move |scope| {
+        let released = Arc::clone(&released);
+        scope.add_finalizer(move || {
+            released.fetch_add(1, Ordering::SeqCst);
+        });
+        Effect::succeed(DbConn(1))
+    })
+    .expect("a single constructor cannot cycle")
+}
+
+#[test]
+fn a_handle_merged_with_itself_builds_once() {
+    // Layer.test.ts:35. One handle on both sides of `merge` names one node,
+    // so the second request is answered from the first build's memo entry.
+    let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let layer = tagged_resource::<Db>(&arr, DbConn(1));
+    let merged = layer.clone().merge(layer).expect("one tag, one value");
+    let scope = Scope::new(110);
+    merged.build(&scope).expect("the shared layer builds");
+    assert_eq!(*arr.lock().unwrap(), vec!["acquire"]);
+    scope.close();
+    assert_eq!(*arr.lock().unwrap(), vec!["acquire", "release"]);
+}
+
+#[test]
+fn a_handle_merged_three_times_builds_once() {
+    // Layer.test.ts:75. `layer.merge(layer).merge(layer)` asks one node for
+    // its services three times; only the first request constructs.
+    let built = Arc::new(AtomicUsize::new(0));
+    let counter = Arc::clone(&built);
+    let layer = Layer::<Db, std::convert::Infallible, ()>::from_factory(move || {
+        counter.fetch_add(1, Ordering::SeqCst);
+        Effect::succeed(DbConn(7))
+    })
+    .expect("a single constructor cannot cycle");
+    let merged = layer
+        .clone()
+        .merge(layer.clone())
+        .expect("no cycle")
+        .merge(layer)
+        .expect("no cycle");
+    let scope = Scope::new(111);
+    let services = merged.build(&scope).expect("builds");
+    assert_eq!(built.load(Ordering::SeqCst), 1, "one node, one build");
+    assert_eq!(services.get::<Db>().unwrap().0, 7);
+}
+
+#[test]
+fn a_suspended_handle_merged_with_itself_evaluates_once() {
+    // Layer.test.ts:101. `suspend` is memoized like `Layer.effect`: the same
+    // suspended handle on both sides of `merge` evaluates its thunk once.
+    let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let evaluated = Arc::new(AtomicUsize::new(0));
+    let layer = Layer::<Db, std::convert::Infallible, ()>::suspend({
+        let evaluated = Arc::clone(&evaluated);
+        let arr = Arc::clone(&arr);
+        move || {
+            evaluated.fetch_add(1, Ordering::SeqCst);
+            tagged_resource::<Db>(&arr, DbConn(1))
+        }
+    });
+    let merged = layer.clone().merge(layer).expect("no cycle");
+    let scope = Scope::new(112);
+    merged.build(&scope).expect("builds");
+    assert_eq!(evaluated.load(Ordering::SeqCst), 1);
+    assert_eq!(*arr.lock().unwrap(), vec!["acquire"]);
+    scope.close();
+    assert_eq!(*arr.lock().unwrap(), vec!["acquire", "release"]);
+}
+
+#[test]
+fn merging_a_fresh_handle_rebuilds_the_layer() {
+    // Layer.test.ts:231. `fresh` builds under a memo map of its own, so the
+    // second side constructs again even though it wraps the same node.
+    let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let layer = tagged_resource::<Db>(&arr, DbConn(1));
+    let merged = layer.clone().merge(layer.fresh()).expect("no cycle");
+    let scope = Scope::new(113);
+    merged.build(&scope).expect("both sides build");
+    assert_eq!(*arr.lock().unwrap(), vec!["acquire", "acquire"]);
+    scope.close();
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec!["acquire", "acquire", "release", "release"]
+    );
+}
+
+#[test]
+fn providing_a_fresh_handle_rebuilds_the_layer() {
+    // Layer.test.ts:240. The fresh consumer ignores the caller's memo map,
+    // so its provider builds once as the provider and once inside the fresh
+    // subtree.
+    let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let provider = tagged_resource::<Db>(&arr, DbConn(1));
+    let consumer = Layer::<Cache, std::convert::Infallible, Db>::from_scoped_factory({
+        let arr = Arc::clone(&arr);
+        move |scope| {
+            arr.lock().unwrap().push("acquire");
+            let released = Arc::clone(&arr);
+            scope.add_finalizer(move || released.lock().unwrap().push("release"));
+            use_service::<Db>().map(|db| CacheConn(db.0 + 1))
+        }
+    })
+    .expect("a single constructor cannot cycle");
+    let env = consumer
+        .fresh()
+        .provide_layer(provider)
+        .expect("the provider satisfies the fresh consumer");
+    let scope = Scope::new(114);
+    let built = env.build(&scope).expect("both build");
+    assert_eq!(built.get::<Cache>().unwrap().0, 2);
+    assert_eq!(*arr.lock().unwrap(), vec!["acquire", "acquire"]);
+    scope.close();
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec!["acquire", "acquire", "release", "release"]
+    );
+}
+
+#[test]
+fn a_fresh_subtree_isolates_its_own_provision() {
+    // Layer.test.ts:252. `layer.merge(layer)` shares one build, and the same
+    // expression under `fresh` shares a second, separate build.
+    let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let layer = tagged_resource::<Db>(&arr, DbConn(1));
+    let left = layer.clone().merge(layer.clone()).expect("no cycle");
+    let right = layer.clone().merge(layer).expect("no cycle").fresh();
+    let env = left.merge(right).expect("no cycle");
+    let scope = Scope::new(115);
+    env.build(&scope).expect("builds");
+    assert_eq!(*arr.lock().unwrap(), vec!["acquire", "acquire"]);
+    scope.close();
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec!["acquire", "acquire", "release", "release"]
+    );
+}
+
+#[test]
+fn provide_chains_build_inside_out_and_release_in_reverse() {
+    // Layer.test.ts:357. layer3 needs layer2's service and layer2 needs
+    // layer1's; the outer provide builds the innermost provider first, and
+    // the scope releases consumer before provider at each layer.
+    let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let layer1 = Layer::<Db, std::convert::Infallible, ()>::from_scoped_factory({
+        let arr = Arc::clone(&arr);
+        move |scope| {
+            arr.lock().unwrap().push("acquire1");
+            let released = Arc::clone(&arr);
+            scope.add_finalizer(move || released.lock().unwrap().push("release1"));
+            Effect::succeed(DbConn(1))
+        }
+    })
+    .expect("a single constructor cannot cycle");
+    let layer2 = Layer::<Cache, std::convert::Infallible, Db>::from_scoped_factory({
+        let arr = Arc::clone(&arr);
+        move |scope| {
+            arr.lock().unwrap().push("acquire2");
+            let released = Arc::clone(&arr);
+            scope.add_finalizer(move || released.lock().unwrap().push("release2"));
+            use_service::<Db>().map(|db| CacheConn(db.0 + 1))
+        }
+    })
+    .expect("a single constructor cannot cycle");
+    let layer3 = Layer::<SrvTag, std::convert::Infallible, Cache>::from_scoped_factory({
+        let arr = Arc::clone(&arr);
+        move |scope| {
+            arr.lock().unwrap().push("acquire3");
+            let released = Arc::clone(&arr);
+            scope.add_finalizer(move || released.lock().unwrap().push("release3"));
+            use_service::<Cache>().map(|cache| StringConn(cache.0.to_string()))
+        }
+    })
+    .expect("a single constructor cannot cycle");
+    let env = layer3
+        .provide_layer(layer2)
+        .expect("layer2 satisfies layer3")
+        .provide_layer(layer1)
+        .expect("layer1 satisfies layer2");
+    let scope = Scope::new(116);
+    let built = env.build(&scope).expect("the chain builds");
+    assert_eq!(built.get::<SrvTag>().unwrap().0, "2");
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec!["acquire1", "acquire2", "acquire3"]
+    );
+    scope.close();
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec![
+            "acquire1", "acquire2", "acquire3", "release3", "release2", "release1"
+        ]
+    );
+}
+
+#[test]
+fn a_provide_layer_rebuilds_while_its_provider_stays_memoized() {
+    // Layer.test.ts:621. `provide` is a plain node (the pin's `fromBuild`),
+    // so building the composed layer twice rebuilds the consumer, while the
+    // memoized provider inside it is constructed once.
+    let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let provider = Layer::<Db, std::convert::Infallible, ()>::from_scoped_factory({
+        let arr = Arc::clone(&arr);
+        move |scope| {
+            arr.lock().unwrap().push("acquire1");
+            let released = Arc::clone(&arr);
+            scope.add_finalizer(move || released.lock().unwrap().push("release1"));
+            Effect::succeed(DbConn(1))
+        }
+    })
+    .expect("a single constructor cannot cycle");
+    let consumer = Layer::<Cache, std::convert::Infallible, Db>::from_scoped_factory({
+        let arr = Arc::clone(&arr);
+        move |scope| {
+            arr.lock().unwrap().push("acquire2");
+            let released = Arc::clone(&arr);
+            scope.add_finalizer(move || released.lock().unwrap().push("release2"));
+            use_service::<Db>().map(|db| CacheConn(db.0 + 1))
+        }
+    })
+    .expect("a single constructor cannot cycle");
+    let composed = consumer
+        .provide_layer(provider.clone())
+        .expect("the provider satisfies the consumer");
+
+    let memo = LayerMemo::new();
+    let scope1 = Arc::new(Scope::new(1));
+    let scope2 = Arc::new(Scope::new(2));
+    run_memo(&provider, &memo, &scope1);
+    run_memo(&composed, &memo, &scope2);
+    scope2.close();
+    run_memo(&composed, &memo, &scope1);
+    scope1.close();
+
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec![
+            "acquire1", "acquire2", "release2", "acquire2", "release2", "release1"
+        ]
+    );
+}
+
+#[test]
+fn a_shared_layer_is_not_released_when_the_first_scope_closes() {
+    // Layer.test.ts:641. The provider is observed by both scopes; closing
+    // the outer one leaves one observer, so nothing releases yet.
+    let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let provider = Layer::<Db, std::convert::Infallible, ()>::from_scoped_factory({
+        let arr = Arc::clone(&arr);
+        move |scope| {
+            arr.lock().unwrap().push("acquire1");
+            let released = Arc::clone(&arr);
+            scope.add_finalizer(move || released.lock().unwrap().push("release1"));
+            Effect::succeed(DbConn(1))
+        }
+    })
+    .expect("a single constructor cannot cycle");
+    let consumer = Layer::<Cache, std::convert::Infallible, Db>::from_scoped_factory({
+        let arr = Arc::clone(&arr);
+        move |scope| {
+            arr.lock().unwrap().push("acquire2");
+            let released = Arc::clone(&arr);
+            scope.add_finalizer(move || released.lock().unwrap().push("release2"));
+            use_service::<Db>().map(|db| CacheConn(db.0 + 1))
+        }
+    })
+    .expect("a single constructor cannot cycle");
+    let composed = consumer
+        .provide_layer(provider.clone())
+        .expect("the provider satisfies the consumer");
+
+    let memo = LayerMemo::new();
+    let scope1 = Arc::new(Scope::new(1));
+    let scope2 = Arc::new(Scope::new(2));
+    run_memo(&provider, &memo, &scope1);
+    run_memo(&composed, &memo, &scope2);
+    scope1.close();
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec!["acquire1", "acquire2"],
+        "the consumer's scope still observes the shared provider"
+    );
+    scope2.close();
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec!["acquire1", "acquire2", "release2", "release1"]
+    );
+}
+
+#[test]
+fn a_get_effect_counts_one_observer_each_time_it_runs() {
+    // Layer.test.ts:554. Reusing a memoized layer through `MemoMap.get`
+    // twice does not drop the shared entry when the second scope closes.
+    let released = Arc::new(AtomicUsize::new(0));
+    let layer = counted_layer(&released);
+    let memo = LayerMemo::new();
+    let scope1 = Arc::new(Scope::new(1));
+    let scope2 = Arc::new(Scope::new(2));
+    run_memo(&layer, &memo, &scope1);
+
+    let first = memo.get(&layer, &scope2).expect("the build is recorded");
+    let _ = Runtime::run(first);
+    let second = memo.get(&layer, &scope2).expect("still recorded");
+    let _ = Runtime::run(second);
+
+    scope2.close();
+    assert_eq!(
+        released.load(Ordering::SeqCst),
+        0,
+        "the acquiring scope still holds the shared layer"
+    );
+    scope1.close();
+    assert_eq!(released.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn a_get_effect_that_never_runs_does_not_keep_the_layer_alive() {
+    // Layer.test.ts:572. Peeking at the memo is not observing it; only
+    // running the returned effect counts.
+    let released = Arc::new(AtomicUsize::new(0));
+    let layer = counted_layer(&released);
+    let memo = LayerMemo::new();
+    let scope1 = Arc::new(Scope::new(1));
+    let scope2 = Arc::new(Scope::new(2));
+    run_memo(&layer, &memo, &scope1);
+
+    let reuse = memo.get(&layer, &scope2);
+    assert!(reuse.is_some(), "the recorded build is visible");
+    drop(reuse);
+
+    scope2.close();
+    scope1.close();
+    assert_eq!(released.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn a_build_with_a_memo_map_writes_nothing_until_it_runs() {
+    // Layer.test.ts:586. `buildWithMemoMap` is a description; a map written
+    // at call time would report a build that never happened.
+    let memo = LayerMemo::new();
+    let scope = Arc::new(Scope::new(1));
+    let layer =
+        Layer::<Db, std::convert::Infallible, ()>::from_factory(|| Effect::succeed(DbConn(1)))
+            .expect("a single constructor cannot cycle");
+
+    let build = layer.build_with_memo(&memo, &scope);
+    assert_eq!(memo.map_size(), 0, "a description is not a build");
+    let _ = Runtime::run(build);
+    assert_eq!(memo.map_size(), 1, "running it records the entry");
+}
+
+#[test]
+fn a_forked_memo_map_reuses_parent_entries_without_writing_back() {
+    // Layer.test.ts:660. The child map reads through to the parent, but a
+    // layer first built in the child is invisible to the parent.
+    let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let parent_layer = Layer::<Db, std::convert::Infallible, ()>::from_scoped_factory({
+        let arr = Arc::clone(&arr);
+        move |scope| {
+            arr.lock().unwrap().push("acquire1");
+            let released = Arc::clone(&arr);
+            scope.add_finalizer(move || released.lock().unwrap().push("release1"));
+            Effect::succeed(DbConn(1))
+        }
+    })
+    .expect("a single constructor cannot cycle");
+    let child_layer = Layer::<Cache, std::convert::Infallible, ()>::from_scoped_factory({
+        let arr = Arc::clone(&arr);
+        move |scope| {
+            arr.lock().unwrap().push("acquire2");
+            let released = Arc::clone(&arr);
+            scope.add_finalizer(move || released.lock().unwrap().push("release2"));
+            Effect::succeed(CacheConn(2))
+        }
+    })
+    .expect("a single constructor cannot cycle");
+
+    let parent = LayerMemo::new();
+    let child = parent.fork();
+    let scope1 = Arc::new(Scope::new(1));
+    let scope2 = Arc::new(Scope::new(2));
+
+    run_memo(&parent_layer, &parent, &scope1);
+    run_memo(&parent_layer, &child, &scope2);
+    run_memo(&child_layer, &child, &scope2);
+    run_memo(&child_layer, &parent, &scope1);
+
+    scope2.close();
+    scope1.close();
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec![
+            "acquire1", "acquire2", "acquire2", "release2", "release2", "release1"
+        ]
+    );
 }

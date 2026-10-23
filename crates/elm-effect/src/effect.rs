@@ -1345,9 +1345,9 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
-    /// Rebuild from a cause without interpreting it. Private: only the
-    /// `catch` family passes causes through.
-    fn fail_with(cause: Cause<E>) -> Self {
+    /// Rebuild from a cause without interpreting it. Crate-private: only the
+    /// `catch` family and the layer memo pass causes through.
+    pub(crate) fn fail_with(cause: Cause<E>) -> Self {
         Self {
             step: Step::Fail(cause),
             services: crate::service::empty_services(),

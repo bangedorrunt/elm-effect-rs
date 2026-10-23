@@ -86,11 +86,13 @@ requirement_tuples! {
 /// Provided services, threaded through interpretation.
 ///
 /// Tags accumulate with conflict detection: provisioning the same tag twice
-/// with distinct values poisons it, and any run of the poisoned build Dies
-/// (never last-writer-wins). Value-level `provide` and the layer entry
-/// points fail earlier — at construction — so the poisoned-map Die survives
-/// only for conflicts merged in from elsewhere, which no single call
-/// created. Re-providing the SAME shared value (a layer's
+/// with distinct values poisons it, and any run of the poisoned build Dies.
+/// Value-level `provide` and `Layer::provide` (a layer into an effect) fail
+/// earlier — at construction — so the poisoned-map Die survives only for
+/// conflicts merged in from elsewhere, which no single call created. Layer
+/// composition itself follows the pin's merge order as of the memo-map work:
+/// when two sides provide one tag, the later side wins, because the pin's
+/// `Context.mergeAll` does. Re-providing the SAME shared value (a layer's
 /// memo) is fine, told apart by pointer equality.
 /// References override by replacement instead: innermost wins, `R` unchanged.
 #[derive(Clone, Default)]

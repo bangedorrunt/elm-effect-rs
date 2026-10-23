@@ -1,10 +1,11 @@
 //! Law L5 (memoization, references): sharing starts at the layer, a doubled
 //! tag fails at construction, and ambient references override by scope.
 //!
-//! Design pinned here: ambiguity is a CONSTRUCTION error. Nested provisions
-//! of the same tag with distinct values fail where they are built —
-//! value-level `provide` panics, layer entry points return the defect —
-//! never last-writer-wins and never a run-time Die far from the bug. The
+//! Design pinned here: ambiguity is a CONSTRUCTION error when values are
+//! provisioned onto one effect. Value-level `provide` panics and
+//! `Layer::provide` returns the defect, never a run-time Die far from the
+//! bug. Layer-to-layer composition is the exception: it follows the pin's
+//! `Context.mergeAll`, where the later provision of a tag wins. The
 //! run-time `ambiguous tag` Die survives only for conflicts merged in from
 //! elsewhere, which no single call created. Re-providing the SAME shared
 //! value (layer memo) is fine, told apart by pointer equality.
