@@ -4,8 +4,8 @@
 
 use elm_effect::{
     Deferred, Effect, Exit, ForkOpts, Order, Runtime, TxChunk, TxDeferred, TxHashMap, TxHashSet,
-    TxPriorityQueue, TxPubSub, TxQueue, TxReentrantLock, TxRef, TxSemaphore, TxSubscriptionRef,
-    atomically, is_tx_chunk, is_tx_hash_set, is_tx_semaphore, is_tx_subscription_ref,
+    TxPriorityQueue, TxPubSub, TxQueue, TxRef, TxSemaphore, TxSubscriptionRef, atomically,
+    is_tx_chunk, is_tx_hash_set, is_tx_semaphore, is_tx_subscription_ref,
 };
 
 use std::sync::Arc;
@@ -94,17 +94,6 @@ fn tx_semaphore_permits() {
     assert!(!sem.try_acquire());
     sem.release();
     assert_eq!(sem.available(), 1);
-}
-
-#[test]
-fn tx_lock_is_reentrant() {
-    let lock = TxReentrantLock::new();
-    lock.lock();
-    lock.lock();
-    assert_eq!(lock.holds(), 2);
-    lock.unlock();
-    lock.unlock();
-    assert_eq!(lock.holds(), 0);
 }
 
 #[test]

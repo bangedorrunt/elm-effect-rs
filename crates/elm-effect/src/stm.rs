@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 
 use crate::service::{Reference, read_reference};
-use crate::{Deferred, Effect};
+use crate::{Cause, Deferred, Effect};
 
 static GLOBAL: Mutex<()> = Mutex::new(());
 
@@ -1058,62 +1058,225 @@ impl TxSemaphore {
     }
 }
 
-/// A transactional reentrant mutex: the holding thread relocks freely.
+/// A transactional read/write mutex with reentrant semantics
+/// (`TxReentrantLock`): many readers share it, or one writer holds it alone,
+/// and the holder may re-enter either mode.
+///
+/// Ownership is keyed by thread, which is this crate's fiber: a runtime fiber
+/// runs on its own thread. The pin suspends a fiber with `txRetry`; here a
+/// waiter parks on a condvar, so a blocked acquire is not interruptible (the
+/// state is not a `TxRef`). Every counter and mode flag is still observable,
+/// which is what the pin's rows assert.
 pub struct TxReentrantLock {
-    inner: Mutex<ReentrantState>,
+    state: Mutex<ReentrantState>,
+    ready: Condvar,
 }
 
+#[derive(Default)]
 struct ReentrantState {
-    owner: Option<std::thread::ThreadId>,
-    count: usize,
+    readers: HashMap<std::thread::ThreadId, usize>,
+    writer: Option<(std::thread::ThreadId, usize)>,
 }
 
 impl TxReentrantLock {
     /// An unlocked lock.
     pub fn new() -> Self {
         Self {
-            inner: Mutex::new(ReentrantState {
-                owner: None,
-                count: 0,
-            }),
+            state: Mutex::new(ReentrantState::default()),
+            ready: Condvar::new(),
         }
     }
 
-    /// Lock (reentrant for the holder; other threads wait cooperatively).
-    pub fn lock(&self) {
-        let me = std::thread::current().id();
+    /// Take a read lock: blocks while another thread writes. Returns this
+    /// thread's read depth, so two acquires answer 1 then 2.
+    pub fn acquire_read(&self) -> usize {
+        self.acquire_read_for(std::thread::current().id())
+    }
+
+    fn acquire_read_for(&self, me: std::thread::ThreadId) -> usize {
+        let mut state = self.state.lock().unwrap();
         loop {
-            let claimed = atomically(|| {
-                let mut state = self.inner.lock().unwrap();
-                if state.owner == Some(me) || state.owner.is_none() {
-                    state.owner = Some(me);
-                    state.count += 1;
-                    true
-                } else {
-                    false
+            match state.writer {
+                Some((owner, _)) if owner != me => state = self.ready.wait(state).unwrap(),
+                _ => {
+                    let count = state.readers.entry(me).or_insert(0);
+                    *count += 1;
+                    return *count;
                 }
-            });
-            if claimed {
-                return;
             }
-            // The global lock is free here: holders can always complete.
-            std::thread::yield_now();
         }
     }
 
-    /// Unlock one level.
-    pub fn unlock(&self) {
-        tx_cell(&self.inner, |state| {
-            state.count -= 1;
-            if state.count == 0 {
-                state.owner = None;
-            }
-        });
+    /// Take a write lock: blocks while another thread reads or writes. A
+    /// writer that already reads upgrades without dropping its read count,
+    /// as the pin does. Returns this thread's write depth.
+    pub fn acquire_write(&self) -> usize {
+        self.acquire_write_for(std::thread::current().id())
     }
 
-    /// The current hold count.
-    pub fn holds(&self) -> usize {
-        atomically(|| self.inner.lock().unwrap().count)
+    fn acquire_write_for(&self, me: std::thread::ThreadId) -> usize {
+        let mut state = self.state.lock().unwrap();
+        loop {
+            let other_writes = matches!(state.writer, Some((owner, _)) if owner != me);
+            let other_reads = state
+                .readers
+                .iter()
+                .any(|(owner, count)| *owner != me && *count > 0);
+            if other_writes || other_reads {
+                state = self.ready.wait(state).unwrap();
+                continue;
+            }
+            match &mut state.writer {
+                Some((owner, count)) => {
+                    debug_assert_eq!(*owner, me);
+                    *count += 1;
+                    return *count;
+                }
+                None => {
+                    state.writer = Some((me, 1));
+                    return 1;
+                }
+            }
+        }
+    }
+
+    /// Release one read level; answers the remaining depth (0 when this
+    /// thread held none).
+    pub fn release_read(&self) -> usize {
+        self.release_read_for(std::thread::current().id())
+    }
+
+    fn release_read_for(&self, me: std::thread::ThreadId) -> usize {
+        let mut state = self.state.lock().unwrap();
+        let remaining = match state.readers.get_mut(&me) {
+            Some(count) if *count > 0 => {
+                *count -= 1;
+                *count
+            }
+            _ => 0,
+        };
+        if remaining == 0 {
+            state.readers.remove(&me);
+        }
+        drop(state);
+        self.ready.notify_all();
+        remaining
+    }
+
+    /// Release one write level; answers the remaining depth (0 when this
+    /// thread held none).
+    pub fn release_write(&self) -> usize {
+        self.release_write_for(std::thread::current().id())
+    }
+
+    fn release_write_for(&self, me: std::thread::ThreadId) -> usize {
+        let mut state = self.state.lock().unwrap();
+        let remaining = match state.writer {
+            Some((owner, count)) if owner == me => count - 1,
+            _ => return 0,
+        };
+        state.writer = if remaining == 0 {
+            None
+        } else {
+            Some((me, remaining))
+        };
+        drop(state);
+        self.ready.notify_all();
+        remaining
+    }
+
+    /// Hold a read lock until `scope` closes. The release is bound to the
+    /// acquiring thread, so whichever thread closes the scope frees it.
+    pub fn read_lock(
+        self: &Arc<Self>,
+        scope: &crate::Scope,
+    ) -> Result<usize, Cause<std::convert::Infallible>> {
+        let me = std::thread::current().id();
+        let lock = Arc::clone(self);
+        scope.acquire_release(Effect::succeed(self.acquire_read_for(me)), move |_| {
+            lock.release_read_for(me);
+            Effect::<(), std::convert::Infallible>::succeed(())
+        })
+    }
+
+    /// Hold a write lock until `scope` closes; same thread binding as
+    /// [`read_lock`](Self::read_lock).
+    pub fn write_lock(
+        self: &Arc<Self>,
+        scope: &crate::Scope,
+    ) -> Result<usize, Cause<std::convert::Infallible>> {
+        let me = std::thread::current().id();
+        let lock = Arc::clone(self);
+        scope.acquire_release(Effect::succeed(self.acquire_write_for(me)), move |_| {
+            lock.release_write_for(me);
+            Effect::<(), std::convert::Infallible>::succeed(())
+        })
+    }
+
+    /// Run `effect` under a read lock, releasing on success, typed failure,
+    /// or interruption (the pin's `withReadLock`).
+    pub fn with_read_lock<A, E>(&self, effect: Effect<A, E>) -> Result<A, Cause<E>>
+    where
+        A: Send + 'static,
+        E: Send + 'static,
+    {
+        self.acquire_read();
+        let outcome = effect.run_sync();
+        self.release_read();
+        outcome
+    }
+
+    /// Run `effect` under a write lock; same release discipline as
+    /// [`with_read_lock`](Self::with_read_lock).
+    pub fn with_write_lock<A, E>(&self, effect: Effect<A, E>) -> Result<A, Cause<E>>
+    where
+        A: Send + 'static,
+        E: Send + 'static,
+    {
+        self.acquire_write();
+        let outcome = effect.run_sync();
+        self.release_write();
+        outcome
+    }
+
+    /// `TxReentrantLock.withLock`: an alias for [`with_write_lock`]
+    /// (Self::with_write_lock), as in the pin.
+    pub fn with_lock<A, E>(&self, effect: Effect<A, E>) -> Result<A, Cause<E>>
+    where
+        A: Send + 'static,
+        E: Send + 'static,
+    {
+        self.with_write_lock(effect)
+    }
+
+    /// Total read depth across every thread (the pin's `readLocks`).
+    pub fn read_locks(&self) -> usize {
+        self.state.lock().unwrap().readers.values().sum()
+    }
+
+    /// Write depth, 0 when unlocked.
+    pub fn write_locks(&self) -> usize {
+        self.state
+            .lock()
+            .unwrap()
+            .writer
+            .map_or(0, |(_, count)| count)
+    }
+
+    /// True when any thread holds a read or write lock.
+    pub fn locked(&self) -> bool {
+        let state = self.state.lock().unwrap();
+        !state.readers.is_empty() || state.writer.is_some()
+    }
+
+    /// True when any thread holds a read lock.
+    pub fn read_locked(&self) -> bool {
+        !self.state.lock().unwrap().readers.is_empty()
+    }
+
+    /// True when a thread holds the write lock.
+    pub fn write_locked(&self) -> bool {
+        self.state.lock().unwrap().writer.is_some()
     }
 }
 

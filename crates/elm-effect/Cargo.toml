@@ -91,6 +91,11 @@ required-features = ["stm"]
 name = "tx_priority_queue"
 required-features = ["stm"]
 
+# The reentrant read/write lock's protocol is behind the stm feature.
+[[test]]
+name = "tx_reentrant_lock"
+required-features = ["stm"]
+
 [dependencies]
 elm-effect-schema = { path = "../elm-effect-schema", optional = true }
 thiserror = "1"
