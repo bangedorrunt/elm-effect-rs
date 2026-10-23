@@ -167,7 +167,7 @@ A schema can carry an Effect step: `Schema::effect_codec(from, decode, encode)` 
 
 `ParseOptions.concurrency` schedules those steps: `Concurrency::Bounded(n)` keeps `n` children of a product open and starts the next as a slot frees, `Unbounded` starts them all, and the default `Sequential` runs them in declaration order. The limit is read per product, so nested products each get their own. Under `errors: "first"` the first failure to complete wins and the siblings still open are dropped; under `"all"` the issues accumulate in completion order.
 
-A union is the exception: it tries its members one at a time in declaration order, so the second never starts while the first is pending and never starts at all once one has answered, whatever `concurrency` says.
+A union is the exception: it tries its members one at a time in declaration order, so the second never starts while the first is pending and never starts at all once one has answered, whatever `concurrency` says. A member whose step refuses hands the turn to the next one; when no member takes the input, the parse reports that refusal rather than decoding the input as if the step had answered.
 
 A constructor default that answers a `StepFuture` (`with_constructor_default_effect`) is scheduled by `make_effect`, under the same limit: absent keys are filled concurrently before the synchronous builder runs. `make_effect` on a schema with no such default is an already-settled `Effect`. A union member or a constructor default outside that walk is not resolved, and the parse reports that node's synchronous refusal instead of a wrong value.
 

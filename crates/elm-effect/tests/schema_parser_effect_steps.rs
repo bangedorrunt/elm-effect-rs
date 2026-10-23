@@ -123,6 +123,79 @@ fn product(shape: &str, item: &Schema<Unknown>) -> (Schema<Unknown>, Unknown) {
     }
 }
 
+/// A step that yields once, then refuses. The pin's
+/// `SchemaGetter.transformOptionalEffect` over `Effect.fail`.
+fn failing_text() -> Schema<Unknown> {
+    Schema::effect_codec(
+        Schema::as_unknown(Schema::string()),
+        |_input| {
+            Box::pin(async move {
+                Err(SchemaError::TypeMismatch {
+                    path: "$".to_string(),
+                    expected: "a value the step accepts",
+                    got: "string",
+                })
+            }) as StepFuture
+        },
+        |input| Box::pin(std::future::ready(Ok(input))) as StepFuture,
+    )
+}
+
+/// A struct tagged by a literal `kind`, which is how a union member is selected.
+fn tagged_member(kind: &str, value: Schema<Unknown>) -> Schema<Unknown> {
+    Schema::as_unknown(Schema::<BTreeMap<String, Unknown>>::struct_shape(vec![
+        Field::required(
+            "kind",
+            Schema::as_unknown(Schema::<Unknown>::literal(text(kind))),
+        ),
+        Field::required("value", value),
+    ]))
+}
+
+/// SchemaParser.test.ts:951 — when the selected member's step refuses, the parse
+/// reports that refusal. The pin wraps it in an `AnyOf` issue; this port's decode
+/// has one error channel, so the observable is the failure at the path the step
+/// ran at, rather than a value produced as if the step had answered.
+#[test]
+fn an_asynchronous_failure_in_a_union_member_is_reported() {
+    let schema = Schema::union_with_mode(
+        vec![
+            tagged_member("a", Schema::as_unknown(Schema::string())),
+            tagged_member("b", failing_text()),
+        ],
+        "anyOf",
+    );
+
+    let exit = Runtime::run(decode_unknown_effect(
+        &schema,
+        object(&[("kind", text("b")), ("value", text("value"))]),
+    ));
+    let Exit::Failure(cause) = exit else {
+        panic!("a refused step must not decode as if it answered, got {exit:?}");
+    };
+    let message = format!("{cause:?}");
+    assert!(
+        message.contains("path: \"$.value\""),
+        "the refusal names the field the step ran at: {message}"
+    );
+}
+
+/// SchemaParser.test.ts:975 — a candidate whose step refuses does not stop the
+/// next candidate from taking the input unchanged.
+#[test]
+fn an_unchanged_union_candidate_still_resolves_after_a_sibling_fails() {
+    let schema = Schema::union_with_mode(
+        vec![failing_text(), Schema::as_unknown(Schema::string())],
+        "anyOf",
+    );
+
+    let exit = Runtime::run(decode_unknown_effect(&schema, text("value")));
+    let Exit::Success(Unknown::Text(value)) = exit else {
+        panic!("the unchanged candidate takes the input, got {exit:?}");
+    };
+    assert_eq!(value, "value", "the value is unchanged");
+}
+
 /// SchemaParser.test.ts:45 — every product shape, both error modes, decode and
 /// encode, in declaration order.
 #[test]

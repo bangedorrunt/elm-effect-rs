@@ -32,7 +32,10 @@
 //! A union is the one shape whose members are never in flight together: a union
 //! selects its member by trying each in declaration order, so the first that
 //! accepts the input wins and the rest never start, whatever the concurrency
-//! option says (`SchemaParser.test.ts:272`).
+//! option says (`SchemaParser.test.ts:272`). A member whose step refuses hands
+//! the turn to the next one (`:975`); when no member takes the input, that
+//! refusal is what the parse reports (`:951`), because handing the input back
+//! would let the second phase decode it as if the step had answered.
 //!
 //! # Ceiling
 //!
@@ -220,8 +223,15 @@ where
         if let Some(members) = schema.members()
             && members.iter().any(|member| member.has_effect_steps())
         {
+            // A member that carried a step and did not take the input leaves a
+            // failure behind. Handing the input back instead would let the
+            // second phase decode it with that step answered as a pass-through,
+            // which is a silently wrong value rather than the refusal the row
+            // asks for (`SchemaParser.test.ts:951`).
+            let mut stepped_failure = None;
             for member in members {
-                let Ok(resolved) = resolve(
+                let stepped = member.has_effect_steps();
+                let resolved = match resolve(
                     member.clone(),
                     input.clone(),
                     path.clone(),
@@ -229,21 +239,33 @@ where
                     options,
                 )
                 .await
-                else {
-                    continue;
+                {
+                    Ok(resolved) => resolved,
+                    Err(error) => {
+                        if stepped {
+                            stepped_failure.get_or_insert(error);
+                        }
+                        continue;
+                    }
                 };
                 let accepted = match direction {
-                    Direction::Decode => member
-                        .decode_after_steps(resolved.clone(), &options)
-                        .is_ok(),
-                    Direction::Encode => member.encode_after_steps(&resolved, &options).is_ok(),
+                    Direction::Decode => member.decode_after_steps(resolved.clone(), &options),
+                    Direction::Encode => member.encode_after_steps(&resolved, &options),
                 };
-                if accepted {
-                    return Ok(resolved);
+                match accepted {
+                    Ok(_) => return Ok(resolved),
+                    Err(error) => {
+                        if stepped {
+                            stepped_failure.get_or_insert(error);
+                        }
+                    }
                 }
             }
-            // No member took it: hand the input back untouched so the second
-            // phase reports the union's own refusal, naming every member.
+            if let Some(error) = stepped_failure {
+                return Err(error);
+            }
+            // Every member was decided synchronously, so the second phase is
+            // free to report the union's own refusal, naming every member.
             return Ok(input);
         }
         match input {
