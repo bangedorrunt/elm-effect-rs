@@ -41,7 +41,6 @@ other 11 are excused by representability, listed in A.
 | HTTP client/api/server | 80 | Transport, discovery, handler/middleware wiring | `crates/elm-effect-unstable/src/http.rs` |
 | MCP transport | 54 | stdio/HTTP/SSE/session/batch; only the in-memory pair exists | `crates/elm-effect-unstable/src/mcp_server.rs` |
 | Schedule policy | 31 | no clock inside the step, so `duration`/`during`/cron/window alignment are unobservable; no `toStep` metadata; no per-run state for `concat`/`concatResult` | `crates/elm-effect/src/schedule.rs` |
-| Arbitrary pattern strings | 25 | Constructive generator from a regex pattern | `crates/elm-effect-unstable/src/arbitrary.rs` |
 
 Disposition: each is a machinery bead when scheduled, with a dependency on its
 enabler; none may carry a wave label until then. `Schedule` looked cheapest and
@@ -93,8 +92,18 @@ rule need no schema at all; they are ported in
 `crates/elm-effect/tests/config_absence.rs`. The other 54 keep the bridge
 reason, which is accurate.
 
+`Arbitrary.test.ts` was the eighth and the one that needed machinery rather
+than re-reading: 25 rows wanted a pattern parser and a constructive generator.
+`elm-effect-schema/src/pattern.rs` now parses the ECMAScript subset, matches,
+analyses reachable UTF-16 lengths, constructs a value at a chosen length, and
+shrinks structurally. 23 rows are ported in
+`crates/elm-effect-unstable/tests/arbitrary_pattern.rs`. Two stay excused for a
+declaration the derivation cannot see: `Schema.RegExp` reports the generic
+`Object` kind (no `source`/`flags` fields to construct), and `Schema.URL` has
+no declaration arbitrary at all.
+
 ## Next step
 
-No cheap cluster is left. `Arbitrary` (25) needs a pattern parser, `Config.schema`
-(54) and `SchemaParser` (56) need the schema bridge, and `Atom`/`MCP`/`HTTP`
-need runtime or transport work. Pick one substrate and build it end to end.
+No cheap cluster is left. `Config.schema` (54) and `SchemaParser` (56) need the
+schema bridge, and `Atom`/`MCP`/`HTTP` need runtime or transport work. Pick one
+substrate and build it end to end.
