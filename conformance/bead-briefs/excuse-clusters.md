@@ -9,7 +9,7 @@ the next unit can pick one instead of re-reading the ledger.
 
 One pass over `conformance/behavior-tests.tsv`, matching reason substrings; a
 row lands in the first cluster that matches. Counts are rows, not tests. The
-clusters below cover 686 rows. The remaining 2938 carry per-row reasons that
+clusters below cover 683 rows. The remaining 2938 carry per-row reasons that
 this pass did not re-adjudicate.
 
 ## A. Terminal: no Rust change can make the row observable (323 rows)
@@ -24,12 +24,12 @@ this pass did not re-adjudicate.
 Disposition: keep excused. No bead. If one of these ever needs revisiting, the
 reason is a design boundary, not a missing module.
 
-## B. Absent substrate: one enabler each (363 rows)
+## B. Absent substrate: one enabler each (360 rows)
 
 | Cluster | Rows | Missing surface | Rust owner |
 |---|---|---|---|
 | Effectful `SchemaParser` | 56 | Parser is Effect-driven (Deferred/Fiber/Cause); the port has only sync adapters | `crates/elm-effect/src/schema_parser.rs` |
-| `Config.schema` materialization | 57 | No `Config.schema` constructor, so schema nodes are never built from provider data | `crates/elm-effect/src/config.rs` |
+| `Config.schema` materialization | 54 | No `Config.schema` constructor, so schema nodes are never built from provider data | `crates/elm-effect/src/config.rs` |
 | Atom surface | 60 | `Atom.fn`/idleTTL/batching (33) and `Atom.swr`/refresh (27); the port has the lifecycle core only | `crates/elm-effect-unstable/src/reactivity.rs` |
 | HTTP client/api/server | 80 | Transport, discovery, handler/middleware wiring | `crates/elm-effect-unstable/src/http.rs` |
 | MCP transport | 54 | stdio/HTTP/SSE/session/batch; only the in-memory pair exists | `crates/elm-effect-unstable/src/mcp_server.rs` |
@@ -78,8 +78,16 @@ machinery (step layers, requirement capture, partial streams, observer events),
 but the zero-attempts row only needed `NoAttempts` to carry the pin's message.
 One row ported, 22 re-excused by mechanism.
 
+`Config.test.ts` was the seventh and a correction: its 57-row `Config.schema`
+blanket is genuinely a bridge (no schema constructor, no StringTree
+materialization), but 3 of the 57 rows were misfiled under it. `Config.option`,
+`Config.option` over a group, and `Config.LogLevel`'s default-versus-invalid
+rule need no schema at all; they are ported in
+`crates/elm-effect/tests/config_absence.rs`. The other 54 keep the bridge
+reason, which is accurate.
+
 ## Next step
 
-`Arbitrary` (25 rows) is the smallest cluster left in B, but it needs a pattern
-parser. `Config.schema` (57) is the better value: `config.rs` already exists and
-the rows only need the schema constructor wired to the provider bridge.
+No cheap cluster is left. `Arbitrary` (25) needs a pattern parser, `Config.schema`
+(54) and `SchemaParser` (56) need the schema bridge, and `Atom`/`MCP`/`HTTP`
+need runtime or transport work. Pick one substrate and build it end to end.
