@@ -32,9 +32,11 @@ answer the declaration order the pin explicitly rejects.
   slot, so a re-typed effect codec still reports `has_effect_steps() == true`
   and its step still runs. A wrapper that dropped either would make a step
   invisible to the walk.
-- `br gate report --gate command-verified` is refused for P2 beads (the legal
-  set is `unit-test-verified`, `live-verified`, `worker-receipt`,
-  `triage-verified`), and the verdict note must carry `sha=<full sha>` of the
-  commit that cites the bead.
+- Which gate name can authorize a close is per bead, and the tool tells you:
+  this P2 bead with a runnable VERIFY fence accepted `command-verified` and
+  warned that `unit-test-verified` "will not authorize the close". Report the
+  gate anyway, read the warning, and report the legal name. The verdict note
+  must carry `sha=<full sha>` of the commit that cites the bead, so gate after
+  the commit, never before.
 - `cargo fmt --check` fails on ~80 files in this tree already; formatting is not
   a gate here, and reformatting a touched file wholesale buries the diff.
