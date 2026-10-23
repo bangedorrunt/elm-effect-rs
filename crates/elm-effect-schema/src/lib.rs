@@ -236,6 +236,11 @@ pub struct Schema<T> {
     /// as well as fail, and that distinction survives to the adapter.
     constructor_default:
         Option<std::sync::Arc<dyn Fn() -> Result<Unknown, ConstructError> + Send + Sync>>,
+    /// A constructor default that carries an Effect: the pin's own spelling,
+    /// since its default is an Effect that may suspend before it answers. The
+    /// sync maker cannot wait for one, so `make` refuses such a field and the
+    /// effect parser's `makeEffect` schedules it under the concurrency knob.
+    effect_constructor_default: Option<std::sync::Arc<dyn Fn() -> StepFuture + Send + Sync>>,
     /// A decoding default (`withDecodingDefault`/`withDecodingDefaultType`):
     /// what an absent input means. A missing key at a struct occurrence, and a
     /// standalone null, decode to this instead of failing.
@@ -1875,6 +1880,7 @@ impl<T> Schema<T> {
             check_view: None,
             construct: None,
             constructor_default: None,
+            effect_constructor_default: None,
             decoding_default: None,
             omit_on_encode: false,
             struct_fields: None,
@@ -2612,6 +2618,7 @@ impl<T> Schema<T> {
             // the schema underneath still applies to construction.
             construct: schema.construct.clone(),
             constructor_default: schema.constructor_default.clone(),
+            effect_constructor_default: schema.effect_constructor_default.clone(),
             // The wrapped reprs describe the schema underneath, so carrying them
             // would make `to_code` answer for the unwrapped schema and drop the
             // annotation from the repr.
@@ -2758,6 +2765,9 @@ impl<T> Schema<T> {
         // construction too: a field schema wrapped as `Unknown` is exactly
         // where `make` looks for a constructor default.
         out.constructor_default = schema.constructor_default.clone();
+        // The same for an Effect-carrying one, which the effect maker looks for
+        // through this same re-typing.
+        out.effect_constructor_default = schema.effect_constructor_default.clone();
         // The same for a decoding default: it is a property of the codec, and
         // the struct walk looks for it through the re-typing.
         out.decoding_default = inner_default;
@@ -2872,6 +2882,56 @@ impl<T> Schema<T> {
     ) -> Self {
         self.constructor_default = Some(std::sync::Arc::new(default));
         self
+    }
+
+    /// Add a constructor default that suspends (`withConstructorDefault` with
+    /// an Effect), the pin's own spelling of the same thing.
+    ///
+    /// The sync maker cannot wait for one, so it leaves the key absent and lets
+    /// the field's own refusal report it; the adapter crate's `make_effect`
+    /// fills it under the parse's concurrency limit. Attaching this replaces a
+    /// default already on the schema: a schema fills a key one way.
+    pub fn with_constructor_default_effect(
+        mut self,
+        default: impl Fn() -> StepFuture + Send + Sync + 'static,
+    ) -> Self {
+        self.effect_constructor_default = Some(std::sync::Arc::new(default));
+        self
+    }
+
+    /// The Effect-carrying constructor default this schema carries, if any.
+    pub fn effect_constructor_default(
+        &self,
+    ) -> Option<&std::sync::Arc<dyn Fn() -> StepFuture + Send + Sync>> {
+        self.effect_constructor_default.as_ref()
+    }
+
+    /// Whether any node of this schema carries an Effect-carrying constructor
+    /// default, seen through the shapes the effect maker walks.
+    pub fn has_effect_defaults(&self) -> bool {
+        if self.effect_constructor_default.is_some() {
+            return true;
+        }
+        if let Some(fields) = &self.struct_fields
+            && fields
+                .iter()
+                .any(|field| field.inner().has_effect_defaults())
+        {
+            return true;
+        }
+        if let Some(elements) = &self.tuple_elements
+            && elements.iter().any(|element| element.has_effect_defaults())
+        {
+            return true;
+        }
+        if let Some(element) = &self.array_element
+            && element.has_effect_defaults()
+        {
+            return true;
+        }
+        self.children
+            .iter()
+            .any(|(_, child)| child.has_effect_defaults())
     }
 
     /// A lazily-built schema for recursive shapes (`suspend` shape): the

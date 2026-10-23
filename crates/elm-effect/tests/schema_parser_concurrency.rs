@@ -5,7 +5,8 @@
 //! is opened from outside the fiber, and the fiber parks until a step's waker
 //! runs. `SchemaParser.test.ts:84` (bounded, both axes), `:116` (unbounded),
 //! `:137` (interruption), `:180` (completion order), `:221` (record key
-//! collision) and `:247` (nested limits) are the rows.
+//! collision), `:247` (nested limits), `:272` (union members stay sequential)
+//! and `:314` (constructor defaults) are the rows.
 
 #![cfg(all(feature = "schema", feature = "tokio"))]
 
@@ -16,7 +17,9 @@ use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 use std::time::{Duration, Instant};
 
-use elm_effect::{Exit, Runtime, decode_unknown_effect_with, encode_unknown_effect_with};
+use elm_effect::{
+    Exit, Runtime, decode_unknown_effect_with, encode_unknown_effect_with, make_effect_with,
+};
 use elm_effect_schema::transform::{Concurrency, Errors, ParseOptions};
 use elm_effect_schema::{Field, Schema, SchemaError, StepFuture, Unknown};
 
@@ -437,6 +440,123 @@ fn a_record_key_collision_is_decided_by_completion_order() {
         values.get("key"),
         Some(&text("first")),
         "the last completion keeps the colliding name"
+    );
+}
+
+/// SchemaParser.test.ts:314 — constructor defaults are scheduled under the
+/// same limit as a product's children, so `concurrency: 2` starts both fields'
+/// defaults before either is released.
+#[test]
+fn constructor_defaults_are_scheduled_under_the_limit() {
+    let first_started = Gate::default();
+    let second_started = Gate::default();
+    let release = Gate::default();
+
+    let field = |value: &'static str, started: Gate, release: Gate| {
+        Schema::as_unknown(Schema::string().with_constructor_default_effect(move || {
+            let started = started.clone();
+            let release = release.clone();
+            Box::pin(async move {
+                started.open();
+                release.wait().await;
+                Ok(text(value))
+            }) as StepFuture
+        }))
+    };
+    let schema = Schema::struct_shape(vec![
+        Field::required(
+            "a",
+            field("a", first_started.clone(), release.clone()),
+        ),
+        Field::required(
+            "b",
+            field("b", second_started.clone(), release.clone()),
+        ),
+    ]);
+
+    let handle = std::thread::spawn(move || {
+        Runtime::run(make_effect_with(
+            &schema,
+            object(&[]),
+            options(Concurrency::Bounded(2), Errors::First),
+        ))
+    });
+
+    // Both keys are absent and the bound is two, so both defaults start. A
+    // maker that ran them one at a time would never reach the second.
+    wait_until("both constructor defaults to start", || {
+        first_started.is_open() && second_started.is_open()
+    });
+    release.open();
+
+    let exit = handle.join().expect("the parse thread finishes");
+    let Exit::Success(values) = exit else {
+        panic!("expected a constructed value, got {exit:?}");
+    };
+    assert_eq!(values.get("a"), Some(&text("a")));
+    assert_eq!(values.get("b"), Some(&text("b")));
+}
+
+/// SchemaParser.test.ts:272 — a union tries its members in declaration order,
+/// so the second never starts while the first is pending, even unbounded.
+#[test]
+fn union_members_are_tried_one_at_a_time() {
+    let first_started = Gate::default();
+    let release_first = Gate::default();
+    let second_started = Gate::default();
+
+    let first = codec({
+        let started = first_started.clone();
+        let release = release_first.clone();
+        move |_input| {
+            let started = started.clone();
+            let release = release.clone();
+            Box::pin(async move {
+                started.open();
+                release.wait().await;
+                Ok(text("first"))
+            }) as StepFuture
+        }
+    });
+    let second = codec({
+        let started = second_started.clone();
+        move |_input| {
+            let started = started.clone();
+            Box::pin(async move {
+                started.open();
+                Ok(text("second"))
+            }) as StepFuture
+        }
+    });
+    let schema = Schema::union_with_mode(vec![first, second], "anyOf");
+
+    let handle = std::thread::spawn(move || {
+        Runtime::run(decode_unknown_effect_with(
+            &schema,
+            text("value"),
+            options(Concurrency::Unbounded, Errors::First),
+        ))
+    });
+
+    wait_until("the first member to start", || first_started.is_open());
+    // Unbounded would start every child of a product at once; a union has no
+    // children in flight at all, so a moment's wait is enough to see the
+    // second member stay put.
+    std::thread::sleep(Duration::from_millis(50));
+    assert!(
+        !second_started.is_open(),
+        "the second member ran while the first was still pending"
+    );
+    release_first.open();
+
+    let exit = handle.join().expect("the parse thread finishes");
+    let Exit::Success(Unknown::Text(value)) = exit else {
+        panic!("expected the first member's answer, got {exit:?}");
+    };
+    assert_eq!(value, "first", "the union answered with its first member");
+    assert!(
+        !second_started.is_open(),
+        "the second member ran after the union already resolved"
     );
 }
 

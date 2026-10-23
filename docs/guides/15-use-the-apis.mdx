@@ -165,7 +165,11 @@ Every adapter has a `_with` twin taking `elm_effect_schema::transform::ParseOpti
 
 A schema can carry an Effect step: `Schema::effect_codec(from, decode, encode)` takes two functions answering `StepFuture`, and `decode_unknown_effect` / `encode_unknown_effect` resolve those steps first, over structs, tuples, arrays, and records. The step is carried rather than resolved by the caller, which is what lets a product whose fields yield run at all. `transformEffect`, whose caller already ran the effect, still answers `ASYNC_DEFECT` on the effect adapter and is refused by the sync ones.
 
-`ParseOptions.concurrency` schedules those steps: `Concurrency::Bounded(n)` keeps `n` children of a product open and starts the next as a slot frees, `Unbounded` starts them all, and the default `Sequential` runs them in declaration order. The limit is read per product, so nested products each get their own. Under `errors: "first"` the first failure to complete wins and the siblings still open are dropped; under `"all"` the issues accumulate in completion order. A step inside a union member or a constructor default is not resolved: the parse reports that node's synchronous refusal instead of a wrong value.
+`ParseOptions.concurrency` schedules those steps: `Concurrency::Bounded(n)` keeps `n` children of a product open and starts the next as a slot frees, `Unbounded` starts them all, and the default `Sequential` runs them in declaration order. The limit is read per product, so nested products each get their own. Under `errors: "first"` the first failure to complete wins and the siblings still open are dropped; under `"all"` the issues accumulate in completion order.
+
+A union is the exception: it tries its members one at a time in declaration order, so the second never starts while the first is pending and never starts at all once one has answered, whatever `concurrency` says.
+
+A constructor default that answers a `StepFuture` (`with_constructor_default_effect`) is scheduled by `make_effect`, under the same limit: absent keys are filled concurrently before the synchronous builder runs. `make_effect` on a schema with no such default is an already-settled `Effect`. A union member or a constructor default outside that walk is not resolved, and the parse reports that node's synchronous refusal instead of a wrong value.
 
 ## A metric
 

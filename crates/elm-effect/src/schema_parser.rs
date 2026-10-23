@@ -29,14 +29,18 @@
 //! carrier's interruption; under `all` the issues accumulate in completion
 //! order, and a record assembles its keys in that order too.
 //!
+//! A union is the one shape whose members are never in flight together: a union
+//! selects its member by trying each in declaration order, so the first that
+//! accepts the input wins and the rest never start, whatever the concurrency
+//! option says (`SchemaParser.test.ts:272`).
+//!
 //! # Ceiling
 //!
-//! A union member that carries a step is not resolved: the walk only descends
-//! the shapes it can name, and the second phase then reports the node's
-//! synchronous refusal instead of a silently wrong value. A constructor default
-//! fills in that second phase as well, so the concurrency knob has no default to
-//! schedule. The `transformEffect` spelling, whose caller already ran the
-//! effect, still dies with [`ASYNC_DEFECT`].
+//! A constructor default fills during the parser's second phase. A default that
+//! carries an Effect is scheduled by [`make_effect`]'s own walk, which fills the
+//! absent keys before construction; the decode walk never sees one. The
+//! `transformEffect` spelling, whose caller
+//! already ran the effect, still dies with [`ASYNC_DEFECT`].
 //!
 //! The mixed-decode-cause rows (a `Cause` holding an issue and a defect) are
 //! excused on this port's decode having a single error channel, not on steps.
@@ -200,6 +204,46 @@ where
         // A node with no step below it is left exactly as it arrived, so the
         // ordinary decoder does all of its own work.
         if !schema.has_effect_steps() {
+            return Ok(input);
+        }
+        // A union selects its member by trying them in declaration order, so
+        // its members are never in flight together: the first that accepts the
+        // input wins and the rest never start, whatever the concurrency option
+        // says (`SchemaParser.test.ts:272`). A member whose own step refuses is
+        // the next member's turn, which is what `anyOf` means.
+        //
+        // ponytail: the winner is picked against the input the walk produced,
+        // and the second phase re-matches the union against that input. A
+        // member whose step changes the wire shape can therefore lose the
+        // re-match; the pin decodes in one pass and has no second phase.
+        // Dispatch the second phase on the chosen member if a row shows it.
+        if let Some(members) = schema.members()
+            && members.iter().any(|member| member.has_effect_steps())
+        {
+            for member in members {
+                let Ok(resolved) = resolve(
+                    member.clone(),
+                    input.clone(),
+                    path.clone(),
+                    direction,
+                    options,
+                )
+                .await
+                else {
+                    continue;
+                };
+                let accepted = match direction {
+                    Direction::Decode => member
+                        .decode_after_steps(resolved.clone(), &options)
+                        .is_ok(),
+                    Direction::Encode => member.encode_after_steps(&resolved, &options).is_ok(),
+                };
+                if accepted {
+                    return Ok(resolved);
+                }
+            }
+            // No member took it: hand the input back untouched so the second
+            // phase reports the union's own refusal, naming every member.
             return Ok(input);
         }
         match input {
@@ -662,6 +706,162 @@ pub fn make_option_with<T>(
     options: ParseOptions,
 ) -> Result<Option<T>, AdapterError> {
     options.scoped(|| schema.make_option(input))
+}
+
+/// `SchemaParser.makeEffect(schema)(input)`: construction, with every
+/// Effect-carrying constructor default scheduled under the parse's concurrency
+/// limit before the synchronous builder runs.
+///
+/// A schema with no such default is decided here, so the result is an `Effect`
+/// that has already settled: the sync `make` is the whole answer.
+pub fn make_effect<T>(schema: &Schema<T>, input: Unknown) -> Effect<T, AdapterError>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    make_effect_with(schema, input, ParseOptions::default())
+}
+
+/// [`make_effect`] under parse options.
+///
+/// `errors` does not reach the defaults, which answer one value each: a default
+/// that refuses is the failure, and the ones still running are dropped, the
+/// same interruption a product's first failure performs. `concurrency` decides
+/// how many of them are open at once.
+pub fn make_effect_with<T>(
+    schema: &Schema<T>,
+    input: Unknown,
+    options: ParseOptions,
+) -> Effect<T, AdapterError>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    if !schema.has_effect_defaults() {
+        return match make_with(schema, input, options) {
+            Ok(value) => Effect::succeed(value),
+            Err(error) => Effect::fail(error),
+        };
+    }
+    let schema = schema.clone();
+    Effect::suspend(move || {
+        let filled = block_on(fill_effect_defaults(
+            schema.clone(),
+            input,
+            "$".to_string(),
+            options,
+        ));
+        let outcome = match filled {
+            Ok(value) => make_with(&schema, value, options),
+            Err(error) => Err(error),
+        };
+        Effect::from_result(outcome)
+    })
+}
+
+/// Fill every absent key whose field carries an Effect default, then descend
+/// into the composites the input already holds.
+///
+/// A default answers the field's value, and the sync builder constructs it
+/// afterwards exactly as it constructs a synchronous default: the two spellings
+/// differ in when they run, not in what they mean.
+fn fill_effect_defaults<T>(
+    schema: Schema<T>,
+    input: Unknown,
+    path: String,
+    options: ParseOptions,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Unknown, AdapterError>> + Send>>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    Box::pin(async move {
+        if !schema.has_effect_defaults() {
+            return Ok(input);
+        }
+        // The node's own default belongs to the occurrence above it: the field
+        // walk is what runs it, so a node reached with its value present has
+        // nothing of its own to fill.
+        match input {
+            Unknown::Object(mut object) => {
+                let nested: Vec<(String, Schema<Unknown>)> = schema
+                    .fields()
+                    .unwrap_or(&[])
+                    .iter()
+                    .map(|field| (field.name().to_string(), field.inner().clone()))
+                    .collect();
+                let limit = options.concurrency.slots();
+                let mut names = Vec::new();
+                let mut tasks = Vec::new();
+                for (name, field) in &nested {
+                    if object.contains_key(name) {
+                        continue;
+                    }
+                    let Some(default) = field.effect_constructor_default() else {
+                        continue;
+                    };
+                    names.push(name.clone());
+                    tasks.push(default());
+                }
+                let done = FanOut::new(tasks, limit, true)
+                    .await
+                    .map_err(AdapterError::Issue)?;
+                for (index, value) in done {
+                    object.insert(names[index].clone(), value);
+                }
+                // A default or a supplied value may itself be a composite with
+                // absent keys, so each one present is walked in turn.
+                for (name, field) in &nested {
+                    let Some(value) = object.get(name).cloned() else {
+                        continue;
+                    };
+                    if !field.has_effect_defaults() {
+                        continue;
+                    }
+                    let filled = fill_effect_defaults(
+                        field.clone(),
+                        value,
+                        format!("{path}.{name}"),
+                        options,
+                    )
+                    .await?;
+                    object.insert(name.clone(), filled);
+                }
+                Ok(Unknown::Object(object))
+            }
+            // A tuple names each position; an array names one element schema
+            // for every one. A position past the end has no input to fill, so
+            // only the positions that arrived are walked.
+            Unknown::Array(items) => {
+                let elements: Vec<Schema<Unknown>> = match schema.elements() {
+                    Some(elements) => elements.to_vec(),
+                    None => schema
+                        .array_element_schema()
+                        .map(|element| vec![element.clone(); items.len()])
+                        .unwrap_or_default(),
+                };
+                let mut items = items;
+                for (index, element) in elements.iter().enumerate() {
+                    if index >= items.len() || !element.has_effect_defaults() {
+                        continue;
+                    }
+                    let value = std::mem::replace(&mut items[index], Unknown::Undefined);
+                    let filled = fill_effect_defaults(
+                        element.clone(),
+                        value,
+                        format!("{path}[{index}]"),
+                        options,
+                    )
+                    .await?;
+                    items[index] = filled;
+                }
+                Ok(Unknown::Array(items))
+            }
+            // `ponytail:` a record has no name to fill: its keys are the
+            // input's own, and a default only fills an absent KEY. A record
+            // whose value schema carries a default therefore gets nothing here,
+            // which is the pin's behavior too (a record's default lives on the
+            // key schema). Handle it on the key if a row shows one.
+            other => Ok(other),
+        }
+    })
 }
 
 /// The throw the pin's sync adapter performs. Re-exported here because the

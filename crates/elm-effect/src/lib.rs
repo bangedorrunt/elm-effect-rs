@@ -244,8 +244,8 @@ pub use schema_parser::{
     decode_unknown_sync, decode_unknown_sync_with, encode_unknown_effect,
     encode_unknown_effect_with, encode_unknown_exit, encode_unknown_exit_with,
     encode_unknown_option, encode_unknown_option_with, encode_unknown_result,
-    encode_unknown_result_with, encode_unknown_sync, encode_unknown_sync_with, make, make_option,
-    make_option_with, make_with,
+    encode_unknown_result_with, encode_unknown_sync, encode_unknown_sync_with, make, make_effect,
+    make_effect_with, make_option, make_option_with, make_with,
 };
 #[cfg(feature = "schema")]
 pub use schema_regexp::regexp;
