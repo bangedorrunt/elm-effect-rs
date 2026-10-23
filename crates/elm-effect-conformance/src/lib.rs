@@ -1,6 +1,9 @@
 //! Reads `conformance/modules.toml`. The default tests check the ledger is
-//! well-formed. The ignored test is the phase-13 gate: every port row matched.
+//! well-formed. The ignored test is the phase-13 gate: every port row that the
+//! pin gives a test is matched, and every other one is named in
+//! `conformance/modules-without-rows.tsv`.
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -42,6 +45,64 @@ impl Ledger {
             })
             .collect()
     }
+
+    /// Port-class modules that can still earn a `matched` row and have not.
+    ///
+    /// A module the pin gives no test can never be `matched`: ADR-0002 makes
+    /// parity depend on a named test, which is the rule that stops types
+    /// claiming parity with nothing behind them. Counting those 142 rows in the
+    /// gate made it unsatisfiable, so a real regression could not move the
+    /// number. They owe nothing here; [`load_scope`] is what keeps them from
+    /// going invisible instead.
+    pub fn port_like_owing<'a>(&'a self, behaviors: &[Behavior]) -> Vec<&'a Module> {
+        let tested: BTreeSet<&str> = behaviors.iter().map(|row| row.path.as_str()).collect();
+        self.port_like_unmatched()
+            .into_iter()
+            .filter(|module| {
+                module
+                    .tests
+                    .iter()
+                    .any(|test| tested.contains(test.as_str()))
+            })
+            .collect()
+    }
+
+    /// Port-class modules the pin gives no test file, by the ledger's own link.
+    pub fn port_like_untested<'a>(&'a self, behaviors: &[Behavior]) -> Vec<&'a Module> {
+        let tested: BTreeSet<&str> = behaviors.iter().map(|row| row.path.as_str()).collect();
+        self.modules
+            .iter()
+            .filter(|module| {
+                matches!(
+                    module.class.as_str(),
+                    "port" | "unstable-port" | "experimental-port"
+                ) && !module
+                    .tests
+                    .iter()
+                    .any(|test| tested.contains(test.as_str()))
+            })
+            .collect()
+    }
+}
+
+/// Read `conformance/modules-without-rows.tsv`: the modules the ledger cannot
+/// speak for, one `path\treason` per line. `tracker-audit.py` fails when a
+/// module with no rows is missing here, so the file is a complete statement of
+/// what the gate does not cover, not a place to park a module quietly.
+pub fn load_scope(path: &Path) -> Result<BTreeSet<String>, String> {
+    let text = fs::read_to_string(path).map_err(|err| err.to_string())?;
+    let mut scope = BTreeSet::new();
+    for line in text.lines() {
+        if line.starts_with('#') || line.trim().is_empty() {
+            continue;
+        }
+        let path = line.split('\t').next().unwrap_or("").trim();
+        if path.is_empty() {
+            return Err(format!("scope row without a path: {line:?}"));
+        }
+        scope.insert(path.to_string());
+    }
+    Ok(scope)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

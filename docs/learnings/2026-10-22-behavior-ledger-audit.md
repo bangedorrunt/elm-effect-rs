@@ -443,3 +443,28 @@ touching the reason, which is what a free-text column does when nothing
 re-reads it.
 
 Reproduce either against another ledger with `--ledger PATH`.
+
+## The phase-13 gate could never pass
+
+`port_rows_are_matched` failed with "142 port rows are still unmatched", and
+every one of the 142 is a module the pin ships no test file for: `Utils.ts`,
+`StandardSchema.ts`, `RequestResolver.ts`, `References.ts`, and the whole of
+`cluster/`, `rpc/`, `workers/` and `workflow/`. ADR-0002 makes `matched` require
+a named test, so those rows were permanent. The gate was red from the day it
+was written, and a permanent 142 hid any real drift underneath it: flipping a
+matched module back to `unmatched` moved the count to 143 and read the same as
+before.
+
+The ledger is otherwise complete: 6172 rows ported, 3742 excused with reasons,
+56 `it.skip`s, zero unported, and every module that has a pin test is `matched`
+or `excused`. So the gate now asks the two questions that can go red. A
+port-like module with a linked behavior row must be `matched`; one without must
+appear in `modules-without-rows.tsv`, which `tracker-audit.py` already forces to
+be the complete set of no-row modules. Both arms were falsified before the
+commit: flipping `Arbitrary.ts` failed the first with its path named, and
+deleting `Differ.ts` from the scope file failed the second.
+
+The distinction that keeps this from being a weakened check: a zero-row module
+stays `unmatched` in `modules.toml`, because it is. Relabelling those 142 rows
+`excused` would have made the old gate green by editing the ledger, which is the
+failure the port skill names outright. The check changed; the data did not.

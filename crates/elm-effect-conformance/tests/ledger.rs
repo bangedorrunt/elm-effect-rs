@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 
-use elm_effect_conformance::{Behavior, Ledger, repo_root};
+use elm_effect_conformance::{Behavior, Ledger, load_scope, repo_root};
 
 const CLASSES: &[&str] = &[
     "port",
@@ -201,17 +201,39 @@ fn ledger_is_well_formed() {
 }
 
 #[test]
-#[ignore = "phase 13: every port-like module is matched and every behavior test is ported"]
+#[ignore = "phase 13: every port-like module with a pin test is matched and every behavior test is ported"]
 fn port_rows_are_matched() {
     let root = repo_root();
     let ledger = Ledger::load(&root.join("conformance/modules.toml")).unwrap();
-    let open = ledger.port_like_unmatched();
+    let behaviors = Behavior::load(&root.join("conformance/behavior-tests.tsv")).unwrap();
+
+    // Unmatched is permanent for a module the pin ships no test for: ADR-0002
+    // requires a named test before `matched`, so the old "no port row is
+    // unmatched" assertion could never pass and 142 permanent rows drowned out
+    // any real drift. The gate now asks two questions that can go red: a module
+    // with a pin test must be matched, and one without must be on the scope
+    // list that `tracker-audit.py` enforces.
+    let open = ledger.port_like_owing(&behaviors);
     assert!(
         open.is_empty(),
-        "{} port rows are still unmatched",
-        open.len()
+        "{} port rows with a pin test are still unmatched: {:?}",
+        open.len(),
+        open.iter().map(|m| m.path.as_str()).collect::<Vec<_>>()
     );
-    let behaviors = Behavior::load(&root.join("conformance/behavior-tests.tsv")).unwrap();
+
+    let scope = load_scope(&root.join("conformance/modules-without-rows.tsv")).unwrap();
+    let invisible: Vec<&str> = ledger
+        .port_like_untested(&behaviors)
+        .into_iter()
+        .map(|module| module.path.as_str())
+        .filter(|path| !scope.contains(*path))
+        .collect();
+    assert!(
+        invisible.is_empty(),
+        "{} untested port modules are on no scope list: {invisible:?}",
+        invisible.len()
+    );
+
     let still = Behavior::still_open(&behaviors);
     assert_eq!(still, 0, "{still} behavior tests are still unported");
 }
