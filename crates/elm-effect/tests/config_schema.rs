@@ -290,6 +290,56 @@ fn a_union_loads_every_member_from_its_encoded_shape() {
 }
 
 #[test]
+fn a_struct_reads_only_its_declared_fields() {
+    // Config.test.ts:1795 — the root only has to exist: a declared child may
+    // come from the fallback provider when the primary has nothing there.
+    let primary = Provider::empty().with_node(&[], Node::Object);
+    let fallback = Provider::from_pairs([("host".to_string(), "localhost".to_string())]);
+    assert_eq!(
+        Config::schema(&structure(vec![("host", string())]), None)
+            .load(&primary.or_else(&fallback)),
+        Ok(obj(&[("host", Value::Str("localhost".to_string()))]))
+    );
+
+    // Config.test.ts:1819 — an advertised key the struct does not declare is
+    // never read, so a source failure under it cannot surface.
+    let provider = FailingAt::new(
+        Provider::from_pairs([
+            ("wanted".to_string(), "value".to_string()),
+            ("unrelated".to_string(), "value".to_string()),
+        ]),
+        &[&["unrelated"]],
+    );
+    assert_eq!(
+        Config::schema(&structure(vec![("wanted", string())]), None).load(&provider),
+        Ok(obj(&[("wanted", Value::Str("value".to_string()))]))
+    );
+}
+
+#[test]
+fn a_record_reads_only_the_keys_its_key_schema_names() {
+    // Config.test.ts:1838 — a finite key schema names the keys to read; an
+    // advertised key it refuses is not read at all, so a source failure under
+    // the unrelated key cannot surface.
+    let provider = FailingAt::new(
+        Provider::from_pairs([
+            ("wanted".to_string(), "value".to_string()),
+            ("unrelated".to_string(), "value".to_string()),
+        ]),
+        &[&["unrelated"]],
+    );
+    let schema = Schema::as_unknown(Schema::record2(
+        Schema::as_unknown(Schema::literal(Unknown::Text("wanted".to_string()))),
+        Schema::as_unknown(Schema::string()),
+    ));
+
+    assert_eq!(
+        Config::schema(&schema, None).load(&provider),
+        Ok(obj(&[("wanted", Value::Str("value".to_string()))]))
+    );
+}
+
+#[test]
 fn leaf_schema_uses_its_own_scalar_over_object_children() {
     // Config.test.ts:2142 — a Number leaf reads `a`, not `a_b`.
     let schema = structure(vec![("a", number())]);

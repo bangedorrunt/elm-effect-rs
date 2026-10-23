@@ -1310,10 +1310,15 @@ fn kind_wires(
         }
         SchemaKind::Rest(inner) => kind_wires(inner, provider, path)?,
         // A record reads whatever keys the provider has under the path, and
-        // each value through the record's value kind.
-        SchemaKind::Record(_, value_kind) => {
+        // each value through the record's value kind. A key its finite key
+        // schema refuses is never read, so a source failing under an unrelated
+        // advertised key cannot surface (Config.test.ts:1838).
+        SchemaKind::Record(key_kind, value_kind) => {
             let mut object = std::collections::BTreeMap::new();
             for key in provider.child_keys(path) {
+                if !key_is_covered(key_kind, &key) {
+                    continue;
+                }
                 let mut child = path.to_vec();
                 child.push(key.clone());
                 if let Some(wire) = kind_wires(value_kind, provider, &child)?.into_iter().next() {
@@ -1469,6 +1474,35 @@ fn element_wires(
         }
     }
     positional_or_scalar(items, provider, path)
+}
+
+/// Whether a record's key schema can name `key` at all.
+///
+/// Only a finite key schema (`Literal`/`Literals`) can answer no before the
+/// read. A checked or patterned key is tested against the key's own text, so
+/// the bridge reads it and lets the codec drop it: reading is the only way to
+/// know. Skipping a refused key is what keeps a source that fails under an
+/// unrelated advertised key from surfacing (Config.test.ts:1838).
+#[cfg(feature = "schema")]
+fn key_is_covered(kind: &elm_effect_schema::SchemaKind, key: &str) -> bool {
+    use elm_effect_schema::{SchemaKind, Unknown};
+    match kind {
+        SchemaKind::Literal(Unknown::Text(expected)) => expected == key,
+        SchemaKind::Literals(values) => values
+            .iter()
+            .any(|value| matches!(value, Unknown::Text(expected) if expected == key)),
+        SchemaKind::Union { members, .. } => {
+            members.iter().any(|member| key_is_covered(member, key))
+        }
+        SchemaKind::Optional(inner) | SchemaKind::OptionalKey(inner) | SchemaKind::Rest(inner) => {
+            key_is_covered(inner, key)
+        }
+        SchemaKind::Check { base, .. } => key_is_covered(base, key),
+        SchemaKind::Annotated { inner, .. } => key_is_covered(inner, key),
+        // An index signature, or a reading this bridge cannot decide: the key
+        // is read and the codec drops it when it does not match.
+        _ => true,
+    }
 }
 
 /// Whether the provider at `path` can supply the representation the schema
