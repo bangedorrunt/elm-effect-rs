@@ -6,7 +6,9 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use elm_effect::{Effect, Exit, Layer, ManagedRuntime, Runtime, Scope, ServiceTag, use_service};
+use elm_effect::{
+    BuiltServices, Effect, Exit, Layer, ManagedRuntime, Runtime, Scope, ServiceTag, use_service,
+};
 
 struct Db;
 struct DbConn(u64);
@@ -259,4 +261,149 @@ fn provide_from_with_a_layer_that_never_built_the_tag_is_a_defect_not_a_default(
         }
         other => panic!("a missing tag produced {other:?}, not a failure"),
     }
+}
+/// A layer that owns a resource: it records its acquire and registers the
+/// release on the build scope, the shape `makeLayer1` has at the pin.
+fn resource_layer(arr: &Arc<std::sync::Mutex<Vec<&'static str>>>) -> Layer<Db, std::convert::Infallible, ()> {
+    let arr = Arc::clone(arr);
+    Layer::from_scoped_factory(move |scope| {
+        arr.lock().unwrap().push("acquire");
+        let released = Arc::clone(&arr);
+        scope.add_finalizer(move || released.lock().unwrap().push("release"));
+        Effect::succeed(DbConn(1))
+    })
+    .expect("a single closed constructor cannot cycle")
+}
+
+#[test]
+fn suspend_is_lazy_and_evaluates_per_handle() {
+    // Layer.test.ts:86. The thunk does not run at construction, and one build
+    // per handle runs it once. The pin builds twice through `Effect.scoped`,
+    // which forks a memo map per fiber; here one handle is one memo, so the
+    // second build is the `fresh()` handle.
+    let evaluated = Arc::new(AtomicUsize::new(0));
+    let layer = Layer::<Db, std::convert::Infallible, ()>::suspend({
+        let evaluated = Arc::clone(&evaluated);
+        move || {
+            evaluated.fetch_add(1, Ordering::SeqCst);
+            Layer::from_value(DbConn(7))
+        }
+    });
+    assert_eq!(evaluated.load(Ordering::SeqCst), 0, "suspend is lazy");
+
+    let scope = Scope::new(90);
+    let built = layer.build(&scope).expect("the suspended layer builds");
+    assert_eq!(evaluated.load(Ordering::SeqCst), 1);
+    assert_eq!(built.get::<Db>().unwrap().0, 7);
+
+    layer.build(&scope).expect("the handle memoizes");
+    assert_eq!(
+        evaluated.load(Ordering::SeqCst),
+        1,
+        "one evaluation per handle"
+    );
+
+    layer
+        .fresh()
+        .build(&scope)
+        .expect("a fresh handle evaluates again");
+    assert_eq!(evaluated.load(Ordering::SeqCst), 2);
+}
+
+#[test]
+fn suspend_shares_its_memo_across_builds() {
+    // Layer.test.ts:597. Two scopes on one memo evaluate the thunk once, and
+    // only the scope that acquired the resource releases it.
+    let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let evaluated = Arc::new(AtomicUsize::new(0));
+    let layer = Layer::<Db, std::convert::Infallible, ()>::suspend({
+        let evaluated = Arc::clone(&evaluated);
+        let arr = Arc::clone(&arr);
+        move || {
+            evaluated.fetch_add(1, Ordering::SeqCst);
+            resource_layer(&arr)
+        }
+    });
+
+    let first = Scope::new(91);
+    let second = Scope::new(92);
+    layer.build(&first).expect("first scope builds");
+    layer.build(&second).expect("second scope shares the memo");
+    assert_eq!(evaluated.load(Ordering::SeqCst), 1);
+    assert_eq!(*arr.lock().unwrap(), vec!["acquire"]);
+    assert!(second.close().is_empty());
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec!["acquire"],
+        "a memoized build owns its resource through the scope that acquired it"
+    );
+    assert!(first.close().is_empty());
+    assert_eq!(*arr.lock().unwrap(), vec!["acquire", "release"]);
+}
+
+#[test]
+fn tap_runs_with_the_built_services_and_preserves_them() {
+    // Layer.test.ts:177. The callback sees the built services, runs before
+    // the build answers, and the caller keeps the same output.
+    let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let layer = resource_layer(&arr).tap({
+        let arr = Arc::clone(&arr);
+        move |built: &BuiltServices| {
+            let seen = built.get::<Db>().map(|db| db.0).unwrap_or_default();
+            let arr = Arc::clone(&arr);
+            Effect::<(), std::convert::Infallible, ()>::sync(move || {
+                arr.lock().unwrap().push(if seen == 1 { "tap" } else { "tap:wrong" })
+            })
+        }
+    });
+    let scope = Scope::new(93);
+    let built = layer.build(&scope).expect("the tapped layer builds");
+    assert_eq!(built.get::<Db>().unwrap().0, 1);
+    assert_eq!(*arr.lock().unwrap(), vec!["acquire", "tap"]);
+    scope.close();
+    assert_eq!(*arr.lock().unwrap(), vec!["acquire", "tap", "release"]);
+}
+
+#[test]
+fn tap_error_runs_and_preserves_the_original_error() {
+    // Layer.test.ts:194. The callback runs on a typed construction failure and
+    // the build still fails with the original error.
+    let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let layer = Layer::<Db, String, ()>::from_factory(|| Effect::fail("failed!".to_string()))
+        .expect("a single closed constructor cannot cycle")
+        .tap_error({
+            let seen = Arc::clone(&seen);
+            move |error: &String| {
+                let line = format!("tapError:{error}");
+                let seen = Arc::clone(&seen);
+                Effect::<(), String, ()>::sync(move || seen.lock().unwrap().push(line))
+            }
+        });
+    let scope = Scope::new(94);
+    let cause = layer.build(&scope).expect_err("the layer still fails");
+    assert_eq!(cause.failure(), Some(&"failed!".to_string()));
+    assert_eq!(*seen.lock().unwrap(), vec!["tapError:failed!"]);
+}
+
+#[test]
+fn tap_cause_sees_the_defect_and_preserves_the_cause() {
+    // Layer.test.ts:211. The callback gets the whole cause, including a
+    // defect, and the build still fails with that cause.
+    let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let layer = Layer::<Db, String, ()>::from_factory(|| {
+        Effect::die(elm_effect::Defect::new("boom"))
+    })
+    .expect("a single closed constructor cannot cycle")
+    .tap_cause({
+        let seen = Arc::clone(&seen);
+        move |cause: &elm_effect::Cause<String>| {
+            let dies = cause.has_dies();
+            let seen = Arc::clone(&seen);
+            Effect::<(), String, ()>::sync(move || seen.lock().unwrap().push(dies))
+        }
+    });
+    let scope = Scope::new(95);
+    let cause = layer.build(&scope).expect_err("the layer still fails");
+    assert!(cause.has_dies());
+    assert_eq!(*seen.lock().unwrap(), vec![true]);
 }

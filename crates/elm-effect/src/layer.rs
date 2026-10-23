@@ -265,6 +265,24 @@ where
 /// Marker for a layer producing `ROut`, failing with `E`, needing `RIn`.
 type LayerMarker<ROut, E, RIn> = PhantomData<fn() -> (ROut, E, RIn)>;
 
+/// A build-time hook: the pin's `Layer.tap*`, which wrap a build rather than
+/// add a constructor.
+///
+/// A tap failure replaces the build's cause, as the pin's `andThen` does: the
+/// callback's own failure is what the caller sees. An `OnError` hook sees every
+/// failure in the composed build, not only the innermost constructor's, because
+/// this port has one hook list per handle instead of one wrapper per build.
+///
+/// The hook stores the run, not the description: an `Effect` needs `E: Send`,
+/// and the enum has no business forcing that bound on every `Layer`, so the
+/// closure that already carries the bound interprets it.
+enum Hook<E> {
+    /// Runs after a successful build, with the built services.
+    Tap(Arc<dyn Fn(&BuiltServices) -> Result<(), Cause<E>> + Send + Sync>),
+    /// Runs after a failed build, before the cause escapes.
+    OnError(Arc<dyn Fn(&Cause<E>) -> Result<(), Cause<E>> + Send + Sync>),
+}
+
 /// A composable service recipe: builds `ROut` from `RIn`.
 ///
 /// Constructors run at most once per handle, in stage order, against the
@@ -275,6 +293,7 @@ pub struct Layer<ROut, E, RIn> {
     out_ids: Vec<&'static str>,
     in_ids: Vec<&'static str>,
     memo: LayerMemo,
+    hooks: Vec<Hook<E>>,
     marker: LayerMarker<ROut, E, RIn>,
 }
 
@@ -313,6 +332,7 @@ where
             out_ids: vec![T::ID],
             in_ids,
             memo: LayerMemo::new(),
+            hooks: Vec::new(),
             marker: PhantomData,
         })
     }
@@ -348,6 +368,7 @@ where
             out_ids: vec![T::ID],
             in_ids,
             memo: LayerMemo::new(),
+            hooks: Vec::new(),
             marker: PhantomData,
         })
     }
@@ -405,6 +426,7 @@ impl<O, E, I> Layer<O, E, I> {
             out_ids: self.out_ids.clone(),
             in_ids: self.in_ids.clone(),
             memo: LayerMemo::new(),
+            hooks: clone_hooks(&self.hooks),
             marker: PhantomData,
         }
     }
@@ -425,6 +447,7 @@ impl<O, E, I> Layer<O, E, I> {
             out_ids: self.out_ids.clone(),
             in_ids: self.in_ids.clone(),
             memo: memo.clone(),
+            hooks: clone_hooks(&self.hooks),
             marker: PhantomData,
         }
     }
@@ -466,6 +489,7 @@ impl Layer<ParentSpanTag, std::convert::Infallible, ()> {
             out_ids: vec![ParentSpanTag::ID],
             in_ids: Vec::new(),
             memo: LayerMemo::new(),
+            hooks: Vec::new(),
             marker: PhantomData,
         }
     }
@@ -492,11 +516,18 @@ impl<O1: RequirementIds, E: Send + 'static, I1: RequirementIds> Layer<O1, E, I1>
         let mut stages = self.stages;
         stages.extend(other.stages);
         check_cycle(&stages)?;
+        // Hooks and a suspended thunk ride on the composed handle. They run
+        // after every stage, so a tap on `self` sees `other`'s services too;
+        // one hook list per handle is this port's stand-in for the pin's one
+        // wrapper per `fromBuild` call.
+        let mut hooks = self.hooks;
+        hooks.extend(other.hooks);
         Ok(Layer {
             stages,
             out_ids: other.out_ids,
             in_ids: self.in_ids,
             memo: LayerMemo::new(),
+            hooks,
             marker: PhantomData,
         })
     }
@@ -583,50 +614,219 @@ impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
     /// the build with the constructor's cause. Two stages emitting the same
     /// tag with distinct values fail the same way: double-provision is a
     /// construction error, not a run-time Die.
+    ///
+    /// Hooks run inside this method's bounds: taps after the stages succeed,
+    /// `on_error` hooks before the scope closes, so a `tap_error` callback can
+    /// still use the scope's resources.
     pub fn build(&self, scope: &Scope) -> Result<BuiltServices, Cause<E>> {
+        match self.build_inner(scope) {
+            Ok(built) => Ok(built),
+            Err(cause) => {
+                let cause = self.run_error_hooks(cause);
+                scope.close();
+                Err(cause)
+            }
+        }
+    }
+
+    fn build_inner(&self, scope: &Scope) -> Result<BuiltServices, Cause<E>> {
         if let Some(memo) = self.memo.0.lock().unwrap().clone() {
             return Ok(BuiltServices { values: memo });
         }
         let mut acc = empty_services();
         for stage in &self.stages {
             let runner = (stage.make)();
-            match runner.run_with(&acc, scope) {
-                Ok(value) => {
-                    let mut maps = (*acc).clone();
-                    if maps.insert_tag(stage.out_id, value.clone()) {
-                        scope.close();
-                        return Err(Cause::die(Defect::new(format!(
-                            "double-provision of `{}` with distinct values: provide each tag once",
-                            stage.out_id
-                        ))));
-                    }
-                    // Tracing layers name a service and an ambient reference;
-                    // building one installs both, so later stages see the span
-                    // or tracer without reading the tag.
-                    // The references hold `Option<T>`, because an absent
-                    // value and an unset reference differ: `None` shadows an
-                    // outer span, no reference does not.
-                    if stage.out_id == ParentSpanTag::ID
-                        && let Some(span) = value.downcast_ref::<AnySpan>()
-                    {
-                        maps.insert_ref(CURRENT_SPAN.id, Arc::new(Some(span.clone())));
-                    }
-                    if stage.out_id == TracerTag::ID
-                        && let Some(tracer) = value.downcast_ref::<Arc<dyn Tracer>>()
-                    {
-                        maps.insert_ref(CURRENT_TRACER.id, Arc::new(Some(Arc::clone(tracer))));
-                    }
-                    acc = Arc::new(maps);
-                }
-                Err(cause) => {
-                    scope.close();
+            let value = runner.run_with(&acc, scope)?;
+            let mut maps = (*acc).clone();
+            // A suspended layer builds a whole nested provision and has no tag
+            // of its own: merge every tag it produced.
+            if stage.out_id == SUSPENDED_ID {
+                if let Some(nested) = value.downcast_ref::<BuiltServices>()
+                    && let Some(cause) = merge_provision(&mut maps, &nested.values)
+                {
                     return Err(cause);
                 }
+                acc = Arc::new(maps);
+                continue;
+            }
+            if maps.insert_tag(stage.out_id, value.clone()) {
+                return Err(Cause::die(Defect::new(format!(
+                    "double-provision of `{}` with distinct values: provide each tag once",
+                    stage.out_id
+                ))));
+            }
+            // Tracing layers name a service and an ambient reference; building
+            // one installs both, so later stages see the span or tracer
+            // without reading the tag. The references hold `Option<T>`,
+            // because an absent value and an unset reference differ: `None`
+            // shadows an outer span, no reference does not.
+            if stage.out_id == ParentSpanTag::ID
+                && let Some(span) = value.downcast_ref::<AnySpan>()
+            {
+                maps.insert_ref(CURRENT_SPAN.id, Arc::new(Some(span.clone())));
+            }
+            if stage.out_id == TracerTag::ID
+                && let Some(tracer) = value.downcast_ref::<Arc<dyn Tracer>>()
+            {
+                maps.insert_ref(CURRENT_TRACER.id, Arc::new(Some(Arc::clone(tracer))));
+            }
+            acc = Arc::new(maps);
+        }
+        let built = BuiltServices { values: acc };
+        for hook in &self.hooks {
+            if let Hook::Tap(f) = hook {
+                f(&built)?;
             }
         }
-        *self.memo.0.lock().unwrap() = Some(Arc::clone(&acc));
-        Ok(BuiltServices { values: acc })
+        *self.memo.0.lock().unwrap() = Some(Arc::clone(&built.values));
+        Ok(built)
     }
+
+    /// Run the `tap_error`/`tap_cause` hooks in registration order. A hook's
+    /// own failure replaces the cause, which is the pin's `andThen(f(e),
+    /// failCause(cause))`; a hook that succeeds leaves the cause untouched.
+    fn run_error_hooks(&self, cause: Cause<E>) -> Cause<E> {
+        let mut current = cause;
+        for hook in &self.hooks {
+            if let Hook::OnError(f) = hook
+                && let Err(raised) = f(&current)
+            {
+                current = raised;
+            }
+        }
+        current
+    }
+}
+
+/// The stage id [`Layer::suspend`] uses: it names no service, and a build
+/// merges the nested provision instead of inserting a tag.
+const SUSPENDED_ID: &str = "effect/Layer/suspended";
+
+/// A stage that builds a layer produced at build time (`Layer.suspend`).
+///
+/// The pin's thunk returns a layer with the same `RIn`; this port's build only
+/// exists for a closed layer, so the thunk returns `Layer<O, E, ()>`. A
+/// suspended layer therefore cannot defer a *requirement*, only its services.
+struct SuspendStage<O, E> {
+    evaluate: Arc<dyn Fn() -> Layer<O, E, ()> + Send + Sync>,
+}
+
+impl<O: RequirementIds, E: Send + 'static> RunStage<E> for SuspendStage<O, E> {
+    fn run_with(
+        self: Box<Self>,
+        _services: &Services,
+        scope: &Scope,
+    ) -> Result<Arc<dyn std::any::Any + Send + Sync>, Cause<E>> {
+        let built = (self.evaluate)().build(scope)?;
+        Ok(Arc::new(built))
+    }
+}
+
+impl<O, E: Send + 'static, I> Layer<O, E, I> {
+    /// `Layer.tap`: run an effect with the built services when the build
+    /// succeeds, and answer the same services.
+    ///
+    /// The pin hands the callback a `Context` and widens `E` with the
+    /// callback's error; here the callback reads [`BuiltServices`] and shares
+    /// the layer's error type, because Rust has no union to widen into.
+    pub fn tap<F>(mut self, f: F) -> Self
+    where
+        F: Fn(&BuiltServices) -> Effect<(), E, ()> + Send + Sync + 'static,
+    {
+        self.hooks
+            .push(Hook::Tap(Arc::new(move |built| f(built).run_sync())));
+        self
+    }
+
+    /// `Layer.tapError`: run an effect with the typed construction failure,
+    /// then fail with that same error unless the callback itself fails.
+    pub fn tap_error<F>(mut self, f: F) -> Self
+    where
+        F: Fn(&E) -> Effect<(), E, ()> + Send + Sync + 'static,
+    {
+        self.hooks
+            .push(Hook::OnError(Arc::new(move |cause: &Cause<E>| {
+                match cause.failure() {
+                    Some(error) => f(error).run_sync(),
+                    None => Ok(()),
+                }
+            })));
+        self
+    }
+
+    /// `Layer.tapCause`: run an effect with the whole cause, defects and
+    /// interruptions included, then fail with that same cause unless the
+    /// callback itself fails.
+    pub fn tap_cause<F>(mut self, f: F) -> Self
+    where
+        F: Fn(&Cause<E>) -> Effect<(), E, ()> + Send + Sync + 'static,
+    {
+        self.hooks
+            .push(Hook::OnError(Arc::new(move |cause| f(cause).run_sync())));
+        self
+    }
+}
+
+impl<O: RequirementIds + 'static, E: Send + 'static> Layer<O, E, ()> {
+    /// `Layer.suspend`: evaluate the thunk at build time, once per handle.
+    ///
+    /// The evaluated layer's services are merged into this handle's build, so
+    /// composing a suspended layer still runs the stages this handle carries.
+    pub fn suspend<F>(evaluate: F) -> Self
+    where
+        F: Fn() -> Self + Send + Sync + 'static,
+    {
+        let evaluate: Arc<dyn Fn() -> Self + Send + Sync> = Arc::new(evaluate);
+        let stage = Stage {
+            out_id: SUSPENDED_ID,
+            in_ids: Vec::new(),
+            make: Arc::new(move || {
+                Box::new(SuspendStage::<O, E> {
+                    evaluate: Arc::clone(&evaluate),
+                }) as Box<dyn RunStage<E> + Send>
+            }),
+        };
+        Self {
+            stages: vec![stage],
+            out_ids: O::ids(),
+            in_ids: Vec::new(),
+            memo: LayerMemo::new(),
+            hooks: Vec::new(),
+            marker: PhantomData,
+        }
+    }
+}
+
+fn clone_hooks<E>(hooks: &[Hook<E>]) -> Vec<Hook<E>> {
+    hooks
+        .iter()
+        .map(|hook| match hook {
+            Hook::Tap(f) => Hook::Tap(Arc::clone(f)),
+            Hook::OnError(f) => Hook::OnError(Arc::clone(f)),
+        })
+        .collect()
+}
+
+/// Insert every tag from `nested` into `maps`, rejecting a distinct value for
+/// a tag already present. Returns the failure a build must raise.
+fn merge_provision<E>(
+    maps: &mut crate::service::ServiceMaps,
+    nested: &Services,
+) -> Option<Cause<E>> {
+    for (id, value, conflicted) in nested.tag_list() {
+        if maps.insert_tag(id, value) {
+            return Some(Cause::die(Defect::new(format!(
+                "double-provision of `{id}` with distinct values: provide each tag once"
+            ))));
+        }
+        if conflicted {
+            maps.poison(id);
+        }
+    }
+    for (id, value) in nested.ref_list() {
+        maps.insert_ref(id, value);
+    }
+    None
 }
 
 /// Walk the composed dependency graph; reject cycles before any constructor
