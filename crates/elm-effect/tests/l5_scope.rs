@@ -479,3 +479,33 @@ fn a_scope_releases_both_disposable_kinds_exactly_once() {
     assert_eq!(sync_releases.load(Ordering::SeqCst), 1);
     assert_eq!(async_releases.load(Ordering::SeqCst), 1);
 }
+
+#[test]
+fn a_child_scope_closes_with_its_parent_but_not_the_reverse() {
+    // Layer.catch needs a failed build to release only what it acquired,
+    // while the caller's scope stays open for the fallback. Closing the child
+    // must therefore be independent of closing the parent, and the parent's
+    // close must still close the child.
+    let log = log();
+    let parent = Arc::new(Scope::new(120));
+    let child = parent.fork();
+    let child_log = Arc::clone(&log);
+    child.add_finalizer(move || child_log.lock().unwrap().push("child"));
+    let parent_log = Arc::clone(&log);
+    parent.add_finalizer(move || parent_log.lock().unwrap().push("parent"));
+
+    assert!(child.close().is_empty());
+    assert_eq!(*log.lock().unwrap(), vec!["child"]);
+    assert!(!parent.is_closed(), "closing a child leaves the parent open");
+
+    assert!(parent.close().is_empty());
+    assert_eq!(*log.lock().unwrap(), vec!["child", "parent"]);
+
+    // A fork taken after the parent closed is born closed, so its finalizers
+    // run inline instead of being stranded.
+    let late = parent.fork();
+    assert!(late.is_closed());
+    let late_log = Arc::clone(&log);
+    late.add_finalizer(move || late_log.lock().unwrap().push("late"));
+    assert_eq!(*log.lock().unwrap(), vec!["child", "parent", "late"]);
+}

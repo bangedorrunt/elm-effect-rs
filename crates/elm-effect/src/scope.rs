@@ -94,6 +94,25 @@ impl Scope {
         use_scope(self)
     }
 
+    /// A child scope: it closes when this scope closes, and closing it early
+    /// releases only what it owns.
+    ///
+    /// The link is an ordinary finalizer registered now, so the child's close
+    /// sits in the parent's LIFO order at the point it was forked: anything
+    /// the parent registered later runs before the child, anything earlier
+    /// runs after. A fork taken after the parent closed is born closed, which
+    /// makes its registrations run inline rather than strand. This is the
+    /// mechanism a failed layer build uses to release its own resources
+    /// without closing the caller's scope.
+    pub fn fork(&self) -> Arc<Scope> {
+        let child = Arc::new(Scope::new(crate::fiber::next_id().0));
+        let closing = Arc::clone(&child);
+        self.add_finalizer(move || {
+            closing.close();
+        });
+        child
+    }
+
     /// Register a sync finalizer. Runs LIFO at close; never runs twice.
     /// Registration after close runs inline.
     pub fn add_finalizer(&self, f: impl FnOnce() + Send + 'static) {

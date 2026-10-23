@@ -495,3 +495,142 @@ fn merge_rejects_two_values_for_one_tag() {
         "the failure must name the tag, got: {rendered}"
     );
 }
+
+#[test]
+fn catch_uses_an_alternative_layer() {
+    // Layer.test.ts:129. The failed attempt releases what it acquired before
+    // the fallback builds, and the fallback's resource releases with the
+    // caller's scope: [acquire1, release1, acquire2, release2].
+    let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
+    // The provider shares the failing layer's error type: this port has no
+    // error union to widen into, so a provider that cannot fail is spelled
+    // with the consumer's `E`.
+    let provider = Layer::<Db, String, ()>::from_scoped_factory({
+        let arr = Arc::clone(&arr);
+        move |scope| {
+            arr.lock().unwrap().push("acquire");
+            let released = Arc::clone(&arr);
+            scope.add_finalizer(move || released.lock().unwrap().push("release"));
+            Effect::succeed(DbConn(1))
+        }
+    })
+    .expect("a single closed constructor cannot cycle");
+    let failing = Layer::<Cache, String, Db>::from_factory(|| Effect::fail("failed!".to_string()))
+        .expect("a single constructor cannot cycle")
+        .provide_layer(provider)
+        .expect("the provider satisfies the consumer");
+    // `catch` takes an `Fn`, so the fallback is a recipe: one fresh layer per
+    // recovery, the way the pin's thunk builds one per call.
+    let layer = failing.catch({
+        let arr = Arc::clone(&arr);
+        move |_error| {
+            Layer::<Cache, String, ()>::from_scoped_factory({
+                let arr = Arc::clone(&arr);
+                move |scope| {
+                    arr.lock().unwrap().push("acquire");
+                    let released = Arc::clone(&arr);
+                    scope.add_finalizer(move || released.lock().unwrap().push("release"));
+                    Effect::succeed(CacheConn(2))
+                }
+            })
+            .expect("a single closed constructor cannot cycle")
+        }
+    });
+    let scope = Scope::new(99);
+    let built = layer.build(&scope).expect("the fallback replaces the failure");
+    assert_eq!(built.get::<Cache>().unwrap().0, 2);
+    assert_eq!(*arr.lock().unwrap(), vec!["acquire", "release", "acquire"]);
+    scope.close();
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec!["acquire", "release", "acquire", "release"]
+    );
+}
+
+#[test]
+fn catch_cause_recovers_and_exposes_the_original_cause() {
+    // Layer.test.ts:158. The handler receives the whole cause, the fallback
+    // builds normally, and the caller sees the fallback's provision.
+    let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let layer = Layer::<Db, String, ()>::from_factory(|| Effect::fail("failed!".to_string()))
+        .expect("a single constructor cannot cycle")
+        .catch_cause({
+            let seen = Arc::clone(&seen);
+            move |cause: &elm_effect::Cause<String>| {
+                seen.lock().unwrap().push(cause.has_fails());
+                Layer::from_value(DbConn(1))
+            }
+        });
+    let scope = Scope::new(100);
+    let built = layer.build(&scope).expect("the fallback replaces the failure");
+    assert_eq!(built.get::<Db>().unwrap().0, 1);
+    assert_eq!(*seen.lock().unwrap(), vec![true]);
+}
+
+#[test]
+fn with_span_installs_the_parent_span_and_runs_the_on_end_finalizer() {
+    // Layer.test.ts:717. The layer's constructor sees the created span as the
+    // ambient parent, and `onEnd` runs once when the build scope closes with
+    // a successful exit.
+    use elm_effect::tracer::{CURRENT_SPAN, SpanOptions};
+    use elm_effect::{Exit, LayerSpanOptions, read_reference};
+
+    let endings = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let layer = Layer::<Db, std::convert::Infallible, ()>::from_factory(|| {
+        read_reference(&CURRENT_SPAN)
+            .map(|span| DbConn(span.map(|s| s.name().len()).unwrap_or(0) as u64))
+    })
+    .expect("a single constructor cannot cycle")
+    .with_span(
+        "layer-span",
+        LayerSpanOptions {
+            span: SpanOptions::default(),
+            on_end: Some(Arc::new({
+                let endings = Arc::clone(&endings);
+                move |_span: Arc<dyn elm_effect::tracer::Span>, exit: Exit<(), String>| {
+                    endings
+                        .lock()
+                        .unwrap()
+                        .push(matches!(exit, Exit::Success(())));
+                }
+            })),
+        },
+    );
+    let scope = Scope::new(101);
+    let built = layer.build(&scope).expect("the span layer builds");
+    assert_eq!(
+        built.get::<Db>().unwrap().0,
+        "layer-span".len() as u64,
+        "the constructor reads the span this layer created"
+    );
+    assert!(endings.lock().unwrap().is_empty());
+    scope.close();
+    assert_eq!(*endings.lock().unwrap(), vec![true]);
+}
+
+#[test]
+fn with_parent_span_installs_an_external_span_for_construction() {
+    // Layer.test.ts:740. An external span becomes the ambient parent without
+    // being created or ended by this layer.
+    use elm_effect::Exit;
+    use elm_effect::tracer::{AnySpan, CURRENT_SPAN, external_span};
+    use elm_effect::read_reference;
+
+    let parent = AnySpan::External(external_span(
+        "0000000000000001",
+        "00000000000000000000000000000001",
+    ));
+    let layer = Layer::<Db, std::convert::Infallible, ()>::from_factory(|| {
+        read_reference(&CURRENT_SPAN)
+            .map(|span| DbConn(span.map(|s| s.span_id().len()).unwrap_or(0) as u64))
+    })
+    .expect("a single constructor cannot cycle")
+    .with_parent_span(parent);
+    let scope = Scope::new(102);
+    let built = layer.build(&scope).expect("the layer builds");
+    assert_eq!(built.get::<Db>().unwrap().0, 16);
+    assert!(matches!(
+        elm_effect::Runtime::run(Effect::<u64, std::convert::Infallible, ()>::succeed(1)),
+        Exit::Success(1)
+    ));
+}

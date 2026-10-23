@@ -176,6 +176,31 @@ impl<E: Send + 'static> RunStage<E> for SpanStage<E> {
     }
 }
 
+/// A stage that hands over a span it does not own (`Layer.withParentSpan`).
+struct ValueStage {
+    span: AnySpan,
+}
+
+impl<E: Send + 'static> RunStage<E> for ValueStage {
+    fn run_with(
+        self: Box<Self>,
+        _services: &Services,
+        _scope: &Scope,
+    ) -> Result<Arc<dyn std::any::Any + Send + Sync>, Cause<E>> {
+        Ok(Arc::new(self.span))
+    }
+}
+
+fn parent_span_stage<E: Send + 'static>(span: AnySpan) -> Stage<E> {
+    Stage {
+        out_id: ParentSpanTag::ID,
+        in_ids: Vec::new(),
+        make: Arc::new(move || {
+            Box::new(ValueStage { span: span.clone() }) as Box<dyn RunStage<E> + Send>
+        }),
+    }
+}
+
 fn span_stage<E: Send + 'static>(name: String, options: LayerSpanOptions) -> Stage<E> {
     let LayerSpanOptions { span, on_end } = options;
     Stage {
@@ -281,6 +306,16 @@ enum Hook<E> {
     Tap(Arc<dyn Fn(&BuiltServices) -> Result<(), Cause<E>> + Send + Sync>),
     /// Runs after a failed build, before the cause escapes.
     OnError(Arc<dyn Fn(&Cause<E>) -> Result<(), Cause<E>> + Send + Sync>),
+    /// Runs after a failed build and may answer a replacement provision. A
+    /// hook returns `None` when the cause is not its to handle, and the first
+    /// hook to answer ends the search.
+    Recover(
+        Arc<
+            dyn Fn(&Cause<E>, &Scope) -> Option<Result<BuiltServices, Cause<E>>>
+                + Send
+                + Sync,
+        >,
+    ),
 }
 
 /// A composable service recipe: builds `ROut` from `RIn`.
@@ -460,6 +495,18 @@ impl<O, E, I> Layer<O, E, I> {
         E: Send + 'static,
     {
         self.stages.insert(0, span_stage(name.into(), options));
+        self
+    }
+
+    /// `Layer.withParentSpan`: install an existing span as the ambient parent
+    /// for this layer's constructors (`Layer.test.ts:740`). The span is not
+    /// created or ended here; building installs it as both the
+    /// [`ParentSpanTag`] service and the ambient [`CURRENT_SPAN`] reference.
+    pub fn with_parent_span(mut self, span: AnySpan) -> Self
+    where
+        E: Send + 'static,
+    {
+        self.stages.insert(0, parent_span_stage(span));
         self
     }
 }
@@ -673,30 +720,91 @@ impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
 }
 
 impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
+    /// `Layer.catch`: build an alternative layer when this one fails with a
+    /// typed error. Defects and interruptions are not caught, as the pin's
+    /// `catch_` does not catch them; use [`catch_cause`](Layer::catch_cause)
+    /// for those.
+    pub fn catch<F>(mut self, on_error: F) -> Self
+    where
+        F: Fn(&E) -> Self + Send + Sync + 'static,
+    {
+        self.hooks
+            .push(Hook::Recover(Arc::new(move |cause: &Cause<E>, scope: &Scope| {
+                cause.failure().map(|error| on_error(error).build(scope))
+            })));
+        self
+    }
+
+    /// `Layer.catchCause`: build an alternative layer for any construction
+    /// failure and hand the handler the whole cause.
+    pub fn catch_cause<F>(mut self, on_cause: F) -> Self
+    where
+        F: Fn(&Cause<E>) -> Self + Send + Sync + 'static,
+    {
+        self.hooks
+            .push(Hook::Recover(Arc::new(
+                move |cause: &Cause<E>, scope: &Scope| Some(on_cause(cause).build(scope)),
+            )));
+        self
+    }
+
     /// Run every constructor once (memoized per handle) against the
-    /// accumulated services. A constructor failure closes `scope` and fails
-    /// the build with the constructor's cause. Two stages emitting the same
-    /// tag with distinct values fail the same way: double-provision is a
-    /// construction error, not a run-time Die.
+    /// accumulated services. A constructor failure fails the build with the
+    /// constructor's cause. Two stages emitting the same tag with distinct
+    /// values fail the same way: double-provision is a construction error, not
+    /// a run-time Die.
     ///
-    /// Hooks run inside this method's bounds: taps after the stages succeed,
-    /// `on_error` hooks before the scope closes, so a `tap_error` callback can
-    /// still use the scope's resources.
+    /// The stages run in a forked scope of their own, so a failed attempt
+    /// releases exactly what it acquired. The caller's scope stays open only
+    /// when a `catch` hook replaced the failure: with no recovery, a failed
+    /// build closes it, which is this port's rule for a caller that handed the
+    /// scope over.
+    ///
+    /// Hooks run inside these bounds: taps after the stages succeed, `on_error`
+    /// hooks before the attempt closes, so a `tap_error` callback can still use
+    /// the resources it is reporting on.
     pub fn build(&self, scope: &Scope) -> Result<BuiltServices, Cause<E>> {
-        match self.build_inner(scope) {
+        if let Some(memo) = self.memo.0.lock().unwrap().clone() {
+            return Ok(BuiltServices { values: memo });
+        }
+        let attempt = scope.fork();
+        match self.run_attempt(&attempt) {
             Ok(built) => Ok(built),
             Err(cause) => {
                 let cause = self.run_error_hooks(cause);
-                scope.close();
-                Err(cause)
+                attempt.close();
+                match self.run_recovery(&cause, scope) {
+                    Some(Ok(built)) => Ok(built),
+                    Some(Err(fallback)) => {
+                        scope.close();
+                        Err(fallback)
+                    }
+                    None => {
+                        scope.close();
+                        Err(cause)
+                    }
+                }
             }
         }
     }
 
-    fn build_inner(&self, scope: &Scope) -> Result<BuiltServices, Cause<E>> {
-        if let Some(memo) = self.memo.0.lock().unwrap().clone() {
-            return Ok(BuiltServices { values: memo });
+    /// The first recovery hook that claims the cause answers for the build.
+    fn run_recovery(
+        &self,
+        cause: &Cause<E>,
+        scope: &Scope,
+    ) -> Option<Result<BuiltServices, Cause<E>>> {
+        for hook in &self.hooks {
+            if let Hook::Recover(f) = hook
+                && let Some(outcome) = f(cause, scope)
+            {
+                return Some(outcome);
+            }
         }
+        None
+    }
+
+    fn run_attempt(&self, scope: &Scope) -> Result<BuiltServices, Cause<E>> {
         let mut acc = empty_services();
         for stage in &self.stages {
             let runner = (stage.make)();
@@ -867,6 +975,7 @@ fn clone_hooks<E>(hooks: &[Hook<E>]) -> Vec<Hook<E>> {
         .map(|hook| match hook {
             Hook::Tap(f) => Hook::Tap(Arc::clone(f)),
             Hook::OnError(f) => Hook::OnError(Arc::clone(f)),
+            Hook::Recover(f) => Hook::Recover(Arc::clone(f)),
         })
         .collect()
 }
