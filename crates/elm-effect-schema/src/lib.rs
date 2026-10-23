@@ -248,6 +248,11 @@ pub struct Schema<T> {
     /// Kept as an erased schema rather than in `children`, which the object
     /// path reads as named fields.
     array_element: Option<std::sync::Arc<Schema<Unknown>>>,
+    /// The thunk a `suspend` resolves, once. Kept beside the codec because the
+    /// kind alone cannot carry a lazy shape: a recursive schema's shape is not
+    /// knowable when the node is built, and resolving it then would call the
+    /// factory before the schema it names exists.
+    suspended: Option<Arc<Suspended>>,
     /// The schema an `Option` was built from (`Schema.Option(...).value`),
     /// erased because the box's value type is the field's own `T`. None for
     /// every other shape.
@@ -317,6 +322,23 @@ pub struct Schema<T> {
     /// `Declaration` node from it instead of the structural shape, and a
     /// declaration reviver rebuilds the constructor from it.
     declaration: Option<DeclarationInfo>,
+}
+
+/// A `suspend` thunk and the cell its result lands in.
+///
+/// The cell is shared by every copy of the schema (including a re-typing), so
+/// the factory runs once for introspection, and the schema it returns is the
+/// same value a later walk sees. Decoding keeps its own cell because it needs
+/// the typed `Schema<U>`; a factory that runs for both is still deterministic.
+pub struct Suspended {
+    cell: std::sync::OnceLock<Schema<Unknown>>,
+    factory: Box<dyn Fn() -> Schema<Unknown> + Send + Sync>,
+}
+
+impl Suspended {
+    fn get(&self) -> &Schema<Unknown> {
+        self.cell.get_or_init(|| (self.factory)())
+    }
 }
 
 /// The two spellings of a decoding default. `withDecodingDefault` takes a wire
@@ -1704,6 +1726,7 @@ impl<T> Schema<T> {
             tuple_elements: None,
             union_members: None,
             array_element: None,
+            suspended: None,
             option_value: None,
             result_sides: None,
             applied_filters: Vec::new(),
@@ -1961,6 +1984,40 @@ impl<T> Schema<T> {
     /// every other shape.
     pub fn elements(&self) -> Option<&[Schema<Unknown>]> {
         self.tuple_elements.as_deref()
+    }
+
+    /// The element schema an array was built from, through a re-typing
+    /// (`Schema.Array(...).value`), or `None` for every other shape.
+    pub fn array_element_schema(&self) -> Option<&Schema<Unknown>> {
+        self.array_element.as_deref()
+    }
+
+    /// The named children a struct shape keeps for its formatter, in
+    /// declaration order. [`fields`](Self::fields) carries the same names with
+    /// optionality; this is the schema-only view a walk uses when the shape was
+    /// built from a runtime field list and has no `Field` list.
+    pub fn child_schemas(&self) -> Option<&[(String, std::sync::Arc<Schema<Unknown>>)]> {
+        if self.children.is_empty() {
+            None
+        } else {
+            Some(&self.children)
+        }
+    }
+
+    /// The schema a `suspend` resolves to, resolving the thunk on first use.
+    pub fn suspended_schema(&self) -> Option<&Schema<Unknown>> {
+        self.suspended.as_ref().map(|suspended| suspended.get())
+    }
+
+    /// The wire shape this schema accepts, seeing through a constructor whose
+    /// kind can only name the wrapper. A refinement and `undefined_or` put
+    /// their base shape in the kind itself; a `suspend` cannot, because its
+    /// shape is not knowable when it is built.
+    pub fn wire_kind(&self) -> SchemaKind {
+        match self.suspended_schema() {
+            Some(resolved) => resolved.wire_kind(),
+            None => self.repr_kind(),
+        }
     }
 
     /// The key schema a Record was built from, or `None` for every other shape.
@@ -2256,6 +2313,7 @@ impl<T> Schema<T> {
             kind,
             children: schema.children,
             array_element: schema.array_element,
+            suspended: schema.suspended.clone(),
             // An annotation rides the same codec, so the accessors a boxed
             // schema answers must survive it.
             option_value: schema.option_value.clone(),
@@ -2428,6 +2486,13 @@ impl<T> Schema<T> {
         out.struct_fields = schema.struct_fields.clone();
         out.tuple_elements = schema.tuple_elements.clone();
         out.union_members = schema.union_members.clone();
+        // A re-typing of an array must keep the element reachable: the
+        // Config bridge walks an array through its element schema, and a
+        // re-typing is how every struct field is spelled.
+        out.array_element = schema.array_element.clone();
+        // A re-typing of a suspension must stay resolvable for the same
+        // reason: the erased schema is exactly what a struct field holds.
+        out.suspended = schema.suspended.clone();
         out.construct = Some(Arc::new(move |unknown| {
             let built = construct_schema.construct(unknown)?;
             construct_schema
@@ -2527,6 +2592,15 @@ impl<T> Schema<T> {
             },
             SchemaKind::Opaque("suspend"),
         );
+        // Introspection needs the shape behind the thunk, which the kind cannot
+        // carry. This cell is separate from the decode cell because decode needs
+        // `Schema<U>` while a walk needs the erased schema; a factory that runs
+        // for both is still deterministic.
+        let erased_factory = Arc::clone(&factory);
+        out.suspended = Some(Arc::new(Suspended {
+            cell: std::sync::OnceLock::new(),
+            factory: Box::new(move || Schema::as_unknown(erased_factory())),
+        }));
         // Rendering resolves on the same cell, so a recursive shape terminates
         // on the value's depth: the resolved schema is reached again through
         // its own formatter, never through a second factory call.
@@ -2549,6 +2623,10 @@ impl<T> Schema<T> {
         let inner = Arc::new(self);
         let decode_inner = inner.clone();
         let encode_inner = inner.clone();
+        // The check describes the value its base produces, so the wire shape is
+        // the base's: a bridge that cannot see it could not build a value the
+        // refinement then judges.
+        let base_kind = inner.repr_kind();
         // The pin validates a check on the way OUT too: a value the refinement
         // refuses has no wire form, so encoding it must not produce one. Both
         // closures share the predicate for that reason.
@@ -2576,7 +2654,12 @@ impl<T> Schema<T> {
                 }
                 encode_inner.try_encode(value)
             },
-            SchemaKind::Opaque("refinement"),
+            SchemaKind::Check {
+                base: Box::new(base_kind),
+                name: check.to_string(),
+                args: Vec::new(),
+                annotation: Vec::new(),
+            },
         )
     }
 
@@ -3223,6 +3306,9 @@ impl Schema<Unknown> {
     /// Try the first schema, fall back to the second (`Union` shape).
     /// Encode always uses the first schema.
     pub fn union(first: Schema<Unknown>, second: Schema<Unknown>) -> Self {
+        // Opaque on purpose: the two-member builder's JSON Schema document is
+        // just the `union` comment, which a `Union` kind would replace with a
+        // member list. `union_with_mode` is the builder that spells the shape.
         let kind = SchemaKind::Opaque("union");
         let first = Arc::new(first);
         let second = Arc::new(second);
@@ -3256,6 +3342,18 @@ impl Schema<()> {
             |_| Ok(()),
             |_| Ok(Unknown::Null),
             SchemaKind::Opaque("void"),
+        )
+    }
+
+    /// Only `undefined` (`Undefined` shape): absence, as distinct from null.
+    pub fn undefined() -> Self {
+        Self::new(
+            |unknown| match unknown {
+                Unknown::Undefined => Ok(()),
+                other => mismatch("$", "undefined", &other),
+            },
+            |_| Ok(Unknown::Undefined),
+            SchemaKind::Opaque("undefined"),
         )
     }
 
@@ -8339,6 +8437,9 @@ fn candidate_kinds(kind: &SchemaKind) -> Vec<&'static str> {
             out
         }
         SchemaKind::Opaque("null") => vec!["null"],
+        // `undefined` is a runtime kind of its own (and not in `ALL_KINDS`),
+        // so a union only offers this member the input it can accept.
+        SchemaKind::Opaque("undefined") => vec!["undefined"],
         SchemaKind::Annotated { inner, .. } => candidate_kinds(inner),
         SchemaKind::Union { members, .. } => {
             let mut out: Vec<&'static str> = Vec::new();
@@ -9904,6 +10005,10 @@ impl<T: Send + Sync + Clone + 'static> Schema<Option<T>> {
     /// they are in the pin.
     pub fn undefined_or(inner: Schema<T>) -> Self {
         let render = Schema::as_unknown_shared(std::sync::Arc::new(inner.clone())).formatter();
+        // The pin builds `UndefinedOr` as a union of the value and `Undefined`,
+        // so the wire shape is that union: a walk that cannot see it has no
+        // way to know absence is a value here rather than a missing key.
+        let base_kind = inner.repr_kind();
         let decode_inner = std::sync::Arc::new(inner.clone());
         let encode_inner = std::sync::Arc::new(inner);
         let mut out = Schema::new(
@@ -9915,7 +10020,10 @@ impl<T: Send + Sync + Clone + 'static> Schema<Option<T>> {
                 None => Ok(Unknown::Undefined),
                 Some(value) => encode_inner.try_encode(value),
             },
-            SchemaKind::Opaque("undefinedOr"),
+            SchemaKind::Union {
+                members: vec![base_kind, SchemaKind::Opaque("undefined")],
+                mode: "anyOf",
+            },
         );
         out.formatter = Some(std::sync::Arc::new(move |value: &Unknown| match value {
             Unknown::Undefined => "undefined".to_string(),

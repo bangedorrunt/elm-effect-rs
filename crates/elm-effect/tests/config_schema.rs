@@ -18,7 +18,7 @@ mod config;
 #[path = "../src/config_provider.rs"]
 mod config_provider;
 
-use config::{Config, Value};
+use config::{Config, ConfigError, Value};
 use config_provider::{Node, Provider};
 use elm_effect_schema::{Field, Schema, SchemaError, StructValue, Unknown, transform::Transformation};
 use std::collections::BTreeMap;
@@ -90,6 +90,12 @@ fn shape(fields: Vec<(&str, Schema<Unknown>)>) -> Schema<Unknown> {
 /// bridge walks.
 fn field_shape(fields: Vec<Field>) -> Schema<Unknown> {
     Schema::as_unknown(Schema::<BTreeMap<String, Unknown>>::struct_shape(fields))
+}
+
+/// A schema that accepts only `undefined`, which is the pin's
+/// `Schema.Undefined`.
+fn undefined_schema() -> Schema<Unknown> {
+    Schema::as_unknown(Schema::undefined())
 }
 
 fn mismatch(expected: &'static str) -> SchemaError {
@@ -985,5 +991,189 @@ fn a_plain_array_schema_ignores_a_co_located_scalar() {
     assert_eq!(
         config.load(&provider(&[("a.0", "value")])),
         Ok(Value::List(vec![Value::Str("value".to_string())]))
+    );
+}
+
+#[test]
+fn a_refinement_reports_the_shape_it_refines() {
+    // Config.test.ts:696 — a present value that fails the check is invalid
+    // input, which a default does not recover; only absence takes the default.
+    // The refinement's kind has to name the string underneath it for the bridge
+    // to build a wire at all.
+    let refined = Schema::as_unknown(
+        Schema::string().refine("must be \"a\"", |value: &String| value == "a"),
+    );
+    let config = Config::schema(&refined, Some("a".to_string()))
+        .with_default(Value::Str("fallback".to_string()));
+
+    assert_eq!(
+        config.load(&Provider::empty()),
+        Ok(Value::Str("fallback".to_string()))
+    );
+    assert_eq!(
+        config.load(&provider(&[("a", "a")])),
+        Ok(Value::Str("a".to_string()))
+    );
+    match config.load(&provider(&[("a", "b")])) {
+        Err(errors) => assert!(
+            errors
+                .iter()
+                .all(|error| matches!(error, ConfigError::Invalid { .. })),
+            "a failing check is invalid input, not absence: {errors:?}"
+        ),
+        Ok(value) => panic!("a failing refinement decoded to {value:?}"),
+    }
+}
+
+#[test]
+fn undefined_or_decodes_absence_as_undefined() {
+    // Config.test.ts:796, :845, :2118 — absence decodes to `undefined`, which
+    // a default leaves alone and an option keeps distinct from `None`.
+    let schema = Schema::as_unknown(Schema::undefined_or(Schema::string()));
+
+    let defaulted = Config::schema(&schema, Some("a".to_string()))
+        .with_default(Value::Str("default".to_string()));
+    assert_eq!(defaulted.load(&Provider::empty()), Ok(Value::Undefined));
+    assert_eq!(
+        defaulted.load(&provider(&[("a", "value")])),
+        Ok(Value::Str("value".to_string()))
+    );
+
+    let optional = Config::schema(&schema, Some("a".to_string())).option();
+    assert_eq!(optional.load(&Provider::empty()), Ok(Value::Undefined));
+    assert_eq!(
+        Config::string(Some("a".to_string()))
+            .option()
+            .load(&Provider::empty()),
+        Ok(Value::None),
+        "a decoded undefined is not the same state as an absent option"
+    );
+
+    let root = Config::schema(&schema, None);
+    assert_eq!(root.load(&Provider::empty()), Ok(Value::Undefined));
+}
+
+#[test]
+fn an_undefined_schema_decodes_absence() {
+    // Config.test.ts:2483 — `Schema.Undefined` accepts the absent node and
+    // refuses text at the same path.
+    let config = Config::schema(&undefined_schema(), None);
+    assert_eq!(config.load(&Provider::empty()), Ok(Value::Undefined));
+    match config.load(&Provider::single(Vec::new(), Some("a".to_string()))) {
+        Err(errors) => assert!(
+            errors
+                .iter()
+                .all(|error| matches!(error, ConfigError::Invalid { .. })),
+            "text is not undefined: {errors:?}"
+        ),
+        Ok(value) => panic!("`a` decoded to {value:?}"),
+    }
+}
+
+#[test]
+fn an_undefined_sibling_of_a_missing_field_keeps_its_undefined() {
+    // Config.test.ts:910 — the undefined leg succeeds while the required leg
+    // is missing, so the group defaults as a whole rather than failing on the
+    // undefined leg.
+    let undefined_or_string = Schema::as_unknown(Schema::undefined_or(Schema::string()));
+    let group = Config::record(vec![
+        (
+            "optional".to_string(),
+            Config::schema(&undefined_or_string, Some("optional".to_string())),
+        ),
+        (
+            "required".to_string(),
+            Config::string(Some("required".to_string())),
+        ),
+    ]);
+
+    let fallback = obj(&[
+        ("optional", Value::Str("fallback".to_string())),
+        ("required", Value::Str("fallback".to_string())),
+    ]);
+    assert_eq!(
+        group.clone().with_default(fallback.clone()).load(&Provider::empty()),
+        Ok(fallback)
+    );
+    assert_eq!(group.option().load(&Provider::empty()), Ok(Value::None));
+}
+
+#[test]
+fn a_union_with_an_undefined_member_decodes_the_undefined_arm() {
+    // Config.test.ts:2042 — the struct member has no advertised child in a
+    // flat source, so `Undefined` is the arm that materializes and the missing
+    // sibling is what the group reports.
+    let union = Schema::as_unknown(Schema::union_with_mode(
+        vec![undefined_schema(), shape(vec![("child", string())])],
+        "anyOf",
+    ));
+
+    let selected = Config::schema(&union, Some("value".to_string()));
+    assert_eq!(
+        selected.load(&provider(&[("value_child", "present")])),
+        Ok(Value::Undefined)
+    );
+
+    let group = Config::record(vec![
+        ("selected".to_string(), selected),
+        (
+            "required".to_string(),
+            Config::string(Some("required".to_string())),
+        ),
+    ]);
+    let fallback = obj(&[
+        ("selected", Value::Undefined),
+        ("required", Value::Str("default".to_string())),
+    ]);
+    assert_eq!(
+        group
+            .with_default(fallback.clone())
+            .load(&provider(&[("value_child", "present")])),
+        Ok(fallback)
+    );
+}
+
+#[test]
+fn a_recursive_suspended_schema_decodes_nested_arrays() {
+    // Config.test.ts:2735 — `Struct({ a, as: Array(suspend(() => schema)) })`
+    // is recursive: the bridge can only walk it by resolving the suspension to
+    // the schema itself, then following `as` element by element.
+    let cell: std::sync::Arc<std::sync::OnceLock<Schema<Unknown>>> =
+        std::sync::Arc::new(std::sync::OnceLock::new());
+    let factory = {
+        let cell = std::sync::Arc::clone(&cell);
+        move || {
+            cell.get()
+                .cloned()
+                .expect("the recursive schema is set before the first walk")
+        }
+    };
+    let array = Schema::as_unknown(Schema::array(Schema::<Unknown>::suspend(factory)));
+    let tree = Schema::as_unknown(structure(vec![("a", string()), ("as", array)]));
+    cell.set(tree.clone()).ok();
+
+    let config = Config::schema(&tree, None);
+    assert_eq!(
+        config.load(&container(&[("a", "1")], &[(&["as"], Node::Array)])),
+        Ok(obj(&[
+            ("a", Value::Str("1".to_string())),
+            ("as", Value::List(Vec::new())),
+        ]))
+    );
+    assert_eq!(
+        config.load(&container(
+            &[("a", "1"), ("as.0.a", "2")],
+            &[(&["as"], Node::Array), (&["as", "0", "as"], Node::Array)],
+        )),
+        Ok(obj(&[
+            ("a", Value::Str("1".to_string())),
+            (
+                "as",
+                Value::List(vec![obj(&[
+                    ("a", Value::Str("2".to_string())),
+                    ("as", Value::List(Vec::new())),
+                ])]),
+            ),
+        ]))
     );
 }

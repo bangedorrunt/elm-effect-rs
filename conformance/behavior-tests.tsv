@@ -733,17 +733,17 @@ ported	packages/effect/test/Config.test.ts	640	it	treats ignored empty env strin
 ported	packages/effect/test/Config.test.ts	651	it	validates empty env numbers when they are preserved	config_empty_numbers_validate_when_preserved
 ported	packages/effect/test/Config.test.ts	665	it	defaults the whole product when any required child is absent	config_with_default_present_absent_and_product
 ported	packages/effect/test/Config.test.ts	684	it	does not recover from invalid union input	config_log_level_default_does_not_cover_invalid_input
-not-applicable	packages/effect/test/Config.test.ts	696	it	does not recover from schema refinement failures	the row's refusal is `Schema.check`/refine, whose kind is `Opaque("refinement")`; Config.schema walks the wire kind looking for the base shape, so a refinement has no materializable wire and this row's refinement path cannot be staged
+ported	packages/effect/test/Config.test.ts	696	it	does not recover from schema refinement failures	a_refinement_reports_the_shape_it_refines
 ported	packages/effect/test/Config.test.ts	715	it	uses the default unless a plain Array schema receives an array representation	a_plain_array_schema_ignores_a_co_located_scalar
 ported	packages/effect/test/Config.test.ts	729	it	defaults absent named containers and preserves explicit empty containers	an_empty_object_node_is_a_present_struct
-not-applicable	packages/effect/test/Config.test.ts	796	it	preserves values successfully decoded from undefined	`Schema.UndefinedOr` reports `Opaque("undefinedOr")`; Config.schema reads the schema's wire kind, which this constructor does not record, so the undefined arm cannot be materialized
+ported	packages/effect/test/Config.test.ts	796	it	preserves values successfully decoded from undefined	undefined_or_decodes_absence_as_undefined
 ported	packages/effect/test/Config.test.ts	806	it	wraps present values and maps absence to None	config_option_maps_absence_to_none
 ported	packages/effect/test/Config.test.ts	826	it	returns None when any required child is absent	config_option_over_a_group_requires_every_child
-not-applicable	packages/effect/test/Config.test.ts	845	it.effect	wraps successfully decoded undefined in Some	`Schema.UndefinedOr` reports `Opaque("undefinedOr")`; Config.schema reads the schema's wire kind, which this constructor does not record, so the row's undefined value has no wire shape to decode into `Some`
+ported	packages/effect/test/Config.test.ts	845	it.effect	wraps successfully decoded undefined in Some	undefined_or_decodes_absence_as_undefined
 ported	packages/effect/test/Config.test.ts	870	it	default wholly absent nested configurations	config_with_default_covers_absent_nested
 ported	packages/effect/test/Config.test.ts	877	it	distinguish an explicit empty schema container from an absent all group	a_present_empty_container_is_validated_not_defaulted
 ported	packages/effect/test/Config.test.ts	897	it	validates partial schema objects and recovers absent all children	a_partial_object_fails_instead_of_defaulting
-not-applicable	packages/effect/test/Config.test.ts	910	it.effect	recovers an absent child alongside a successfully decoded undefined	the row's first leg decodes `Config.schema(Schema.UndefinedOr(...))`, and `undefined_or` reports an opaque kind Config.schema cannot read, so that arm has no wire shape
+ported	packages/effect/test/Config.test.ts	910	it.effect	recovers an absent child alongside a successfully decoded undefined	an_undefined_sibling_of_a_missing_field_keeps_its_undefined
 not-applicable	packages/effect/test/Config.test.ts	930	it.effect	rejects invalid input alongside missing fields in either field order	the row orders a missing schema field against an invalid one and compares the two failures; Config.schema reports one `Invalid` at the config path without the pin's field-level ordering
 ported	packages/effect/test/Config.test.ts	968	it.effect	replaces the whole group when a required child remains absent	config_all_replaces_the_whole_group_when_a_required_child_stays_absent
 ported	packages/effect/test/Config.test.ts	990	it.effect	recovers missing tuple and iterable children without hiding invalid input	config_all_recovers_missing_tuple_children_without_hiding_invalid_input
@@ -803,10 +803,10 @@ not-applicable	packages/effect/test/Config.test.ts	1973	it.effect	supports arbit
 not-applicable	packages/effect/test/Config.test.ts	1983	it	materializes each member independently before applying first-match semantics	the row asserts the order in which a union's members are materialized before first match; the port materializes each member's paths and exposes no scratch cursor to observe
 not-applicable	packages/effect/test/Config.test.ts	2001	it	preserves first-match semantics when the scalar member is declared first	the row asserts the materializer's ordering when a scalar member is declared first; the port's union walk yields wires in member order without exposing the cursor
 not-applicable	packages/effect/test/Config.test.ts	2019	it	reports oneOf ambiguity without exposing the internal cursor	the row checks that a oneOf ambiguity is reported without exposing the internal cursor; the port reports the ambiguity but names no cursor, so the row's second claim has no witness
-not-applicable	packages/effect/test/Config.test.ts	2042	it.effect	recovers an absent sibling of a successfully decoded union	the row's union carries Schema.Undefined, whose kind is opaque, and the env source is flat (`value_child` is one key rather than `value.child`), so neither the undefined arm nor the struct arm can be materialized
+ported	packages/effect/test/Config.test.ts	2042	it.effect	recovers an absent sibling of a successfully decoded union	a_union_with_an_undefined_member_decodes_the_undefined_arm
 not-applicable	packages/effect/test/Config.test.ts	2071	it.effect	applies checks attached to the original union	the row re-applies checks attached to the original union after materialization; the port decodes through the union schema and does not re-attach the members' checks separately
 not-applicable	packages/effect/test/Config.test.ts	2094	it.effect	propagates SourceError defects instead of trying another member	the row's provider fails with a SourceError and the union must not try another member; Config.schema reads `Lookup::get`, which has no failure channel, so the defect cannot reach the union
-not-applicable	packages/effect/test/Config.test.ts	2118	it	loads root, flat, and nested paths	the row's first leg decodes Config.schema(Schema.UndefinedOr(...)), and undefined_or reports an opaque kind Config.schema cannot read, so that arm has no wire shape to materialize
+ported	packages/effect/test/Config.test.ts	2118	it	loads root, flat, and nested paths	undefined_or_decodes_absence_as_undefined
 ported	packages/effect/test/Config.test.ts	2142	it	uses a co-located scalar instead of object children for a leaf schema	leaf_schema_uses_its_own_scalar_over_object_children
 ported	packages/effect/test/Config.test.ts	2149	it	uses a co-located scalar instead of array children for a leaf schema	leaf_schema_uses_its_own_scalar_over_array_children
 ported	packages/effect/test/Config.test.ts	2156	it	prefers object children when a node can be both object and array	struct_schema_prefers_object_children_over_a_co_located_scalar
@@ -833,7 +833,7 @@ ported	packages/effect/test/Config.test.ts	2427	it	decodes Number before String	
 ported	packages/effect/test/Config.test.ts	2435	it	still decodes numeric input when String is listed first	a_numeric_scalar_decodes_as_a_number_in_either_order
 not-applicable	packages/effect/test/Config.test.ts	2444	it	reports Int validation errors	the row's schema is Schema.Redacted(Schema.Int): Redacted reports an opaque kind, so the bridge cannot walk the Int underneath it and cannot report the integer's validation error
 ported	packages/effect/test/Config.test.ts	2465	it	loads root, flat, and nested paths	config_schema_string_loads_root_flat_and_nested_paths
-not-applicable	packages/effect/test/Config.test.ts	2483	it	decodes Undefined	the row decodes `Schema.Undefined`; that constructor reports no wire kind, so an undefined node cannot be materialized by the bridge
+ported	packages/effect/test/Config.test.ts	2483	it	decodes Undefined	an_undefined_schema_decodes_absence
 ported	packages/effect/test/Config.test.ts	2491	it	decodes Null	null_schema_decodes_null_and_reports_absence
 ported	packages/effect/test/Config.test.ts	2499	it	decodes String and rejects object input	an_empty_object_node_is_not_a_string
 ported	packages/effect/test/Config.test.ts	2507	it	decodes Number and rejects invalid input	number_schema_decodes_numeric_text_and_rejects_other_text
@@ -854,7 +854,7 @@ ported	packages/effect/test/Config.test.ts	2690	it	uses first-match semantics by
 ported	packages/effect/test/Config.test.ts	2702	it	enforces exactly one match in oneOf mode	one_of_mode_requires_exactly_one_match
 ported	packages/effect/test/Config.test.ts	2718	it	decodes Number before String	a_numeric_scalar_decodes_as_a_number_in_either_order
 ported	packages/effect/test/Config.test.ts	2726	it	still decodes numeric input when String is listed first	a_numeric_scalar_decodes_as_a_number_in_either_order
-not-applicable	packages/effect/test/Config.test.ts	2735	it	decodes recursive suspended schemas	the row decodes a recursive suspended schema; the port's `suspend` resolves lazily and records no wire kind for the bridge, so recursion has no materializable shape
+ported	packages/effect/test/Config.test.ts	2735	it	decodes recursive suspended schemas	a_recursive_suspended_schema_decodes_nested_arrays
 not-applicable	packages/effect/test/Config.test.ts	2753	it	reports nested Int validation errors	the row reports a nested Int validation error through a Redacted schema; `Schema.Redacted` reports an opaque kind the bridge cannot walk, and the port reports one `Invalid` at the config path
 not-applicable	packages/effect/test/Config.test.ts	2772	it	decodes nested URL values	the row decodes nested URL values through `Schema.URLFromString`; that schema reports no wire kind, so the bridge cannot materialize its nested paths
 ported	packages/effect/test/ConfigProvider.test.ts	40	it.effect	exposes lookup absence and input transformation as provider behavior	provider_map_input_prefixes_lookups

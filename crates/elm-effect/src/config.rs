@@ -942,7 +942,11 @@ impl<T: IntoConfigValue> IntoConfigValue for Option<T> {
     fn into_config_value(self) -> Value {
         match self {
             Some(value) => value.into_config_value(),
-            None => Value::None,
+            // A schema that decoded `undefined` produced a VALUE, not an absent
+            // option: `Config.option` is the wrapper that answers `Value::None`,
+            // and keeping the two apart is what lets `UndefinedOr` survive it
+            // (Config.test.ts:845).
+            None => Value::Undefined,
         }
     }
 }
@@ -1047,10 +1051,33 @@ fn schema_wires(
     if let Some(fields) = schema.fields() {
         return field_wires(fields, provider, path);
     }
+    // A struct built from a runtime field list keeps its fields as named
+    // children and has no `Field` list, so the child schemas are what carries
+    // the shape (and lets a suspended field resolve).
+    if matches!(schema.wire_kind(), elm_effect_schema::SchemaKind::Struct(_))
+        && let Some(children) = schema.child_schemas()
+    {
+        return child_wires(children, provider, path);
+    }
     if let Some(elements) = schema.elements() {
         return element_wires(elements, provider, path);
     }
-    kind_wires(&schema.kind(), provider, path)
+    // A suspension resolves to the schema it names. Its kind cannot carry the
+    // shape, because a recursive schema does not exist yet when the node is
+    // built (Config.test.ts:2735).
+    if let Some(resolved) = schema.suspended_schema() {
+        return schema_wires(resolved, provider, path);
+    }
+    // An array is walked through its element schema for the same reason: the
+    // element may be a suspension, which only the schema can resolve.
+    if let Some(element) = schema.array_element_schema() {
+        return sequence_wires(
+            |child| schema_wires(element, provider, child),
+            provider,
+            path,
+        );
+    }
+    kind_wires(&schema.wire_kind(), provider, path)
 }
 
 #[cfg(feature = "schema")]
@@ -1060,11 +1087,17 @@ fn field_wires(
     path: &[String],
 ) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
     use elm_effect_schema::{SchemaKind, Unknown};
+    // Nothing at the path means the object is absent, so its fields are never
+    // read. Without this a recursive schema descends forever: every level looks
+    // exactly like the one above it.
+    if nothing_at(provider, path) {
+        return Ok(Vec::new());
+    }
     let mut object = std::collections::BTreeMap::new();
     for field in fields {
         let mut child = path.to_vec();
         child.push(field.name().to_string());
-        let wires = match field.inner().kind() {
+        let wires = match field.inner().wire_kind() {
             // An absent optional field is omitted, not null
             // (Config.test.ts:2253, :2261).
             SchemaKind::Optional(inner) | SchemaKind::OptionalKey(inner) => {
@@ -1074,6 +1107,26 @@ fn field_wires(
         };
         if let Some(wire) = wires.into_iter().next() {
             object.insert(field.name().to_string(), wire);
+        }
+    }
+    object_or_scalar(object, provider, path)
+}
+
+#[cfg(feature = "schema")]
+fn child_wires(
+    children: &[(String, std::sync::Arc<elm_effect_schema::Schema<elm_effect_schema::Unknown>>)],
+    provider: &dyn Lookup,
+    path: &[String],
+) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+    if nothing_at(provider, path) {
+        return Ok(Vec::new());
+    }
+    let mut object = std::collections::BTreeMap::new();
+    for (name, child) in children {
+        let mut child_path = path.to_vec();
+        child_path.push(name.clone());
+        if let Some(wire) = schema_wires(child, provider, &child_path)?.into_iter().next() {
+            object.insert(name.clone(), wire);
         }
     }
     object_or_scalar(object, provider, path)
@@ -1095,6 +1148,18 @@ fn kind_wires(
             .unwrap_or_default(),
         // `Schema.null()` reports an opaque kind rather than a null one, so the
         // null leaf is recognised by name.
+        // `Schema.Undefined` accepts only absence. A present container is a
+        // shape it refuses, and a scalar is read so its decode can say so.
+        SchemaKind::Opaque("undefined") => {
+            if provider.has_children(path) || provider.node(path).is_some() {
+                vec![Unknown::Null]
+            } else {
+                match own() {
+                    Some(text) => vec![json_wire(&text).unwrap_or(Unknown::Text(text))],
+                    None => vec![Unknown::Undefined],
+                }
+            }
+        }
         SchemaKind::Opaque(name) if *name == "null" => own()
             .map(|text| {
                 vec![if text == "null" {
@@ -1228,6 +1293,13 @@ fn kind_wires(
 /// with unrelated children is the present empty struct of Config.test.ts:2253,
 /// not an absent one.
 #[cfg(feature = "schema")]
+fn nothing_at(provider: &dyn Lookup, path: &[String]) -> bool {
+    provider.get(path).is_none()
+        && !provider.has_children(path)
+        && provider.node(path).is_none()
+}
+
+#[cfg(feature = "schema")]
 fn object_or_scalar(
     object: std::collections::BTreeMap<String, elm_effect_schema::Unknown>,
     provider: &dyn Lookup,
@@ -1349,7 +1421,7 @@ fn has_schema_input(
     if schema.elements().is_some() {
         return array_present(provider, path);
     }
-    kind_has_input(&schema.kind(), provider, path)
+    kind_has_input(&schema.wire_kind(), provider, path)
 }
 
 #[cfg(feature = "schema")]
@@ -1374,6 +1446,13 @@ fn kind_has_input(
         | SchemaKind::Rest(inner)
         | SchemaKind::Check { base: inner, .. }
         | SchemaKind::Annotated { inner, .. } => kind_has_input(inner, provider, path),
+        // Any representation at all is input to an `undefined` schema, which
+        // refuses every one of them.
+        SchemaKind::Opaque("undefined") => {
+            provider.has_children(path)
+                || provider.node(path).is_some()
+                || provider.get(path).is_some()
+        }
         // Everything else reads a co-located scalar, `Object`/`Json` included
         // (their text is parsed as JSON), so the scalar is the input.
         _ => provider.get(path).is_some(),
@@ -1436,6 +1515,7 @@ impl Config {
                     return Err(vec![ConfigError::Missing { path }]);
                 }
                 let relevant = has_schema_input(&walker, provider, &path);
+                eprintln!("DEBUG wires at {path:?}: {wires:?} relevant={relevant}");
                 let mut last = String::new();
                 for wire in wires {
                     last = format!("{wire:?}");
