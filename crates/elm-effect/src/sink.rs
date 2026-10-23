@@ -49,7 +49,7 @@ where
                         }
                     }
                     Take::End => return Take::End,
-                    Take::Fail(e) => return Take::Fail(e),
+                    Take::Fail(cause) => return Take::Fail(cause),
                 }
             }
         })
@@ -133,7 +133,7 @@ where
             match source.pull() {
                 Take::Items(items) => state = f(state, items),
                 Take::End => return elm_effect::Exit::Success(state),
-                Take::Fail(e) => return elm_effect::Exit::Failure(elm_effect::Cause::fail(e)),
+                Take::Fail(cause) => return elm_effect::Exit::Failure(cause),
             }
         }
     })
@@ -151,7 +151,7 @@ where
             match source.pull() {
                 Take::Items(items) => out.extend(items),
                 Take::End => return elm_effect::Exit::Success(out),
-                Take::Fail(e) => return elm_effect::Exit::Failure(elm_effect::Cause::fail(e)),
+                Take::Fail(cause) => return elm_effect::Exit::Failure(cause),
             }
         }
     })
@@ -169,7 +169,7 @@ where
             match source.pull() {
                 Take::Items(items) => n += items.len(),
                 Take::End => return elm_effect::Exit::Success(n),
-                Take::Fail(e) => return elm_effect::Exit::Failure(elm_effect::Cause::fail(e)),
+                Take::Fail(cause) => return elm_effect::Exit::Failure(cause),
             }
         }
     })
@@ -190,7 +190,7 @@ where
                     out.extend(items.into_iter().take(room));
                 }
                 Take::End => break,
-                Take::Fail(e) => return elm_effect::Exit::Failure(elm_effect::Cause::fail(e)),
+                Take::Fail(cause) => return elm_effect::Exit::Failure(cause),
             }
         }
         elm_effect::Exit::Success(out)
@@ -208,7 +208,7 @@ where
             match source.pull() {
                 Take::Items(_) => continue,
                 Take::End => return elm_effect::Exit::Success(()),
-                Take::Fail(e) => return elm_effect::Exit::Failure(elm_effect::Cause::fail(e)),
+                Take::Fail(cause) => return elm_effect::Exit::Failure(cause),
             }
         }
     })
@@ -228,7 +228,7 @@ where
                 }
                 Take::Items(_) => continue,
                 Take::End => return elm_effect::Exit::Success(None),
-                Take::Fail(e) => return elm_effect::Exit::Failure(elm_effect::Cause::fail(e)),
+                Take::Fail(cause) => return elm_effect::Exit::Failure(cause),
             }
         }
     })
@@ -260,7 +260,7 @@ where
                     }
                 }
                 Take::End => return elm_effect::Exit::Success(out),
-                Take::Fail(e) => return elm_effect::Exit::Failure(elm_effect::Cause::fail(e)),
+                Take::Fail(cause) => return elm_effect::Exit::Failure(cause),
             }
         }
     })
@@ -296,7 +296,7 @@ where
                     }
                 }
                 Take::End => break,
-                Take::Fail(e) => return Exit::Failure(elm_effect::Cause::fail(e)),
+                Take::Fail(cause) => return Exit::Failure(cause),
             }
         }
         let mut leftover = Vec::new();
@@ -304,7 +304,7 @@ where
             match source.pull() {
                 Take::Items(items) => leftover.extend(items),
                 Take::End => break,
-                Take::Fail(e) => return Exit::Failure(elm_effect::Cause::fail(e)),
+                Take::Fail(cause) => return Exit::Failure(cause),
             }
         }
         Exit::Success((taken, leftover))
@@ -341,7 +341,7 @@ where
                     }
                 }
                 Take::End => break,
-                Take::Fail(e) => return Exit::Failure(elm_effect::Cause::fail(e)),
+                Take::Fail(cause) => return Exit::Failure(cause),
             }
         }
         let mut leftover = Vec::new();
@@ -349,7 +349,7 @@ where
             match source.pull() {
                 Take::Items(items) => leftover.extend(items),
                 Take::End => break,
-                Take::Fail(e) => return Exit::Failure(elm_effect::Cause::fail(e)),
+                Take::Fail(cause) => return Exit::Failure(cause),
             }
         }
         Exit::Success((taken, leftover))
@@ -404,7 +404,7 @@ where
                     let _ = writer.flush();
                     return Exit::Success(());
                 }
-                Take::Fail(e) => return Exit::Failure(elm_effect::Cause::fail(e)),
+                Take::Fail(cause) => return Exit::Failure(cause),
             }
         }
     })
@@ -440,7 +440,7 @@ where
                     let _ = writer.flush();
                     return Exit::Success(());
                 }
-                Take::Fail(e) => return Exit::Failure(elm_effect::Cause::fail(e)),
+                Take::Fail(cause) => return Exit::Failure(cause),
             }
         }
     })

@@ -15,6 +15,7 @@
 
 use super::pull::Pull;
 use super::take::Take;
+use super::{Cause, Defect};
 
 /// A per-take step: one take in, zero or more out.
 pub type StepFn<A, E, B> = Box<dyn FnMut(Take<A, E>) -> Vec<Take<B, E>> + Send>;
@@ -112,7 +113,7 @@ where
     Channel::from_fn(move |take| match take {
         Take::Items(items) => vec![Take::Items(items.into_iter().filter_map(&mut f).collect())],
         Take::End => vec![Take::End],
-        Take::Fail(e) => vec![Take::Fail(e)],
+        Take::Fail(cause) => vec![Take::Fail(cause)],
     })
 }
 
@@ -125,7 +126,14 @@ where
     F: FnMut(&E) -> bool + Send + 'static,
 {
     Channel::from_fn(move |take| match take {
-        Take::Fail(e) if predicate(&e) => vec![Take::End],
+        // Only a cause that is nothing but typed failures may be recovered:
+        // a defect or an interrupt is not the caller's `E`.
+        Take::Fail(cause)
+            if cause.is_typed_failure()
+                && cause.failure().is_some_and(&mut predicate) =>
+        {
+            vec![Take::End]
+        }
         other => vec![other],
     })
 }
@@ -144,13 +152,13 @@ where
             for a in items {
                 match f(a) {
                     Ok(b) => out.push(b),
-                    Err(e) => return vec![Take::Fail(e)],
+                    Err(e) => return vec![Take::fail(e)],
                 }
             }
             vec![Take::Items(out)]
         }
         Take::End => vec![Take::End],
-        Take::Fail(e) => vec![Take::Fail(e)],
+        Take::Fail(cause) => vec![Take::Fail(cause)],
     })
 }
 
@@ -171,13 +179,13 @@ where
                 match f(a) {
                     Ok(Some(b)) => out.push(b),
                     Ok(None) => {}
-                    Err(e) => return vec![Take::Fail(e)],
+                    Err(e) => return vec![Take::fail(e)],
                 }
             }
             vec![Take::Items(out)]
         }
         Take::End => vec![Take::End],
-        Take::Fail(e) => vec![Take::Fail(e)],
+        Take::Fail(cause) => vec![Take::Fail(cause)],
     })
 }
 
@@ -201,14 +209,14 @@ where
                     match inner.pull() {
                         Take::Items(mut chunk) => out.append(&mut chunk),
                         Take::End => break,
-                        Take::Fail(e) => return vec![Take::Fail(e)],
+                        Take::Fail(cause) => return vec![Take::Fail(cause)],
                     }
                 }
             }
             vec![Take::Items(out)]
         }
         Take::End => vec![Take::End],
-        Take::Fail(e) => vec![Take::Fail(e)],
+        Take::Fail(cause) => vec![Take::Fail(cause)],
     })
 }
 
@@ -225,19 +233,22 @@ where
     Channel::from_fn(move |take| match take {
         Take::Items(items) => vec![Take::Items(items)],
         Take::End => vec![Take::End],
-        Take::Fail(e) if predicate(&e) => {
-            let mut inner = handler(e);
-            let mut out = Vec::new();
-            loop {
-                match inner.pull() {
-                    Take::Items(mut chunk) => out.append(&mut chunk),
-                    Take::End => break,
-                    Take::Fail(e) => return vec![Take::Fail(e)],
+        Take::Fail(cause) => match cause.into_failure() {
+            Ok(error) if predicate(&error) => {
+                let mut inner = handler(error);
+                let mut out = Vec::new();
+                loop {
+                    match inner.pull() {
+                        Take::Items(mut chunk) => out.append(&mut chunk),
+                        Take::End => break,
+                        Take::Fail(cause) => return vec![Take::Fail(cause)],
+                    }
                 }
+                vec![Take::Items(out)]
             }
-            vec![Take::Items(out)]
-        }
-        Take::Fail(e) => vec![Take::Fail(e)],
+            Ok(error) => vec![Take::fail(error)],
+            Err(cause) => vec![Take::Fail(cause)],
+        },
     })
 }
 
@@ -253,24 +264,22 @@ where
     catch_if(|_| true, handler)
 }
 
-/// Catch a cause the selector extracts (`catchCauseFilter`): the pin's
-/// selector reads a `Cause` and answers the error inside it, or nothing. A
-/// channel here carries the typed error rather than a `Cause`, so the
-/// selector reads that error directly; a `Fail` it answers for is replaced by
-/// driving `handler(extracted)` to completion, and anything it declines
-/// passes through.
+/// Catch a cause the selector extracts (`catchCauseFilter`): the selector
+/// reads the whole `Cause` and answers something to recover with, or nothing.
+/// A `Fail` it answers for is replaced by driving `handler(extracted)` to
+/// completion, and anything it declines passes through whole.
 pub fn catch_cause_filter<A, E, X, S, F>(mut selector: S, mut handler: F) -> Channel<A, E, A>
 where
     A: Send + 'static,
     E: Send + 'static,
     X: Send + 'static,
-    S: FnMut(&E) -> Option<X> + Send + 'static,
+    S: FnMut(&Cause<E>) -> Option<X> + Send + 'static,
     F: FnMut(X) -> Pull<A, E> + Send + 'static,
 {
     Channel::from_fn(move |take| match take {
         Take::Items(items) => vec![Take::Items(items)],
         Take::End => vec![Take::End],
-        Take::Fail(e) => match selector(&e) {
+        Take::Fail(cause) => match selector(&cause) {
             Some(extracted) => {
                 let mut inner = handler(extracted);
                 let mut out = Vec::new();
@@ -278,12 +287,12 @@ where
                     match inner.pull() {
                         Take::Items(mut chunk) => out.append(&mut chunk),
                         Take::End => break,
-                        Take::Fail(e) => return vec![Take::Fail(e)],
+                        Take::Fail(cause) => return vec![Take::Fail(cause)],
                     }
                 }
                 vec![Take::Items(out)]
             }
-            None => vec![Take::Fail(e)],
+            None => vec![Take::Fail(cause)],
         },
     })
 }
@@ -308,22 +317,25 @@ where
     Channel::from_fn(move |take| match take {
         Take::Items(items) => vec![Take::Items(items)],
         Take::End => vec![Take::End],
-        Take::Fail(e) => {
-            let mut inner = if predicate(&e) {
-                on_match(e)
-            } else {
-                or_else(e)
-            };
-            let mut out = Vec::new();
-            loop {
-                match inner.pull() {
-                    Take::Items(mut chunk) => out.append(&mut chunk),
-                    Take::End => break,
-                    Take::Fail(e) => return vec![Take::Fail(e)],
+        Take::Fail(cause) => match cause.into_failure() {
+            Ok(error) => {
+                let mut inner = if predicate(&error) {
+                    on_match(error)
+                } else {
+                    or_else(error)
+                };
+                let mut out = Vec::new();
+                loop {
+                    match inner.pull() {
+                        Take::Items(mut chunk) => out.append(&mut chunk),
+                        Take::End => break,
+                        Take::Fail(cause) => return vec![Take::Fail(cause)],
+                    }
                 }
+                vec![Take::Items(out)]
             }
-            vec![Take::Items(out)]
-        }
+            Err(cause) => vec![Take::Fail(cause)],
+        },
     })
 }
 
@@ -339,8 +351,11 @@ where
     Channel::from_fn(move |take| match take {
         Take::Items(items) => vec![Take::Items(items)],
         Take::End => vec![Take::End],
-        Take::Fail(e) if predicate(&e) => vec![Take::Fail(reason(e))],
-        Take::Fail(e) => vec![Take::Fail(e)],
+        Take::Fail(cause) => match cause.into_failure() {
+            Ok(error) if predicate(&error) => vec![Take::fail(reason(error))],
+            Ok(error) => vec![Take::fail(error)],
+            Err(cause) => vec![Take::Fail(cause)],
+        },
     })
 }
 
@@ -374,11 +389,11 @@ where
             } else {
                 match String::from_utf8(std::mem::take(&mut buffer)) {
                     Ok(text) => vec![Take::Items(vec![text]), Take::End],
-                    Err(error) => vec![Take::Fail(error.into())],
+                    Err(error) => vec![Take::fail(error.into())],
                 }
             }
         }
-        Take::Fail(e) => vec![Take::Fail(e)],
+        Take::Fail(cause) => vec![Take::Fail(cause)],
     })
 }
 
@@ -392,7 +407,7 @@ where
     Channel::from_fn(move |take| match take {
         Take::Items(items) => vec![Take::Items(items.into_iter().filter(|a| f(a)).collect())],
         Take::End => vec![Take::End],
-        Take::Fail(e) => vec![Take::Fail(e)],
+        Take::Fail(cause) => vec![Take::Fail(cause)],
     })
 }
 
@@ -471,10 +486,10 @@ where
                 Side::Right(take) => (false, take),
             };
             match take {
-                Take::Fail(e) => {
+                Take::Fail(cause) => {
                     ended = true;
                     halted.store(true, std::sync::atomic::Ordering::SeqCst);
-                    return Take::Fail(e);
+                    return Take::Fail(cause);
                 }
                 Take::Items(items) => return Take::Items(items),
                 Take::End => {
@@ -563,7 +578,7 @@ where
                     ended = true;
                     halted.store(true, std::sync::atomic::Ordering::SeqCst);
                     let make = on_timeout.take().expect("timeout fires once");
-                    return Take::Fail(make());
+                    return Take::fail(make());
                 }
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
                     ended = true;
@@ -576,10 +591,10 @@ where
                 Side::Right(take) => (false, take),
             };
             match take {
-                Take::Fail(e) => {
+                Take::Fail(cause) => {
                     ended = true;
                     halted.store(true, std::sync::atomic::Ordering::SeqCst);
-                    return Take::Fail(e);
+                    return Take::Fail(cause);
                 }
                 Take::Items(items) => return Take::Items(items),
                 Take::End => {
@@ -605,17 +620,31 @@ where
     })
 }
 
-/// Catch a defect-style failure (`catchDefect`): the Rust channel only carries
-/// typed errors, so this is a pass-through shim for symmetry with Effect's
-/// combinator, leaving typed failures to [`catch_all`].
-pub fn catch_defect<A, E, F>(handler: F) -> Channel<A, E, A>
+/// Catch a defect (`catchDefect`): a take that failed with a defect is
+/// replaced by driving `handler(defect)` to completion. A typed failure is not
+/// a defect and passes through untouched.
+pub fn catch_defect<A, E, F>(mut handler: F) -> Channel<A, E, A>
 where
     A: Send + 'static,
     E: Send + 'static,
-    F: FnMut(E) -> Pull<A, E> + Send + 'static,
+    F: FnMut(Defect) -> Pull<A, E> + Send + 'static,
 {
-    // Defects are not in the channel's typed error rail, so every typed
-    // failure is recoverable through the same handler; any untyped defect is
-    // out of scope of this lightweight channel and passes through as-is.
-    catch_all(handler)
+    Channel::from_fn(move |take| match take {
+        Take::Fail(cause) => match cause.into_defect() {
+            Ok(defect) => {
+                let mut inner = handler(defect);
+                let mut out = Vec::new();
+                loop {
+                    match inner.pull() {
+                        Take::Items(mut chunk) => out.append(&mut chunk),
+                        Take::End => break,
+                        Take::Fail(cause) => return vec![Take::Fail(cause)],
+                    }
+                }
+                vec![Take::Items(out)]
+            }
+            Err(cause) => vec![Take::Fail(cause)],
+        },
+        other => vec![other],
+    })
 }

@@ -67,20 +67,17 @@ impl Unimplemented {
         move || Effect::die(defect.clone())
     }
 
-    /// The member as a channel: a take that carries items fails with
-    /// [`error`](Unimplemented::error), an upstream failure passes through,
-    /// and the end stays the end.
-    ///
-    /// The pin's mock channel dies, because its `Take` carries a `Cause`; this
-    /// port's `Take` carries a typed error only, so the placeholder names the
-    /// error as the failure. It still fails, and it still names itself.
-    pub fn channel<A: Send + 'static, B: Send + 'static>(
+    /// The member as a channel: a take that carries items dies with the
+    /// member's defect, an upstream failure passes through, and the end stays
+    /// the end. The channel's own `E` is free, because a defect never needed
+    /// one.
+    pub fn channel<A: Send + 'static, E: Send + 'static, B: Send + 'static>(
         &self,
-    ) -> Channel<A, UnimplementedError, B> {
-        let error = self.error();
+    ) -> Channel<A, E, B> {
+        let defect = self.defect();
         Channel::from_fn(move |take| match take {
-            Take::Items(_) => vec![Take::Fail(error.clone())],
-            Take::Fail(failure) => vec![Take::Fail(failure)],
+            Take::Items(_) => vec![Take::die(defect.clone())],
+            Take::Fail(cause) => vec![Take::Fail(cause)],
             Take::End => vec![Take::End],
         })
     }

@@ -10,6 +10,9 @@ mod take;
 
 use channel::{HaltStrategy, merge_with_deadline};
 use pull::Pull;
+// The `#[path]` includes reach `Cause`/`Defect` through `super`, so this
+// crate root has to name them.
+use elm_effect::{Cause, Defect};
 use take::Take;
 
 fn seq(items: Vec<u32>) -> Pull<u32, String> {
@@ -42,8 +45,8 @@ fn merge_deadline_fails_with_caller_error_on_stall() {
     loop {
         match merged.pull() {
             Take::Items(_) => continue,
-            Take::Fail(e) => {
-                assert_eq!(e, "timed-out");
+            Take::Fail(cause) => {
+                assert_eq!(cause.failure(), Some(&"timed-out".to_string()));
                 saw_fail = true;
                 break;
             }
@@ -67,7 +70,7 @@ fn merge_deadline_leaves_fast_merges_untouched() {
         match merged.pull() {
             Take::Items(items) => out.extend(items),
             Take::End => break,
-            Take::Fail(e) => panic!("fast merge must not fail: {e}"),
+            Take::Fail(cause) => panic!("fast merge must not fail: {cause}"),
         }
     }
     out.sort();

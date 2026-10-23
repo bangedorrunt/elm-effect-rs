@@ -16,6 +16,9 @@ mod sink;
 #[path = "../src/take.rs"]
 mod take;
 
+// The `#[path]` includes reach `Cause`/`Defect` through `super`, so this
+// crate root has to name them.
+use elm_effect::{Cause, Defect};
 use take::Take;
 
 fn items<T>(values: Vec<T>) -> Take<T, String> {
@@ -39,7 +42,7 @@ fn pull_empty_ends_immediately() {
 #[test]
 fn pull_fail_propagates() {
     let mut p = pull::Pull::<i32, String>::fail("boom".to_string());
-    assert_eq!(p.pull(), Take::Fail("boom".to_string()));
+    assert_eq!(p.pull(), Take::fail("boom".to_string()));
 }
 
 #[test]
@@ -82,7 +85,7 @@ fn channel_forwards_end_and_failure() {
     let mut piped = channel::map(|a: i32| a).run(pull::Pull::empty());
     assert_eq!(piped.pull(), Take::<i32, String>::End);
     let mut piped = channel::map(|a: i32| a).run(pull::Pull::fail("nope".to_string()));
-    assert_eq!(piped.pull(), Take::Fail("nope".to_string()));
+    assert_eq!(piped.pull(), Take::fail("nope".to_string()));
 }
 
 #[test]
@@ -146,7 +149,7 @@ fn channel_filter_map_recovers() {
     let source = pull::Pull::<i32, String>::fail("other".to_string());
     let piped = channel::recover(|e: &String| e == "no").run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::Fail("other".to_string()));
+    assert_eq!(piped.pull(), take::Take::fail("other".to_string()));
 }
 
 #[test]
@@ -200,7 +203,7 @@ fn channel_map_effect_short_circuits() {
     })
     .run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::Fail("big".to_string()));
+    assert_eq!(piped.pull(), take::Take::fail("big".to_string()));
     let source = pull::Pull::<i32, String>::of(vec![1]);
     let piped = channel::map_effect(|a: i32| Ok::<i32, String>(a + 1)).run(source);
     let mut piped = piped;
@@ -265,7 +268,7 @@ fn pull_bracket_release_failure_surfaces() {
     assert_eq!(p.pull(), take::Take::Items(vec![1]));
     assert_eq!(p.pull(), take::Take::End);
     // ...then the release failure surfaces.
-    assert_eq!(p.pull(), take::Take::Fail("release blew up".to_string()));
+    assert_eq!(p.pull(), take::Take::fail("release blew up".to_string()));
 }
 
 #[test]
@@ -285,7 +288,7 @@ fn channel_flat_map_concatenates() {
     let piped = channel::flat_map(|_: i32| pull::Pull::<i32, String>::fail("inner".to_string()))
         .run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::Fail("inner".to_string()));
+    assert_eq!(piped.pull(), take::Take::fail("inner".to_string()));
 }
 
 #[test]
@@ -295,7 +298,7 @@ fn channel_catch_if_recovers_matching() {
     let source = pull::Pull::<i32, String>::from_fn(move || {
         if first {
             first = false;
-            take::Take::Fail("retry".to_string())
+            take::Take::fail("retry".to_string())
         } else {
             take::Take::End
         }
@@ -316,7 +319,7 @@ fn channel_catch_if_recovers_matching() {
     )
     .run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::Fail("fatal".to_string()));
+    assert_eq!(piped.pull(), take::Take::fail("fatal".to_string()));
 }
 
 #[test]
@@ -331,7 +334,7 @@ fn channel_catch_if_refines() {
     let source = pull::Pull::<i32, Problem>::from_fn(move || {
         if first {
             first = false;
-            take::Take::Fail(Problem::Retryable)
+            take::Take::fail(Problem::Retryable)
         } else {
             take::Take::End
         }
@@ -352,7 +355,7 @@ fn channel_catch_if_refines() {
     )
     .run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::Fail(Problem::Fatal));
+    assert_eq!(piped.pull(), take::Take::fail(Problem::Fatal));
 }
 
 #[test]
@@ -413,7 +416,7 @@ fn drain(mut pull: pull::Pull<u32, String>) -> Vec<u32> {
         match pull.pull() {
             Take::Items(items) => out.extend(items),
             Take::End => return out,
-            Take::Fail(e) => panic!("unexpected failure: {e}"),
+            Take::Fail(cause) => panic!("unexpected failure: {cause}"),
         }
     }
 }
@@ -449,13 +452,13 @@ fn merge_halt_strategies() {
     assert_eq!(drain(merged), vec![1]);
 
     // Failure always wins, whichever side it comes from.
-    let failing = pull::Pull::from_fn(|| Take::Fail("boom".to_string()));
+    let failing = pull::Pull::from_fn(|| Take::fail("boom".to_string()));
     let mut merged = merge(failing, seq(vec![1, 2, 3]), HaltStrategy::Both);
     let mut saw_fail = false;
     loop {
         match merged.pull() {
-            Take::Fail(e) => {
-                assert_eq!(e, "boom");
+            Take::Fail(cause) => {
+                assert_eq!(cause.failure(), Some(&"boom".to_string()));
                 saw_fail = true;
                 break;
             }
@@ -557,7 +560,7 @@ fn from_write_aborts_on_failure() {
         Arc::new(Mutex::new(Vec::new())),
         Arc::new(AtomicUsize::new(0)),
     );
-    let failing = pull::Pull::from_fn(|| Take::Fail("boom".to_string()));
+    let failing = pull::Pull::from_fn(|| Take::fail("boom".to_string()));
     let exit2 = from_write(Tee {
         seen: seen2,
         flushes: Arc::clone(&flushes2),
@@ -735,7 +738,7 @@ fn channel_catch_all_recovers_any_failure() {
     let source = pull::Pull::from_fn(move || {
         if first {
             first = false;
-            Take::Fail("boom".to_string())
+            Take::fail("boom".to_string())
         } else {
             Take::End
         }
@@ -758,7 +761,7 @@ fn channel_catch_or_else_splits_match_and_fallback() {
         let source = pull::Pull::from_fn(move || {
             if first {
                 first = false;
-                Take::Fail(p.clone())
+                Take::fail(p.clone())
             } else {
                 Take::End
             }
@@ -797,7 +800,7 @@ fn channel_catch_or_else_nests_reason_match() {
         let source = pull::Pull::from_fn(move || {
             if first {
                 first = false;
-                Take::Fail(p.clone())
+                Take::fail(p.clone())
             } else {
                 Take::End
             }
@@ -851,25 +854,22 @@ fn channel_unwrap_reason_extracts_nested_failure() {
     };
     let run = |problem: Problem| {
         let source = pull::Pull::<i32, Problem>::fail(problem);
-        let mut piped = channel::unwrap_reason(
-            |e: &Problem| matches!(e, Problem::Ai(_)),
-            hoist,
-        )
-        .run(source);
+        let mut piped =
+            channel::unwrap_reason(|e: &Problem| matches!(e, Problem::Ai(_)), hoist).run(source);
         piped.pull()
     };
     assert_eq!(
         run(Problem::Ai(Reason::RateLimit(60))),
-        Take::Fail(Problem::RateLimit(60))
+        Take::fail(Problem::RateLimit(60))
     );
     assert_eq!(
         run(Problem::Ai(Reason::Quota(100))),
-        Take::Fail(Problem::Quota(100)),
+        Take::fail(Problem::Quota(100)),
         "the second reason type is hoisted too"
     );
     assert_eq!(
         run(Problem::Other("kept".to_string())),
-        Take::Fail(Problem::Other("kept".to_string())),
+        Take::fail(Problem::Other("kept".to_string())),
         "a non-matching parent passes through"
     );
 }
@@ -882,7 +882,7 @@ fn channel_catch_cause_filter_recovers_the_extracted_error() {
     // declines still fails.
     let source = pull::Pull::<String, String>::fail("boom".to_string());
     let mut piped = channel::catch_cause_filter(
-        |e: &String| Some(e.clone()),
+        |cause: &Cause<String>| cause.failure().cloned(),
         |error: String| pull::Pull::of(vec![format!("recovered: {error}")]),
     )
     .run(source);
@@ -893,11 +893,11 @@ fn channel_catch_cause_filter_recovers_the_extracted_error() {
 
     let source = pull::Pull::<String, String>::fail("kept".to_string());
     let mut piped = channel::catch_cause_filter(
-        |_: &String| None::<String>,
+        |_: &Cause<String>| None::<String>,
         |error: String| pull::Pull::of(vec![format!("recovered: {error}")]),
     )
     .run(source);
-    assert_eq!(piped.pull(), Take::Fail("kept".to_string()));
+    assert_eq!(piped.pull(), Take::fail("kept".to_string()));
 }
 
 #[test]
@@ -912,7 +912,7 @@ fn channel_filter_map_effect_short_circuits() {
     })
     .run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::Fail("big".to_string()));
+    assert_eq!(piped.pull(), take::Take::fail("big".to_string()));
     // After error, subsequent pull is End (channel already terminated? re-run source)
     // Re-run fresh to check short-circuit fail:
     let source = pull::Pull::<i32, String>::of(vec![1, 2, 3]);
@@ -924,26 +924,69 @@ fn channel_filter_map_effect_short_circuits() {
         }
     })
     .run(source);
-    assert_eq!(piped.pull(), take::Take::Fail("big".to_string()));
+    assert_eq!(piped.pull(), take::Take::fail("big".to_string()));
 }
 
 #[test]
-fn channel_catch_defect_routes_to_handler() {
+fn channel_catch_defect_routes_the_defect_and_leaves_typed_failures() {
+    // `Channel.catchDefect`: a dying take is recovered by the handler; a typed
+    // failure is not a defect and passes through untouched.
     let mut first = true;
     let source = pull::Pull::from_fn(move || {
         if first {
             first = false;
-            take::Take::Fail("boom".to_string())
+            take::Take::<u32, String>::die(Defect::new("boom"))
         } else {
             take::Take::End
         }
     });
-    let piped = channel::catch_defect(|_: String| pull::Pull::of(vec![42]));
+    let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let recorded = std::sync::Arc::clone(&seen);
+    let piped = channel::catch_defect(move |defect: Defect| {
+        recorded.lock().unwrap().push(defect.message.clone());
+        pull::Pull::of(vec![42])
+    });
     let mut piped = piped.run(source);
     assert_eq!(piped.pull(), take::Take::Items(vec![42]));
     assert_eq!(piped.pull(), take::Take::End);
-    // Non-failing pass-through on empty source:
-    let mut piped =
-        channel::catch_defect(|_: String| pull::Pull::of(vec![1])).run(pull::Pull::empty());
+    assert_eq!(&*seen.lock().unwrap(), &["boom".to_string()]);
+
+    // A typed failure is not caught by `catchDefect`.
+    let source = pull::Pull::<u32, String>::fail("typed".to_string());
+    let mut piped = channel::catch_defect(|_: Defect| pull::Pull::of(vec![1])).run(source);
+    assert_eq!(piped.pull(), take::Take::fail("typed".to_string()));
+
+    // Non-failing pass-through on an empty source:
+    let mut piped = channel::catch_defect(|_: Defect| pull::Pull::<u32, String>::of(vec![1]))
+        .run(pull::Pull::empty());
     assert_eq!(piped.pull(), take::Take::End);
+}
+
+#[test]
+fn a_dying_channel_reaches_the_sink_as_a_defect() {
+    // The pin's `Take` carries an `Exit`, so a channel can die. A defect must
+    // survive a pull and a transform as a `Die`, never flattened into `E`, and
+    // a sink must report it as the exit's defect.
+    let source = pull::Pull::<u32, String>::die(Defect::new("channel died"));
+    let mut piped = channel::map(|a: u32| a + 1).run(source);
+    match piped.pull() {
+        Take::Fail(cause) => {
+            assert!(cause.has_dies(), "a defect stays a defect: {cause:?}");
+            assert!(
+                cause.failure().is_none(),
+                "a defect is never a typed failure: {cause:?}"
+            );
+            assert_eq!(cause.defects()[0].message, "channel died");
+        }
+        other => panic!("a dying channel must fail, got {other:?}"),
+    }
+
+    let source = pull::Pull::<u32, String>::die(Defect::new("sink died"));
+    match sink::drain().run(source) {
+        elm_effect::Exit::Failure(cause) => {
+            assert!(cause.has_dies(), "the sink reports the die: {cause:?}");
+            assert!(cause.failure().is_none());
+        }
+        elm_effect::Exit::Success(()) => panic!("a dying source must fail the sink"),
+    }
 }

@@ -171,6 +171,42 @@ impl<E> Cause<E> {
     }
 }
 
+impl<E> Cause<E> {
+    /// True when every reason is a typed failure: the one shape a `catch` may
+    /// recover. A defect or an interrupt makes it false, because neither is
+    /// the caller's `E`.
+    pub fn is_typed_failure(&self) -> bool {
+        !self.reasons.is_empty() && self.reasons.iter().all(is_fail_reason)
+    }
+
+    /// The typed failure of a cause that holds nothing else, or the cause
+    /// back. A handler acts on one error; the pin's `Cause` can hold several,
+    /// and recovering one of them does not recover the rest.
+    pub fn into_failure(self) -> Result<E, Self> {
+        if !self.is_typed_failure() {
+            return Err(self);
+        }
+        let mut failures = self.reasons.into_iter().filter_map(|reason| match reason {
+            Reason::Fail(error) => Some(error),
+            Reason::Die(_) | Reason::Interrupt { .. } => None,
+        });
+        Ok(failures.next().expect("a typed failure has one error"))
+    }
+
+    /// The defect of a cause that holds nothing else, or the cause back, for
+    /// `catchDefect`. An interrupt is not a defect and never recovers here.
+    pub fn into_defect(self) -> Result<Defect, Self> {
+        if self.reasons.is_empty() || !self.reasons.iter().all(|r| matches!(r, Reason::Die(_))) {
+            return Err(self);
+        }
+        let mut defects = self.reasons.into_iter().filter_map(|reason| match reason {
+            Reason::Die(defect) => Some(defect),
+            _ => None,
+        });
+        Ok(defects.next().expect("a defect cause has one defect"))
+    }
+}
+
 impl<E, D> Cause<E, D> {
     /// The first typed error, if any reason is a `Fail`.
     pub fn failure(&self) -> Option<&E> {

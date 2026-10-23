@@ -38,8 +38,8 @@ fn take_until_fail<A: Send + 'static, E: Send + 'static>(mut pull: Pull<A, E>) -
                 out.push(Take::End);
                 return out;
             }
-            Take::Fail(e) => {
-                out.push(Take::Fail(e));
+            Take::Fail(cause) => {
+                out.push(Take::Fail(cause));
                 return out;
             }
             other => out.push(other),
@@ -89,7 +89,11 @@ fn an_empty_chunk_is_refused_because_a_chunk_is_non_empty() {
         take_until_fail(encode::<f64, SchemaError>(Schema::number_from_string()).run(source));
 
     assert!(
-        matches!(takes.last(), Some(Take::Fail(SchemaError::TypeMismatch { path, .. })) if path == "$[0]"),
+        matches!(
+            takes.last(),
+            Some(Take::Fail(cause))
+                if matches!(cause.failure(), Some(SchemaError::TypeMismatch { path, .. }) if path == "$[0]")
+        ),
         "an empty chunk must fail as a missing element, got: {takes:?}"
     );
 }
@@ -116,7 +120,10 @@ fn decode_fails_the_pull_when_the_wire_value_does_not_conform() {
 
     assert_eq!(takes.len(), 1, "one take, the failure: {takes:?}");
     assert!(
-        matches!(takes[0], Take::Fail(SchemaError::TypeMismatch { .. })),
+        matches!(
+            &takes[0],
+            Take::Fail(cause) if matches!(cause.failure(), Some(SchemaError::TypeMismatch { .. }))
+        ),
         "expected a schema type mismatch, got: {:?}",
         takes[0]
     );
@@ -128,8 +135,11 @@ fn decode_names_the_bad_element_mid_chunk_and_emits_no_partial_chunk() {
     // `$[1]`: any other path would point at the wrong item, and an `Items`
     // take before the `Fail` would leak a half-decoded chunk.
     let takes = take_until_fail(
-        decode::<f64, SchemaError>(Schema::number_from_string())
-            .run(Pull::of(vec![wire("1"), Unknown::Bool(true), wire("3")])),
+        decode::<f64, SchemaError>(Schema::number_from_string()).run(Pull::of(vec![
+            wire("1"),
+            Unknown::Bool(true),
+            wire("3"),
+        ])),
     );
 
     assert_eq!(
@@ -140,7 +150,8 @@ fn decode_names_the_bad_element_mid_chunk_and_emits_no_partial_chunk() {
     assert!(
         matches!(
             &takes[0],
-            Take::Fail(SchemaError::TypeMismatch { path, .. }) if path == "$[1]"
+            Take::Fail(cause)
+                if matches!(cause.failure(), Some(SchemaError::TypeMismatch { path, .. }) if path == "$[1]")
         ),
         "expected the failure to name the middle element, got: {:?}",
         takes[0]
@@ -153,9 +164,8 @@ fn encode_refuses_a_chunk_whose_element_fails_its_refinement() {
     // has no wire form at all. The failure names `$[1]`, and the earlier
     // encodable elements must not be handed downstream on their own.
     let positive = Schema::number().refine("a positive number", |value| *value > 0.0);
-    let takes = take_until_fail(
-        encode::<f64, SchemaError>(positive).run(Pull::of(vec![1.0, -2.0, 3.0])),
-    );
+    let takes =
+        take_until_fail(encode::<f64, SchemaError>(positive).run(Pull::of(vec![1.0, -2.0, 3.0])));
 
     assert_eq!(
         takes.len(),
@@ -165,7 +175,8 @@ fn encode_refuses_a_chunk_whose_element_fails_its_refinement() {
     assert!(
         matches!(
             &takes[0],
-            Take::Fail(SchemaError::TypeMismatch { path, .. }) if path == "$[1]"
+            Take::Fail(cause)
+                if matches!(cause.failure(), Some(SchemaError::TypeMismatch { path, .. }) if path == "$[1]")
         ),
         "expected the refusal to name the negative element, got: {:?}",
         takes[0]
@@ -223,8 +234,11 @@ fn duplex_refuses_an_empty_chunk_from_the_inner_channel() {
     assert!(
         matches!(
             takes.last(),
-            Some(Take::Fail(SchemaError::TypeMismatch { path, got, .. }))
-                if path == "$[0]" && *got == "missing"
+            Some(Take::Fail(cause))
+                if matches!(
+                    cause.failure(),
+                    Some(SchemaError::TypeMismatch { path, got, .. }) if path == "$[0]" && *got == "missing"
+                )
         ),
         "expected the emptiness rule (missing `$[0]`), got: {takes:?}"
     );
@@ -249,7 +263,8 @@ fn duplex_fails_when_the_inner_channel_emits_a_non_conforming_chunk() {
     assert!(
         matches!(
             takes.last(),
-            Some(Take::Fail(SchemaError::TypeMismatch { .. }))
+            Some(Take::Fail(cause))
+                if matches!(cause.failure(), Some(SchemaError::TypeMismatch { .. }))
         ),
         "expected the output schema to refuse the chunk, got: {takes:?}"
     );

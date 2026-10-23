@@ -1883,7 +1883,7 @@ fn mock_serves_the_implemented_member_and_fails_the_omitted_one() {
 /// The pin's `{ effect(): Effect<number>, channel: Channel<number, never, void> }`:
 /// a method and a channel member, with the channel behind a recipe because a
 /// `Channel` owns its step and cannot be cloned.
-type MockChannel = Arc<dyn Fn() -> Channel<u64, UnimplementedError, u64> + Send + Sync>;
+type MockChannel = Arc<dyn Fn() -> Channel<u64, std::convert::Infallible, u64> + Send + Sync>;
 
 #[derive(Clone)]
 struct UnimplementedService {
@@ -1906,7 +1906,9 @@ impl elm_effect::Mock for UnimplementedService {
                 "method" => out.method = Arc::new(Unimplemented::new(service, "method").call()),
                 "channel" => {
                     let placeholder = Unimplemented::new(service, "channel");
-                    out.channel = Arc::new(move || placeholder.channel::<u64, u64>());
+                    out.channel = Arc::new(move || {
+                        placeholder.channel::<u64, std::convert::Infallible, u64>()
+                    });
                 }
                 other => panic!("the witness declares no placeholder for {other}"),
             }
@@ -1947,9 +1949,14 @@ fn mock_missing_members_fail_as_unimplemented_effects_and_channels() {
 
     let mut driven = (service.channel)().run(Pull::single(1u64));
     match driven.pull() {
-        Take::Fail(UnimplementedError { service, member }) => {
-            assert_eq!(service, "test/unimplemented");
-            assert_eq!(member, "channel");
+        Take::Fail(cause) => {
+            assert!(cause.has_dies(), "a mock channel dies: {cause:?}");
+            let defect = cause.defects()[0].to_string();
+            assert!(
+                defect.contains("UnimplementedError")
+                    && defect.contains("test/unimplemented.channel"),
+                "the defect names the service and the member: {defect}"
+            );
         }
         other => panic!("an omitted channel member must fail, got {other:?}"),
     }

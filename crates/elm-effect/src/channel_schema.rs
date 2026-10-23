@@ -35,10 +35,10 @@ where
             // An array schema cannot encode to anything else; keeping the value
             // whole beats silently flattening it.
             Ok(other) => vec![Take::Items(vec![other])],
-            Err(error) => vec![Take::Fail(E::from(error))],
+            Err(error) => vec![Take::fail(E::from(error))],
         },
         Take::End => vec![Take::End],
-        Take::Fail(error) => vec![Take::Fail(error)],
+        Take::Fail(cause) => vec![Take::Fail(cause)],
     })
 }
 
@@ -52,10 +52,10 @@ where
     Channel::from_fn(move |take| match take {
         Take::Items(items) => match chunk_schema.decode(Unknown::Array(items)) {
             Ok(values) => vec![Take::Items(values)],
-            Err(error) => vec![Take::Fail(E::from(error))],
+            Err(error) => vec![Take::fail(E::from(error))],
         },
         Take::End => vec![Take::End],
-        Take::Fail(error) => vec![Take::Fail(error)],
+        Take::Fail(cause) => vec![Take::Fail(cause)],
     })
 }
 

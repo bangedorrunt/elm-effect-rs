@@ -4,6 +4,7 @@
 //! `End` forever. An unbounded source stays a pull loop — never materialize
 //! it; consumers stop pulling when they have enough.
 
+use super::Defect;
 use super::take::Take;
 
 /// A repeatable pull source.
@@ -97,12 +98,21 @@ where
         })
     }
 
-    /// Fails immediately, on every pull.
+    /// Fails immediately, on every pull, with one typed error.
     pub fn fail(error: E) -> Self
     where
         E: Clone,
     {
-        Self::from_fn(move || Take::Fail(error.clone()))
+        Self::from_fn(move || Take::fail(error.clone()))
+    }
+
+    /// Fails immediately, on every pull, with a defect. Never a typed error:
+    /// the sink reports it as a `Die`, not as the stream's `E`.
+    pub fn die(defect: Defect) -> Self
+    where
+        Defect: Clone,
+    {
+        Self::from_fn(move || Take::die(defect.clone()))
     }
 
     /// Bracket with a fallible release (`acquireUseRelease` failure shapes):
@@ -122,7 +132,7 @@ where
         let mut release_error: Option<E> = None;
         Self::from_fn(move || {
             if let Some(error) = release_error.take() {
-                return Take::Fail(error);
+                return Take::fail(error);
             }
             let Some((mut resource, release)) = state.take() else {
                 return Take::End;
