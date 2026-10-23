@@ -2456,7 +2456,7 @@ ported	packages/effect/test/Latch.test.ts	153	it.effect	interrupting a waiter re
 ported	packages/effect/test/Latch.test.ts	192	it.effect	await is interruptible and cleans up interrupted waiters	latch_await_is_interruptible_and_cleans_up_interrupted_waiters
 ported	packages/effect/test/Layer.test.ts	15	it.effect	layers can be acquired in parallel	merge_builds_both_sides_at_once_and_stops_on_interrupt
 ported	packages/effect/test/Layer.test.ts	35	it.effect	sharing with merge	a_handle_merged_with_itself_builds_once
-not-applicable	packages/effect/test/Layer.test.ts	44	it.effect	preserves a failure when a shared layer build is interrupted	A shared build's failure reaches a waiter as a defect, not the typed failure: the memo entry is erased over `E` (`EntryMap` is keyed by node id only), and `Cause<E>` cannot be duplicated per waiter without `E: Clone` nor shared through an `Arc` without `E: Sync`, while this `Layer`'s bounds are `E: Send`. The builder still reports the typed cause; only a waiter sees the defect.
+ported	packages/effect/test/Layer.test.ts	44	it.effect	preserves a failure when a shared layer build is interrupted	a_waiter_on_a_failed_shared_build_receives_the_typed_cause
 ported	packages/effect/test/Layer.test.ts	75	it.effect	sharing itself with merge	a_handle_merged_three_times_builds_once
 ported	packages/effect/test/Layer.test.ts	86	it.effect	suspend is lazy	suspend_is_lazy_and_evaluates_per_handle
 ported	packages/effect/test/Layer.test.ts	101	it.effect	suspend preserves sharing	a_suspended_handle_merged_with_itself_evaluates_once

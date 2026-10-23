@@ -8,8 +8,8 @@ use std::sync::{
 use std::time::{Duration, Instant};
 
 use elm_effect::{
-    BuiltServices, Effect, Exit, FiberHandle, ForkOpts, Layer, LayerMemo, ManagedRuntime, Runtime,
-    Scope, ServiceTag, use_service,
+    BuiltServices, Defect, Effect, Exit, FiberHandle, ForkOpts, Layer, LayerMemo, ManagedRuntime,
+    Runtime, Scope, ServiceTag, use_service,
 };
 
 struct Db;
@@ -651,7 +651,7 @@ fn with_parent_span_installs_an_external_span_for_construction() {
 
 /// Build through an explicit memo map, failing the test on a construction
 /// failure (the rows below all expect a successful build unless stated).
-fn run_memo<O: elm_effect::RequirementIds, E: std::fmt::Debug + Send + 'static>(
+fn run_memo<O: elm_effect::RequirementIds, E: Clone + std::fmt::Debug + Send + 'static>(
     layer: &Layer<O, E, ()>,
     memo: &LayerMemo,
     scope: &Arc<Scope>,
@@ -1378,6 +1378,101 @@ fn interrupting_a_multi_layer_build_releases_what_it_acquired() {
         vec!["acquire1", "release1"],
         "only the layer that had already built is acquired and released"
     );
+}
+
+/// A constructor that stands still until the gate opens, then ends in the
+/// kind's failure. Standing still inside the constructor is what keeps the
+/// memo entry `Building` long enough for a waiter to arrive on it.
+fn failing_constructor(
+    started: Arc<AtomicBool>,
+    gate: Arc<(Mutex<bool>, Condvar)>,
+    die: bool,
+) -> Layer<Db, String, ()> {
+    Layer::from_factory(move || {
+        started.store(true, Ordering::SeqCst);
+        wait_gate(&gate);
+        if die {
+            Effect::<DbConn, String, ()>::die(Defect::new("layer defect"))
+        } else {
+            Effect::<DbConn, String, ()>::fail("layer failure".to_string())
+        }
+    })
+    .expect("a single constructor cannot cycle")
+}
+
+#[test]
+fn a_waiter_on_a_failed_shared_build_receives_the_typed_cause() {
+    // Layer.test.ts:44. A second build that shares an in-flight memo entry
+    // ends with the cause that ended that build: a typed failure stays typed
+    // and a defect stays a defect, rather than both collapsing into "shared
+    // layer build failed". The entry publishes the cause erased and every
+    // waiter takes a copy, which is what puts `E: Clone` on the build path.
+    for die in [true, false] {
+        let started = Arc::new(AtomicBool::new(false));
+        let gate = Arc::new((Mutex::new(false), Condvar::new()));
+        let layer = failing_constructor(Arc::clone(&started), Arc::clone(&gate), die);
+        let memo = LayerMemo::new();
+        let rt = Runtime::new();
+
+        let builder_layer = layer.clone();
+        let builder_memo = memo.clone();
+        let builder = rt.fork_detach_with(
+            move |ctx| -> Exit<(), String> {
+                let scope = Arc::new(Scope::new(11));
+                match builder_layer.build_with_fiber_and_memo(&ctx.fiber(), &builder_memo, &scope) {
+                    Ok(_) => Exit::succeed(()),
+                    Err(cause) => Exit::Failure(cause),
+                }
+            },
+            ForkOpts::immediate(),
+        );
+        assert!(
+            wait_flag(&started, Duration::from_secs(5)),
+            "the builder never started"
+        );
+
+        let waiter_layer = layer.clone();
+        let waiter_memo = memo.clone();
+        let waiter = rt.fork_detach_with(
+            move |ctx| -> Exit<(), String> {
+                let scope = Arc::new(Scope::new(12));
+                match waiter_layer.build_with_fiber_and_memo(&ctx.fiber(), &waiter_memo, &scope) {
+                    Ok(_) => Exit::succeed(()),
+                    Err(cause) => Exit::Failure(cause),
+                }
+            },
+            ForkOpts::immediate(),
+        );
+        // Let the waiter reach the entry and block on it, then end the build.
+        std::thread::sleep(Duration::from_millis(30));
+        open_gate(&gate);
+
+        let builder_cause = match builder.join() {
+            Exit::Failure(cause) => cause,
+            Exit::Success(()) => panic!("a failing constructor must fail the build"),
+        };
+        let waiter_cause = match waiter.join() {
+            Exit::Failure(cause) => cause,
+            Exit::Success(()) => panic!("the waiter must not report success"),
+        };
+        assert_eq!(
+            waiter_cause, builder_cause,
+            "the waiter's cause is the builder's, verbatim (die: {die})"
+        );
+        if die {
+            assert!(
+                waiter_cause.has_dies() && waiter_cause.failure().is_none(),
+                "a defect stays a defect, never a typed failure: {waiter_cause:?}"
+            );
+        } else {
+            assert_eq!(
+                waiter_cause.failure(),
+                Some(&"layer failure".to_string()),
+                "a typed failure stays typed"
+            );
+        }
+        assert_eq!(memo.map_size(), 0, "the failed entry leaves the map");
+    }
 }
 
 #[test]

@@ -140,7 +140,7 @@ struct SpanStage<E> {
     marker: PhantomData<fn() -> E>,
 }
 
-impl<E: Send + 'static> RunStage<E> for SpanStage<E> {
+impl<E: Clone + Send + 'static> RunStage<E> for SpanStage<E> {
     fn run_with(
         self: Box<Self>,
         services: &Services,
@@ -169,7 +169,7 @@ struct ValueStage {
     span: AnySpan,
 }
 
-impl<E: Send + 'static> RunStage<E> for ValueStage {
+impl<E: Clone + Send + 'static> RunStage<E> for ValueStage {
     fn run_with(
         self: Box<Self>,
         _services: &Services,
@@ -179,7 +179,7 @@ impl<E: Send + 'static> RunStage<E> for ValueStage {
     }
 }
 
-fn parent_span_stage<E: Send + 'static>(span: AnySpan) -> Stage<E> {
+fn parent_span_stage<E: Clone + Send + 'static>(span: AnySpan) -> Stage<E> {
     Stage {
         out_id: ParentSpanTag::ID,
         in_ids: Vec::new(),
@@ -189,7 +189,7 @@ fn parent_span_stage<E: Send + 'static>(span: AnySpan) -> Stage<E> {
     }
 }
 
-fn span_stage<E: Send + 'static>(name: String, options: LayerSpanOptions) -> Stage<E> {
+fn span_stage<E: Clone + Send + 'static>(name: String, options: LayerSpanOptions) -> Stage<E> {
     let LayerSpanOptions { span, on_end } = options;
     Stage {
         out_id: ParentSpanTag::ID,
@@ -233,7 +233,7 @@ struct Ctor<S, E, RIn, F> {
 impl<S, E, RIn, F> RunStage<E> for Ctor<S, E, RIn, F>
 where
     S: Send + Sync + 'static,
-    E: Send + 'static,
+    E: Clone + Send + 'static,
     RIn: Requirement,
     F: Fn() -> Effect<S, E, RIn> + Send + Sync,
 {
@@ -258,7 +258,7 @@ struct ScopedCtor<S, E, RIn, F> {
 impl<S, E, RIn, F> RunStage<E> for ScopedCtor<S, E, RIn, F>
 where
     S: Send + Sync + 'static,
-    E: Send + 'static,
+    E: Clone + Send + 'static,
     RIn: Requirement,
     F: Fn(&Scope) -> Effect<S, E, RIn> + Send + Sync,
 {
@@ -380,7 +380,7 @@ struct OrDieNode<E> {
     inner: Arc<Node<E>>,
 }
 
-impl<E: std::fmt::Debug + Send + 'static> ErasedBuild for OrDieNode<E> {
+impl<E: Clone + std::fmt::Debug + Send + 'static> ErasedBuild for OrDieNode<E> {
     fn build_erased(
         &self,
         memo: &LayerMemo,
@@ -426,7 +426,15 @@ fn widen<E>(cause: Cause<std::convert::Infallible>) -> Cause<E> {
 enum EntryState {
     Building,
     Done(Services),
-    Failed { interrupted: bool },
+    Failed {
+        interrupted: bool,
+        /// The cause that ended the build, type-erased because the map is
+        /// keyed by node id and knows nothing of `E`. It holds
+        /// `Mutex<Cause<E>>`, so every waiter takes a typed copy of the same
+        /// failure rather than a defect standing in for it. `None` when no
+        /// cause was published.
+        cause: Option<Arc<dyn Any + Send + Sync>>,
+    },
 }
 
 /// A memoized build: the services, the scope that owns them, and how many
@@ -466,7 +474,7 @@ impl<'a> Ctx<'a> {
 
 /// The interrupt in hand, if the current fiber was asked to stop and is not
 /// inside a masked region. Polled between constructors, never during one.
-fn interrupted<E: Send + 'static>(ctx: Ctx<'_>) -> Option<Cause<E>> {
+fn interrupted<E: Clone + Send + 'static>(ctx: Ctx<'_>) -> Option<Cause<E>> {
     let fiber = ctx.fiber?;
     if fiber.is_interrupted() && !fiber.is_masked() {
         return Some(Cause::interrupt(Some(fiber.id())));
@@ -477,16 +485,22 @@ fn interrupted<E: Send + 'static>(ctx: Ctx<'_>) -> Option<Cause<E>> {
 impl Entry {
     /// Wait until the build finishes and answer its provision, or the cause
     /// that ended it.
-    fn wait_done<E: Send + 'static>(&self, ctx: Ctx<'_>) -> Result<Services, Cause<E>> {
+    fn wait_done<E: Clone + Send + 'static>(&self, ctx: Ctx<'_>) -> Result<Services, Cause<E>> {
         loop {
             let state = self.state.lock().unwrap();
             match &*state {
                 EntryState::Done(services) => return Ok(Arc::clone(services)),
-                EntryState::Failed { interrupted: true } => {
-                    return Err(Cause::interrupt(None));
-                }
-                EntryState::Failed { interrupted: false } => {
-                    return Err(Cause::die(Defect::new("shared layer build failed")));
+                EntryState::Failed { interrupted, cause } => {
+                    if let Some(cause) = published_cause::<E>(cause) {
+                        return Err(cause);
+                    }
+                    // A build that failed without a published cause can only
+                    // report the shape of its end, not what it carried.
+                    return Err(if *interrupted {
+                        Cause::interrupt(None)
+                    } else {
+                        Cause::die(Defect::new("shared layer build failed"))
+                    });
                 }
                 EntryState::Building => {
                     if let Some(cause) = interrupted::<E>(ctx) {
@@ -501,6 +515,17 @@ impl Entry {
             }
         }
     }
+}
+
+/// A waiter's own copy of the cause that ended a shared build. The entry
+/// stores `Mutex<Cause<E>>` erased, so this is the one place that knows the
+/// waiter's `E`; the clone is what lets N waiters each own the same failure.
+fn published_cause<E: Clone + Send + 'static>(
+    published: &Option<Arc<dyn Any + Send + Sync>>,
+) -> Option<Cause<E>> {
+    let slot = Arc::downcast::<Mutex<Cause<E>>>(Arc::clone(published.as_ref()?)).ok()?;
+    let cause = slot.lock().unwrap().clone();
+    Some(cause)
 }
 
 /// The pin's `MemoMap`: pass one layer's memo to a second build and the
@@ -553,7 +578,7 @@ impl LayerMemo {
         scope: &Arc<Scope>,
     ) -> Option<Effect<BuiltServices, E, ()>>
     where
-        E: Send + 'static,
+        E: Clone + Send + 'static,
     {
         let id = layer.node.id;
         let (_, entry) = self.find(id)?;
@@ -708,7 +733,7 @@ where
     /// itself is a [`Cycle`].
     pub fn from_factory<S, F>(make: F) -> Result<Self, Cycle>
     where
-        E: Send + 'static,
+        E: Clone + Send + 'static,
         T: ServiceTag<Service = S>,
         S: Send + Sync + 'static,
         F: Fn() -> Effect<S, E, RIn> + Send + Sync + 'static,
@@ -722,7 +747,7 @@ where
     /// resource (the pin's `Layer.effect` with `Effect.addFinalizer`).
     pub fn from_scoped_factory<S, F>(make: F) -> Result<Self, Cycle>
     where
-        E: Send + 'static,
+        E: Clone + Send + 'static,
         T: ServiceTag<Service = S>,
         S: Send + Sync + 'static,
         F: Fn(&Scope) -> Effect<S, E, RIn> + Send + Sync + 'static,
@@ -753,7 +778,7 @@ where
 
     fn build_factory<S, F>(make: F, memoized: bool) -> Result<Self, Cycle>
     where
-        E: Send + 'static,
+        E: Clone + Send + 'static,
         T: ServiceTag<Service = S>,
         S: Send + Sync + 'static,
         F: Fn() -> Effect<S, E, RIn> + Send + Sync + 'static,
@@ -823,7 +848,7 @@ impl<O, E, I> Layer<O, E, I> {
     /// scope closes.
     pub fn with_span(self, name: impl Into<String>, options: LayerSpanOptions) -> Self
     where
-        E: Send + 'static,
+        E: Clone + Send + 'static,
     {
         let head = vec![span_stage(name.into(), options)];
         self.wrap(head)
@@ -835,7 +860,7 @@ impl<O, E, I> Layer<O, E, I> {
     /// [`ParentSpanTag`] service and the ambient [`CURRENT_SPAN`] reference.
     pub fn with_parent_span(self, span: AnySpan) -> Self
     where
-        E: Send + 'static,
+        E: Clone + Send + 'static,
     {
         let head = vec![parent_span_stage(span)];
         self.wrap(head)
@@ -853,7 +878,7 @@ impl<O, E, I> Layer<O, E, I> {
     }
 }
 
-impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
+impl<T: ServiceTag, E: Clone + Send + 'static> Layer<T, E, ()> {
     /// A layer providing a static value. Never cycles, never fails, and adds
     /// no resource of its own (`Layer.succeed`).
     pub fn from_value(service: T::Service) -> Self {
@@ -894,7 +919,7 @@ impl Layer<TracerTag, std::convert::Infallible, ()> {
     }
 }
 
-impl<O1: RequirementIds, E: Send + 'static, I1: RequirementIds> Layer<O1, E, I1> {
+impl<O1: RequirementIds, E: Clone + Send + 'static, I1: RequirementIds> Layer<O1, E, I1> {
     /// Wire `other` through `self`: `other` must require exactly what `self`
     /// provides. The graph is walked before anything is returned, so a cycle
     /// fails here with [`Cycle`] and no constructor runs. Needs that `self`
@@ -921,7 +946,7 @@ impl<O1: RequirementIds, E: Send + 'static, I1: RequirementIds> Layer<O1, E, I1>
     }
 }
 
-impl<O1: RequirementIds, E: Send + 'static, I1: RequirementIds> Layer<O1, E, I1> {
+impl<O1: RequirementIds, E: Clone + Send + 'static, I1: RequirementIds> Layer<O1, E, I1> {
     /// `Layer.merge`: build both layers on one handle and answer both
     /// provisions.
     ///
@@ -957,7 +982,7 @@ impl<O1: RequirementIds, E: Send + 'static, I1: RequirementIds> Layer<O1, E, I1>
     }
 }
 
-impl<O1: RequirementIds, E: Send + 'static, O3: RequirementIds> Layer<O3, E, O1> {
+impl<O1: RequirementIds, E: Clone + Send + 'static, O3: RequirementIds> Layer<O3, E, O1> {
     /// `Layer.provide(provider)` between two layers: build `provider` first,
     /// then this layer over its services (the pin's `provide`, not
     /// `provideMerge`).
@@ -991,7 +1016,7 @@ impl<O1: RequirementIds, E: Send + 'static, O3: RequirementIds> Layer<O3, E, O1>
     }
 }
 
-impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
+impl<O: RequirementIds, E: Clone + Send + 'static> Layer<O, E, ()> {
     /// `Layer.launch`: build the layer, keep its scope open, and never
     /// complete on its own. An interrupt closes the scope, running every
     /// finalizer the build registered, then ends the effect interrupted
@@ -1097,7 +1122,7 @@ impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
     }
 }
 
-impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
+impl<T: ServiceTag, E: Clone + Send + 'static> Layer<T, E, ()> {
     /// Wire a closed layer into an effect and hide its tag: the effect keeps
     /// its other requirements, `T` is satisfied from a build.
     ///
@@ -1171,7 +1196,7 @@ impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
     }
 }
 
-impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
+impl<O: RequirementIds, E: Clone + Send + 'static> Layer<O, E, ()> {
     /// `Layer.catch`: build an alternative layer when this one fails with a
     /// typed error. Defects and interruptions are not caught, as the pin's
     /// `catch_` does not catch them; use [`catch_cause`](Layer::catch_cause)
@@ -1217,7 +1242,7 @@ impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
     }
 }
 
-impl<O, E: Send + std::fmt::Debug + 'static, I> Layer<O, E, I> {
+impl<O, E: Clone + Send + std::fmt::Debug + 'static, I> Layer<O, E, I> {
     /// `Layer.orDie`: narrow the construction error to `never` by turning a
     /// typed failure into a defect. The child keeps its identity, so wrapping
     /// it with `orDie` does not break sharing with a plain build of the same
@@ -1233,7 +1258,7 @@ impl<O, E: Send + std::fmt::Debug + 'static, I> Layer<O, E, I> {
     }
 }
 
-impl<O, E: Send + 'static, I> Layer<O, E, I> {
+impl<O, E: Clone + Send + 'static, I> Layer<O, E, I> {
     fn with_hook(self, hook: Hook<E>) -> Self {
         Self {
             node: Node::new(
@@ -1288,7 +1313,7 @@ impl<O, E: Send + 'static, I> Layer<O, E, I> {
     }
 }
 
-impl<O: RequirementIds + 'static, E: Send + 'static> Layer<O, E, ()> {
+impl<O: RequirementIds + 'static, E: Clone + Send + 'static> Layer<O, E, ()> {
     /// `Layer.suspend`: evaluate the thunk at build time, once per memoized
     /// identity, then build the layer it answers.
     pub fn suspend<F>(evaluate: F) -> Self
@@ -1309,7 +1334,7 @@ impl<O: RequirementIds + 'static, E: Send + 'static> Layer<O, E, ()> {
 
 /// Build a root: no base provision, and the caller's scope observes the top
 /// entry.
-fn build_root<E: Send + 'static>(
+fn build_root<E: Clone + Send + 'static>(
     node: &Arc<Node<E>>,
     memo: &LayerMemo,
     scope: &Scope,
@@ -1325,7 +1350,7 @@ fn build_root<E: Send + 'static>(
 /// before its constructors run so a second requester can see the build. A
 /// plain node builds into a forked scope, so a failure releases exactly what
 /// it acquired.
-fn build_node<E: Send + 'static>(
+fn build_node<E: Clone + Send + 'static>(
     node: &Arc<Node<E>>,
     memo: &LayerMemo,
     scope: &Scope,
@@ -1366,8 +1391,12 @@ fn build_node<E: Send + 'static>(
         }
         Err(cause) => {
             let was_interrupted = cause.is_interrupted();
+            // Publish before waking: a waiter that wakes on `Failed` must
+            // find the cause already there, or it reports the bare shape.
+            let published: Arc<dyn Any + Send + Sync> = Arc::new(Mutex::new(cause.clone()));
             *entry.state.lock().unwrap() = EntryState::Failed {
                 interrupted: was_interrupted,
+                cause: Some(published),
             };
             entry.ready.notify_all();
             if let Some(map) = entry.owner.upgrade() {
@@ -1379,7 +1408,7 @@ fn build_node<E: Send + 'static>(
     }
 }
 
-fn run_kind<E: Send + 'static>(
+fn run_kind<E: Clone + Send + 'static>(
     node: &Arc<Node<E>>,
     memo: &LayerMemo,
     scope: &Scope,
@@ -1461,7 +1490,7 @@ fn run_kind<E: Send + 'static>(
 /// children: the build never waits out a side that has nothing left to say.
 /// A real failure outranks the parent's interrupt, because a failure is the
 /// stronger fact and the interrupt may only be how the other side ended.
-fn merge_parallel<E: Send + 'static>(
+fn merge_parallel<E: Clone + Send + 'static>(
     parent: &Fiber,
     left: &Arc<Node<E>>,
     right: &Arc<Node<E>>,
@@ -1576,7 +1605,7 @@ fn handle_failure<E>(outcome: Exit<(), E>) -> Cause<E> {
 /// The construction fiber, when there is one, rides in the ambient services
 /// and is polled before every constructor: a build stops at the next boundary
 /// after an interrupt, never mid-constructor.
-fn run_stages<E: Send + 'static>(
+fn run_stages<E: Clone + Send + 'static>(
     stages: &[Stage<E>],
     base: &Services,
     scope: &Scope,

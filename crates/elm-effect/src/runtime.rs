@@ -458,7 +458,7 @@ impl ManagedRuntime {
     ///
     /// The build scope is owned by this runtime, so a layer's finalizers run
     /// when the runtime drops rather than when `make` returns.
-    pub fn make<O: crate::layer::RequirementIds, E: Send + 'static>(
+    pub fn make<O: crate::layer::RequirementIds, E: Clone + Send + 'static>(
         layer: &crate::Layer<O, E, ()>,
     ) -> Result<Self, Cause<E>> {
         // `build` is only available on a fully-satisfied layer (no remaining

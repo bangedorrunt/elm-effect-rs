@@ -298,7 +298,6 @@ vague-reason	packages/effect/test/HttpClient.test.ts	142	JsonPlaceholder service
 vague-reason	packages/effect/test/HttpClient.test.ts	151	JsonPlaceholder service and HTTP schemaBodyJson depend on an HTTP client absent from core elm-effect
 vague-reason	packages/effect/test/HttpClient.test.ts	162	core elm-effect has no HttpClient head method integrated with schemaJson decoding
 vague-reason	packages/effect/test/HttpClient.test.ts	186	core elm-effect has no early response close/resource management for streaming HTTP bodies
-vague-reason	packages/effect/test/Layer.test.ts	44	A shared build's failure reaches a waiter as a defect, not the typed failure: the memo entry is erased over `E` (`EntryMap` is keyed by node id only), and `Cause<E>` cannot be duplicated per waiter without `E: Clone` nor shared through an `Arc` without `E: Sync`, while this `Layer`'s bounds are `E: Send`. The builder still reports the typed cause; only a waiter sees the defect.
 vague-reason	packages/effect/test/LayerRef.test.ts	25	LayerRef remaining behavior rows depend on Layer ref internals not fully exposed by Rust port.
 vague-reason	packages/effect/test/LayerRef.test.ts	49	LayerRef remaining behavior rows depend on Layer ref internals not fully exposed by Rust port.
 vague-reason	packages/effect/test/LayerRef.test.ts	80	LayerRef remaining behavior rows depend on Layer ref internals not fully exposed by Rust port.
