@@ -24,10 +24,10 @@ use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex, mpsc};
 
 use crate::effect::Requirement;
-use crate::fiber::{Fiber, FiberTag};
+use crate::fiber::{Fiber, FiberTag, ForkOpts};
 use crate::scope::Scope;
 use crate::service::{Cons, Provide, ServiceMaps, ServiceTag, Services, empty_services};
 use crate::tracer::{
@@ -925,10 +925,17 @@ impl<O1: RequirementIds, E: Send + 'static, I1: RequirementIds> Layer<O1, E, I1>
     /// `Layer.merge`: build both layers on one handle and answer both
     /// provisions.
     ///
-    /// The pin builds the two in parallel and merges their contexts; this port
-    /// builds `self` then `other`, both under the same memo map, so a handle
-    /// merged with itself builds once. When both sides provide the same tag,
-    /// the later side wins, as `Context.merge` does at the pin.
+    /// Both sides build at once, each on its own construction fiber, and their
+    /// provisions are merged with the later side winning a doubled tag, as
+    /// `Context.merge` does at the pin. A handle merged with itself still
+    /// builds once: one side constructs and the other waits on the same memo
+    /// entry.
+    ///
+    /// A build with no construction fiber (a synchronous `build` with no
+    /// runtime fiber to hang a child on) falls back to building in order, so
+    /// a side that never completes blocks it. Build on a fiber
+    /// ([`build_with_fiber`](Layer::build_with_fiber)) when the sides are
+    /// independent and either may take its time.
     pub fn merge<O2: RequirementIds>(
         self,
         other: Layer<O2, E, I1>,
@@ -1387,11 +1394,16 @@ fn run_kind<E: Send + 'static>(
             let built = build_node(inner, memo, scope, &over, ctx)?;
             Ok(overlay(&installed, &built))
         }
-        Kind::Merge(left, right) => {
-            let first = build_node(left, memo, scope, base, ctx)?;
-            let second = build_node(right, memo, scope, base, ctx)?;
-            Ok(overlay(&first, &second))
-        }
+        Kind::Merge(left, right) => match ctx.fiber {
+            Some(parent) => merge_parallel(parent, left, right, memo, scope, base),
+            // No construction fiber means nowhere to run the second side, so
+            // the sides build in order. `merge` says what that costs.
+            None => {
+                let first = build_node(left, memo, scope, base, ctx)?;
+                let second = build_node(right, memo, scope, base, ctx)?;
+                Ok(overlay(&first, &second))
+            }
+        },
         Kind::Provide { inner, provider } => {
             let provided = build_node(provider, memo, scope, base, ctx)?;
             let over = overlay(base, &provided);
@@ -1437,6 +1449,123 @@ fn run_kind<E: Send + 'static>(
                 Err(cause)
             }
         },
+    }
+}
+
+/// Build both sides of a merge at once, each on its own construction fiber
+/// (`Layer.test.ts:15`). A side that never completes on its own would hang a
+/// sequential build before the other side ever ran, so the latch the pin's
+/// witness opens from the second side could never open.
+///
+/// An interrupt of the parent, or a failure on either side, reaches both
+/// children: the build never waits out a side that has nothing left to say.
+/// A real failure outranks the parent's interrupt, because a failure is the
+/// stronger fact and the interrupt may only be how the other side ended.
+fn merge_parallel<E: Send + 'static>(
+    parent: &Fiber,
+    left: &Arc<Node<E>>,
+    right: &Arc<Node<E>>,
+    memo: &LayerMemo,
+    scope: &Scope,
+    base: &Services,
+) -> Result<Services, Cause<E>> {
+    let (tx, rx) = mpsc::channel::<(u8, Result<Services, Cause<E>>)>();
+    // One child scope owns both sides, forked at the merge's position in the
+    // caller's LIFO order, so a release still happens when the caller's scope
+    // closes rather than when the build returns.
+    let child_scope = scope.fork();
+    let spawn = |node: Arc<Node<E>>, slot: u8| {
+        let tx = tx.clone();
+        let memo = memo.clone();
+        let scope = Arc::clone(&child_scope);
+        let base = Arc::clone(base);
+        parent.fork_child(
+            move |ctx| {
+                let fiber = ctx.fiber();
+                let out = build_node(&node, &memo, &scope, &base, Ctx::of(&fiber));
+                let _ = tx.send((slot, out));
+                Exit::<(), E>::succeed(())
+            },
+            ForkOpts::immediate(),
+        )
+    };
+    let first = spawn(Arc::clone(left), 0);
+    let second = spawn(Arc::clone(right), 1);
+    // A panicking child would otherwise leave the loop waiting on a sender it
+    // will never use.
+    drop(tx);
+
+    let mut first_out = None;
+    let mut second_out = None;
+    let mut stopped = None;
+    while first_out.is_none() || second_out.is_none() {
+        if stopped.is_none() && parent.is_interrupted() && !parent.is_masked() {
+            stopped = Some(Cause::interrupt(Some(parent.id())));
+            first.interrupt();
+            second.interrupt();
+        }
+        match rx.recv_timeout(std::time::Duration::from_millis(10)) {
+            Ok((0, out)) => {
+                first_out = Some(out);
+                if first_out.as_ref().is_some_and(Result::is_err) {
+                    second.interrupt();
+                }
+            }
+            Ok((_, out)) => {
+                second_out = Some(out);
+                if second_out.as_ref().is_some_and(Result::is_err) {
+                    first.interrupt();
+                }
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(mpsc::RecvTimeoutError::Disconnected) => break,
+        }
+    }
+    // A child that never sent ended in a panic; its handle carries the cause.
+    let first_out = first_out.unwrap_or_else(|| Err(handle_failure(first.join())));
+    let second_out = second_out.unwrap_or_else(|| Err(handle_failure(second.join())));
+
+    let (first_ok, first_err) = match first_out {
+        Ok(services) => (Some(services), None),
+        Err(cause) => (None, Some(cause)),
+    };
+    let (second_ok, second_err) = match second_out {
+        Ok(services) => (Some(services), None),
+        Err(cause) => (None, Some(cause)),
+    };
+    // A real failure outranks an interrupt-only outcome: the interrupt may
+    // only be how the other side ended, while the failure is the fact worth
+    // keeping (`Layer.test.ts:44`).
+    let cause = match (first_err, second_err) {
+        (Some(first), Some(second)) => {
+            Some(if first.is_interrupted() && !second.is_interrupted() {
+                second
+            } else {
+                first
+            })
+        }
+        (first, second) => first.or(second),
+    };
+    if let Some(cause) = cause {
+        return match stopped {
+            Some(stopped) if cause.is_interrupted() => Err(stopped),
+            _ => Err(cause),
+        };
+    }
+    match (first_ok, second_ok) {
+        (Some(first), Some(second)) => Ok(overlay(&first, &second)),
+        _ => Err(Cause::die(Defect::new(
+            "a merge side ended without a build result",
+        ))),
+    }
+}
+
+/// A merge side's handle outcome when it sent no build result: a panic is the
+/// only way here, and its cause is what the build should report.
+fn handle_failure<E>(outcome: Exit<(), E>) -> Cause<E> {
+    match outcome {
+        Exit::Failure(cause) => cause,
+        Exit::Success(()) => Cause::die(Defect::new("a merge side ended without a build result")),
     }
 }
 

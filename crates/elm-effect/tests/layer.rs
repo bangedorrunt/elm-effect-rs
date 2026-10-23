@@ -1155,10 +1155,98 @@ fn interrupting_a_merge_build_releases_what_it_acquired() {
         matches!(exit, Exit::Failure(ref cause) if cause.is_interrupted()),
         "an interrupted build must end interrupted, got {exit:?}"
     );
-    assert_eq!(
-        *arr.lock().unwrap(),
-        vec!["acquire1", "release1"],
-        "the attempt releases what it acquired and starts nothing after the interrupt"
+    // Both sides build at once, so the pin asserts per side rather than per
+    // order: whatever was acquired is released, and nothing is left hanging.
+    let arr = arr.lock().unwrap();
+    if arr.contains(&"acquire1") {
+        assert!(
+            arr.contains(&"release1"),
+            "side one was not released: {arr:?}"
+        );
+    }
+    if arr.contains(&"acquire2") {
+        assert!(
+            arr.contains(&"release2"),
+            "side two was not released: {arr:?}"
+        );
+    }
+}
+
+#[test]
+fn merge_builds_both_sides_at_once_and_stops_on_interrupt() {
+    // Layer.test.ts:15. One side never completes on its own. Its lazy sibling
+    // is only ever constructed if both sides build at once, and the interrupt
+    // must end the build even though the first side is still blocked.
+    let first_started = Arc::new(AtomicBool::new(false));
+    let second_started = Arc::new(AtomicBool::new(false));
+    let first_released = Arc::new(AtomicBool::new(false));
+
+    let waiting = Layer::<Db, std::convert::Infallible, ()>::from_scoped_factory({
+        let started = Arc::clone(&first_started);
+        let released = Arc::clone(&first_released);
+        move |scope| {
+            let released = Arc::clone(&released);
+            scope.add_finalizer(move || released.store(true, Ordering::SeqCst));
+            let started = Arc::clone(&started);
+            // The construction fiber rides in the ambient services, so the
+            // constructor can park until the merge interrupts it, exactly as
+            // the pin's `Effect.never` observes the interrupt.
+            Effect::with_fiber(move |fiber| {
+                let fiber = fiber.clone();
+                Effect::<(), std::convert::Infallible>::sync(move || {
+                    started.store(true, Ordering::SeqCst);
+                    while !fiber.is_interrupted() {
+                        std::thread::park_timeout(Duration::from_millis(1));
+                    }
+                })
+                .flat_map(|()| Effect::<DbConn, std::convert::Infallible>::interrupt())
+            })
+        }
+    })
+    .expect("a single constructor cannot cycle");
+    let quick = Layer::<Cache, std::convert::Infallible, ()>::from_factory({
+        let started = Arc::clone(&second_started);
+        move || {
+            let started = Arc::clone(&started);
+            Effect::sync(move || {
+                started.store(true, Ordering::SeqCst);
+                CacheConn(2)
+            })
+        }
+    })
+    .expect("a single constructor cannot cycle");
+    let merged = waiting.merge(quick).expect("independent tags cannot cycle");
+
+    let scope = Arc::new(Scope::new(240));
+    let rt = Runtime::new();
+    let build_scope = Arc::clone(&scope);
+    let handle = rt.fork_detach_with(
+        move |ctx| -> Exit<(), std::convert::Infallible> {
+            match merged.build_with_fiber(&ctx.fiber(), &build_scope) {
+                Ok(_) => Exit::succeed(()),
+                Err(cause) => Exit::Failure(cause),
+            }
+        },
+        ForkOpts::immediate(),
+    );
+    assert!(
+        wait_flag(&first_started, Duration::from_secs(5)),
+        "the blocking side never started"
+    );
+    assert!(
+        wait_flag(&second_started, Duration::from_secs(5)),
+        "the second side must build while the first is still blocked"
+    );
+    handle.interrupt_unsafe();
+
+    let exit = handle.join();
+    assert!(
+        matches!(exit, Exit::Failure(ref cause) if cause.is_interrupted()),
+        "a merge whose side never completes must end interrupted, got {exit:?}"
+    );
+    assert!(
+        first_released.load(Ordering::SeqCst),
+        "the blocked side's scope released on interrupt"
     );
 }
 
