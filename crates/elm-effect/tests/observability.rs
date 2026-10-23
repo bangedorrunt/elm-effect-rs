@@ -2,13 +2,13 @@
 
 // The module is part of the library. It used to be compiled into this test
 // crate by `#[path]` include, which meant nothing outside a test could reach
-// `with_span` at all.
+// `record_span` at all.
 use elm_effect::observability;
 
 use std::sync::{Arc, Mutex};
 
 use observability::{
-    Counter, Gauge, LogLevel, Logger, Redacted, Tracer, is_enabled, tap, with_span,
+    Counter, Gauge, LogLevel, Logger, Redacted, SpanRecorder, is_enabled, record_span, tap,
 };
 
 #[test]
@@ -19,10 +19,10 @@ fn secret_debug_is_redacted() {
     assert_eq!(secret.value(), "hunter2");
 
     // Span fields render through Debug too: redacted stays redacted.
-    let tracer = Tracer::new();
+    let tracer = SpanRecorder::new();
     let password = Redacted::make("s3cret".to_string());
     let effect = elm_effect::Effect::<u32, String>::succeed(1);
-    let spanned = with_span(
+    let spanned = record_span(
         &tracer,
         "login",
         vec![("user".to_string(), format!("{:?}", "bob"))],
@@ -34,7 +34,7 @@ fn secret_debug_is_redacted() {
     let spans = tracer.spans();
     assert!(spans.is_empty());
 
-    let traced = with_span(
+    let traced = record_span(
         &tracer,
         "login",
         vec![("user".to_string(), "bob".to_string())],
@@ -74,8 +74,8 @@ fn redacted_display_equal_hash_value() {
 
 #[test]
 fn span_name_and_attributes() {
-    let tracer = Tracer::new();
-    let exit = elm_effect::Runtime::run(with_span(
+    let tracer = SpanRecorder::new();
+    let exit = elm_effect::Runtime::run(record_span(
         &tracer,
         "checkout",
         vec![
@@ -193,10 +193,10 @@ fn log_level_gates_and_info_effect() {
         elm_effect::Runtime::run(metric_effect),
         elm_effect::Exit::Success(2)
     ));
-    let tracer = observability::Tracer::new();
+    let tracer = observability::SpanRecorder::new();
     let use_tracer =
-        elm_effect::use_service::<observability::TracerTag>().map(|tracer| tracer.spans().len());
-    let trace_effect = use_tracer.provide::<observability::TracerTag, ()>(tracer);
+        elm_effect::use_service::<observability::SpanRecorderTag>().map(|tracer| tracer.spans().len());
+    let trace_effect = use_tracer.provide::<observability::SpanRecorderTag, ()>(tracer);
     assert!(matches!(
         elm_effect::Runtime::run(trace_effect),
         elm_effect::Exit::Success(0)
@@ -689,8 +689,8 @@ fn a_sandboxed_failure_captures_the_span_as_its_stack_frame() {
     use elm_effect::{Defect, Effect, Exit, Runtime};
     use observability::STACK_TRACE;
 
-    let tracer = Tracer::new();
-    let captured = with_span(
+    let tracer = SpanRecorder::new();
+    let captured = record_span(
         &tracer,
         "test span",
         Vec::new(),

@@ -9,11 +9,11 @@
 mod observability;
 
 use elm_effect_unstable::otel::{ExportSpan, OtelExporter, attribute};
-use observability::Tracer;
+use observability::SpanRecorder;
 
 #[test]
 fn exporter_records_span_name_and_attributes() {
-    let tracer = Tracer::new();
+    let tracer = SpanRecorder::new();
     tracer.record(
         "db.query",
         vec![("db.system".to_owned(), "postgres".to_owned())],

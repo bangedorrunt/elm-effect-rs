@@ -4,7 +4,7 @@
 //! Logging is an effect ([`log_info`] and friends build descriptions over
 //! the [`LoggerTag`] service); secrets stay redacted at the type level
 //! ([`Redacted`] hides bytes in `Debug` and in span fields). Spans wrap
-//! effects ([`with_span`]) and record in-process: no socket, no exporter.
+//! effects ([`record_span`]) and record in-process: no socket, no exporter.
 //! Fiber-local references (`CurrentLogLevel` and friends) are explicit
 //! config values here, not implicit context.
 
@@ -137,6 +137,34 @@ impl Clone for Logger {
         Self {
             log: Arc::clone(&self.log),
         }
+    }
+}
+
+impl Logger {
+    /// `withConsoleLog(format)` at the pin: render one line per record and
+    /// hand it to `sink`. The pin's formatter sees the whole log call; this
+    /// port's sink receives the joined message, so the formatter takes
+    /// `(level, message, annotations)`. [`Console::logfmt_logger`] is the
+    /// console-backed constructor built on this.
+    ///
+    /// [`Console::logfmt_logger`]: crate::console::Console::logfmt_logger
+    pub fn with_line_sink<F, S>(sink: S, format: F) -> Self
+    where
+        S: Fn(&str) + Send + Sync + 'static,
+        F: Fn(LogLevel, &str, &[(String, String)]) -> String + Send + Sync + 'static,
+    {
+        Self::new(move |level, message, annotations| {
+            sink(&format(level, message, annotations));
+        })
+    }
+
+    /// A logfmt line per record, through `sink` (the pin's
+    /// `withConsoleLog(formatLogFmt)` shape).
+    pub fn logfmt<S>(sink: S) -> Self
+    where
+        S: Fn(&str) + Send + Sync + 'static,
+    {
+        Self::with_line_sink(sink, format_logfmt)
     }
 }
 
@@ -273,13 +301,14 @@ pub struct SpanRecord {
 }
 
 /// An in-process span recorder. No socket, no exporter: spans accumulate
-/// for tests and debugging.
+/// for tests and debugging. This is the audit sink the port added, not the
+/// pin's `Tracer` backend; that one lives in [`crate::tracer`].
 #[derive(Clone, Debug, Default)]
-pub struct Tracer {
+pub struct SpanRecorder {
     spans: Arc<Mutex<Vec<SpanRecord>>>,
 }
 
-impl Tracer {
+impl SpanRecorder {
     /// An empty recorder.
     pub fn new() -> Self {
         Self::default()
@@ -299,12 +328,12 @@ impl Tracer {
     }
 }
 
-/// The `Tracer` service tag.
-pub struct TracerTag;
+/// The `SpanRecorder` service tag.
+pub struct SpanRecorderTag;
 
-impl ServiceTag for TracerTag {
-    type Service = Tracer;
-    const ID: &'static str = "elm-effect/tracer";
+impl ServiceTag for SpanRecorderTag {
+    type Service = SpanRecorder;
+    const ID: &'static str = "elm-effect/span-recorder";
 }
 
 /// The pin's `Cause.StackTrace` annotation key, verbatim.
@@ -321,8 +350,8 @@ pub const STACK_TRACE: &str = "effect/Cause/StackTrace";
 /// Innermost wins: an inner span annotates first, so an outer one leaves an
 /// existing frame alone (the pin records the frame at the raise site, not at
 /// every span the cause travels through).
-pub fn with_span<A, E, R>(
-    tracer: &Tracer,
+pub fn record_span<A, E, R>(
+    tracer: &SpanRecorder,
     name: &str,
     attributes: Vec<(String, String)>,
     effect: Effect<A, E, R>,

@@ -1,16 +1,15 @@
 //! Wave-14 platform I/O: Stdio, Terminal, Console services with fakes.
-//! Modules load via `#[path]` includes (the .15 precedent): no facade touch.
+//! `Console` is part of the library (Logger's console constructors write
+//! through it); the other two load via `#[path]` includes, the .15 precedent.
 //! Fakes observe writes without a terminal; exit codes pin the run_main
 //! discipline (0/1/2/130).
 
-#[path = "../src/platform/console.rs"]
-mod console;
+use elm_effect::console::{EXIT_DEFECT, EXIT_FAILURE, EXIT_INTERRUPTED, EXIT_SUCCESS, FakeConsole};
 #[path = "../src/platform/stdio.rs"]
 mod stdio;
 #[path = "../src/platform/terminal.rs"]
 mod terminal;
 
-use console::{EXIT_DEFECT, EXIT_FAILURE, EXIT_INTERRUPTED, EXIT_SUCCESS, FakeConsole};
 use stdio::{FakeStdio, Stdio};
 use terminal::{FakeTerminal, QuitError, Terminal};
 
@@ -61,6 +60,30 @@ fn console_fake_splits_levels() {
     console.debug("dbg");
     assert_eq!(fake.stdout_lines(), ["hello".to_owned()]);
     assert_eq!(fake.stderr_lines(), ["boom".to_owned(), "dbg".to_owned()]);
+}
+
+#[test]
+fn logger_console_constructors_write_through_the_console() {
+    // `consoleLogFmt` renders a logfmt line to stdout; `consoleErrorFmt`
+    // renders the same shape to stderr. The split is the assertion: a
+    // constructor that picked the wrong sink would still produce the line.
+    use elm_effect::observability::LogLevel;
+
+    let fake = FakeConsole::new();
+    let stdout_logger = fake.console().logfmt_logger();
+    stdout_logger.log(LogLevel::Info, "hello", &[("user".into(), "bob".into())]);
+
+    let stderr_logger = fake.console().logfmt_error_logger();
+    stderr_logger.log(LogLevel::Warn, "careful", &[]);
+
+    let stdout = fake.stdout_lines();
+    let stderr = fake.stderr_lines();
+    assert_eq!(stdout.len(), 1, "stdout carries exactly the stdout record: {stdout:?}");
+    assert!(stdout[0].contains("level=Info"), "level goes in the line: {}", stdout[0]);
+    assert!(stdout[0].contains("message=hello"), "message goes in the line: {}", stdout[0]);
+    assert!(stdout[0].contains("user=bob"), "annotations follow the message: {}", stdout[0]);
+    assert_eq!(stderr.len(), 1, "stderr carries exactly the stderr record: {stderr:?}");
+    assert!(stderr[0].contains("level=Warn"), "the stderr line keeps its level: {}", stderr[0]);
 }
 
 #[test]

@@ -797,8 +797,12 @@ where
 }
 
 /// The clock in scope, or the wall clock when nothing provided one.
-#[cfg(feature = "tokio")]
-fn ambient_clock(scope: &crate::service::Services) -> std::sync::Arc<dyn crate::ClockImpl> {
+/// The ambient clock a run observes, with the wall clock as the fallback.
+///
+/// Not gated on `tokio`: the tracer reads span timestamps from it, and a
+/// span exists with or without the runtime feature. Only the tag ID is
+/// consulted; `provide` is the one way a test clock arrives here.
+pub(crate) fn ambient_clock(scope: &crate::service::Services) -> std::sync::Arc<dyn crate::ClockImpl> {
     use crate::ServiceTag;
     scope
         .get_tag(<crate::time::Clock as ServiceTag>::ID)

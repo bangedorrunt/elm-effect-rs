@@ -5,6 +5,10 @@
 //! writes without a terminal by capturing into shared buffers. Stdout is
 //! the success value; logs go to stderr.
 //!
+//! The `Logger.console*` constructors live here as [`Console`] methods so
+//! `observability` stays includable on its own: a logger needs a line sink,
+//! and the console is the one host sink this crate ships.
+//!
 //! Exit-code discipline, documented against `run_main` (`0` success, `1`
 //! typed failure, `2` defect, `130` interruption).
 //!
@@ -50,6 +54,17 @@ impl Console {
     /// Debug line (stderr, like logs).
     pub fn debug(&self, line: &str) {
         (self.err)(line);
+    }
+
+    /// `Logger.consoleLogFmt`: a logger writing one logfmt line per record to
+    /// this console's stdout.
+    pub fn logfmt_logger(self) -> crate::observability::Logger {
+        crate::observability::Logger::logfmt(move |line| self.log(line))
+    }
+
+    /// `Logger.withConsoleError(formatLogFmt)`: the stderr twin.
+    pub fn logfmt_error_logger(self) -> crate::observability::Logger {
+        crate::observability::Logger::logfmt(move |line| self.error(line))
     }
 }
 

@@ -35,6 +35,8 @@ pub mod nonempty;
 pub mod regexp;
 pub mod cause;
 pub mod channel;
+// `Logger.console*` writes through this port, so it is part of the surface.
+pub mod console;
 // `ChannelSchema` only exists for a schema-encoded boundary, so the feature that
 // brings the schema crate in is the one that carries it.
 #[cfg(feature = "schema")]
@@ -125,6 +127,8 @@ mod supervisor;
 pub mod sync;
 pub mod take;
 mod time;
+// `Tracer.ts`: the span model the observability port already pointed at.
+pub mod tracer;
 pub mod utils_gen;
 
 pub use bigdecimal::Decimal;

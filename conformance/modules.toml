@@ -964,7 +964,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Tracer.ts"
 class = "port"
-status = "excused"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Tracer.test.ts"]

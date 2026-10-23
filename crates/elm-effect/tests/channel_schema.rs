@@ -203,6 +203,34 @@ fn duplex_hands_the_inner_channel_the_encoded_chunk_and_decodes_its_output() {
 }
 
 #[test]
+fn duplex_refuses_an_empty_chunk_from_the_inner_channel() {
+    // A chunk is the pin's NonEmptyArray: zero elements has no wire form on
+    // either side. An inner channel that answers with an empty chunk must
+    // fail the pull at the decode edge, naming the missing first element,
+    // rather than ending the stream early or handing an empty chunk upstream.
+    let inner: Channel<Unknown, SchemaError, Unknown> =
+        Channel::from_fn(|_take| vec![Take::Items(Vec::new())]);
+
+    let takes = take_until_fail(
+        duplex(
+            inner,
+            Schema::number_from_string(),
+            Schema::number_from_string(),
+        )
+        .run(Pull::of(vec![1.0])),
+    );
+
+    assert!(
+        matches!(
+            takes.last(),
+            Some(Take::Fail(SchemaError::TypeMismatch { path, got, .. }))
+                if path == "$[0]" && *got == "missing"
+        ),
+        "expected the emptiness rule (missing `$[0]`), got: {takes:?}"
+    );
+}
+
+#[test]
 fn duplex_fails_when_the_inner_channel_emits_a_non_conforming_chunk() {
     // Encoded in, then the inner channel answers something the output schema
     // cannot read. That must fail the pull, not pass the wire value upstream.
