@@ -923,6 +923,52 @@ fn an_empty_root_object_omits_absent_optional_properties() {
 }
 
 #[test]
+fn tuple_properties_reject_a_scalar_and_validate_every_element() {
+    // Config.test.ts:2320, :2332, :2344 — a tuple property reads positions
+    // only, so a co-located scalar is a type mismatch; a missing or invalid
+    // element fails the tuple, and indexed children decode in order.
+    let empty = structure(vec![("a", Schema::as_unknown(Schema::tuple_of(vec![])))]);
+    let empty_config = Config::schema(&empty, None);
+    assert!(
+        empty_config.load(&preserving(&[("a", "")])).is_err(),
+        "a preserved empty scalar is not an empty tuple"
+    );
+
+    let one = structure(vec![(
+        "a",
+        Schema::as_unknown(Schema::tuple_of(vec![number()])),
+    )]);
+    let one_config = Config::schema(&one, None);
+    assert!(
+        one_config.load(&provider(&[("a", "1")])).is_err(),
+        "a scalar is not a tuple"
+    );
+
+    let pair = structure(vec![(
+        "a",
+        Schema::as_unknown(Schema::tuple_of(vec![string(), number()])),
+    )]);
+    let pair_config = Config::schema(&pair, None);
+    assert_eq!(
+        pair_config.load(&provider(&[("a.0", "a"), ("a.1", "2")])),
+        Ok(obj(&[(
+            "a",
+            Value::List(vec![Value::Str("a".to_string()), Value::Num(2.0)])
+        )]))
+    );
+    assert!(
+        pair_config.load(&provider(&[("a.0", "a")])).is_err(),
+        "a missing element fails"
+    );
+    assert!(
+        pair_config
+            .load(&provider(&[("a.0", "a"), ("a.1", "value")]))
+            .is_err(),
+        "an invalid element fails"
+    );
+}
+
+#[test]
 fn a_plain_array_schema_ignores_a_co_located_scalar() {
     // Config.test.ts:715 — `Schema.Array` reads structural input only, so a
     // scalar at the array's own path is absence and a default recovers it;
