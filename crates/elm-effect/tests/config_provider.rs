@@ -8,6 +8,10 @@
 #[path = "../src/config_provider.rs"]
 mod config_provider;
 
+// The path-included config modules name `crate::Defect`, so the host has to
+// provide it in the test crate's root namespace.
+pub use elm_effect::Defect;
+
 use config_provider::{Lookup, Provider};
 
 fn s(text: &str) -> String {
