@@ -146,6 +146,19 @@ impl Schema<Unknown> {
             args: Vec::new(),
             annotation,
         };
+        // A check applied to an already-checked schema APPENDS to that schema's
+        // chain instead of wrapping it. Two nested wrappers run the outer chain
+        // first, so an aborting member of the inner group could not stop the
+        // outer check; the pin's `check(a, b)` is one append, and an abort stops
+        // everything declared after it (`SchemaParser.test.ts:918`).
+        let (base, filters) = match (base.check_base.clone(), base.applied_filters.is_empty()) {
+            (Some(innermost), false) => {
+                let mut chain = base.applied_filters.clone();
+                chain.extend(filters);
+                ((*innermost).clone(), chain)
+            }
+            _ => (base, filters),
+        };
         let inner = Arc::new(base);
         let decode_inner = inner.clone();
         let encode_inner = inner.clone();

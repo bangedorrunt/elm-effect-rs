@@ -141,6 +141,57 @@ fn an_aborting_filter_stops_the_chain() {
 }
 
 #[test]
+fn an_abort_inside_a_group_stops_the_outer_chain() {
+    // SchemaParser.test.ts:918 "stops outer checks after an aborting check in a
+    // FilterGroup": `check(group, outer)` is one appended chain in declaration
+    // order, so the group's aborting member stops both the member after it and
+    // the outer check, even with every issue collected.
+    let inner_runs = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let outer_runs = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+
+    let group = vec![
+        answering(
+            || FilterOutcome::from_bool(false),
+            Vec::new(),
+        )
+        .aborting(),
+        answering(
+            {
+                let runs = inner_runs.clone();
+                move || {
+                    runs.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    FilterOutcome::from_bool(false)
+                }
+            },
+            Vec::new(),
+        ),
+    ];
+    let outer = vec![answering(
+        {
+            let runs = outer_runs.clone();
+            move || {
+                runs.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                FilterOutcome::from_bool(false)
+            }
+        },
+        Vec::new(),
+    )];
+    let schema = Schema::filtered(Schema::filtered(string(), group, true), outer, true);
+
+    assert!(schema.decode(text("value")).is_err());
+    assert_eq!(
+        inner_runs.load(std::sync::atomic::Ordering::SeqCst),
+        0,
+        "the member after the aborting one never runs"
+    );
+    assert_eq!(
+        outer_runs.load(std::sync::atomic::Ordering::SeqCst),
+        0,
+        "the outer check never runs after the group aborted"
+    );
+}
+
+#[test]
 fn a_filter_object_points_at_a_path() {
     // :9270 "returns object, abort: false": the pointed issue keeps its path
     // and the chain still reports the filter after it.
