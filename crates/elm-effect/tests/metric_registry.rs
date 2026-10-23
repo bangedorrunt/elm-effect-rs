@@ -11,7 +11,7 @@ fn series(registry: &MetricRegistry) -> Vec<(Option<Vec<(String, String)>>, f64)
         .into_iter()
         .filter_map(|s| match s.state {
             SeriesState::Counter(state) => Some((s.attributes.map(|a| a.pairs()), state.count)),
-            SeriesState::Gauge(_) => None,
+            _ => None,
         })
         .collect();
     rows.sort_by(|a, b| sort_key(&a.0).cmp(&sort_key(&b.0)));
@@ -61,12 +61,12 @@ fn cleared_registry_reregisters_unattributed_metric() {
     registry.update(&counter, 10.0);
     let snapshots = registry.snapshot();
     assert_eq!(snapshots.len(), 1);
-    match snapshots[0].state {
+    match &snapshots[0].state {
         SeriesState::Counter(state) => {
             assert_eq!(state.count, 10.0);
             assert!(!state.incremental);
         }
-        SeriesState::Gauge(_) => panic!("expected a counter series"),
+        _ => panic!("expected a counter series"),
     }
     assert_eq!(registry.value(&counter).count, 10.0);
 }

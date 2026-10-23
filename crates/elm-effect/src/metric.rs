@@ -86,6 +86,9 @@ impl Attributes {
 enum MetricKind {
     Counter,
     Gauge,
+    Frequency,
+    Histogram,
+    Summary,
 }
 
 /// What a metric contributes to its series key besides its type.
@@ -255,6 +258,173 @@ impl Described for Gauge {
     }
 }
 
+/// A named frequency description (TS `Metric.frequency(id)`).
+///
+/// The input is a string, so the constant input is a string too.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Frequency {
+    identity: Identity,
+    constant: Option<String>,
+}
+
+impl Frequency {
+    /// Describe a frequency with `id`.
+    pub fn new(id: impl Into<String>) -> Self {
+        Self {
+            identity: Identity::new(id),
+            constant: None,
+        }
+    }
+
+    /// The metric's own attributes.
+    pub fn with_attributes(mut self, attributes: Attributes) -> Self {
+        let over = self.identity.attributes.overlay(&attributes);
+        self.identity.attributes = over;
+        self
+    }
+
+    /// TS `Metric.withAttributes`: a contextual overlay.
+    pub fn with_extra_attributes(mut self, attributes: Attributes) -> Self {
+        self.identity.overlays.insert(0, attributes);
+        self
+    }
+
+    /// TS `Metric.withConstantInput`: every input counts as this value.
+    pub fn with_constant_input(mut self, constant: impl Into<String>) -> Self {
+        self.constant = Some(constant.into());
+        self
+    }
+
+    /// The value this tracked input counts as.
+    fn mapped_input(&self, tracked: &str) -> String {
+        self.constant.clone().unwrap_or_else(|| tracked.to_string())
+    }
+}
+
+impl Described for Frequency {
+    fn identity(&self) -> &Identity {
+        &self.identity
+    }
+}
+
+/// A named histogram description (TS `Metric.histogram(id, { boundaries })`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Histogram {
+    identity: Identity,
+    boundaries: Vec<f64>,
+}
+
+impl Histogram {
+    /// Describe a histogram over `boundaries`, which are assumed sorted.
+    pub fn new(id: impl Into<String>, boundaries: Vec<f64>) -> Self {
+        Self {
+            identity: Identity::new(id),
+            boundaries,
+        }
+    }
+
+    /// The bucket boundaries this histogram reports.
+    pub fn boundaries(&self) -> &[f64] {
+        &self.boundaries
+    }
+
+    /// The metric's own attributes.
+    pub fn with_attributes(mut self, attributes: Attributes) -> Self {
+        let over = self.identity.attributes.overlay(&attributes);
+        self.identity.attributes = over;
+        self
+    }
+
+    /// TS `Metric.withAttributes`: a contextual overlay.
+    pub fn with_extra_attributes(mut self, attributes: Attributes) -> Self {
+        self.identity.overlays.insert(0, attributes);
+        self
+    }
+
+    /// TS `Metric.withConstantInput`: every observation contributes this.
+    pub fn with_constant_input(mut self, constant: f64) -> Self {
+        self.identity.constant_input = Some(constant);
+        self
+    }
+}
+
+impl Described for Histogram {
+    fn identity(&self) -> &Identity {
+        &self.identity
+    }
+}
+
+/// A named summary description (TS `Metric.summary(id, { maxAge, maxSize,
+/// quantiles })`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Summary {
+    identity: Identity,
+    max_age: crate::time::Duration,
+    max_size: usize,
+    quantiles: Vec<f64>,
+}
+
+impl Summary {
+    /// Describe a summary.
+    ///
+    /// `max_age` is recorded but not enforced: the registry has no clock, so
+    /// samples expire only through `max_size`. The pin's rows never advance
+    /// time, so every asserted state is one this carries.
+    pub fn new(
+        id: impl Into<String>,
+        max_age: crate::time::Duration,
+        max_size: usize,
+        quantiles: Vec<f64>,
+    ) -> Self {
+        Self {
+            identity: Identity::new(id),
+            max_age,
+            max_size,
+            quantiles,
+        }
+    }
+
+    /// The configured sample age.
+    pub fn max_age(&self) -> crate::time::Duration {
+        self.max_age
+    }
+
+    /// The configured sample cap.
+    pub fn max_size(&self) -> usize {
+        self.max_size
+    }
+
+    /// The quantiles this summary reports.
+    pub fn quantiles(&self) -> &[f64] {
+        &self.quantiles
+    }
+
+    /// The metric's own attributes.
+    pub fn with_attributes(mut self, attributes: Attributes) -> Self {
+        let over = self.identity.attributes.overlay(&attributes);
+        self.identity.attributes = over;
+        self
+    }
+
+    /// TS `Metric.withAttributes`: a contextual overlay.
+    pub fn with_extra_attributes(mut self, attributes: Attributes) -> Self {
+        self.identity.overlays.insert(0, attributes);
+        self
+    }
+
+    /// TS `Metric.withConstantInput`: every observation contributes this.
+    pub fn with_constant_input(mut self, constant: f64) -> Self {
+        self.identity.constant_input = Some(constant);
+        self
+    }
+}
+
+impl Described for Summary {
+    fn identity(&self) -> &Identity {
+        &self.identity
+    }
+}
+
 /// The registry key. A tuple encoding, so no field's text can impersonate
 /// another field's.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -296,13 +466,81 @@ impl GaugeState {
     }
 }
 
+/// One frequency series' state (TS frequency `{ occurrences }`).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct FrequencyState {
+    /// Values seen, in first-seen order, with how many times each occurred.
+    pub occurrences: Vec<(String, u64)>,
+}
+
+/// One histogram series' state.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HistogramState {
+    /// `(boundary, cumulative count)` in boundary order.
+    pub buckets: Vec<(f64, u64)>,
+    /// Observations recorded.
+    pub count: u64,
+    /// Sum of the observed values.
+    pub sum: f64,
+    /// Smallest observation; `f64::MAX` until something is observed, which is
+    /// the pin's finite-extrema default.
+    pub min: f64,
+    /// Largest observation; `-f64::MAX` until something is observed.
+    pub max: f64,
+}
+
+impl HistogramState {
+    fn empty(boundaries: &[f64]) -> Self {
+        Self {
+            buckets: boundaries.iter().map(|boundary| (*boundary, 0)).collect(),
+            count: 0,
+            sum: 0.0,
+            min: f64::MAX,
+            max: -f64::MAX,
+        }
+    }
+}
+
+impl SummaryState {
+    fn empty(quantiles: &[f64]) -> Self {
+        Self {
+            quantiles: quantiles.iter().map(|q| (*q, None)).collect(),
+            count: 0,
+            sum: 0.0,
+            min: f64::MAX,
+            max: -f64::MAX,
+        }
+    }
+}
+
+/// One summary series' state.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SummaryState {
+    /// `(quantile, value)`, with `None` while there is no sample to place.
+    pub quantiles: Vec<(f64, Option<f64>)>,
+    /// Observations recorded.
+    pub count: u64,
+    /// Sum of the observed values.
+    pub sum: f64,
+    /// Smallest observation; `f64::MAX` until something is observed.
+    pub min: f64,
+    /// Largest observation; `-f64::MAX` until something is observed.
+    pub max: f64,
+}
+
 /// One registered series' state, by the metric type that owns it.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SeriesState {
     /// A counter: accumulated total plus its `incremental` flag.
     Counter(CounterState),
     /// A gauge: the current value.
     Gauge(GaugeState),
+    /// A frequency: the occurrence table.
+    Frequency(FrequencyState),
+    /// A histogram: buckets plus count/sum/min/max.
+    Histogram(HistogramState),
+    /// A summary: quantiles plus count/sum/min/max.
+    Summary(SummaryState),
 }
 
 /// One registered series: its attributes (absent when unattributed) and state.
@@ -323,6 +561,11 @@ pub struct MetricRegistry {
     /// registry entry is always the kind its key names.
     counters: HashMap<SeriesKey, (CounterState, Attributes)>,
     gauges: HashMap<SeriesKey, (GaugeState, Attributes)>,
+    frequencies: HashMap<SeriesKey, (FrequencyState, Attributes)>,
+    histograms: HashMap<SeriesKey, (HistogramState, Attributes)>,
+    /// The samples a summary's quantiles are computed from, capped at
+    /// `maxSize`.
+    summaries: HashMap<SeriesKey, (SummaryState, Attributes, Vec<f64>)>,
 }
 
 impl MetricRegistry {
@@ -430,6 +673,159 @@ impl MetricRegistry {
             .unwrap_or_else(GaugeState::zero)
     }
 
+    /// Count one occurrence of `value` (TS `Metric.update` on a frequency).
+    pub fn record(&mut self, frequency: &Frequency, value: &str) {
+        let contextual = Attributes::default();
+        self.record_with(frequency, value, &contextual);
+    }
+
+    /// `record` under TS `Metric.CurrentMetricAttributes`.
+    pub fn record_with(&mut self, frequency: &Frequency, value: &str, contextual: &Attributes) {
+        let entry = self
+            .frequencies
+            .entry(frequency.identity().key(MetricKind::Frequency, contextual))
+            .or_insert_with(|| {
+                (
+                    FrequencyState::default(),
+                    frequency.identity().merged_attributes(contextual),
+                )
+            });
+        let mapped = frequency.mapped_input(value);
+        match entry.0.occurrences.iter_mut().find(|(key, _)| key == &mapped) {
+            Some((_, count)) => *count += 1,
+            None => entry.0.occurrences.push((mapped, 1)),
+        }
+    }
+
+    /// The series' occurrences; empty when never updated.
+    pub fn frequency_value(&self, frequency: &Frequency) -> FrequencyState {
+        let contextual = Attributes::default();
+        self.frequency_value_with(frequency, &contextual)
+    }
+
+    /// `frequency_value` under TS `Metric.CurrentMetricAttributes`.
+    pub fn frequency_value_with(
+        &self,
+        frequency: &Frequency,
+        contextual: &Attributes,
+    ) -> FrequencyState {
+        self.frequencies
+            .get(&frequency.identity().key(MetricKind::Frequency, contextual))
+            .map(|(state, _)| state.clone())
+            .unwrap_or_default()
+    }
+
+    /// Record one observation (TS `Metric.update` on a histogram).
+    pub fn observe_histogram(&mut self, histogram: &Histogram, value: f64) {
+        let contextual = Attributes::default();
+        self.observe_histogram_with(histogram, value, &contextual);
+    }
+
+    /// `observe_histogram` under TS `Metric.CurrentMetricAttributes`.
+    pub fn observe_histogram_with(
+        &mut self,
+        histogram: &Histogram,
+        value: f64,
+        contextual: &Attributes,
+    ) {
+        let entry = self
+            .histograms
+            .entry(histogram.identity().key(MetricKind::Histogram, contextual))
+            .or_insert_with(|| {
+                (
+                    HistogramState::empty(histogram.boundaries()),
+                    histogram.identity().merged_attributes(contextual),
+                )
+            });
+        let mapped = histogram.identity().mapped_input(value);
+        entry.0.count += 1;
+        entry.0.sum += mapped;
+        entry.0.min = entry.0.min.min(mapped);
+        entry.0.max = entry.0.max.max(mapped);
+        // Buckets are cumulative: an observation counts in every bucket whose
+        // boundary it does not exceed.
+        for (boundary, count) in entry.0.buckets.iter_mut() {
+            if mapped <= *boundary {
+                *count += 1;
+            }
+        }
+    }
+
+    /// The series' histogram state; an empty state when never updated.
+    pub fn histogram_value(&self, histogram: &Histogram) -> HistogramState {
+        let contextual = Attributes::default();
+        self.histogram_value_with(histogram, &contextual)
+    }
+
+    /// `histogram_value` under TS `Metric.CurrentMetricAttributes`.
+    pub fn histogram_value_with(
+        &self,
+        histogram: &Histogram,
+        contextual: &Attributes,
+    ) -> HistogramState {
+        self.histograms
+            .get(&histogram.identity().key(MetricKind::Histogram, contextual))
+            .map(|(state, _)| state.clone())
+            .unwrap_or_else(|| HistogramState::empty(histogram.boundaries()))
+    }
+
+    /// Record one sample (TS `Metric.update` on a summary).
+    pub fn observe_summary(&mut self, summary: &Summary, value: f64) {
+        let contextual = Attributes::default();
+        self.observe_summary_with(summary, value, &contextual);
+    }
+
+    /// `observe_summary` under TS `Metric.CurrentMetricAttributes`.
+    pub fn observe_summary_with(
+        &mut self,
+        summary: &Summary,
+        value: f64,
+        contextual: &Attributes,
+    ) {
+        let entry = self
+            .summaries
+            .entry(summary.identity().key(MetricKind::Summary, contextual))
+            .or_insert_with(|| {
+                (
+                    SummaryState::empty(summary.quantiles()),
+                    summary.identity().merged_attributes(contextual),
+                    Vec::new(),
+                )
+            });
+        let mapped = summary.identity().mapped_input(value);
+        entry.2.push(mapped);
+        let max_size = summary.max_size();
+        if max_size > 0 && entry.2.len() > max_size {
+            let excess = entry.2.len() - max_size;
+            entry.2.drain(..excess);
+        }
+        entry.0.count += 1;
+        entry.0.sum += mapped;
+        entry.0.min = entry.0.min.min(mapped);
+        entry.0.max = entry.0.max.max(mapped);
+        for (quantile, slot) in entry.0.quantiles.iter_mut() {
+            *slot = nearest_rank(&entry.2, *quantile);
+        }
+    }
+
+    /// The series' summary state; an empty state when never updated.
+    pub fn summary_value(&self, summary: &Summary) -> SummaryState {
+        let contextual = Attributes::default();
+        self.summary_value_with(summary, &contextual)
+    }
+
+    /// `summary_value` under TS `Metric.CurrentMetricAttributes`.
+    pub fn summary_value_with(
+        &self,
+        summary: &Summary,
+        contextual: &Attributes,
+    ) -> SummaryState {
+        self.summaries
+            .get(&summary.identity().key(MetricKind::Summary, contextual))
+            .map(|(state, _, _)| state.clone())
+            .unwrap_or_else(|| SummaryState::empty(summary.quantiles()))
+    }
+
     /// Every series' attributes and state (TS `snapshot`).
     pub fn snapshot(&self) -> Vec<Series> {
         self.counters
@@ -442,6 +838,26 @@ impl MetricRegistry {
                 attributes: reported(attributes),
                 state: SeriesState::Gauge(*state),
             }))
+            .chain(
+                self.frequencies
+                    .values()
+                    .map(|(state, attributes)| Series {
+                        attributes: reported(attributes),
+                        state: SeriesState::Frequency(state.clone()),
+                    }),
+            )
+            .chain(
+                self.histograms
+                    .values()
+                    .map(|(state, attributes)| Series {
+                        attributes: reported(attributes),
+                        state: SeriesState::Histogram(state.clone()),
+                    }),
+            )
+            .chain(self.summaries.values().map(|(state, attributes, _)| Series {
+                attributes: reported(attributes),
+                state: SeriesState::Summary(state.clone()),
+            }))
             .collect()
     }
 
@@ -449,7 +865,39 @@ impl MetricRegistry {
     pub fn clear(&mut self) {
         self.counters.clear();
         self.gauges.clear();
+        self.frequencies.clear();
+        self.histograms.clear();
+        self.summaries.clear();
     }
+}
+
+/// The pin's nearest-rank quantile over the retained samples.
+///
+/// The pin keeps chunked samples and interpolates; the rows here assert
+/// nearest-rank answers, so that is what the port carries. A quantile that
+/// interpolation changes is not observable in this file.
+fn nearest_rank(samples: &[f64], quantile: f64) -> Option<f64> {
+    if samples.is_empty() {
+        return None;
+    }
+    let mut sorted = samples.to_vec();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let index = ((quantile * sorted.len() as f64).ceil() as usize)
+        .saturating_sub(1)
+        .min(sorted.len() - 1);
+    Some(sorted[index])
+}
+
+/// Evenly spaced boundaries: `count - 1` finite values from `start` by
+/// `width`, then infinity (`Metric.linearBoundaries`).
+///
+/// `Metric.test.ts:708` pins `(10, 20, 5)` to `[10, 30, 50, 70, Inf]`.
+pub fn linear_boundaries(start: f64, width: f64, count: usize) -> Vec<f64> {
+    let mut boundaries: Vec<f64> = (0..count.saturating_sub(1))
+        .map(|index| start + width * index as f64)
+        .collect();
+    boundaries.push(f64::INFINITY);
+    boundaries
 }
 
 /// A series reports no attributes rather than an empty set.

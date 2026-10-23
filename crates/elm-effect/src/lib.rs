@@ -177,7 +177,8 @@ pub use foundation::{
 #[cfg(feature = "tokio")]
 pub use layer::{BuiltServices, Cycle, Layer, LayerMemo, LayerSpanOptions, RequirementIds};
 pub use metric::{
-    Attributes, Counter, CounterState, Gauge, GaugeState, MetricRegistry, Series, SeriesState,
+    Attributes, Counter, CounterState, Frequency, FrequencyState, Gauge, GaugeState, Histogram,
+    HistogramState, MetricRegistry, Series, SeriesState, Summary, SummaryState, linear_boundaries,
 };
 #[cfg(feature = "tokio")]
 pub use mock::{Mock, Unimplemented, UnimplementedError};
