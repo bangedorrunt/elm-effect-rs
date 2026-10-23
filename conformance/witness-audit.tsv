@@ -628,37 +628,7 @@ vague-reason	packages/effect/test/TestClock.test.ts	90	Rust TestClock::adjust ta
 vague-reason	packages/effect/test/TestClock.test.ts	99	Rust TestClock lacks monotonic-time-only-forward semantics and set_time comparisons; it only advances an absolute u64 millisecond value
 vague-reason	packages/effect/test/TestClock.test.ts	111	Rust TestClock has no far-future nanosecond timestamp type or nanosecond set_time
 vague-reason	packages/effect/test/TestClock.test.ts	121	Rust TestClock has no intermediate deadline nanosecond observation or forked-clock sleep model
-vague-reason	packages/effect/test/Tracer.test.ts	44	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	50	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	60	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	76	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	87	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	98	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	116	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	133	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	142	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	165	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	183	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	202	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	218	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	230	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	246	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	305	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	328	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	337	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	346	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	376	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	393	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	411	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	423	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	435	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	454	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	472	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	488	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	496	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	514	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	540	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
-vague-reason	packages/effect/test/Tracer.test.ts	556	Tracer remaining behavior rows depend on Effect tracing/observability internals not exposed by the Rust port.
+vague-reason	packages/effect/test/Tracer.test.ts	165	the pin's TestClock advances to each sleeper's deadline while the fiber runs; this port's TestClock::adjust jumps to the new time, so a delayed span would see the jump. Span timing itself is witnessed on rows 411/423/435
 vague-reason	packages/effect/test/Trie.test.ts	11	the row makes a value whose custom [Hash] symbol collides with the empty trie's hash, then asserts Equal rejects the pair anyway. This port has no value-level hash to collide with (Trie carries no Hash impl), so the setup cannot be built; the assertion it protects, equality by entries with the size checked before them, is carried by trie_equality_is_by_entries.
 vague-reason	packages/effect/test/TxHashMap.test.ts	448	the row reads a value through getHash after checking it with hasHash and repeats both for a key that is absent; this port map is a std HashMap keyed by K own Eq and Hash, so neither hash-driven accessor exists to compose
 vague-reason	packages/effect/test/TxHashMap.test.ts	477	the row inserts a key and then reaches it by a hash computed for that key, and asserts the lookup still sees it after the transaction; this port map is a std HashMap keyed by K own Eq and Hash, so the hash is the map own and there is no lookup driven by an externally computed one

@@ -176,14 +176,89 @@ impl ServiceTag for LoggerTag {
     const ID: &'static str = "elm-effect/logger";
 }
 
-/// Log an event as an effect: resolves the [`LoggerTag`] service, then emits.
+/// Log one message at `Info` (`Effect.log` at the pin): it reaches the
+/// [`LoggerTag`] sink and, when a span is current, is appended to that span
+/// as an event with `effect.logLevel` (and `effect.fiberId` inside a fiber).
 /// Logging itself never fails; building the description runs nothing.
+pub fn log(message: impl Into<String>) -> Effect<(), std::convert::Infallible, LoggerTag> {
+    log_at(LogLevel::Info, message)
+}
+
+/// Log at `level` (`Effect.logWithLevel` at the pin).
+pub fn log_at(
+    level: LogLevel,
+    message: impl Into<String>,
+) -> Effect<(), std::convert::Infallible, LoggerTag> {
+    from_step(Box::new(LogEvent {
+        level,
+        message: message.into(),
+    }))
+}
+
+/// Log an event at `Info` (the pin's `Effect.logInfo`).
 pub fn log_info(message: String) -> Effect<(), std::convert::Infallible, LoggerTag> {
-    crate::use_service::<LoggerTag>().flat_map(move |logger| {
-        Effect::sync(move || {
-            logger.log(LogLevel::Info, &message, &[]);
-        })
-    })
+    log(message)
+}
+
+struct LogEvent {
+    level: LogLevel,
+    message: String,
+}
+
+impl crate::effect::ErasedStep<(), std::convert::Infallible> for LogEvent {
+    fn run_erased(
+        self: Box<Self>,
+        scope: &crate::service::Services,
+    ) -> Result<(), Cause<std::convert::Infallible>> {
+        let logger = scope
+            .get_tag(LoggerTag::ID)
+            .and_then(|value| value.downcast::<Logger>().ok());
+        let Some(logger) = logger else {
+            return Err(Cause::die(crate::Defect::new(
+                "logging requires the LoggerTag service",
+            )));
+        };
+        logger.log(self.level, &self.message, &[]);
+
+        let span = scope
+            .get_ref(crate::tracer::CURRENT_SPAN.id)
+            .and_then(|value| value.downcast_ref::<Option<crate::tracer::AnySpan>>().cloned())
+            .flatten();
+        if let Some(span) = span {
+            let mut attributes = Vec::with_capacity(2);
+            let fiber = scope
+                .get_tag(<crate::fiber::FiberTag as ServiceTag>::ID)
+                .and_then(|value| value.downcast_ref::<crate::fiber::Fiber>().map(|fiber| fiber.id()));
+            if let Some(fiber_id) = fiber {
+                attributes.push((
+                    "effect.fiberId".to_owned(),
+                    crate::tracer::AttributeValue::Int(fiber_id.0 as i64),
+                ));
+            }
+            attributes.push((
+                "effect.logLevel".to_owned(),
+                crate::tracer::AttributeValue::Text(level_name(self.level).to_owned()),
+            ));
+            span.event(&self.message, crate::tracer::now_nanos(scope), attributes);
+        }
+        Ok(())
+    }
+}
+
+/// Build a description from a private step; the fields are crate-private, so
+/// the constructor lives here rather than at the call site.
+fn from_step<A, E, R>(step: Box<dyn crate::effect::ErasedStep<A, E> + Send>) -> Effect<A, E, R>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+{
+    use std::marker::PhantomData;
+    Effect {
+        step: crate::effect::Step::Suspend(step),
+        services: crate::service::empty_services(),
+        marker: PhantomData,
+    }
 }
 
 // Metric

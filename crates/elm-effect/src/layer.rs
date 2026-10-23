@@ -15,7 +15,10 @@ use std::sync::{Arc, Mutex};
 use crate::effect::Requirement;
 use crate::scope::Scope;
 use crate::service::{Cons, ServiceTag, Services, empty_services};
-use crate::{Cause, Defect, Effect};
+use crate::tracer::{
+    AnySpan, CURRENT_SPAN, CURRENT_TRACER, ParentSpanTag, Span, SpanOptions, Tracer, TracerTag,
+};
+use crate::{Cause, Defect, Effect, Exit};
 
 /// A dependency cycle: the tags involved, in dependency order. Returned
 /// before any constructor runs.
@@ -138,6 +141,75 @@ trait RunStage<E>: Send {
         services: &Services,
         scope: &Scope,
     ) -> Result<Arc<dyn std::any::Any + Send + Sync>, Cause<E>>;
+}
+
+/// One stage that creates a span, hands it to the rest of the build, and
+/// ends it when the build scope closes.
+struct SpanStage<E> {
+    name: String,
+    options: SpanOptions,
+    on_end: Option<Arc<dyn Fn(Arc<dyn Span>, Exit<(), String>) + Send + Sync>>,
+    marker: PhantomData<fn() -> E>,
+}
+
+impl<E: Send + 'static> RunStage<E> for SpanStage<E> {
+    fn run_with(
+        self: Box<Self>,
+        services: &Services,
+        scope: &Scope,
+    ) -> Result<Arc<dyn std::any::Any + Send + Sync>, Cause<E>> {
+        let (span, timing) = crate::tracer::create_span(services, &self.name, self.options);
+        let ambient = AnySpan::from(Arc::clone(&span));
+        let end_services = Arc::clone(services);
+        let end_span = Arc::clone(&span);
+        let on_end = self.on_end;
+        // The build scope has no exit value here, so a layer span always ends
+        // Successful; a constructor failure still reaches the caller as the
+        // build's cause. The pin's onEnd sees that exit, the port cannot.
+        scope.add_finalizer(move || {
+            if let Some(on_end) = on_end {
+                on_end(Arc::clone(&end_span), Exit::Success(()));
+            }
+            crate::tracer::finish_span(&end_services, &end_span, timing, None);
+        });
+        Ok(Arc::new(ambient))
+    }
+}
+
+fn span_stage<E: Send + 'static>(name: String, options: LayerSpanOptions) -> Stage<E> {
+    let LayerSpanOptions { span, on_end } = options;
+    Stage {
+        out_id: ParentSpanTag::ID,
+        in_ids: Vec::new(),
+        make: Arc::new(move || {
+            Box::new(SpanStage {
+                name: name.clone(),
+                options: span.clone(),
+                on_end: on_end.clone(),
+                marker: PhantomData,
+            }) as Box<dyn RunStage<E> + Send>
+        }),
+    }
+}
+
+/// Options for a layer span: the span's own options plus the finalizer the
+/// pin runs when the layer span ends (`Layer.SpanOptions`).
+#[derive(Clone, Default)]
+pub struct LayerSpanOptions {
+    /// Span creation options.
+    pub span: SpanOptions,
+    /// Runs when the layer span ends, before the span's status moves to
+    /// `Ended`, like the pin's extra finalizer.
+    pub on_end: Option<Arc<dyn Fn(Arc<dyn Span>, Exit<(), String>) + Send + Sync>>,
+}
+
+impl From<SpanOptions> for LayerSpanOptions {
+    fn from(span: SpanOptions) -> Self {
+        Self {
+            span,
+            on_end: None,
+        }
+    }
 }
 
 /// Marker for a recipe producing `S`, failing with `E`, needing `RIn`.
@@ -356,6 +428,17 @@ impl<O, E, I> Layer<O, E, I> {
             marker: PhantomData,
         }
     }
+
+    /// Build this layer under a new span (`Layer.withSpan`): the span stage is
+    /// first, so every constructor of `self` sees it as the ambient parent,
+    /// and it ends when the build scope closes.
+    pub fn with_span(mut self, name: impl Into<String>, options: LayerSpanOptions) -> Self
+    where
+        E: Send + 'static,
+    {
+        self.stages.insert(0, span_stage(name.into(), options));
+        self
+    }
 }
 
 impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
@@ -363,6 +446,37 @@ impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
     pub fn from_value(service: T::Service) -> Self {
         Self::from_factory(move || Effect::succeed(service.clone()))
             .expect("a closed value layer cannot cycle")
+    }
+}
+
+impl Layer<ParentSpanTag, std::convert::Infallible, ()> {
+    /// Provide an existing span as the parent for layers built beside this
+    /// one (`Layer.parentSpan`). The span is not created, ended, or owned
+    /// here; building this layer only makes it ambient.
+    pub fn parent_span(span: AnySpan) -> Self {
+        Self::from_value(span)
+    }
+
+    /// Create a span while this layer builds, make it the ambient parent for
+    /// the rest of the build, and end it when the build scope closes
+    /// (`Layer.span`). `on_end` runs at that close, before the span ends.
+    pub fn span(name: impl Into<String>, options: LayerSpanOptions) -> Self {
+        Self {
+            stages: vec![span_stage(name.into(), options)],
+            out_ids: vec![ParentSpanTag::ID],
+            in_ids: Vec::new(),
+            memo: LayerMemo::new(),
+            marker: PhantomData,
+        }
+    }
+}
+
+impl Layer<TracerTag, std::convert::Infallible, ()> {
+    /// Provide a tracer as the ambient backend for layers built beside this
+    /// one and for effects run through them. The pin's `Layer.effect` over
+    /// `Tracer.Tracer`.
+    pub fn tracer(tracer: Arc<dyn Tracer>) -> Self {
+        Self::from_value(tracer)
     }
 }
 
@@ -407,8 +521,40 @@ impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
         R2: Provide<T, Rest>,
         Rest: Requirement,
     {
+        let services = self.merged_into(&effect.services, scope)?;
+        Ok(Effect {
+            step: effect.step,
+            services,
+            marker: PhantomData,
+        })
+    }
+
+    /// Merge everything a build produced into `effect` without changing its
+    /// requirement type. The span and tracer layers install references rather
+    /// than satisfying a required tag, so they use this instead of
+    /// [`provide`](Layer::provide).
+    pub fn install<A, E2, R2>(
+        &self,
+        effect: Effect<A, E2, R2>,
+        scope: &Scope,
+    ) -> Result<Effect<A, E2, R2>, Cause<E>>
+    where
+        A: Send + 'static,
+        E2: Send + 'static,
+        R2: Requirement,
+    {
+        let services = self.merged_into(&effect.services, scope)?;
+        Ok(Effect {
+            step: effect.step,
+            services,
+            marker: PhantomData,
+        })
+    }
+
+    /// Build once, then merge the tags and references into `own`.
+    fn merged_into(&self, own: &Services, scope: &Scope) -> Result<Services, Cause<E>> {
         let built = self.build(scope)?;
-        let mut maps = (*effect.services).clone();
+        let mut maps = (**own).clone();
         for (id, value, conflicted) in built.values.tag_list() {
             if maps.insert_tag(id, value) {
                 return Err(Cause::die(Defect::new(format!(
@@ -422,11 +568,12 @@ impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
                 maps.poison(id);
             }
         }
-        Ok(Effect {
-            step: effect.step,
-            services: Arc::new(maps),
-            marker: PhantomData,
-        })
+        // References override, so merging them is always defined: the newly
+        // built layer is the inner provider.
+        for (id, value) in built.values.ref_list() {
+            maps.insert_ref(id, value);
+        }
+        Ok(Arc::new(maps))
     }
 }
 
@@ -446,12 +593,28 @@ impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
             match runner.run_with(&acc, scope) {
                 Ok(value) => {
                     let mut maps = (*acc).clone();
-                    if maps.insert_tag(stage.out_id, value) {
+                    if maps.insert_tag(stage.out_id, value.clone()) {
                         scope.close();
                         return Err(Cause::die(Defect::new(format!(
                             "double-provision of `{}` with distinct values: provide each tag once",
                             stage.out_id
                         ))));
+                    }
+                    // Tracing layers name a service and an ambient reference;
+                    // building one installs both, so later stages see the span
+                    // or tracer without reading the tag.
+                    // The references hold `Option<T>`, because an absent
+                    // value and an unset reference differ: `None` shadows an
+                    // outer span, no reference does not.
+                    if stage.out_id == ParentSpanTag::ID
+                        && let Some(span) = value.downcast_ref::<AnySpan>()
+                    {
+                        maps.insert_ref(CURRENT_SPAN.id, Arc::new(Some(span.clone())));
+                    }
+                    if stage.out_id == TracerTag::ID
+                        && let Some(tracer) = value.downcast_ref::<Arc<dyn Tracer>>()
+                    {
+                        maps.insert_ref(CURRENT_TRACER.id, Arc::new(Some(Arc::clone(tracer))));
                     }
                     acc = Arc::new(maps);
                 }

@@ -206,6 +206,12 @@ impl ServiceMaps {
         self.refs.get(id).map(Arc::clone)
     }
 
+    /// Every reference override, for layer merges: a built span or tracer is
+    /// ambient for whoever the layer is installed into.
+    pub(crate) fn ref_list(&self) -> Vec<(&'static str, Arc<dyn Any + Send + Sync>)> {
+        self.refs.iter().map(|(id, value)| (*id, Arc::clone(value))).collect()
+    }
+
     /// Total provisioned entries, for debug summaries.
     pub(crate) fn len(&self) -> usize {
         self.tags.len() + self.refs.len()

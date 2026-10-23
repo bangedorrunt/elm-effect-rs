@@ -1,19 +1,23 @@
-//! `Tracer.test.ts` at `effect@4.0.0`: the span model and the `withSpan`
-//! family. Each test names the pin row it carries; the rows that stay
-//! `not-applicable` (OTLP, `Layer.span`/`parentSpan`, the `Tracer.context`
-//! hook, and the interrupt sweep) are listed in `conformance/behavior-tests.tsv`
-//! with their reasons.
+//! `Tracer.test.ts` at `effect@4.0.0`: the span model, the `withSpan` family,
+//! the logging bridge, and the layer tracing combinators. Each test names the
+//! pin row it carries; OTLP identifiers and nesting live in
+//! `tests/otlp_tracer.rs`, and the rows that stay `not-applicable` (the
+//! `Tracer.context` hook, the interrupt sweep, JS stack sites) are listed in
+//! `conformance/behavior-tests.tsv` with their reasons.
 
 use std::sync::{Arc, Mutex};
 
-use elm_effect::observability::LogLevel;
+use elm_effect::observability::{self, LogLevel, Logger, LoggerTag};
 use elm_effect::tracer::{
     AnySpan, AttributeValue, CURRENT_SPAN, NativeSpan, NoopSpan, Span, SpanKind, SpanLink,
     SpanOptions, SpanStatus, Tracer, annotate_current_span, annotate_span, annotate_spans,
     current_span, external_span, link_span, make_span, use_span, with_minimum_trace_level,
     with_parent_span, with_span, with_trace_clock, with_tracer_enabled, with_tracer_timing,
 };
-use elm_effect::{Effect, Exit, Runtime};
+use elm_effect::{
+    ClockImpl, Duration, Effect, Exit, Layer, LayerSpanOptions, Runtime, Scope, ServiceTag,
+    TestClock,
+};
 
 /// A lowercase hex string of exactly `len` characters.
 fn is_hex_id(text: &str, len: usize) -> bool {
@@ -520,4 +524,180 @@ fn noop_span_keeps_its_name_and_sampling() {
 #[test]
 fn current_span_reference_uses_the_pin_key() {
     assert_eq!(CURRENT_SPAN.id, "effect/Tracer/ParentSpan");
+}
+
+#[test]
+fn log_appends_a_span_event() {
+    // Tracer.test.ts:183 — `Effect.log("event")` reaches the logger and, when
+    // a span is current, lands on it as an event carrying the level.
+    // The port's clock reports milliseconds, so the pin's 0.01 ms becomes
+    // 10 ms (10_000_000 ns) to keep a non-zero timestamp.
+    let clock = Arc::new(TestClock::new());
+    clock.adjust(Duration::millis(10.0));
+    let handle: Arc<dyn ClockImpl> = clock.clone();
+    let logger = Logger::new(|_, _, _| {});
+
+    let exit = Runtime::run(
+        with_trace_clock(
+            handle,
+            with_span(
+                "A",
+                SpanOptions::default(),
+                observability::log("event")
+                    .provide::<LoggerTag, ()>(logger)
+                    .flat_map(|()| current_span()),
+            ),
+        ),
+    );
+    let span = unwrap_success(exit).expect("span A");
+
+    assert_eq!(span.name(), "A");
+    assert!(span.parent().is_none());
+    let events = span.events();
+    assert_eq!(events.len(), 1, "one log call, one event");
+    assert_eq!(events[0].name, "event");
+    assert_eq!(events[0].start_time, 10_000_000, "the trace clock timestamp");
+    assert_eq!(
+        events[0].attributes,
+        vec![(
+            "effect.logLevel".to_owned(),
+            AttributeValue::Text("INFO".to_owned())
+        )],
+        "outside a fiber there is no fiber id to record"
+    );
+}
+
+#[test]
+fn log_records_the_running_fiber_id_on_the_span_event() {
+    // Tracer.test.ts:183 — inside a fiber the event also carries
+    // `effect.fiberId`, the fiber that ran the log call.
+    let runtime = Runtime::new();
+    let logger = Logger::new(|_, _, _| {});
+    let handle = runtime.spawn_effect(
+        with_span(
+            "A",
+            SpanOptions::default(),
+            observability::log("event")
+                .provide::<LoggerTag, ()>(logger)
+                .flat_map(|()| current_span()),
+        ),
+    );
+    let fiber_id = handle.id();
+    let span = unwrap_success(handle.join()).expect("span A");
+
+    let events = span.events();
+    assert_eq!(events.len(), 1);
+    assert_eq!(
+        events[0].attributes,
+        vec![
+            (
+                "effect.fiberId".to_owned(),
+                AttributeValue::Int(fiber_id.0 as i64)
+            ),
+            (
+                "effect.logLevel".to_owned(),
+                AttributeValue::Text("INFO".to_owned())
+            ),
+        ]
+    );
+}
+
+#[test]
+fn layer_parent_span_sets_the_parent_for_a_span_created_inside() {
+    // Tracer.test.ts:472 — `Layer.parentSpan` makes an existing span ambient
+    // for the layer it is installed into.
+    let scope = Arc::new(Scope::new(1));
+    let parent: Arc<dyn Span> = Arc::new(NativeSpan::new("parent", SpanOptions::default()));
+    let layer = Layer::parent_span(AnySpan::from(Arc::clone(&parent)));
+    let effect = make_span("child", SpanOptions::default()).map(|child| child.parent());
+
+    let provided = layer.install(effect, &scope).expect("install");
+    let seen = unwrap_success(Runtime::run(provided)).expect("parent");
+
+    assert_eq!(seen.name(), "parent");
+    assert_eq!(seen.span_id(), parent.span_id());
+}
+
+#[test]
+fn layer_span_creates_the_parent_and_ends_it_when_the_scope_closes() {
+    // Tracer.test.ts:488 — `Layer.span` creates a span for the layer's
+    // constructors; the span is the parent of theirs, and `onEnd` runs when
+    // the build scope closes.
+    // The onEnd calls, in order: span name and the exit it saw.
+    type Ended = Arc<Mutex<Vec<(String, Exit<(), String>)>>>;
+
+    let scope = Arc::new(Scope::new(2));
+    let ended: Ended = Arc::new(Mutex::new(Vec::new()));
+    let on_end = {
+        let ended = Arc::clone(&ended);
+        Arc::new(move |span: Arc<dyn Span>, exit: Exit<(), String>| {
+            ended.lock().expect("onEnd").push((span.name().to_owned(), exit));
+        })
+    };
+    let layer = Layer::span(
+        "parent",
+        LayerSpanOptions {
+            span: SpanOptions::default(),
+            on_end: Some(on_end),
+        },
+    );
+    let effect = make_span("child", SpanOptions::default()).map(|child| child.parent());
+
+    let provided = layer.install(effect, &scope).expect("install");
+    let parent = unwrap_success(Runtime::run(provided)).expect("parent");
+    assert_eq!(parent.name(), "parent");
+    assert!(matches!(parent.status(), SpanStatus::Started { .. }));
+    assert!(ended.lock().expect("onEnd").is_empty(), "not ended yet");
+
+    scope.close();
+    assert!(
+        matches!(parent.status(), SpanStatus::Ended { .. }),
+        "the layer scope close ends the span"
+    );
+    assert_eq!(
+        *ended.lock().expect("onEnd"),
+        vec![("parent".to_owned(), Exit::Success(()))]
+    );
+}
+
+#[test]
+fn layer_with_span_wraps_construction_and_ends_the_span() {
+    // Tracer.test.ts:514 — constructors of the wrapped layer run inside the
+    // span, and the span ends when the build scope does.
+    struct Probe;
+
+    impl ServiceTag for Probe {
+        type Service = String;
+        const ID: &'static str = "test/tracer/probe";
+    }
+
+    let scope = Arc::new(Scope::new(3));
+    let ended = Arc::new(Mutex::new(false));
+    let on_end = {
+        let ended = Arc::clone(&ended);
+        Arc::new(move |_span: Arc<dyn Span>, _exit: Exit<(), String>| {
+            *ended.lock().expect("onEnd") = true;
+        })
+    };
+    let inner: Layer<Probe, std::convert::Infallible, ()> = Layer::from_factory(|| {
+        current_span().map(|span| span.map(|span| span.name().to_owned()).unwrap_or_default())
+    })
+    .expect("no cycle");
+    let layer = inner.with_span(
+        "outer",
+        LayerSpanOptions {
+            span: SpanOptions::default(),
+            on_end: Some(on_end),
+        },
+    );
+
+    let built = layer.build(&scope).expect("build");
+    assert_eq!(
+        built.get::<Probe>().as_deref(),
+        Some("outer"),
+        "the constructor ran under the layer span"
+    );
+    assert!(!*ended.lock().expect("onEnd"));
+    scope.close();
+    assert!(*ended.lock().expect("onEnd"));
 }

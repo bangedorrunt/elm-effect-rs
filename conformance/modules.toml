@@ -2414,7 +2414,7 @@ path = "packages/effect/src/observability/OtlpTracer.ts"
 class = "unstable-port"
 status = "unmatched"
 tag = "unstable"
-reason = ""
+reason = "port: crates/elm-effect/src/otlp_tracer.rs; fence: tests/otlp_tracer.rs (otlp_span_identifiers_are_hex_and_children_share_the_trace, otlp_tracer_preserves_nested_span_context, failed_spans_export_error_status_with_an_exception_event); the pin links no test file to this module"
 tests = []
 
 [[module]]

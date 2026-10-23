@@ -74,6 +74,9 @@ mod layer;
 mod metric;
 mod optic;
 pub mod observability;
+// `observability/OtlpTracer.ts`: the tracer's `layer` builds on `Layer`.
+#[cfg(feature = "tokio")]
+pub mod otlp_tracer;
 mod partitioned_semaphore;
 pub mod path;
 pub mod platform_error;
@@ -169,7 +172,7 @@ pub use foundation::{
     string_equivalence, string_order, tagged, tuple_equivalence, tupled, untupled,
 };
 #[cfg(feature = "tokio")]
-pub use layer::{BuiltServices, Cycle, Layer, LayerMemo, RequirementIds};
+pub use layer::{BuiltServices, Cycle, Layer, LayerMemo, LayerSpanOptions, RequirementIds};
 pub use metric::{
     Attributes, Counter, CounterState, Gauge, GaugeState, MetricRegistry, Series, SeriesState,
 };

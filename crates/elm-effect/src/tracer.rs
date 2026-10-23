@@ -289,6 +289,18 @@ impl AnySpan {
         }
     }
 
+    /// Record an event on a managed span (a noop or external span drops it).
+    pub fn event(
+        &self,
+        name: &str,
+        start_time: i64,
+        attributes: Vec<(String, AttributeValue)>,
+    ) {
+        if let AnySpan::Span(span) = self {
+            span.event(name, start_time, attributes);
+        }
+    }
+
     /// The kind of a managed span.
     pub fn kind(&self) -> SpanKind {
         match self {
@@ -636,6 +648,26 @@ pub trait Tracer: Send + Sync {
     fn span(&self, name: &str, options: SpanOptions) -> Arc<dyn Span>;
 }
 
+/// The `Tracer.ParentSpan` service a layer provides (`Layer.parentSpan`,
+/// `Layer.span`). Building it also installs [`CURRENT_SPAN`], so the
+/// reference and the tag always name the same span.
+pub struct ParentSpanTag;
+
+impl crate::ServiceTag for ParentSpanTag {
+    type Service = AnySpan;
+    const ID: &'static str = "effect/Tracer/ParentSpan";
+}
+
+/// The `Tracer.Tracer` service a backend layer provides. Building it also
+/// installs [`CURRENT_TRACER`], the same tag-to-reference mirror as
+/// [`ParentSpanTag`].
+pub struct TracerTag;
+
+impl crate::ServiceTag for TracerTag {
+    type Service = Arc<dyn Tracer>;
+    const ID: &'static str = "effect/Tracer";
+}
+
 /// The default tracer: in-memory [`NativeSpan`]s, exported nowhere.
 pub fn native_tracer() -> Arc<dyn Tracer> {
     Arc::new(NativeTracer)
@@ -941,14 +973,18 @@ fn propagated_parent(mut span: Option<AnySpan>) -> Option<AnySpan> {
 
 /// Nanoseconds since the epoch, from the trace clock reference, else the
 /// ambient clock tag, else the wall clock.
-fn now_nanos(scope: &Services) -> i64 {
+pub(crate) fn now_nanos(scope: &Services) -> i64 {
     let clock = ambient(scope, &TRACE_CLOCK).unwrap_or_else(|| crate::effect::ambient_clock(scope));
     (clock.now_millis() as i64).saturating_mul(1_000_000)
 }
 
 /// Create a span under the ambient tracer and parent, returning it with
 /// whether it carries timestamps.
-fn create_span(scope: &Services, name: &str, mut options: SpanOptions) -> (Arc<dyn Span>, bool) {
+pub(crate) fn create_span(
+    scope: &Services,
+    name: &str,
+    mut options: SpanOptions,
+) -> (Arc<dyn Span>, bool) {
     let tracer = ambient(scope, &CURRENT_TRACER).unwrap_or_else(native_tracer);
     let enabled = ambient(scope, &TRACER_ENABLED);
     let timing = ambient(scope, &TRACER_TIMING);
@@ -980,7 +1016,12 @@ fn create_span(scope: &Services, name: &str, mut options: SpanOptions) -> (Arc<d
 }
 
 /// End a span with the body's outcome (`None` is success).
-fn finish_span(scope: &Services, span: &Arc<dyn Span>, timing: bool, failure: Option<String>) {
+pub(crate) fn finish_span(
+    scope: &Services,
+    span: &Arc<dyn Span>,
+    timing: bool,
+    failure: Option<String>,
+) {
     let end_time = if timing { now_nanos(scope) } else { 0 };
     let exit = match failure {
         None => Exit::Success(()),
@@ -1125,7 +1166,7 @@ static ID_SEED: AtomicU64 = AtomicU64::new(0);
 /// A lowercase hex id of `chars` characters. The pin uses a cryptographic
 /// source; spans only need uniqueness, so a xorshift seeded from the wall
 /// clock and a process counter is enough here.
-fn random_hex(chars: usize) -> String {
+pub(crate) fn random_hex(chars: usize) -> String {
     let counter = ID_SEED.fetch_add(1, Ordering::Relaxed);
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
