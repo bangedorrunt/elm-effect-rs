@@ -16,6 +16,7 @@
 //! Residuals (fast-check internals, out of timebox): model-based command
 //! shrinking, UTF-16 pattern generation, and replay orchestration.
 
+use elm_effect_schema::pattern::{self, Pattern, utf16_len};
 use elm_effect_schema::{Schema, SchemaKind, Unknown};
 
 /// Seeded xorshift64 stream. Same seed gives the same sequence.
@@ -49,8 +50,8 @@ impl Rng {
     }
 }
 
-/// Sampler: stream in, value out.
-type SampleFn<T> = std::sync::Arc<dyn Fn(&mut Rng) -> T + Send + Sync>;
+/// Sampler: stream in, value out, `None` when the draw was discarded.
+type SampleFn<T> = std::sync::Arc<dyn Fn(&mut Rng) -> Option<T> + Send + Sync>;
 /// Shrinker: failing value in, smaller candidates out.
 type ShrinkFn<T> = std::sync::Arc<dyn Fn(&T) -> Vec<T> + Send + Sync>;
 
@@ -76,14 +77,35 @@ impl<T> Gen<T> {
         run: impl Fn(&mut Rng) -> T + Send + Sync + 'static,
         shrink: impl Fn(&T) -> Vec<T> + Send + Sync + 'static,
     ) -> Self {
+        Self::fallible(move |rng| Some(run(rng)), shrink)
+    }
+
+    /// Build from a sampler that may discard a draw.
+    fn fallible(
+        run: impl Fn(&mut Rng) -> Option<T> + Send + Sync + 'static,
+        shrink: impl Fn(&T) -> Vec<T> + Send + Sync + 'static,
+    ) -> Self {
         Self {
             run: std::sync::Arc::new(run),
             shrink: std::sync::Arc::new(shrink),
         }
     }
 
-    /// Sample one value.
+    /// Sample one value. A draw that is discarded is retried, because a caller
+    /// that asked for a value has nothing else to do with a discard.
     pub fn sample(&self, rng: &mut Rng) -> T {
+        for _ in 0..64 {
+            if let Some(value) = (self.run)(rng) {
+                return value;
+            }
+        }
+        panic!("the generator produced no value the schema accepts")
+    }
+
+    /// One attempt: `None` when this draw was discarded (a constraint the
+    /// generator cannot construct its way into). A sampler that reports
+    /// discards, rather than retrying, uses this.
+    pub fn try_sample(&self, rng: &mut Rng) -> Option<T> {
         (self.run)(rng)
     }
 
@@ -337,19 +359,24 @@ where
 {
     let wire = derive(&schema.kind(), "$")?;
     let sink = schema.clone();
-    Ok(Gen::new(
-        move |rng| {
-            // Every shape below is constructed to decode, so a refusal here is
-            // a derivation bug; retrying keeps a rare miss from surfacing as a
-            // value the schema would reject, and the promise names the bug.
-            for _ in 0..64 {
-                if let Ok(value) = sink.decode(wire.sample(rng)) {
-                    return value;
-                }
-            }
-            panic!("the derived arbitrary produced no value the schema decodes")
+    let encoder = schema.clone();
+    let shrinker = wire.clone();
+    // Each draw is one attempt: a value the schema refuses is that attempt's
+    // discard, which is how a residual check (a pattern outside the subset)
+    // behaves in the pin. `Gen::sample` retries; a discard-reporting sampler
+    // calls `try_sample`.
+    Ok(Gen::fallible(
+        move |rng| sink.decode(wire.try_sample(rng)?).ok(),
+        move |decoded| {
+            let Ok(wire_value) = encoder.try_encode(decoded) else {
+                return Vec::new();
+            };
+            shrinker
+                .shrink(&wire_value)
+                .into_iter()
+                .filter_map(|candidate| encoder.decode(candidate).ok())
+                .collect()
         },
-        |_| Vec::new(),
     ))
 }
 
@@ -587,10 +614,10 @@ fn number_bounds(
         minimum = minimum.map(|value| value.max(-MAX_SAFE));
         maximum = maximum.map(|value| value.min(MAX_SAFE));
     }
-    if let (Some(low), Some(high)) = (minimum, maximum) {
-        if low > high {
-            return Err(refuse());
-        }
+    if let (Some(low), Some(high)) = (minimum, maximum)
+        && low > high
+    {
+        return Err(refuse());
     }
     Ok((minimum, maximum))
 }
@@ -669,45 +696,302 @@ fn bounded_number(lo: f64, hi: f64) -> Gen<f64> {
     )
 }
 
-/// `Schema.String` with its length checks pushed into the length range.
+/// How often a broad character class prefers a common code point, matching the
+/// `pattern` module's factor.
+const BIAS_FACTOR: u32 = 2;
+
+/// The size signal a derivation works from. The pin reads it off the run; the
+/// port has no run counter, so every derivation uses one fixed size. It is the
+/// largest the carried rows ask for, because a smaller one would cap a pattern
+/// that a row drives at that size.
+const DERIVATION_SIZE: usize = 32;
+
+/// `Schema.String`: its length bounds, its code-point bounds, and the patterns
+/// its checks demand, all pushed into one constructor.
+///
+/// A pattern is constructed rather than filtered into, which is what makes a
+/// length- or alternation-bound pattern reachable at all: rejection sampling
+/// never finds `^(?:aaa|\u{1f600}{2})$` by accident. A pattern outside the
+/// supported subset is dropped here and enforced by the schema as a residual
+/// filter, which is the pin's own split.
 fn text(checks: &[CheckRef<'_>], path: &str) -> Result<Gen<Unknown>, DeriveError> {
+    let refuses = || DeriveError::new("string constraints", path);
     let mut minimum = 0usize;
-    let mut maximum = 8usize;
-    let mut bounded = false;
+    let mut maximum: Option<usize> = None;
+    let mut minimum_code_points: Option<usize> = None;
+    let mut maximum_code_points: Option<usize> = None;
+    let mut patterns: Vec<Pattern> = Vec::new();
     for check in checks {
-        match check.name {
-            "isMinLength" | "isMaxLength" | "isLength" => {
-                let Some(value) = number_arg(check.args, 0) else {
-                    return Err(DeriveError::new("string constraints", path));
-                };
-                let value = value.max(0.0) as usize;
-                match check.name {
-                    "isMinLength" => minimum = minimum.max(value),
-                    "isMaxLength" => maximum = maximum.min(value),
-                    _ => {
-                        minimum = value;
-                        maximum = value;
-                    }
-                }
-                bounded = true;
+        let bound = |index: usize| -> Result<usize, DeriveError> {
+            let value = number_arg(check.args, index).ok_or_else(refuses)?;
+            // The pin refuses a bound that is not a non-negative safe integer.
+            if !value.is_finite() || value < 0.0 || value.fract() != 0.0 || value > MAX_SAFE {
+                return Err(refuses());
             }
-            _ => return Err(DeriveError::new("string constraints", path)),
+            Ok(value as usize)
+        };
+        match check.name {
+            "isMinLength" => minimum = minimum.max(bound(0)?),
+            "isMaxLength" => {
+                let value = bound(0)?;
+                maximum = Some(maximum.map_or(value, |current| current.min(value)));
+            }
+            "isLength" => {
+                let value = bound(0)?;
+                minimum = minimum.max(value);
+                maximum = Some(maximum.map_or(value, |current| current.min(value)));
+            }
+            "isBetweenLength" => {
+                let low = bound(0)?;
+                let high = bound(1)?;
+                minimum = minimum.max(low);
+                maximum = Some(maximum.map_or(high, |current| current.min(high)));
+            }
+            "isMinCodePoints" => {
+                let value = bound(0)?;
+                minimum_code_points = Some(minimum_code_points.map_or(value, |c| c.max(value)));
+            }
+            "isMaxCodePoints" => {
+                let value = bound(0)?;
+                maximum_code_points = Some(maximum_code_points.map_or(value, |c| c.min(value)));
+            }
+            "isBetweenCodePoints" => {
+                let low = bound(0)?;
+                let high = bound(1)?;
+                minimum_code_points = Some(minimum_code_points.map_or(low, |c| c.max(low)));
+                maximum_code_points = Some(maximum_code_points.map_or(high, |c| c.min(high)));
+            }
+            "isPattern" => {
+                let source = check.args.first().and_then(|arg| pattern::parse_regexp_argument(arg));
+                if let Some((source, flags)) = source
+                    && let Some(compiled) = Pattern::parse(&source, &flags).filter(Pattern::is_constructible)
+                {
+                    patterns.push(compiled);
+                }
+            }
+            name => {
+                let Some((source, flags)) = built_in_pattern(name, check.args) else {
+                    return Err(refuses());
+                };
+                if let Some(compiled) = Pattern::parse(&source, flags).filter(Pattern::is_constructible) {
+                    patterns.push(compiled);
+                }
+            }
         }
     }
-    if bounded && minimum > maximum {
-        return Err(DeriveError::new("string constraints", path));
+    let has_code_points = minimum_code_points.is_some() || maximum_code_points.is_some();
+    let mut minimum_cp = minimum_code_points.unwrap_or(0);
+    let mut maximum_cp = maximum_code_points.unwrap_or(usize::MAX / 4);
+    if has_code_points {
+        // A code point is one or two UTF-16 units, so the two bounds constrain
+        // each other: a floor of N code points is at least N units, and a
+        // ceiling of M code points is at most 2M units.
+        minimum = minimum.max(minimum_cp);
+        let doubled = maximum_cp.saturating_mul(2);
+        maximum = Some(maximum.map_or(doubled, |current| current.min(doubled)));
+        minimum_cp = minimum_cp.max(minimum.div_ceil(2));
+        maximum_cp = maximum_cp.min(maximum.unwrap_or(doubled));
+        if minimum_cp > maximum_cp {
+            return Err(refuses());
+        }
     }
-    Ok(Gen::new(
+    if maximum.is_some_and(|current| current < minimum) {
+        return Err(refuses());
+    }
+    // The longest value worth aiming for: the floor, the shortest match, and
+    // the size signal. A code-point bound doubles it, because a longer UTF-16
+    // alternative can use fewer code points than the shortest match.
+    let mut ceiling = minimum
+        .max(patterns.iter().map(Pattern::minimum_length).max().unwrap_or(0))
+        .max(DERIVATION_SIZE);
+    if has_code_points && !patterns.is_empty() {
+        ceiling = ceiling.saturating_mul(2);
+    }
+    let upper = maximum.map_or(ceiling, |current| current.min(ceiling));
+    let shrink_patterns = patterns.clone();
+    Ok(Gen::fallible(
         move |rng| {
-            let span = (maximum - minimum + 1) as u64;
-            let length = minimum + rng.below(span) as usize;
-            let text: String = (0..length)
-                .map(|_| (b'a' + (rng.next_u64() % 26) as u8) as char)
-                .collect();
-            Unknown::Text(text)
+            let mut random = |bound: u32| rng.below(bound.max(1) as u64) as u32;
+            let text = if !patterns.is_empty() {
+                let index = random_index(&mut random, patterns.len());
+                patterns[index].generate(&mut random, minimum, upper)?
+            } else if has_code_points {
+                code_point_text(&mut random, minimum, upper, minimum_cp, maximum_cp.min(upper))?
+            } else {
+                plain_text(&mut random, minimum, upper)
+            };
+            Some(Unknown::Text(text))
         },
-        |_| Vec::new(),
+        move |value| {
+            let Unknown::Text(text) = value else {
+                return Vec::new();
+            };
+            match shrink_patterns.iter().find(|pattern| pattern.is_match(text)) {
+                Some(pattern) => pattern
+                    .shrink(text, minimum)
+                    .into_iter()
+                    .map(Unknown::Text)
+                    .collect(),
+                None => shrink_text(text, minimum)
+                    .into_iter()
+                    .map(Unknown::Text)
+                    .collect(),
+            }
+        },
     ))
+}
+
+/// The pattern a built-in string check demands: each is a fixed `isPattern` in
+/// the pin, which is why a derivation can construct for them at all.
+fn built_in_pattern(name: &str, args: &[String]) -> Option<(String, &'static str)> {
+    let pattern = match name {
+        "isTrimmed" => "^\\S[\\s\\S]*\\S$|^\\S$|^$".to_string(),
+        "isUppercased" => "^[^a-z]*$".to_string(),
+        "isLowercased" => "^[^A-Z]*$".to_string(),
+        "isCapitalized" => "^(?:[^a-z][\\s\\S]*)?$".to_string(),
+        "isUncapitalized" => "^(?:[^A-Z][\\s\\S]*)?$".to_string(),
+        "isStartingWith" => format!("^{}", escape_pattern(args.first()?)),
+        "isEndingWith" => format!("{}$", escape_pattern(args.first()?)),
+        "isIncluding" => escape_pattern(args.first()?),
+        _ => return None,
+    };
+    Some((pattern, ""))
+}
+
+/// `RegExp.escape`: quote every metacharacter so the text matches literally.
+fn escape_pattern(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for character in text.chars() {
+        if matches!(
+            character,
+            '/' | '\\' | '^' | '$' | '.' | '|' | '?' | '*' | '+' | '(' | ')' | '[' | ']' | '{'
+                | '}'
+        ) {
+            out.push('\\');
+        }
+        out.push(character);
+    }
+    out
+}
+
+fn random_index(random: &mut dyn FnMut(u32) -> u32, length: usize) -> usize {
+    if length <= 1 {
+        0
+    } else {
+        (random(length as u32) as usize).min(length - 1)
+    }
+}
+
+fn random_integer(random: &mut dyn FnMut(u32) -> u32, minimum: usize, maximum: usize) -> usize {
+    if minimum >= maximum {
+        return minimum;
+    }
+    minimum + (random((maximum - minimum + 1) as u32) as usize).min(maximum - minimum)
+}
+
+/// A length in `[minimum, maximum]`, leaning on the two ends.
+fn random_length(random: &mut dyn FnMut(u32) -> u32, minimum: usize, maximum: usize) -> usize {
+    if minimum >= maximum {
+        return minimum;
+    }
+    if random(2) == 0 {
+        return if random(2) == 0 { minimum } else { maximum };
+    }
+    random_integer(random, minimum, maximum)
+}
+
+/// Strings the pin samples before falling back to printable ASCII, because a
+/// boundary a reader cares about (empty, whitespace, a digit, a lone unit) is
+/// unlikely to be drawn.
+const TEXT_EDGE_CASES: &[&str] = &[
+    "", " ", "\t", "\n", "\0", "0", "1", "-1", "NaN", "true", "false", "__proto__",
+    "constructor", "prototype", "toString", "\u{fffd}", "😀",
+];
+
+fn plain_text(random: &mut dyn FnMut(u32) -> u32, minimum: usize, maximum: usize) -> String {
+    if random(BIAS_FACTOR) == 0 {
+        let eligible: Vec<&&str> = TEXT_EDGE_CASES
+            .iter()
+            .filter(|value| {
+                let length = utf16_len(value);
+                length >= minimum && length <= maximum
+            })
+            .collect();
+        if !eligible.is_empty() {
+            return (*eligible[random_index(random, eligible.len())]).to_string();
+        }
+    }
+    let length = random_length(random, minimum, maximum);
+    (0..length)
+        .map(|_| char::from_u32(random_integer(random, 32, 126) as u32).unwrap_or('a'))
+        .collect()
+}
+
+/// A string drawn by code point, so supplementary characters are reachable
+/// even when the UTF-16 length bound is what pins the length.
+fn code_point_text(
+    random: &mut dyn FnMut(u32) -> u32,
+    minimum: usize,
+    maximum: usize,
+    minimum_code_points: usize,
+    maximum_code_points: usize,
+) -> Option<String> {
+    let count = random_length(random, minimum_code_points, maximum_code_points);
+    let low = minimum.max(count);
+    let high = maximum.min(count.saturating_mul(2));
+    if low > high {
+        return None;
+    }
+    let length = random_length(random, low, high);
+    let mut pairs = length - count;
+    let mut value = String::new();
+    for remaining in (1..=count).rev() {
+        if random_integer(random, 1, remaining) <= pairs {
+            value.push(char::from_u32(random_integer(random, 0x1_0000, 0x10_ffff) as u32)?);
+            pairs -= 1;
+        } else {
+            value.push(char::from_u32(random_integer(random, 32, 126) as u32)?);
+        }
+    }
+    Some(value)
+}
+
+/// The pin's string shrinker: drop the tail down to the floor, then walk each
+/// UTF-16 unit toward null.
+fn shrink_text(value: &str, minimum: usize) -> Vec<String> {
+    let units: Vec<u16> = value.encode_utf16().collect();
+    let mut out: Vec<String> = Vec::new();
+    if units.len() > minimum {
+        out.push(String::from_utf16_lossy(&units[..minimum]));
+        out.push(String::from_utf16_lossy(&units[..minimum.max(units.len() / 2)]));
+        out.push(String::from_utf16_lossy(&units[..units.len() - 1]));
+    }
+    for index in 0..units.len() {
+        for candidate in halving_steps(units[index] as i64) {
+            let mut copy = units.clone();
+            copy[index] = candidate as u16;
+            out.push(String::from_utf16_lossy(&copy));
+        }
+    }
+    let mut unique: Vec<String> = Vec::new();
+    for candidate in out {
+        if candidate != value && !unique.contains(&candidate) {
+            unique.push(candidate);
+        }
+    }
+    unique
+}
+
+/// Values between `value` and `target` by halving the gap, largest first: the
+/// pin's `shrinkInteger` with `tryTargetAsap`.
+fn halving_steps(value: i64) -> Vec<i64> {
+    let mut out = Vec::new();
+    let mut gap = value;
+    while gap != 0 {
+        out.push(value - gap);
+        gap /= 2;
+    }
+    out
 }
 
 /// `Schema.Struct`: every field derived from its own shape.

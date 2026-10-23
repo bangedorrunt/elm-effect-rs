@@ -31,6 +31,7 @@ pub mod filters;
 pub mod form;
 pub use built_in_revivers::*;
 pub mod json_schema;
+pub mod pattern;
 pub mod representation;
 pub mod representation_doc;
 
@@ -8823,6 +8824,32 @@ pub(crate) fn check_holds_arg(name: &str, arg: Option<&str>, value: &Unknown) ->
         };
         return matches!(value, Unknown::Text(text) if text.contains(needle));
     }
+    // The affinity checks read the text they carry too. Each is the pin's own
+    // predicate, not the pattern it happens to be spelled as: the pattern is
+    // only an approximation the derivation can construct from.
+    let text = match value {
+        Unknown::Text(text) => Some(text.as_str()),
+        _ => None,
+    };
+    match (name, text) {
+        ("isStartingWith", Some(text)) => return arg.is_none_or(|prefix| text.starts_with(prefix)),
+        ("isEndingWith", Some(text)) => return arg.is_none_or(|suffix| text.ends_with(suffix)),
+        ("isUppercased", Some(text)) => return text.to_uppercase() == text,
+        ("isLowercased", Some(text)) => return text.to_lowercase() == text,
+        ("isCapitalized", Some(text)) => {
+            return text
+                .chars()
+                .next()
+                .is_none_or(|first| first.to_uppercase().to_string() == first.to_string());
+        }
+        ("isUncapitalized", Some(text)) => {
+            return text
+                .chars()
+                .next()
+                .is_none_or(|first| first.to_lowercase().to_string() == first.to_string());
+        }
+        _ => {}
+    }
     // The two string-format checks the pin spells as a fixed pattern. They take
     // no argument, and the pin's own expected text names what they want.
     if name == "isStringBigInt" {
@@ -8834,20 +8861,12 @@ pub(crate) fn check_holds_arg(name: &str, arg: Option<&str>, value: &Unknown) ->
     // `isPattern`'s argument is the JS RegExp literal the pin's repr prints, so
     // the pattern has to be read back out of it rather than matched as written.
     if name == "isPattern" {
-        let Some(inner) = arg.and_then(|arg| {
-            arg.strip_prefix("new RegExp(")
-                .and_then(|rest| rest.strip_suffix(", \"u\")"))
-                .or_else(|| {
-                    arg.strip_prefix("new RegExp(")
-                        .and_then(|r| r.strip_suffix(')'))
-                })
-        }) else {
+        let Some((source, flags)) = arg.and_then(pattern::parse_regexp_argument) else {
             return true;
         };
-        let pattern = inner.trim_matches('"');
-        return match compile_pattern(pattern) {
+        return match pattern::Pattern::parse(&source, &flags) {
             Some(compiled) => match value {
-                Unknown::Text(text) => pattern_matches(&compiled, text),
+                Unknown::Text(text) => compiled.is_match(text),
                 _ => false,
             },
             // Outside the supported subset, so unenforced rather than guessed.

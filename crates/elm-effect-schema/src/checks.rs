@@ -90,12 +90,23 @@ pub fn is_string_symbol() -> FilterSpec {
 
 /// `Schema.isPattern`: text the pattern matches. The pattern is a JavaScript
 /// regular expression source, as the pin's `RegExp.source` is, and it is read
-/// back through the same literal form a repr prints, so the supported subset is
-/// the import path's ([`compile_pattern`](crate::compile_pattern)); a pattern
-/// outside it is unenforced rather than guessed at.
+/// back through the same literal form a repr prints (`new RegExp(source,
+/// flags)`); a pattern outside the [supported subset](crate::pattern) is
+/// unenforced rather than guessed at.
 pub fn is_pattern(pattern: &str) -> FilterSpec {
+    is_pattern_with(pattern, "u")
+}
+
+/// `Schema.isPattern` with the pattern's flags spelled out, which is what a
+/// pattern whose meaning depends on `s` or `y` needs.
+pub fn is_pattern_with(pattern: &str, flags: &str) -> FilterSpec {
     let message = format!("Expected a string matching the RegExp {pattern}");
-    named("isPattern", format!("new RegExp({pattern:?})"), message)
+    let quote = |text: &str| serde_json::to_string(text).unwrap_or_else(|_| "\"\"".to_string());
+    named(
+        "isPattern",
+        format!("new RegExp({}, {})", quote(pattern), quote(flags)),
+        message,
+    )
 }
 
 /// `Schema.isMultipleOf`: a number that is a whole multiple of `divisor`, with

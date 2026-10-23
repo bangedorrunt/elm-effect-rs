@@ -161,8 +161,10 @@ fn derives_structs_arrays_and_strings() {
         assert!(value.len() <= 3, "a derivation has no size signal: {value:?}");
     }
 
+    // An unbounded string is as long as the derivation's size signal, which is
+    // a fixed value here because the port has no per-call size.
     let derived = schema(&Schema::<String>::string()).expect("a string derives");
-    assert!(derived.sample_n(9, 10).iter().all(|value| value.len() <= 8));
+    assert!(derived.sample_n(9, 10).iter().all(|value| value.len() <= 32));
 }
 
 /// A shape with no derivation says which one, at the path it was walking.
