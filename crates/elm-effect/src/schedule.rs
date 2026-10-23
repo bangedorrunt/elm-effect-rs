@@ -105,6 +105,26 @@ impl<In: Send + Sync + 'static> Schedule<In, ()> {
         }
     }
 
+    /// A constant wait per attempt (`fixed`). The pin also aligns each wait to
+    /// its window boundary, which needs a clock inside the step; only the
+    /// constant-delay observable is carried here.
+    pub fn fixed(delay: Duration) -> Schedule<In, ()> {
+        Self::spaced(delay)
+    }
+
+    /// Continue exactly once, then stop (`once`).
+    pub fn once() -> Schedule<In, ()> {
+        Schedule {
+            step: Arc::new(|attempt, _| {
+                if attempt == 0 {
+                    Some(((), Duration::ZERO))
+                } else {
+                    None
+                }
+            }),
+        }
+    }
+
     /// Exponential backoff from `base`, doubling per attempt (saturating),
     /// continuing forever. Bound it with [`recurs`](Schedule::recurs) via
     /// [`max`](Schedule::max).
@@ -119,7 +139,31 @@ impl<In: Send + Sync + 'static> Schedule<In, ()> {
     }
 }
 
+impl<In: Clone + Send + Sync + 'static> Schedule<In, In> {
+    /// Echo the input as the output with no wait (`identity`).
+    pub fn identity() -> Schedule<In, In> {
+        Schedule {
+            step: Arc::new(|_, input| Some((input.clone(), Duration::ZERO))),
+        }
+    }
+}
+
 impl<In: Send + Sync + 'static, A: Send + 'static> Schedule<In, A> {
+    /// Stop after `times` continuations (`upTo({ times })`): the driver's
+    /// attempt index counts continuations, so `times(2)` lets two through.
+    pub fn up_to_times(self, times: u64) -> Self {
+        let step = self.step;
+        Schedule {
+            step: Arc::new(move |attempt, input| {
+                if attempt >= times {
+                    None
+                } else {
+                    step(attempt, input)
+                }
+            }),
+        }
+    }
+
     /// Cap every delay at `limit`.
     pub fn capped(self, limit: Duration) -> Self {
         let step = self.step;
@@ -145,13 +189,14 @@ impl<In: Send + Sync + 'static, A: Send + 'static> Schedule<In, A> {
         }
     }
 
-    /// Scale every delay by a factor in `[0.5, 1.5)` drawn from `rng`.
+    /// Scale every delay by a factor in `[0.8, 1.2)` drawn from `rng`, the
+    /// pin's `jittered` band (`Schedule.test.ts:476`).
     pub fn jitter(self, rng: Random) -> Self {
         let step = self.step;
         Schedule {
             step: Arc::new(move |attempt, input| {
                 step(attempt, input).map(|(out, delay)| {
-                    let factor = 0.5 + rng.next_unit();
+                    let factor = 0.8 + 0.4 * rng.next_unit();
                     let millis = (delay.as_millis() as f64 * factor) as u64;
                     (out, Duration::from_millis(millis))
                 })

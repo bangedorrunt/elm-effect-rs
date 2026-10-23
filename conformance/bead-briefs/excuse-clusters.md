@@ -34,14 +34,14 @@ reason is a design boundary, not a missing module.
 | HTTP client/api/server | 80 | Transport, discovery, handler/middleware wiring | `crates/elm-effect-unstable/src/http.rs` |
 | MCP transport | 54 | stdio/HTTP/SSE/session/batch; only the in-memory pair exists | `crates/elm-effect-unstable/src/mcp_server.rs` |
 | Metric observers | 32 | Observer/reporter internals beyond the metric surface | `crates/elm-effect/src/metric.rs` |
-| Schedule policy | 31 | `concat`, `tap`, `modify_delay`, `add_delay`, `concat_result`, cron; `max`/`min` exist | `crates/elm-effect/src/schedule.rs` |
+| Schedule policy | 31 | no clock inside the step, so `duration`/`during`/cron/window alignment are unobservable; no `toStep` metadata; no per-run state for `concat`/`concatResult` | `crates/elm-effect/src/schedule.rs` |
 | Random PRNG | 25 | Split/unsafe PRNG internals | no module yet |
 | Arbitrary pattern strings | 25 | Constructive generator from a regex pattern | `crates/elm-effect-unstable/src/arbitrary.rs` |
 | ExecutionPlan telemetry | 23 | Attempt/event telemetry beyond the attempt budget | `crates/elm-effect/src/execution_plan.rs` |
 
 Disposition: each is a machinery bead when scheduled, with a dependency on its
-enabler; none may carry a wave label until then. `Schedule` is the cheapest
-first unit: pure data, no I/O, and half the surface already exists.
+enabler; none may carry a wave label until then. `Random` is the cheapest first
+unit; `Schedule` looked cheapest and was not (see C).
 
 ## C. Coarse blanket: rows that are portable but excused with their siblings
 
@@ -52,13 +52,19 @@ error" text also covered item-count and state rows. Sixteen rows were read
 individually; eleven ported, five re-excused with their own blocker (error
 channel or parking).
 
-`Schedule.test.ts` (31 rows, counted in B) has the same tell: its blanket says
-the schedule surface does not represent the rows, while `max`, `min`, `recurs`
-and `during` already exist. Split it before scheduling: portable-with-existing
-surface versus the six missing combinators.
+`Schedule.test.ts` (31 rows) was the third: its blanket said the surface did
+not represent the rows, and 8 of the 31 were portable once the missing
+constructors existed. They are now ported (`fixed`, `once`, `identity`,
+`up_to_times`, and `jitter` moved to the pin's 80%-120% band); the other 23 are
+excused by cause: 15 need a clock in the step, 3 need `toStep` metadata, 4 need
+per-run state for sequencing, and 1 is the `upTo({})` options record.
+
+The lesson from three sweeps: a blanket reason is trustworthy only when it
+names the mechanism the row needs. "The surface does not represent it" is not a
+mechanism.
 
 ## Next step
 
-Sweep `Schedule.test.ts` first: it is the one cluster where part of the work is
-a ledger edit, not new machinery. Then cut the `Metric` enabler, the smallest
+Sweep `Random.test.ts` next: 25 rows, a small surface, and the port already has
+a `Random` service to grow. Then cut the `Metric` enabler, the smallest
 substrate bead in B.
