@@ -244,7 +244,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/ExecutionPlan.ts"
 class = "port"
-status = "excused"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/ExecutionPlan.test.ts"]

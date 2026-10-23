@@ -9,7 +9,7 @@ the next unit can pick one instead of re-reading the ledger.
 
 One pass over `conformance/behavior-tests.tsv`, matching reason substrings; a
 row lands in the first cluster that matches. Counts are rows, not tests. The
-clusters below cover 709 rows. The remaining 2916 carry per-row reasons that
+clusters below cover 686 rows. The remaining 2938 carry per-row reasons that
 this pass did not re-adjudicate.
 
 ## A. Terminal: no Rust change can make the row observable (323 rows)
@@ -24,7 +24,7 @@ this pass did not re-adjudicate.
 Disposition: keep excused. No bead. If one of these ever needs revisiting, the
 reason is a design boundary, not a missing module.
 
-## B. Absent substrate: one enabler each (386 rows)
+## B. Absent substrate: one enabler each (363 rows)
 
 | Cluster | Rows | Missing surface | Rust owner |
 |---|---|---|---|
@@ -35,7 +35,6 @@ reason is a design boundary, not a missing module.
 | MCP transport | 54 | stdio/HTTP/SSE/session/batch; only the in-memory pair exists | `crates/elm-effect-unstable/src/mcp_server.rs` |
 | Schedule policy | 31 | no clock inside the step, so `duration`/`during`/cron/window alignment are unobservable; no `toStep` metadata; no per-run state for `concat`/`concatResult` | `crates/elm-effect/src/schedule.rs` |
 | Arbitrary pattern strings | 25 | Constructive generator from a regex pattern | `crates/elm-effect-unstable/src/arbitrary.rs` |
-| ExecutionPlan telemetry | 23 | Attempt/event telemetry beyond the attempt budget | `crates/elm-effect/src/execution_plan.rs` |
 
 Disposition: each is a machinery bead when scheduled, with a dependency on its
 enabler; none may carry a wave label until then. `Schedule` looked cheapest and
@@ -74,6 +73,13 @@ instruments at all, they are runtime hooks: 12 drive `track`/
 `trackErrors`/`trackDefects`, 3 measure `trackDuration`, and 5 need interval
 collection, a dump, or fiber metrics. That is a runtime unit, not a metric one.
 
+`ExecutionPlan.test.ts` was the sixth: 22 of its 23 rows are runtime plan
+machinery (step layers, requirement capture, partial streams, observer events),
+but the zero-attempts row only needed `NoAttempts` to carry the pin's message.
+One row ported, 22 re-excused by mechanism.
+
 ## Next step
 
-Cut the `ExecutionPlan` telemetry enabler next (23 rows), the smallest left in B.
+`Arbitrary` (25 rows) is the smallest cluster left in B, but it needs a pattern
+parser. `Config.schema` (57) is the better value: `config.rs` already exists and
+the rows only need the schema constructor wired to the provider bridge.

@@ -168,7 +168,13 @@ fn map_join_collects_failure() {
 
 #[test]
 fn plan_rejects_zero_attempts() {
-    assert!(ExecutionPlan::new(0).is_err());
+    // ExecutionPlan.test.ts:62 — zero attempts is a plan-time error with the
+    // pin's message, not a runtime refusal.
+    let error = ExecutionPlan::new(0).expect_err("zero attempts is rejected");
+    assert_eq!(
+        error.to_string(),
+        "ExecutionPlan.make: step[0].attempts must be greater than 0"
+    );
     assert_eq!(ExecutionPlan::new(3).expect("valid").max_attempts(), 3);
 }
 

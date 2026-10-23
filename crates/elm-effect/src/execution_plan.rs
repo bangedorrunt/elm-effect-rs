@@ -20,6 +20,15 @@ pub struct ExecutionPlan {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NoAttempts;
 
+impl std::fmt::Display for NoAttempts {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // The pin's `ExecutionPlan.make` message (`ExecutionPlan.test.ts:62`).
+        f.write_str("ExecutionPlan.make: step[0].attempts must be greater than 0")
+    }
+}
+
+impl std::error::Error for NoAttempts {}
+
 /// Outcome plus the attempts spent getting there.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Planned<T, E> {
