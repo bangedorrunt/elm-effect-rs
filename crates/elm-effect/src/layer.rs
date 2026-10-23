@@ -533,6 +533,70 @@ impl<O1: RequirementIds, E: Send + 'static, I1: RequirementIds> Layer<O1, E, I1>
     }
 }
 
+impl<O1: RequirementIds, E: Send + 'static, I1: RequirementIds> Layer<O1, E, I1> {
+    /// `Layer.merge`: build both layers on one handle and answer both
+    /// provisions.
+    ///
+    /// The pin builds the two in parallel and merges their contexts; this port
+    /// builds `self` then `other` against one accumulated map, so the trail is
+    /// sequential. Two layers providing the same tag with distinct values are
+    /// the port's existing double-provision failure rather than last-writer
+    /// -wins, which is why `Layer.merge` of a layer with its own `fresh()`
+    /// handle is a construction error here.
+    pub fn merge<O2: RequirementIds>(
+        self,
+        other: Layer<O2, E, I1>,
+    ) -> Result<Layer<Cons<O1, O2>, E, I1>, Cycle> {
+        let mut stages = self.stages;
+        stages.extend(other.stages);
+        check_cycle(&stages)?;
+        let mut out_ids = self.out_ids;
+        out_ids.extend(other.out_ids);
+        let mut hooks = self.hooks;
+        hooks.extend(other.hooks);
+        Ok(Layer {
+            stages,
+            out_ids,
+            in_ids: self.in_ids,
+            memo: LayerMemo::new(),
+            hooks,
+            marker: PhantomData,
+        })
+    }
+}
+
+impl<O1: RequirementIds, E: Send + 'static, O3: RequirementIds> Layer<O3, E, O1> {
+    /// `Layer.provide(provider)` between two layers: build `provider` first,
+    /// then this layer over its services (the pin's `provide`, not
+    /// `provideMerge`).
+    ///
+    /// The provider builds first because this layer's constructors read its
+    /// tags; when the scope closes, the LIFO order releases this layer before
+    /// the provider it consumed. The provider's tags stay in `BuiltServices`:
+    /// this port's build answers everything it constructed, so hiding is a
+    /// typing fact (`out_ids` names only this layer's provision), not a value
+    /// filter. Filtering would strip the tracer and span references a
+    /// provider installs.
+    pub fn provide_layer<O2: RequirementIds>(
+        self,
+        provider: Layer<O1, E, O2>,
+    ) -> Result<Layer<O3, E, O2>, Cycle> {
+        let mut stages = provider.stages;
+        stages.extend(self.stages);
+        check_cycle(&stages)?;
+        let mut hooks = provider.hooks;
+        hooks.extend(self.hooks);
+        Ok(Layer {
+            stages,
+            out_ids: self.out_ids,
+            in_ids: provider.in_ids,
+            memo: LayerMemo::new(),
+            hooks,
+            marker: PhantomData,
+        })
+    }
+}
+
 impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
     /// Wire a closed layer into an effect and hide its tag: the effect keeps
     /// its other requirements, `T` is satisfied from a build. A constructor

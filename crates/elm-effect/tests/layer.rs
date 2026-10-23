@@ -407,3 +407,91 @@ fn tap_cause_sees_the_defect_and_preserves_the_cause() {
     assert!(cause.has_dies());
     assert_eq!(*seen.lock().unwrap(), vec![true]);
 }
+
+/// A resource layer for any tag, with the acquire/release trail `makeLayer1`
+/// leaves at the pin.
+fn tagged_resource<T>(
+    arr: &Arc<std::sync::Mutex<Vec<&'static str>>>,
+    value: T::Service,
+) -> Layer<T, std::convert::Infallible, ()>
+where
+    T: ServiceTag,
+    T::Service: Send + Sync + Clone + 'static,
+{
+    let arr = Arc::clone(arr);
+    Layer::from_scoped_factory(move |scope| {
+        arr.lock().unwrap().push("acquire");
+        let released = Arc::clone(&arr);
+        scope.add_finalizer(move || released.lock().unwrap().push("release"));
+        Effect::succeed(value.clone())
+    })
+    .expect("a single closed constructor cannot cycle")
+}
+
+#[test]
+fn merge_finalizes_both_layers() {
+    // Layer.test.ts:116. `Layer.merge` builds both layers on one handle; both
+    // acquire before the scope closes and both release when it does.
+    let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let layer = tagged_resource::<Db>(&arr, DbConn(1))
+        .merge(tagged_resource::<Cache>(&arr, CacheConn(2)))
+        .expect("independent tags cannot cycle");
+    let scope = Scope::new(96);
+    let built = layer.build(&scope).expect("both layers build");
+    assert_eq!(built.get::<Db>().unwrap().0, 1);
+    assert_eq!(built.get::<Cache>().unwrap().0, 2);
+    assert_eq!(*arr.lock().unwrap(), vec!["acquire", "acquire"]);
+    scope.close();
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec!["acquire", "acquire", "release", "release"]
+    );
+}
+
+#[test]
+fn finalizers_with_provide_release_the_provider_last() {
+    // Layer.test.ts:347. The provided layer builds first and the consumer
+    // second, so the scope's LIFO release order is consumer, then provider.
+    let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let provider = tagged_resource::<Db>(&arr, DbConn(1));
+    let consumer = Layer::<Cache, std::convert::Infallible, Db>::from_scoped_factory({
+        let arr = Arc::clone(&arr);
+        move |scope| {
+            arr.lock().unwrap().push("acquire");
+            let released = Arc::clone(&arr);
+            scope.add_finalizer(move || released.lock().unwrap().push("release"));
+            use_service::<Db>().map(|db| CacheConn(db.0 + 1))
+        }
+    })
+    .expect("a single constructor cannot cycle");
+    let layer = consumer
+        .provide_layer(provider)
+        .expect("the provider satisfies the consumer");
+    let scope = Scope::new(97);
+    let built = layer.build(&scope).expect("the composed layer builds");
+    assert_eq!(built.get::<Cache>().unwrap().0, 2);
+    assert_eq!(*arr.lock().unwrap(), vec!["acquire", "acquire"]);
+    scope.close();
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec!["acquire", "acquire", "release", "release"]
+    );
+}
+
+#[test]
+fn merge_rejects_two_values_for_one_tag() {
+    // The doc claims this: merging a handle with its own fresh sibling is a
+    // double provision, not last-writer-wins. Without the guard, one of the
+    // two connections would be built and released while the other leaked.
+    let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let layer = tagged_resource::<Db>(&arr, DbConn(1))
+        .merge(tagged_resource::<Db>(&arr, DbConn(2)))
+        .expect("the graph has no cycle");
+    let scope = Scope::new(98);
+    let cause = layer.build(&scope).expect_err("one tag cannot hold two values");
+    let rendered = format!("{cause:?}");
+    assert!(
+        rendered.contains("double-provision of `test/db`"),
+        "the failure must name the tag, got: {rendered}"
+    );
+}
