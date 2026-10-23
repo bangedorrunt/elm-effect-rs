@@ -44,6 +44,15 @@ pub enum ConfigError {
         /// Why it fails.
         reason: String,
     },
+    /// The provider itself failed at this path (`ConfigProvider.SourceError`).
+    /// Absence and a failed read are distinct: only absence is recoverable by
+    /// a default or an option (Config.test.ts:1021, :1308).
+    Source {
+        /// Lookup path where the source failed.
+        path: Vec<String>,
+        /// The source's own message.
+        message: String,
+    },
 }
 
 impl std::fmt::Display for ConfigError {
@@ -56,6 +65,9 @@ impl std::fmt::Display for ConfigError {
                     "invalid config {}: got {got:?}: {reason}",
                     path.join(".")
                 )
+            }
+            Self::Source { path, message } => {
+                write!(f, "config source at {}: {message}", path.join("."))
             }
         }
     }
@@ -139,8 +151,12 @@ impl Config {
                 if let Some(n) = &name_owned {
                     path.push(n.clone());
                 }
-                let text = provider.get(&path);
-                f(text, path)
+                match provider.try_get(&path) {
+                    Ok(text) => f(text, path),
+                    // A failed read is not an absent key: it keeps its own kind
+                    // so a default and an option leave it alone.
+                    Err(message) => Err(vec![ConfigError::Source { path, message }]),
+                }
             }),
         }
     }
@@ -790,7 +806,18 @@ impl Config {
 /// errors (Config.test.ts:990). An all-missing group keeps every missing
 /// error, which is what `withDefault` and `option` recover from.
 fn group_errors(errors: Vec<ConfigError>) -> Vec<ConfigError> {
+    // A failed read is reported alone, ahead of a missing or invalid sibling:
+    // the failure is the reason the group could not be read, and a wrapper may
+    // not recover it (Config.test.ts:1021).
     if errors
+        .iter()
+        .any(|e| matches!(e, ConfigError::Source { .. }))
+    {
+        errors
+            .into_iter()
+            .filter(|e| matches!(e, ConfigError::Source { .. }))
+            .collect()
+    } else if errors
         .iter()
         .any(|e| matches!(e, ConfigError::Invalid { .. }))
     {
@@ -1032,6 +1059,29 @@ fn literal_wire(expected: &elm_effect_schema::Unknown, text: &str) -> elm_effect
     }
 }
 
+/// A failure while reading a schema's wire shape.
+///
+/// Two kinds stay apart because Config treats them differently: an opaque kind
+/// is invalid input the schema cannot materialize, while a source failure is the
+/// provider's own error, which no default or option may recover.
+#[cfg(feature = "schema")]
+#[derive(Debug)]
+enum WireError {
+    /// The kind names a constructor this bridge cannot walk.
+    Opaque(&'static str),
+    /// The provider failed at this path (`ConfigProvider.SourceError`).
+    Source { path: Vec<String>, message: String },
+}
+
+/// Read one path through the source's failure channel.
+#[cfg(feature = "schema")]
+fn read(provider: &dyn Lookup, path: &[String]) -> Result<Option<String>, WireError> {
+    provider.try_get(path).map_err(|message| WireError::Source {
+        path: path.to_vec(),
+        message,
+    })
+}
+
 /// Build the wire value a schema expects from the provider's text.
 ///
 /// The empty vector is "this path holds nothing", which `Config::schema`
@@ -1047,7 +1097,7 @@ fn schema_wires(
     schema: &elm_effect_schema::Schema<elm_effect_schema::Unknown>,
     provider: &dyn Lookup,
     path: &[String],
-) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+) -> Result<Vec<elm_effect_schema::Unknown>, WireError> {
     if let Some(fields) = schema.fields() {
         return field_wires(fields, provider, path);
     }
@@ -1085,7 +1135,7 @@ fn field_wires(
     fields: &[elm_effect_schema::Field],
     provider: &dyn Lookup,
     path: &[String],
-) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+) -> Result<Vec<elm_effect_schema::Unknown>, WireError> {
     use elm_effect_schema::SchemaKind;
     // Nothing at the path means the object is absent, so its fields are never
     // read. Without this a recursive schema descends forever: every level looks
@@ -1117,7 +1167,7 @@ fn child_wires(
     children: &[(String, std::sync::Arc<elm_effect_schema::Schema<elm_effect_schema::Unknown>>)],
     provider: &dyn Lookup,
     path: &[String],
-) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+) -> Result<Vec<elm_effect_schema::Unknown>, WireError> {
     if nothing_at(provider, path) {
         return Ok(Vec::new());
     }
@@ -1137,13 +1187,13 @@ fn kind_wires(
     kind: &elm_effect_schema::SchemaKind,
     provider: &dyn Lookup,
     path: &[String],
-) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+) -> Result<Vec<elm_effect_schema::Unknown>, WireError> {
     use elm_effect_schema::{SchemaKind, Unknown};
-    let own = || provider.get(path);
+    let own = read(provider, path)?;
     Ok(match kind {
-        SchemaKind::String => own().map(|text| vec![Unknown::Text(text)]).unwrap_or_default(),
-        SchemaKind::Number => own().map(|text| vec![number_wire(&text)]).unwrap_or_default(),
-        SchemaKind::Boolean => own()
+        SchemaKind::String => own.clone().map(|text| vec![Unknown::Text(text)]).unwrap_or_default(),
+        SchemaKind::Number => own.clone().map(|text| vec![number_wire(&text)]).unwrap_or_default(),
+        SchemaKind::Boolean => own.clone()
             .map(|text| vec![boolean_wire(&text)])
             .unwrap_or_default(),
         // `Schema.null()` reports an opaque kind rather than a null one, so the
@@ -1154,13 +1204,13 @@ fn kind_wires(
             if provider.has_children(path) || provider.node(path).is_some() {
                 vec![Unknown::Null]
             } else {
-                match own() {
+                match own.clone() {
                     Some(text) => vec![json_wire(&text).unwrap_or(Unknown::Text(text))],
                     None => vec![Unknown::Undefined],
                 }
             }
         }
-        SchemaKind::Opaque(name) if *name == "null" => own()
+        SchemaKind::Opaque(name) if *name == "null" => own.clone()
             .map(|text| {
                 vec![if text == "null" {
                     Unknown::Null
@@ -1169,14 +1219,14 @@ fn kind_wires(
                 }]
             })
             .unwrap_or_default(),
-        SchemaKind::Object | SchemaKind::Json => own()
+        SchemaKind::Object | SchemaKind::Json => own.clone()
             .and_then(|text| json_wire(&text))
             .map(|value| vec![value])
             .unwrap_or_default(),
-        SchemaKind::Literal(expected) => own()
+        SchemaKind::Literal(expected) => own.clone()
             .map(|text| vec![literal_wire(expected, &text)])
             .unwrap_or_default(),
-        SchemaKind::Literals(expected) => own()
+        SchemaKind::Literals(expected) => own.clone()
             .map(|text| {
                 expected
                     .iter()
@@ -1283,7 +1333,7 @@ fn kind_wires(
         }
         // A declaration or an opaque kind has no wire shape to walk; the config
         // reports the gap rather than pretending the path is absent.
-        _ => return Err("the schema's wire shape is not introspectable"),
+        _ => return Err(WireError::Opaque("the schema's wire shape is not introspectable")),
     })
 }
 
@@ -1304,7 +1354,7 @@ fn object_or_scalar(
     object: std::collections::BTreeMap<String, elm_effect_schema::Unknown>,
     provider: &dyn Lookup,
     path: &[String],
-) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+) -> Result<Vec<elm_effect_schema::Unknown>, WireError> {
     use super::config_provider::Node;
     use elm_effect_schema::Unknown;
     if !object.is_empty() || provider.has_children(path) {
@@ -1317,7 +1367,7 @@ fn object_or_scalar(
         Some(Node::Array(_)) => return Ok(Vec::new()),
         None => {}
     }
-    Ok(match provider.get(path) {
+    Ok(match read(provider, path)? {
         Some(text) => match json_wire(&text) {
             // An array node where an object belongs reads as absent
             // (Config.test.ts:1286).
@@ -1332,10 +1382,10 @@ fn object_or_scalar(
 /// Indexed children, in order, stopping at the first gap.
 #[cfg(feature = "schema")]
 fn sequence_wires(
-    mut item: impl FnMut(&[String]) -> Result<Vec<elm_effect_schema::Unknown>, &'static str>,
+    mut item: impl FnMut(&[String]) -> Result<Vec<elm_effect_schema::Unknown>, WireError>,
     provider: &dyn Lookup,
     path: &[String],
-) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+) -> Result<Vec<elm_effect_schema::Unknown>, WireError> {
     use super::config_provider::Node;
     use elm_effect_schema::Unknown;
     // A node that states its length keeps every position up to it: a missing
@@ -1374,7 +1424,7 @@ fn positional_or_scalar(
     items: Vec<elm_effect_schema::Unknown>,
     provider: &dyn Lookup,
     path: &[String],
-) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+) -> Result<Vec<elm_effect_schema::Unknown>, WireError> {
     use elm_effect_schema::Unknown;
     use super::config_provider::Node;
     if !items.is_empty() {
@@ -1387,7 +1437,7 @@ fn positional_or_scalar(
         Some(Node::Object) => return Ok(Vec::new()),
         None => {}
     }
-    Ok(match provider.get(path) {
+    Ok(match read(provider, path)? {
         Some(text) => match json_wire(&text) {
             Some(Unknown::Object(_)) => Vec::new(),
             Some(value) => vec![value],
@@ -1403,7 +1453,7 @@ fn element_wires(
     elements: &[elm_effect_schema::Schema<elm_effect_schema::Unknown>],
     provider: &dyn Lookup,
     path: &[String],
-) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+) -> Result<Vec<elm_effect_schema::Unknown>, WireError> {
     let mut items = Vec::new();
     for (index, element) in elements.iter().enumerate() {
         let mut child = path.to_vec();
@@ -1429,12 +1479,12 @@ fn has_schema_input(
     schema: &elm_effect_schema::Schema<elm_effect_schema::Unknown>,
     provider: &dyn Lookup,
     path: &[String],
-) -> bool {
+) -> Result<bool, WireError> {
     if schema.fields().is_some() {
-        return object_present(provider, path);
+        return Ok(object_present(provider, path));
     }
     if schema.elements().is_some() {
-        return array_present(provider, path);
+        return Ok(array_present(provider, path));
     }
     kind_has_input(&schema.wire_kind(), provider, path)
 }
@@ -1444,34 +1494,39 @@ fn kind_has_input(
     kind: &elm_effect_schema::SchemaKind,
     provider: &dyn Lookup,
     path: &[String],
-) -> bool {
+) -> Result<bool, WireError> {
     use elm_effect_schema::SchemaKind;
-    match kind {
+    Ok(match kind {
         SchemaKind::Struct(_) | SchemaKind::StructWithRest(..) | SchemaKind::Record(..) => {
             object_present(provider, path)
         }
         SchemaKind::Array(_) | SchemaKind::Tuple(_) | SchemaKind::TupleWithRest(..) => {
             array_present(provider, path)
         }
-        SchemaKind::Union { members, .. } => members
-            .iter()
-            .any(|member| kind_has_input(member, provider, path)),
+        SchemaKind::Union { members, .. } => {
+            for member in members {
+                if kind_has_input(member, provider, path)? {
+                    return Ok(true);
+                }
+            }
+            false
+        }
         SchemaKind::Optional(inner)
         | SchemaKind::OptionalKey(inner)
         | SchemaKind::Rest(inner)
         | SchemaKind::Check { base: inner, .. }
-        | SchemaKind::Annotated { inner, .. } => kind_has_input(inner, provider, path),
+        | SchemaKind::Annotated { inner, .. } => kind_has_input(inner, provider, path)?,
         // Any representation at all is input to an `undefined` schema, which
         // refuses every one of them.
         SchemaKind::Opaque("undefined") => {
             provider.has_children(path)
                 || provider.node(path).is_some()
-                || provider.get(path).is_some()
+                || read(provider, path)?.is_some()
         }
         // Everything else reads a co-located scalar, `Object`/`Json` included
         // (their text is parsed as JSON), so the scalar is the input.
-        _ => provider.get(path).is_some(),
-    }
+        _ => read(provider, path)?.is_some(),
+    })
 }
 
 #[cfg(feature = "schema")]
@@ -1519,17 +1574,32 @@ impl Config {
             name,
             run: std::rc::Rc::new(move |provider, prefix| {
                 let path = schema_path(prefix, name_owned.as_deref());
-                let wires = schema_wires(&walker, provider, &path).map_err(|reason| {
-                    vec![ConfigError::Invalid {
-                        path: path.clone(),
-                        got: "a schema shape".to_string(),
-                        reason: reason.to_string(),
-                    }]
-                })?;
+                let wires = match schema_wires(&walker, provider, &path) {
+                    Ok(wires) => wires,
+                    Err(WireError::Opaque(reason)) => {
+                        return Err(vec![ConfigError::Invalid {
+                            path: path.clone(),
+                            got: "a schema shape".to_string(),
+                            reason: reason.to_string(),
+                        }]);
+                    }
+                    // The provider failed: report the read failure itself, not
+                    // a shape the bridge could not build from it.
+                    Err(WireError::Source { path, message }) => {
+                        return Err(vec![ConfigError::Source { path, message }]);
+                    }
+                };
                 if wires.is_empty() {
                     return Err(vec![ConfigError::Missing { path }]);
                 }
-                let relevant = has_schema_input(&walker, provider, &path);
+                let relevant = match has_schema_input(&walker, provider, &path) {
+                    Ok(relevant) => relevant,
+                    Err(WireError::Source { path, message }) => {
+                        return Err(vec![ConfigError::Source { path, message }]);
+                    }
+                    // `has_schema_input` never refuses a shape, only reads.
+                    Err(WireError::Opaque(_)) => false,
+                };
                 let mut last = String::new();
                 for wire in wires {
                     last = format!("{wire:?}");

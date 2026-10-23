@@ -19,7 +19,7 @@ mod config;
 mod config_provider;
 
 use config::{Config, ConfigError, Value};
-use config_provider::{Node, Provider};
+use config_provider::{Failing, Lookup, Node, Provider};
 use elm_effect_schema::{Field, Schema, SchemaError, StructValue, Unknown, transform::Transformation};
 use std::collections::BTreeMap;
 
@@ -46,6 +46,60 @@ fn container(pairs: &[(&str, &str)], nodes: &[(&[&str], Node)]) -> Provider {
         provider = provider.with_node(path, *node);
     }
     provider
+}
+
+/// A provider that fails the listed paths with a source error and answers
+/// every other path from `inner`. The pin's `ConfigProvider.make` failures
+/// (Effect.fail) are typed failures, not defects, which is why `orElse` may
+/// recover one.
+struct FailingAt {
+    inner: Provider,
+    fail: Vec<Vec<String>>,
+}
+
+impl FailingAt {
+    fn new(inner: Provider, fail: &[&[&str]]) -> Self {
+        Self {
+            inner,
+            fail: fail
+                .iter()
+                .map(|path| path.iter().map(|s| (*s).to_string()).collect())
+                .collect(),
+        }
+    }
+
+    fn source(path: Vec<String>) -> ConfigError {
+        ConfigError::Source {
+            path,
+            message: "source unavailable".to_string(),
+        }
+    }
+}
+
+impl Lookup for FailingAt {
+    fn get(&self, path: &[String]) -> Option<String> {
+        self.inner.get(path)
+    }
+
+    fn has_children(&self, path: &[String]) -> bool {
+        self.inner.has_children(path)
+    }
+
+    fn child_keys(&self, path: &[String]) -> Vec<String> {
+        self.inner.child_keys(path)
+    }
+
+    fn node(&self, path: &[String]) -> Option<Node> {
+        self.inner.node(path)
+    }
+
+    fn try_get(&self, path: &[String]) -> Result<Option<String>, String> {
+        if self.fail.iter().any(|failed| failed.as_slice() == path) {
+            Err("source unavailable".to_string())
+        } else {
+            Ok(self.inner.get(path))
+        }
+    }
 }
 
 fn obj(pairs: &[(&str, Value)]) -> Value {
@@ -1217,5 +1271,157 @@ fn a_declared_array_length_keeps_holes_as_undefined() {
     assert_eq!(
         Config::schema(&Schema::array(Schema::string()), None).load(&shorter),
         Ok(Value::List(vec![Value::Str("a".to_string())]))
+    );
+}
+
+#[test]
+fn a_provider_failure_is_not_absence() {
+    // Config.test.ts:1308 — a source that fails is a failure of its own kind;
+    // a default and an option recover absence, never a failed read.
+    let failing = Failing::new("source unavailable");
+    let config = Config::string(Some("a".to_string()));
+    let expected = Err(vec![FailingAt::source(vec!["a".to_string()])]);
+
+    assert_eq!(
+        config
+            .clone()
+            .with_default(Value::Str("fallback".to_string()))
+            .load(&failing),
+        expected
+    );
+    assert_eq!(config.option().load(&failing), expected);
+}
+
+#[test]
+fn group_shapes_report_a_source_failure_beside_absence() {
+    // Config.test.ts:1021 — the failing child wins over the missing one in
+    // every group shape, and neither wrapper recovers it.
+    let provider = FailingAt::new(provider(&[]), &[&["failed"]]);
+    let expected = Err(vec![FailingAt::source(vec!["failed".to_string()])]);
+
+    for config in [
+        Config::record(vec![
+            (
+                "missing".to_string(),
+                Config::string(Some("missing".to_string())),
+            ),
+            (
+                "failed".to_string(),
+                Config::string(Some("failed".to_string())),
+            ),
+        ]),
+        Config::all(vec![
+            Config::string(Some("missing".to_string())),
+            Config::string(Some("failed".to_string())),
+        ]),
+    ] {
+        assert_eq!(
+            config
+                .clone()
+                .with_default(Value::Str("default".to_string()))
+                .load(&provider),
+            expected
+        );
+        assert_eq!(config.option().load(&provider), expected);
+    }
+}
+
+#[test]
+fn an_orelse_fallback_failure_reaches_the_caller() {
+    // Config.test.ts:1154 — invalid input lets `orElse` try the fallback, and
+    // the fallback's source failure is then the answer.
+    let provider = FailingAt::new(provider(&[("primary", "invalid")]), &[&["fallback"]]);
+    let config = Config::integer(Some("primary".to_string()))
+        .or_else(Config::integer(Some("fallback".to_string())));
+
+    let expected = Err(vec![FailingAt::source(vec!["fallback".to_string()])]);
+    assert_eq!(
+        config
+            .clone()
+            .with_default(Value::Num(3000.0))
+            .load(&provider),
+        expected
+    );
+    assert_eq!(config.option().load(&provider), expected);
+}
+
+#[test]
+fn an_orelse_recovers_a_failed_read() {
+    // Config.test.ts:1193 and :1218 — a typed source failure is a config
+    // failure, so `orElse` may answer for it; the outer group then reports its
+    // own missing child and defaults as a whole.
+    let schema_provider = FailingAt::new(
+        Provider::empty().with_node(&[], Node::Object),
+        &[&["value"]],
+    );
+    let recovered_schema = Config::schema(
+        &field_shape(vec![Field::required("value", string())]),
+        None,
+    )
+    .or_else(Config::succeed(obj(&[(
+        "value",
+        Value::Str("fallback".to_string()),
+    )])));
+
+    let group_provider = FailingAt::new(provider(&[("present", "value")]), &[&["failed"]]);
+    let recovered_group = Config::record(vec![
+        (
+            "failed".to_string(),
+            Config::string(Some("failed".to_string())),
+        ),
+        (
+            "present".to_string(),
+            Config::string(Some("present".to_string())),
+        ),
+    ])
+    .or_else(Config::succeed(obj(&[
+        ("failed", Value::Str("recovered".to_string())),
+        ("present", Value::Str("recovered".to_string())),
+    ])));
+
+    let fallback = obj(&[
+        ("recovered", Value::Str("default".to_string())),
+        ("required", Value::Str("default".to_string())),
+    ]);
+    for (provider, recovered) in [
+        (schema_provider, recovered_schema.clone()),
+        (group_provider, recovered_group),
+    ] {
+        let config = Config::record(vec![
+            ("recovered".to_string(), recovered),
+            (
+                "required".to_string(),
+                Config::string(Some("required".to_string())),
+            ),
+        ]);
+        assert_eq!(
+            config
+                .with_default(fallback.clone())
+                .load(&provider),
+            Ok(fallback.clone())
+        );
+    }
+}
+
+#[test]
+fn a_union_does_not_try_another_member_after_a_failure() {
+    // Config.test.ts:2094 — a source failure inside a member aborts the union;
+    // the next member is not a fallback for a failed read.
+    let provider = FailingAt::new(
+        Provider::empty().with_node(&["value"], Node::Object),
+        &[&["value", "child"]],
+    );
+    let union = Schema::as_unknown(Schema::union_with_mode(
+        vec![shape(vec![("child", string())]), string()],
+        "anyOf",
+    ));
+    let config = Config::schema(&union, Some("value".to_string()));
+
+    assert_eq!(
+        config.load(&provider),
+        Err(vec![FailingAt::source(vec![
+            "value".to_string(),
+            "child".to_string()
+        ])])
     );
 }
