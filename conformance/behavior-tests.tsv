@@ -690,7 +690,7 @@ ported	packages/effect/test/Combiner.test.ts	33	it	constant	combiners_fold
 ported	packages/effect/test/Combiner.test.ts	38	it	intercalate	combiners_fold
 not-applicable	packages/effect/test/Config.test.ts	37	it	recognizes SourceError defects from a reloaded module copy	the identity claim needs vi.resetModules: a second module copy of ConfigProvider carrying its own SourceError class; the port compiles one ConfigProvider and has no module-copy mechanism, so a foreign-copy SourceError cannot exist
 not-applicable	packages/effect/test/Config.test.ts	54	it.effect	uses the current ConfigProvider when yielded as an Effect	the row reads the ambient ConfigProvider by yielding it as an Effect under ConfigProvider.layer; the port's config is a descriptor plus a Lookup with no Effect channel, so there is no yieldable provider to read
-ported	packages/effect/test/Config.test.ts	65	it.effect	preserves provider defects at the root and in nested fields	crates/elm-effect/src/config_effect.rs::provider_defect::a_provider_defect_reaches_catch_defect_and_no_fallback_answers_it
+ported	packages/effect/test/Config.test.ts	65	it.effect	preserves provider defects at the root and in nested fields	crates/elm-effect/tests/config_effect.rs::a_provider_defect_reaches_catch_defect_and_no_fallback_answers_it
 ported	packages/effect/test/Config.test.ts	92	it	fail creates an always-failing config	config_fail_always_fails
 ported	packages/effect/test/Config.test.ts	102	it	succeed creates a provider-independent value	config_succeed_ignores_provider
 ported	packages/effect/test/Config.test.ts	107	it	string decodes present input and reports absence	config_string_decodes_and_reports_absence
@@ -749,13 +749,13 @@ ported	packages/effect/test/Config.test.ts	968	it.effect	replaces the whole grou
 ported	packages/effect/test/Config.test.ts	990	it.effect	recovers missing tuple and iterable children without hiding invalid input	config_all_recovers_missing_tuple_children_without_hiding_invalid_input
 ported	packages/effect/test/Config.test.ts	1021	it.effect	propagates source failures alongside absence in every group shape	group_shapes_report_a_source_failure_beside_absence
 ported	packages/effect/test/Config.test.ts	1042	it.effect	propagates nested group absence alongside a resolved sibling	config_all_propagates_nested_group_absence_alongside_a_resolved_sibling
-ported	packages/effect/test/Config.test.ts	1060	it.effect	treats mapped, effectfully mapped, and constant siblings alike	crates/elm-effect/src/config_effect.rs::mapped_effectfully_mapped_and_constant_siblings_decode_alike
+ported	packages/effect/test/Config.test.ts	1060	it.effect	treats mapped, effectfully mapped, and constant siblings alike	crates/elm-effect/tests/config_effect.rs::mapped_effectfully_mapped_and_constant_siblings_decode_alike
 ported	packages/effect/test/Config.test.ts	1077	it.effect	recovers an absent sibling after orElse handles invalid input	config_all_recovers_an_absent_sibling_after_or_else_handles_invalid_input
 ported	packages/effect/test/Config.test.ts	1095	it.effect	recovers an absent sibling after orElse handles absence	config_all_recovers_an_absent_sibling_after_or_else_handles_absence
 ported	packages/effect/test/Config.test.ts	1109	it.effect	lets defaults and option handle an absent orElse fallback	config_or_else_falls_back_then_defaults
 ported	packages/effect/test/Config.test.ts	1126	it.effect	uses the orElse fallback result within the nested path	config_or_else_fallback_inside_nested_path
 ported	packages/effect/test/Config.test.ts	1154	it.effect	propagates an orElse fallback source error after recovering invalid input	an_orelse_fallback_failure_reaches_the_caller
-ported	packages/effect/test/Config.test.ts	1173	it.effect	recovers an absent sibling after orElse handles mapEffect failure	crates/elm-effect/src/config_effect.rs::or_else_recovers_a_map_effect_failure_and_the_group_then_defaults
+ported	packages/effect/test/Config.test.ts	1173	it.effect	recovers an absent sibling after orElse handles mapEffect failure	crates/elm-effect/tests/config_effect.rs::or_else_recovers_a_map_effect_failure_and_the_group_then_defaults
 ported	packages/effect/test/Config.test.ts	1193	it.effect	recovers an absent sibling after orElse handles a descendant source failure	an_orelse_recovers_a_failed_read
 ported	packages/effect/test/Config.test.ts	1218	it.effect	recovers an absent sibling after orElse handles a nested group failure	an_orelse_recovers_a_failed_read
 ported	packages/effect/test/Config.test.ts	1245	it.effect	recovers an absent sibling after orElse handles an initial source failure	a_group_root_read_is_a_failure_or_else_may_answer
@@ -1838,18 +1838,18 @@ not-applicable	packages/effect/test/Formatter.test.ts	719	it	uses expected annot
 not-applicable	packages/effect/test/Formatter.test.ts	729	it	keeps Redacted input redacted	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
 not-applicable	packages/effect/test/Formatter.test.ts	742	it	preserves custom messages and hooks	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
 not-applicable	packages/effect/test/Formatter.test.ts	759	it	reports input in Standard Schema messages without adding an input field	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
-not-applicable	packages/effect/test/Function.test.ts	7	it	arity 2 - data-first	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	15	it	arity 2 - data-last	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	23	it	arity 3 - data-first	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	31	it	arity 3 - data-last	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	39	it	arity 4 (default branch) - data-first	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	44	it	arity 4 (default branch) - data-last	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	49	it	throws RangeError for arity 0	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	53	it	throws RangeError for arity 1	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	57	it	predicate-based - data-first	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	68	it	predicate-based - data-last	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	81	it	applies a value to a function	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	86	it	works with pipe	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	7	it	arity 2 - data-first	N/A: `dual(2, f)` dispatches on `arguments.length`; a Rust call records its arity in the function type, so `sum(2, 3)` is the plain typed call and no constructor dispatches
+not-applicable	packages/effect/test/Function.test.ts	15	it	arity 2 - data-last	N/A: `dual(2, f)`'s one-argument form returns `|self| body(self, a)`; Rust has no variadic call, so the data-last form is a separate `flip_curried` and the one-constructor dispatch cannot be represented
+not-applicable	packages/effect/test/Function.test.ts	23	it	arity 3 - data-first	N/A: `dual(3, f)` dispatches on `arguments.length >= 3`; a Rust call names all three arguments in its type, so there is no partial-call branch to observe
+not-applicable	packages/effect/test/Function.test.ts	31	it	arity 3 - data-last	N/A: `dual(3, f)` returns `|self| body(self, a, b)` on the short call; Rust has no variadic call, so this data-last shape is a separate three-argument curried function, not a dispatch
+not-applicable	packages/effect/test/Function.test.ts	39	it	arity 4 (default branch) - data-first	N/A: `dual(4, f)` takes the default `arguments.length >= arity` branch; a Rust call cannot under- or over-supply arguments, so the branch never runs and has no observation
+not-applicable	packages/effect/test/Function.test.ts	44	it	arity 4 (default branch) - data-last	N/A: the default branch returns `|self| body(self, ...args)` for the short call; a Rust function cannot spread a runtime argument list, so the shared dispatch cannot be represented
+not-applicable	packages/effect/test/Function.test.ts	49	it	throws RangeError for arity 0	N/A: `dual(0, f)` throws `RangeError('Invalid arity 0')`; a typed Rust call cannot be built at arity 0, so there is no constructor to reject and no message to raise
+not-applicable	packages/effect/test/Function.test.ts	53	it	throws RangeError for arity 1	N/A: `dual(1, f)` throws `RangeError('Invalid arity 1')`; a unary Rust function is already the data-first form, so there is no arity-1 constructor to reject
+not-applicable	packages/effect/test/Function.test.ts	57	it	predicate-based - data-first	N/A: the predicate reads the JavaScript `arguments` object; a Rust predicate over arity would need a dynamically typed argument list the typed API never builds
+not-applicable	packages/effect/test/Function.test.ts	68	it	predicate-based - data-last	N/A: the predicate form picks data-last when `arguments.length` is short; without a runtime argument list there is no predicate input, so the dynamic choice cannot be represented
+ported	packages/effect/test/Function.test.ts	81	it	applies a value to a function	function_apply
+ported	packages/effect/test/Function.test.ts	86	it	works with pipe	function_apply
 ported	packages/effect/test/Function.test.ts	93	it	returns the same value for primitives	function_combinators
 ported	packages/effect/test/Function.test.ts	101	it	returns the same reference for objects	function_combinators
 ported	packages/effect/test/Function.test.ts	108	it	returns value unchanged	function_combinators
@@ -1859,30 +1859,30 @@ ported	packages/effect/test/Function.test.ts	126	it	returns reference-equal obje
 ported	packages/effect/test/Function.test.ts	135	it	returns true	function_combinators
 ported	packages/effect/test/Function.test.ts	141	it	returns false	function_combinators
 ported	packages/effect/test/Function.test.ts	147	it	returns null	function_combinators
-not-applicable	packages/effect/test/Function.test.ts	153	it	returns undefined	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	159	it	returns undefined	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+ported	packages/effect/test/Function.test.ts	153	it	returns undefined	function_constants
+ported	packages/effect/test/Function.test.ts	159	it	returns undefined	function_constants
 ported	packages/effect/test/Function.test.ts	165	it	reverses the order of curried arguments	function_combinators
 ported	packages/effect/test/Function.test.ts	175	it	data-first: composes left-to-right	function_combinators
-not-applicable	packages/effect/test/Function.test.ts	179	it	data-last: composes with pipe	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	185	it	throws an error when called	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+ported	packages/effect/test/Function.test.ts	179	it	data-last: composes with pipe	function_compose_with_pipe
+not-applicable	packages/effect/test/Function.test.ts	185	it	throws an error when called	N/A: `Infallible` is uninhabited, so the panic arm has no caller; the law holds by construction and the pin's message cannot be observed by a test
 ported	packages/effect/test/Function.test.ts	193	it	converts a multi-arg function to accept a tuple	function_combinators
 ported	packages/effect/test/Function.test.ts	201	it	converts a tuple-accepting function to multi-arg	function_combinators
-not-applicable	packages/effect/test/Function.test.ts	209	it	returns value with no functions	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	213	it	applies one function	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	217	it	applies two functions	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	221	it	applies a long chain	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	239	it	transforms types through the chain	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	250	it	single function returns it unchanged	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+ported	packages/effect/test/Function.test.ts	209	it	returns value with no functions	function_pipe
+ported	packages/effect/test/Function.test.ts	213	it	applies one function	function_pipe
+ported	packages/effect/test/Function.test.ts	217	it	applies two functions	function_pipe
+ported	packages/effect/test/Function.test.ts	221	it	applies a long chain	function_pipe
+ported	packages/effect/test/Function.test.ts	239	it	transforms types through the chain	function_pipe
+ported	packages/effect/test/Function.test.ts	250	it	single function returns it unchanged	function_flow
 ported	packages/effect/test/Function.test.ts	255	it	composes two functions	function_and_ordering_basics
-not-applicable	packages/effect/test/Function.test.ts	261	it	composes three functions	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	272	it	composes up to nine functions	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	287	it	first function can accept multiple arguments	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	297	it	throws when called	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	303	it	returns the second argument	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	310	it	caches results for the same object reference	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	322	it	recomputes for different object references	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	335	it	caches the output as a fixed point	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/Function.test.ts	349	it	caches an input that is already a fixed point	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+ported	packages/effect/test/Function.test.ts	261	it	composes three functions	function_flow
+ported	packages/effect/test/Function.test.ts	272	it	composes up to nine functions	function_flow
+ported	packages/effect/test/Function.test.ts	287	it	first function can accept multiple arguments	function_flow
+ported	packages/effect/test/Function.test.ts	297	it	throws when called	function_hole
+ported	packages/effect/test/Function.test.ts	303	it	returns the second argument	function_sk
+ported	packages/effect/test/Function.test.ts	310	it	caches results for the same object reference	function_memoize
+ported	packages/effect/test/Function.test.ts	322	it	recomputes for different object references	function_memoize
+ported	packages/effect/test/Function.test.ts	335	it	caches the output as a fixed point	function_memoize_idempotent
+ported	packages/effect/test/Function.test.ts	349	it	caches an input that is already a fixed point	function_memoize_idempotent
 ported	packages/effect/test/Graph.test.ts	59	it	constructs directed and undirected graphs	constructs_directed_and_undirected_graphs
 ported	packages/effect/test/Graph.test.ts	70	it	rejects invalid runtime graph kinds	rejects_invalid_runtime_graph_kinds
 skipped-upstream	packages/effect/test/Graph.test.ts	77	it	recognizes immutable and mutable graphs only	

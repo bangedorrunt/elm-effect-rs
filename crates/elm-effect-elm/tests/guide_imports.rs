@@ -16,6 +16,10 @@
 
 // Every line in `PUBLISHED`, in the same order.
 use elm_effect::{effect, retry, use_service, Effect, Exit, Runtime, Schedule, Schema, ServiceTag};
+use elm_effect::{apply, compose, const_unit, flow, identity, pipe, sk};
+use elm_effect::{Config, ConfigError};
+use elm_effect::config::Value;
+use elm_effect::config_provider::Provider;
 use elm_effect_elm::{Boot, Program, Update};
 
 use std::fs;
@@ -35,6 +39,12 @@ const PUBLISHED: &[&str] = &[
     "use elm_effect::Schema;",
     // The metric section's import.
     "use elm_effect::{Attributes, Counter, Metrics};",
+    // The combinator section's import. `pipe` and `flow` are macros.
+    "use elm_effect::{apply, compose, const_unit, flow, identity, pipe, sk};",
+    // The config section's imports.
+    "use elm_effect::{Config, ConfigError};",
+    "use elm_effect::config::Value;",
+    "use elm_effect::config_provider::Provider;",
     "use elm_effect_elm::{Boot, Program, Update};",
 ];
 

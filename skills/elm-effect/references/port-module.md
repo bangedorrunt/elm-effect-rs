@@ -30,7 +30,7 @@ The carrier is in the crates. Do not rebuild a phase whose tests pass. A destina
 2. Carry a row only when the task named that behavior. A carried call becomes a Rust test with the same observable result. A carried `it.each` row runs every tuple in its table. A test that only asserts the function exists does not port the row. A row we will not carry is `not-applicable` with a reason. Do not open the next Effect file.
 3. Implement until that test passes. `Equal` for domain values treats `NaN` as equal. `f64`'s `==` stays IEEE. Waits go through `Clock`. Direct `tokio::time::sleep` inside the module is a bug.
 4. A service the module introduces is a new tag. It does not change the fiber state machine.
-5. Helpers that exist in the TypeScript file only to simulate traits (`pipe`, HKT, `Yieldable`) are not ported. A trait is the port.
+5. Helpers that exist in the TypeScript file only to simulate traits (`pipe`, HKT, `Yieldable`) are not ported. A trait is the port. The exception is a helper whose behavior a row asserts: `pipe`/`flow` are carried as the macros `pipe!`/`flow!`, because Rust has no variadic call, and a multi-argument `flow` head takes one tuple. `dual` is not carried: one constructor serving both call orders needs runtime arity dispatch, so its rows stay `not-applicable` and the reason names the arity, not the module.
 6. Set a carried row to `ported` only after its Rust test was red and then green, and put that test's path in the `rust` column. A `ported` row with an empty `rust` column fails the ledger test. Leave uncarried rows `not-applicable` with a reason.
 7. `cargo test -p` the crate that received the module.
 

@@ -54,6 +54,29 @@ fn main() {
 
 A description does no I/O until `Runtime::run`.
 
+## Small combinators
+
+`pipe!` and `flow!` are macros because a Rust function cannot take a variable number of functions. `pipe!(x, f, g)` is `g(f(x))`. `flow!(f, g)` is `|x| g(f(x))`.
+
+```rust
+use elm_effect::{apply, compose, const_unit, flow, identity, pipe, sk};
+
+let six = pipe!(5, |n: i32| n + 1);
+let double = flow!(|n: i32| n + 1, |n: i32| n * 2);
+let through = pipe!(3, |n: i32| apply(n, |m: i32| m * 2));
+let nothing = const_unit()();
+let kept = sk(1, "second");
+let same = pipe!(identity(4), |n: i32| n);
+```
+
+`apply(a, f)` is `f(a)`, with the value first, the pin's order. `const_unit` answers `()` for both `constUndefined` and `constVoid`: Rust has no `undefined`. `sk` returns its second argument. `compose(f, g)` is `|x| g(f(x))` as a value. `tupled` and `untupled` move a two-argument function between two arguments and one tuple.
+
+A `flow` head that takes several arguments takes them as one tuple, because a Rust closure has a fixed arity: `flow!(|(a, b): (i32, i32)| a + b, double)((1, 2))`.
+
+`hole::<T>()` panics with the pin's sentence. Use it where a branch cannot happen but the type system does not say so. `absurd` takes `Infallible`, so only a branch the compiler has already ruled out can call it.
+
+`memoize(f)` and `memoize_idempotent(f)` cache by `Arc` identity, the pin's `WeakMap` key: equal values in two `Arc`s are two entries. The cache holds a clone of each key, so the address cannot be reused by a later allocation. Entries live as long as the memoizer, so a process that memoizes many transient values wants a store with eviction instead.
+
 ## Ask for a service
 
 ```rust
@@ -158,9 +181,36 @@ let table = metrics.read(|registry| registry.dump());
 
 The four hooks write on an exit: `effect.track(&metrics, |exit, registry| ..)` on every exit, `track_errors` on a typed failure only, `track_defects` on a defect only, and `track_duration(&metrics, |elapsed, registry| ..)` measures on the effect's own clock, so a `TestClock` counts virtual time.
 
-## Internal surfaces
+## Read config at startup
 
-`config` is a private module. `Config`, `ConfigError`, and the provider defect channel are witnessed by the crate's own tests and cannot be called from an application; `config_provider::Lookup` is the public piece. Do not write a call for the rest until the module opens.
+`Config` describes one value. `load` reads it from a provider, so domain code never touches the environment. Both modules are in the default build.
+
+```rust
+use elm_effect::{Config, ConfigError};
+use elm_effect::config::Value;
+use elm_effect::config_provider::Provider;
+
+let provider = Provider::from_pairs([
+    ("HOST".to_string(), "localhost".to_string()),
+    ("PORT".to_string(), "8080".to_string()),
+]);
+
+let host = Config::string(Some("HOST".to_string())).load(&provider)?;
+let name = match host {
+    Value::Str(name) => name,
+    other => panic!("expected a string, got {other:?}"),
+};
+
+let port = Config::integer(Some("PORT".to_string()))
+    .with_default(Value::Int(3000))
+    .load(&provider)?;
+```
+
+The constructors are `string`, `non_empty_string`, `number`, `finite`, `integer`, `boolean`, `literal`, `literals`, `secret`, `redacted`, `duration_ms`, `duration`, `date`, `byte_size`, `url`, `port`, `log_level`, `array`, `all`, `record`, `schema`, `succeed`, and `fail`. The combinators are `map`, `flat_map`, `map_effect`, `validate`, `or_else`, `or_else_with`, `option`, `with_default`, and `nested`.
+
+`load` answers `Result<Value, Vec<ConfigError>>`: one value, or every error the group found. The kinds are `Missing`, `Invalid`, `Source`, and `Defect`. A failed read (`Source`) and a provider that died (`Defect`) are not absence: neither `with_default` nor `option` recovers them, and only `catch_defect` answers a defect. `load_effect` moves the same load into an effect, so a provider defect arrives as the effect's defect.
+
+`Config` holds `Rc`-bound run closures, so it is not `Send`. Build and load it on the thread that starts the process, then pass the decoded values on.
 
 ## A cell
 

@@ -5,16 +5,23 @@
 //! `NaN`; [`f64`]'s `PartialEq` stays IEEE. The two traits answer different
 //! questions, so `equal_nan_is_nan` uses [`Equal`], never `==`.
 //!
-//! Out of scope on purpose: `pipe`/`dual` application syntax (use method
-//! chains and closures), `Date`/`RegExp`/`Map`/`Set` hashing (no universal
-//! object graph in `std`), type-guard refinements (Rust matches do that).
+//! `pipe`/`flow` are macros here: Rust has no variadic function, and the
+//! macros compose exactly as the pin's functions do. `dual` stays out of
+//! scope: one constructor serving both call orders needs runtime arity, which
+//! a typed Rust API does not have.
+//!
+//! Also out of scope on purpose: `Date`/`RegExp`/`Map`/`Set` hashing (no
+//! universal object graph in `std`), type-guard refinements (Rust matches do
+//! that).
 // This file belongs to the parked port campaign: a test reaches it through
 // a `#[path]` include to port specific rows, so most of its surface is
 // unused by any one test target. Warnings about the unexercised remainder
 // describe the test's coverage, not a defect in the crate, so they are
 // allowed here rather than fixed one by one.
 #![allow(dead_code)]
+use std::cell::RefCell;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 // Ordering
@@ -272,6 +279,122 @@ where
 /// Diverging function for impossible branches.
 pub fn absurd<T>(_: std::convert::Infallible) -> T {
     panic!("Called `absurd` function which should be uncallable")
+}
+
+/// Apply a value to a function: `apply(a, f)` is `f(a)`.
+///
+/// The pin curries this as `apply(a)(f)`; Rust has no currying, so the value
+/// stays first, the same order the pin's two applications read in.
+pub fn apply<A, B>(value: A, f: impl Fn(A) -> B) -> B {
+    f(value)
+}
+
+/// A thunk returning the unit value.
+///
+/// The pin has two names for this, `constUndefined` and `constVoid`, because
+/// JavaScript spells the value `undefined`; Rust spells it `()`.
+pub fn const_unit() -> impl Fn() {
+    || ()
+}
+
+/// Discard the first argument and return the second (`SK`).
+pub fn sk<A, B>(_first: A, second: B) -> B {
+    second
+}
+
+/// A call that must be unreachable, mirroring the pin's `hole<T>()`.
+///
+/// # Panics
+///
+/// Always, with the pin's sentence. The type system cannot rule out every
+/// branch, so the branch that is left gets a named failure instead of a wrong
+/// value.
+pub fn hole<T>() -> T {
+    panic!("Called `hole` function which should be uncallable")
+}
+
+/// Memoize a computation by `Arc` identity, the pin's `WeakMap` key.
+///
+/// Structurally equal values do not share an entry. The cache keeps a clone of
+/// the key, so its address cannot be reused by a later allocation; that is
+/// what makes the pointer a sound key.
+///
+/// ponytail: entries live as long as the memoizer, since a strong key cannot
+/// be collected. An LRU or a `Weak`-keyed store if a long-lived process
+/// memoizes many transient values.
+pub fn memoize<A, O>(f: impl Fn(&A) -> O) -> impl Fn(&Arc<A>) -> O
+where
+    O: Clone,
+{
+    let cache: RefCell<HashMap<usize, (Arc<A>, O)>> = RefCell::new(HashMap::new());
+    move |a: &Arc<A>| {
+        let key = Arc::as_ptr(a) as usize;
+        if let Some((_, cached)) = cache.borrow().get(&key) {
+            return cached.clone();
+        }
+        let out = f(a);
+        cache
+            .borrow_mut()
+            .insert(key, (Arc::clone(a), out.clone()));
+        out
+    }
+}
+
+/// Memoize an idempotent transform, caching each output as a fixed point.
+///
+/// Calling the result with an input or with the output it produced returns the
+/// output without running `f` again.
+pub fn memoize_idempotent<A>(f: impl Fn(&Arc<A>) -> Arc<A>) -> impl Fn(&Arc<A>) -> Arc<A> {
+    let cache: RefCell<HashMap<usize, (Arc<A>, Arc<A>)>> = RefCell::new(HashMap::new());
+    move |a: &Arc<A>| {
+        let key = Arc::as_ptr(a) as usize;
+        if let Some((_, cached)) = cache.borrow().get(&key) {
+            return Arc::clone(cached);
+        }
+        let out = f(a);
+        let out_key = Arc::as_ptr(&out) as usize;
+        let mut cache = cache.borrow_mut();
+        cache.insert(key, (Arc::clone(a), Arc::clone(&out)));
+        if out_key != key {
+            cache.insert(out_key, (Arc::clone(&out), Arc::clone(&out)));
+        }
+        out
+    }
+}
+
+/// Apply a value through a chain of functions, left to right.
+///
+/// `pipe!(x)` is `x`; `pipe!(x, f, g)` is `g(f(x))`. The pin's `pipe` is
+/// variadic, and a Rust function is not, so the chain is a macro.
+#[macro_export]
+macro_rules! pipe {
+    ($value:expr $(,)?) => {
+        $value
+    };
+    ($value:expr, $first:expr $(,)?) => {
+        ($first)($value)
+    };
+    ($value:expr, $first:expr, $($rest:expr),+ $(,)?) => {
+        $crate::pipe!(($first)($value), $($rest),+)
+    };
+}
+
+/// Compose functions left to right into one function.
+///
+/// `flow!(f)` is `f`; `flow!(f, g)` is `|x| g(f(x))`. A head that takes more
+/// than one argument takes them as one tuple, since a Rust closure has a fixed
+/// arity: `flow!(|(a, b): (i32, i32)| a + b, double)((1, 2))`.
+#[macro_export]
+macro_rules! flow {
+    ($f:expr $(,)?) => {
+        $f
+    };
+    ($f:expr, $g:expr $(,)?) => {
+        move |a| ($g)(($f)(a))
+    };
+    ($f:expr, $g:expr, $($rest:expr),+ $(,)?) => {
+        $crate::flow!(move |a| ($g)(($f)(a)), $($rest),+)
+    };
 }
 
 // Hash

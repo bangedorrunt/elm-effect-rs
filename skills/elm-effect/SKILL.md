@@ -51,7 +51,7 @@ Read `docs/guides/15-use-the-apis.mdx` on every branch. Then the first matching 
 
 ## Gate
 
-A sibling edit waits until `cargo test -p elm-effect` is green. The product is done when `sh conformance/witness.sh` exits 0. A guide edit is not done until `cargo test -p elm-effect-elm --test guide_imports` is green: it compiles the `use` lines the guides print and fails on a line it does not have, so a new snippet needs its import added to that list. The ignored conformance test is an index. A red row we will not carry is `not-applicable` with a reason. It is not a reason to port the next Effect file.
+A sibling edit waits until `cargo test -p elm-effect` is green. The product is done when `sh conformance/witness.sh` exits 0. A guide edit is not done until `cargo test -p elm-effect-elm --test guide_imports` is green: it compiles the `use` lines the guides print and fails on a line it does not have, so a new snippet needs its import added to that list. A ledger flip is not done until `python3 conformance/witness-audit.py` and `python3 conformance/excuse-audit.py` both exit 0, and a `ported` row needs its witness red under a stub first. The ignored conformance test is an index. A red row we will not carry is `not-applicable` with a reason that names the mechanism. It is not a reason to port the next Effect file.
 
 ## Done
 

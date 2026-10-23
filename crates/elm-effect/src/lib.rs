@@ -43,7 +43,9 @@ pub mod console;
 pub mod channel_schema;
 #[cfg(feature = "tokio")]
 mod concurrency;
-mod config;
+// `Config` is the startup read: a descriptor plus `load` against a provider,
+// so an application never touches the environment from domain code.
+pub mod config;
 // `Config.mapEffect`'s driver: the transform is an `Effect`, and `config`
 // cannot name one without breaking its path-module tests, so the bridge lives
 // beside it.
@@ -149,6 +151,7 @@ pub use cause::{
     is_exceeded_capacity_error, is_fail_reason, is_illegal_argument_error, is_interrupt_reason,
     is_no_such_element_error, is_timeout_error, is_unknown_error,
 };
+pub use config::{Config, ConfigError};
 #[cfg(feature = "tokio")]
 pub use concurrency::{
     BOUNDED_RECV_TIMEOUT, Body, Concurrency, all, all_discard, all_result, all_result_record,
@@ -173,10 +176,11 @@ pub use file::File;
 pub use fiber::{Ctx, Fiber, FiberHandle, ForkOpts, Mask, StartMode};
 pub use foundation::{
     Combiner, Differ, Equal, Equivalence, Filter, Hash, Matcher, Order, Predicate, Reducer, Tagged,
-    absurd, array_equivalence, boolean_equivalence, boolean_order, combine_hash, combine_ordering,
-    compose, const_false, const_null, const_true, constant, flip, flip_curried, hash_f64, hash_str,
-    identity, match_ordering, number_equivalence, number_order, ord_order, reverse_ordering,
-    string_equivalence, string_order, tagged, tuple_equivalence, tupled, untupled,
+    absurd, apply, array_equivalence, boolean_equivalence, boolean_order, combine_hash,
+    combine_ordering, compose, const_false, const_null, const_true, const_unit, constant, flip,
+    flip_curried, hash_f64, hash_str, hole, identity, match_ordering, memoize, memoize_idempotent,
+    number_equivalence, number_order, ord_order, reverse_ordering, sk, string_equivalence,
+    string_order, tagged, tuple_equivalence, tupled, untupled,
 };
 #[cfg(feature = "tokio")]
 pub use layer::{BuiltServices, Cycle, Layer, LayerMemo, LayerSpanOptions, RequirementIds};
