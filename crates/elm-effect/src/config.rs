@@ -1205,7 +1205,12 @@ fn kind_wires(
                     object.insert(key, wire);
                 }
             }
-            if !object.is_empty() || provider.has_children(path) {
+            // An explicit object node with no keys is a present empty record
+            // (Config.test.ts:729); an array node supplies no keys.
+            let present = !object.is_empty()
+                || provider.has_children(path)
+                || matches!(provider.node(path), Some(super::config_provider::Node::Object));
+            if present {
                 vec![Unknown::Object(object)]
             } else {
                 Vec::new()
@@ -1228,9 +1233,17 @@ fn object_or_scalar(
     provider: &dyn Lookup,
     path: &[String],
 ) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
+    use super::config_provider::Node;
     use elm_effect_schema::Unknown;
     if !object.is_empty() || provider.has_children(path) {
         return Ok(vec![Unknown::Object(object)]);
+    }
+    match provider.node(path) {
+        // An explicit container at the path. An empty object is a present
+        // struct the schema validates; an array is not one (Config.test.ts:729).
+        Some(Node::Object) => return Ok(vec![Unknown::Object(object)]),
+        Some(Node::Array) => return Ok(Vec::new()),
+        None => {}
     }
     Ok(match provider.get(path) {
         Some(text) => match json_wire(&text) {
@@ -1251,7 +1264,6 @@ fn sequence_wires(
     provider: &dyn Lookup,
     path: &[String],
 ) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
-    use elm_effect_schema::Unknown;
     let mut items = Vec::new();
     let mut index = 0usize;
     loop {
@@ -1265,20 +1277,9 @@ fn sequence_wires(
             None => break,
         }
     }
-    if !items.is_empty() {
-        return Ok(vec![Unknown::Array(items)]);
-    }
-    Ok(match provider.get(path) {
-        Some(text) => match json_wire(&text) {
-            // An object node where an array belongs reads as absent, but a
-            // co-located scalar is a value the schema must refuse
-            // (Config.test.ts:2278, :1286).
-            Some(Unknown::Object(_)) => Vec::new(),
-            Some(value) => vec![value],
-            None => vec![Unknown::Text(text)],
-        },
-        None => Vec::new(),
-    })
+    // The node and co-located-scalar rules are the same for an array and an
+    // empty tuple, so both read through this one tail.
+    positional_or_scalar(items, provider, path)
 }
 
 #[cfg(feature = "schema")]
@@ -1288,8 +1289,16 @@ fn positional_or_scalar(
     path: &[String],
 ) -> Result<Vec<elm_effect_schema::Unknown>, &'static str> {
     use elm_effect_schema::Unknown;
+    use super::config_provider::Node;
     if !items.is_empty() {
         return Ok(vec![Unknown::Array(items)]);
+    }
+    match provider.node(path) {
+        // An empty tuple is an explicit empty array node, not an absent one;
+        // an object node supplies no positions (Config.test.ts:729).
+        Some(Node::Array) => return Ok(vec![Unknown::Array(Vec::new())]),
+        Some(Node::Object) => return Ok(Vec::new()),
+        None => {}
     }
     Ok(match provider.get(path) {
         Some(text) => match json_wire(&text) {
@@ -1318,6 +1327,77 @@ fn element_wires(
         }
     }
     positional_or_scalar(items, provider, path)
+}
+
+/// Whether the provider at `path` can supply the representation the schema
+/// asks for (`hasProviderInput` in Config.ts): an object for an object shape,
+/// an array for an array shape, a scalar for a leaf.
+///
+/// A decode failure with input present is a validation failure; without it the
+/// config is absent, so `withDefault`/`option` recover it. That is the whole
+/// difference between an explicit empty container (validated, so its missing
+/// fields fail) and an absent path (Config.test.ts:729, :877).
+#[cfg(feature = "schema")]
+fn has_schema_input(
+    schema: &elm_effect_schema::Schema<elm_effect_schema::Unknown>,
+    provider: &dyn Lookup,
+    path: &[String],
+) -> bool {
+    if schema.fields().is_some() {
+        return object_present(provider, path);
+    }
+    if schema.elements().is_some() {
+        return array_present(provider, path);
+    }
+    kind_has_input(&schema.kind(), provider, path)
+}
+
+#[cfg(feature = "schema")]
+fn kind_has_input(
+    kind: &elm_effect_schema::SchemaKind,
+    provider: &dyn Lookup,
+    path: &[String],
+) -> bool {
+    use elm_effect_schema::SchemaKind;
+    match kind {
+        SchemaKind::Struct(_) | SchemaKind::StructWithRest(..) | SchemaKind::Record(..) => {
+            object_present(provider, path)
+        }
+        SchemaKind::Array(_) | SchemaKind::Tuple(_) | SchemaKind::TupleWithRest(..) => {
+            array_present(provider, path)
+        }
+        SchemaKind::Union { members, .. } => members
+            .iter()
+            .any(|member| kind_has_input(member, provider, path)),
+        SchemaKind::Optional(inner)
+        | SchemaKind::OptionalKey(inner)
+        | SchemaKind::Rest(inner)
+        | SchemaKind::Check { base: inner, .. }
+        | SchemaKind::Annotated { inner, .. } => kind_has_input(inner, provider, path),
+        // Everything else reads a co-located scalar, `Object`/`Json` included
+        // (their text is parsed as JSON), so the scalar is the input.
+        _ => provider.get(path).is_some(),
+    }
+}
+
+#[cfg(feature = "schema")]
+fn object_present(provider: &dyn Lookup, path: &[String]) -> bool {
+    use super::config_provider::Node;
+    match provider.node(path) {
+        Some(Node::Object) => true,
+        Some(Node::Array) => false,
+        None => provider.has_children(path),
+    }
+}
+
+#[cfg(feature = "schema")]
+fn array_present(provider: &dyn Lookup, path: &[String]) -> bool {
+    use super::config_provider::Node;
+    match provider.node(path) {
+        Some(Node::Array) => true,
+        Some(Node::Object) => false,
+        None => provider.has_children(path),
+    }
 }
 
 #[cfg(feature = "schema")]
@@ -1355,12 +1435,22 @@ impl Config {
                 if wires.is_empty() {
                     return Err(vec![ConfigError::Missing { path }]);
                 }
+                let relevant = has_schema_input(&walker, provider, &path);
                 let mut last = String::new();
                 for wire in wires {
                     last = format!("{wire:?}");
                     if let Ok(value) = codec.decode(wire) {
                         return Ok(value.into_config_value());
                     }
+                }
+                // The schema refused the input. With a relevant representation
+                // present that is a validation failure; without one the config
+                // is absent, so a default or an option recovers it. The pin
+                // still reports the schema's own message for the absent case;
+                // the port reports `Missing`, which carries the same
+                // recoverability (Config.test.ts:715, :2499).
+                if !relevant {
+                    return Err(vec![ConfigError::Missing { path }]);
                 }
                 Err(vec![ConfigError::Invalid {
                     path,

@@ -10,6 +10,20 @@
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
+/// A container node a source stores explicitly, with no value of its own.
+///
+/// A flat map cannot hold one: `{ a: {} }` and `{}` store the same nothing, so
+/// an explicit empty container and an absent path are one state. `Config.schema`
+/// validates a present container as a whole (Config.test.ts:729, :877), so the
+/// difference has to be representable.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Node {
+    /// An object node, which may have no children.
+    Object,
+    /// An array node, which may have no elements.
+    Array,
+}
+
 /// Key/value lookup backing [`Config`](super::Config) descriptors.
 /// Implemented by [`Provider`] and its views so custom sources
 /// (lookup functions, path transforms) feed `Config::load` directly.
@@ -37,6 +51,14 @@ pub trait Lookup {
     fn child_keys(&self, path: &[String]) -> Vec<String> {
         let _ = path;
         Vec::new()
+    }
+
+    /// The explicit container at `path`, when the source keeps nodes. `None`
+    /// means no container is recorded there; sources that cannot enumerate
+    /// keep that answer for every path.
+    fn node(&self, path: &[String]) -> Option<Node> {
+        let _ = path;
+        None
     }
 
     /// Value at `path` with the failure channel a source can carry
@@ -142,6 +164,7 @@ pub type PathMap = Rc<dyn Fn(&[String]) -> Vec<String>>;
 #[derive(Clone, Debug, Default)]
 pub struct Provider {
     values: BTreeMap<Vec<String>, String>,
+    nodes: BTreeMap<Vec<String>, Node>,
     preserve_empty: bool,
 }
 
@@ -156,6 +179,7 @@ impl Provider {
     pub fn from_pairs(pairs: impl IntoIterator<Item = (String, String)>) -> Self {
         Self {
             preserve_empty: false,
+            nodes: BTreeMap::new(),
             values: pairs
                 .into_iter()
                 .map(|(k, v)| (k.split('.').map(str::to_string).collect(), v))
@@ -179,6 +203,7 @@ impl Provider {
     ) -> Self {
         Self {
             preserve_empty: false,
+            nodes: BTreeMap::new(),
             values: pairs
                 .into_iter()
                 .map(|(k, v)| {
@@ -190,11 +215,21 @@ impl Provider {
         }
     }
 
+    /// Record an explicit container at `path` (segments), so the source can
+    /// hold `{ a: {} }` or `{ a: [] }`: the path exists although nothing is
+    /// stored under it (Config.test.ts:729).
+    pub fn with_node(mut self, path: &[&str], node: Node) -> Self {
+        self.nodes
+            .insert(path.iter().map(|s| s.to_string()).collect(), node);
+        self
+    }
+
     /// Build from pairs keeping empty values (`preserveEmptyStrings`
     /// opt-out of the missing-by-default rule).
     pub fn from_pairs_preserving(pairs: impl IntoIterator<Item = (String, String)>) -> Self {
         Self {
             preserve_empty: true,
+            nodes: BTreeMap::new(),
             values: pairs
                 .into_iter()
                 .map(|(k, v)| (k.split('.').map(str::to_string).collect(), v))
@@ -207,6 +242,7 @@ impl Provider {
     pub fn from_env() -> Self {
         Self {
             preserve_empty: false,
+            nodes: BTreeMap::new(),
             values: std::env::vars().map(|(k, v)| (vec![k], v)).collect(),
         }
     }
@@ -220,6 +256,7 @@ impl Provider {
         }
         Self {
             values,
+            nodes: BTreeMap::new(),
             preserve_empty: false,
         }
     }
@@ -313,6 +350,10 @@ impl Lookup for Provider {
         }
         out
     }
+
+    fn node(&self, path: &[String]) -> Option<Node> {
+        self.nodes.get(path).copied()
+    }
 }
 
 /// Prefixed view of a lookup source.
@@ -369,6 +410,12 @@ impl Lookup for Nested<'_> {
         full.extend(path.iter().cloned());
         self.inner.child_keys(&full)
     }
+
+    fn node(&self, path: &[String]) -> Option<Node> {
+        let mut full = self.prefix.clone();
+        full.extend(path.iter().cloned());
+        self.inner.node(&full)
+    }
 }
 
 impl Lookup for Fallback<'_> {
@@ -388,6 +435,10 @@ impl Lookup for Fallback<'_> {
             }
         }
         out
+    }
+
+    fn node(&self, path: &[String]) -> Option<Node> {
+        self.first.node(path).or_else(|| self.second.node(path))
     }
 
     fn try_get(&self, path: &[String]) -> Result<Option<String>, String> {

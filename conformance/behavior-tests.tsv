@@ -734,15 +734,15 @@ ported	packages/effect/test/Config.test.ts	651	it	validates empty env numbers wh
 ported	packages/effect/test/Config.test.ts	665	it	defaults the whole product when any required child is absent	config_with_default_present_absent_and_product
 ported	packages/effect/test/Config.test.ts	684	it	does not recover from invalid union input	config_log_level_default_does_not_cover_invalid_input
 not-applicable	packages/effect/test/Config.test.ts	696	it	does not recover from schema refinement failures	the row's refusal is `Schema.check`/refine, whose kind is `Opaque("refinement")`; Config.schema walks the wire kind looking for the base shape, so a refinement has no materializable wire and this row's refinement path cannot be staged
-not-applicable	packages/effect/test/Config.test.ts	715	it	uses the default unless a plain Array schema receives an array representation	the row contrasts an absent path with an explicit empty-array node; the port's provider stores indexed children rather than nodes, so an empty array and an absent path are the same state
-not-applicable	packages/effect/test/Config.test.ts	729	it	defaults absent named containers and preserves explicit empty containers	the row needs an explicit empty container distinguished from an absent one; the port's flat lookups carry no node presence, so the two are the same state
+ported	packages/effect/test/Config.test.ts	715	it	uses the default unless a plain Array schema receives an array representation	a_plain_array_schema_ignores_a_co_located_scalar
+ported	packages/effect/test/Config.test.ts	729	it	defaults absent named containers and preserves explicit empty containers	an_empty_object_node_is_a_present_struct
 not-applicable	packages/effect/test/Config.test.ts	796	it	preserves values successfully decoded from undefined	`Schema.UndefinedOr` reports `Opaque("undefinedOr")`; Config.schema reads the schema's wire kind, which this constructor does not record, so the undefined arm cannot be materialized
 ported	packages/effect/test/Config.test.ts	806	it	wraps present values and maps absence to None	config_option_maps_absence_to_none
 ported	packages/effect/test/Config.test.ts	826	it	returns None when any required child is absent	config_option_over_a_group_requires_every_child
 not-applicable	packages/effect/test/Config.test.ts	845	it.effect	wraps successfully decoded undefined in Some	`Schema.UndefinedOr` reports `Opaque("undefinedOr")`; Config.schema reads the schema's wire kind, which this constructor does not record, so the row's undefined value has no wire shape to decode into `Some`
 ported	packages/effect/test/Config.test.ts	870	it	default wholly absent nested configurations	config_with_default_covers_absent_nested
-not-applicable	packages/effect/test/Config.test.ts	877	it	distinguish an explicit empty schema container from an absent all group	the row distinguishes an explicit empty schema container from an absent all-group; the port's flat lookups carry no node presence, so the two are the same state
-not-applicable	packages/effect/test/Config.test.ts	897	it	validates partial schema objects and recovers absent all children	the row's schema leg needs an explicit empty object node, and the `all` leg beside it; the port's flat lookups carry no node presence, so an empty object and an absent path are one state
+ported	packages/effect/test/Config.test.ts	877	it	distinguish an explicit empty schema container from an absent all group	a_present_empty_container_is_validated_not_defaulted
+ported	packages/effect/test/Config.test.ts	897	it	validates partial schema objects and recovers absent all children	a_partial_object_fails_instead_of_defaulting
 not-applicable	packages/effect/test/Config.test.ts	910	it.effect	recovers an absent child alongside a successfully decoded undefined	the row's first leg decodes `Config.schema(Schema.UndefinedOr(...))`, and `undefined_or` reports an opaque kind Config.schema cannot read, so that arm has no wire shape
 not-applicable	packages/effect/test/Config.test.ts	930	it.effect	rejects invalid input alongside missing fields in either field order	the row orders a missing schema field against an invalid one and compares the two failures; Config.schema reports one `Invalid` at the config path without the pin's field-level ordering
 ported	packages/effect/test/Config.test.ts	968	it.effect	replaces the whole group when a required child remains absent	config_all_replaces_the_whole_group_when_a_required_child_stays_absent
@@ -835,14 +835,14 @@ not-applicable	packages/effect/test/Config.test.ts	2444	it	reports Int validatio
 ported	packages/effect/test/Config.test.ts	2465	it	loads root, flat, and nested paths	config_schema_string_loads_root_flat_and_nested_paths
 not-applicable	packages/effect/test/Config.test.ts	2483	it	decodes Undefined	the row decodes `Schema.Undefined`; that constructor reports no wire kind, so an undefined node cannot be materialized by the bridge
 ported	packages/effect/test/Config.test.ts	2491	it	decodes Null	null_schema_decodes_null_and_reports_absence
-not-applicable	packages/effect/test/Config.test.ts	2499	it	decodes String and rejects object input	the row's failure case hands an empty object node to `Schema.String`; the port's flat lookups cannot express an empty object node, so that refusal is not staged
+ported	packages/effect/test/Config.test.ts	2499	it	decodes String and rejects object input	an_empty_object_node_is_not_a_string
 ported	packages/effect/test/Config.test.ts	2507	it	decodes Number and rejects invalid input	number_schema_decodes_numeric_text_and_rejects_other_text
 ported	packages/effect/test/Config.test.ts	2520	it	decodes Finite and rejects invalid input	config_scalars_reject_invalid_input
 ported	packages/effect/test/Config.test.ts	2532	it	decodes Int and rejects invalid input	config_scalars_reject_invalid_input
 ported	packages/effect/test/Config.test.ts	2544	it	decodes Boolean and rejects invalid input	config_scalars_reject_invalid_input
 ported	packages/effect/test/Config.test.ts	2554	it	requires and validates required properties	struct_schema_requires_and_validates_every_required_property
-not-applicable	packages/effect/test/Config.test.ts	2573	it	omits absent optionalKey properties	the row's second assertion reads an empty object node as `{}`; the port's flat lookups cannot distinguish an empty object from an absent path, so the omission half has no witness
-not-applicable	packages/effect/test/Config.test.ts	2581	it	omits absent optional properties	the row's second assertion reads an empty object node as `{}`; the port's flat lookups cannot distinguish an empty object from an absent path, so the omission half has no witness
+ported	packages/effect/test/Config.test.ts	2573	it	omits absent optionalKey properties	an_empty_root_object_omits_absent_optional_properties
+ported	packages/effect/test/Config.test.ts	2581	it	omits absent optional properties	an_empty_root_object_omits_absent_optional_properties
 ported	packages/effect/test/Config.test.ts	2590	it	decodes literal properties	struct_schema_decodes_literal_properties
 ported	packages/effect/test/Config.test.ts	2598	it	rejects scalar values for array properties	array_properties_decode_from_indexed_children_only
 ported	packages/effect/test/Config.test.ts	2623	it	decodes and validates Record values	schema_record_decodes_and_validates_object_input

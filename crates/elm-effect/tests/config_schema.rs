@@ -19,7 +19,7 @@ mod config;
 mod config_provider;
 
 use config::{Config, Value};
-use config_provider::Provider;
+use config_provider::{Node, Provider};
 use elm_effect_schema::{Field, Schema, SchemaError, StructValue, Unknown, transform::Transformation};
 use std::collections::BTreeMap;
 
@@ -35,6 +35,17 @@ fn preserving(pairs: &[(&str, &str)]) -> Provider {
             .iter()
             .map(|(k, v)| ((*k).to_string(), (*v).to_string())),
     )
+}
+
+/// A provider that also records explicit container nodes. A flat map cannot:
+/// `{ a: {} }` and `{}` store the same nothing, which is the state the pin's
+/// provider distinguishes (Config.test.ts:729).
+fn container(pairs: &[(&str, &str)], nodes: &[(&[&str], Node)]) -> Provider {
+    let mut provider = provider(pairs);
+    for (path, node) in nodes {
+        provider = provider.with_node(path, *node);
+    }
+    provider
 }
 
 fn obj(pairs: &[(&str, Value)]) -> Value {
@@ -752,5 +763,181 @@ fn a_schema_reads_root_flat_and_nested_paths() {
     assert_eq!(
         nested.load(&provider(&[("a.b", "value")])),
         Ok(Value::Str("value".to_string()))
+    );
+}
+
+#[test]
+fn an_empty_object_node_is_a_present_struct() {
+    // Config.test.ts:729 — `{ a: {} }` is an existing object, so a struct
+    // whose fields are all optional decodes to `{}`; a `Record` reads no keys
+    // as `{}`; and an empty array node is an empty tuple. What the same row
+    // asserts for an ABSENT path is the other half: the whole config falls
+    // back to its default.
+    let empty_object = container(&[], &[(&["a"], Node::Object)]);
+
+    let optional = Config::schema(
+        &field_shape(vec![Field::optional_key("value", string())]),
+        Some("a".to_string()),
+    );
+    assert_eq!(optional.load(&empty_object), Ok(obj(&[])));
+
+    let record = Config::schema(
+        &Schema::as_unknown(Schema::record(Schema::as_unknown(Schema::string()))),
+        Some("a".to_string()),
+    );
+    assert_eq!(record.load(&empty_object), Ok(obj(&[])));
+
+    let empty_tuple = Config::schema(&Schema::tuple_of(vec![]), Some("a".to_string()));
+    assert_eq!(
+        empty_tuple.load(&container(&[], &[(&["a"], Node::Array)])),
+        Ok(Value::List(vec![]))
+    );
+
+    // The other half of the row: at an ABSENT path the same shapes fall back
+    // to the whole default rather than decoding an empty value.
+    let fallback = obj(&[("value", Value::Str("default".to_string()))]);
+    assert_eq!(
+        optional.with_default(fallback.clone()).load(&Provider::empty()),
+        Ok(fallback.clone())
+    );
+    assert_eq!(
+        record.with_default(fallback.clone()).load(&Provider::empty()),
+        Ok(fallback.clone())
+    );
+    let tuple_default = Value::List(vec![Value::Str("default".to_string())]);
+    let tuple = Config::schema(&Schema::tuple_of(vec![string()]), Some("a".to_string()))
+        .with_default(tuple_default.clone());
+    assert_eq!(tuple.load(&Provider::empty()), Ok(tuple_default));
+}
+
+#[test]
+fn a_present_empty_container_is_validated_not_defaulted() {
+    // Config.test.ts:877 — an existing empty object is a struct the schema
+    // validates, so its missing `host` is a hard failure a default cannot
+    // recover. The `all` group beside it reads its own lookups, has no such
+    // node, and does fall back.
+    let fallback = obj(&[
+        ("host", Value::Str("fallback".to_string())),
+        ("port", Value::Num(0.0)),
+    ]);
+    let schema_config = Config::schema(
+        &field_shape(vec![
+            Field::required("host", string()),
+            Field::required("port", number()),
+        ]),
+        None,
+    )
+    .nested("database")
+    .with_default(fallback.clone());
+    let all_config = Config::record(vec![
+        ("host".to_string(), Config::string(Some("host".to_string()))),
+        ("port".to_string(), Config::number(Some("port".to_string()))),
+    ])
+    .nested("database")
+    .with_default(fallback.clone());
+
+    let empty_database = container(&[], &[(&["database"], Node::Object)]);
+    assert!(
+        schema_config.load(&empty_database).is_err(),
+        "a present empty object is validated, not defaulted"
+    );
+    assert_eq!(all_config.load(&empty_database), Ok(fallback));
+}
+
+#[test]
+fn a_partial_object_fails_instead_of_defaulting() {
+    // Config.test.ts:897 — `host` present, `port` absent: the struct is
+    // validated as a whole, so its default does not replace a half-filled
+    // object; the `all` group has an absent child and does fall back.
+    let fallback = obj(&[
+        ("host", Value::Str("fallback".to_string())),
+        ("port", Value::Num(0.0)),
+    ]);
+    let schema_config = Config::schema(
+        &field_shape(vec![
+            Field::required("host", string()),
+            Field::required("port", number()),
+        ]),
+        None,
+    )
+    .nested("database")
+    .with_default(fallback.clone());
+    let all_config = Config::record(vec![
+        ("host".to_string(), Config::string(Some("host".to_string()))),
+        ("port".to_string(), Config::number(Some("port".to_string()))),
+    ])
+    .nested("database");
+
+    let partial = provider(&[("database.host", "localhost")]);
+    assert!(
+        schema_config.load(&partial).is_err(),
+        "a missing required field fails even with a default"
+    );
+    assert_eq!(
+        all_config.clone().with_default(fallback.clone()).load(&partial),
+        Ok(fallback),
+        "the all group combines independent lookups, so it falls back"
+    );
+    assert_eq!(
+        all_config.option().load(&partial),
+        Ok(Value::None),
+        "the same group is absent when one child is"
+    );
+}
+
+#[test]
+fn an_empty_object_node_is_not_a_string() {
+    // Config.test.ts:2499 — `fromUnknown({})` hands an object node to a String
+    // schema: the value is refused rather than read as an absent key.
+    let config = Config::schema(&string(), None);
+    assert!(
+        config
+            .load(&Provider::empty().with_node(&[], Node::Object))
+            .is_err()
+    );
+}
+
+#[test]
+fn an_empty_root_object_omits_absent_optional_properties() {
+    // Config.test.ts:2573 and :2581 — the second assertion in both rows reads
+    // an empty object node as `{}` at the root, which a flat provider cannot
+    // tell from an absent path.
+    let empty_root = Provider::empty().with_node(&[], Node::Object);
+
+    let optional_key = Config::schema(
+        &field_shape(vec![Field::optional_key("a", number())]),
+        None,
+    );
+    assert_eq!(optional_key.load(&empty_root), Ok(obj(&[])));
+    assert_eq!(
+        optional_key.load(&provider(&[("a", "1")])),
+        Ok(obj(&[("a", Value::Num(1.0))]))
+    );
+
+    let optional = Config::schema(&field_shape(vec![Field::optional("a", number())]), None);
+    assert_eq!(optional.load(&empty_root), Ok(obj(&[])));
+    assert_eq!(
+        optional.load(&provider(&[("a", "1")])),
+        Ok(obj(&[("a", Value::Num(1.0))]))
+    );
+}
+
+#[test]
+fn a_plain_array_schema_ignores_a_co_located_scalar() {
+    // Config.test.ts:715 — `Schema.Array` reads structural input only, so a
+    // scalar at the array's own path is absence and a default recovers it;
+    // `Config.Array` is the constructor that splits text. Indexed children
+    // are the array representation.
+    let default = Value::List(vec![Value::Str("default".to_string())]);
+    let config = Config::schema(&Schema::array(Schema::string()), Some("a".to_string()))
+        .with_default(default.clone());
+
+    assert_eq!(config.load(&provider(&[("a", "value")])), Ok(default.clone()));
+    assert_eq!(config.load(&provider(&[("a", "")])), Ok(default.clone()));
+    assert_eq!(config.load(&preserving(&[("a", "")])), Ok(default.clone()));
+    assert_eq!(config.load(&Provider::empty()), Ok(default.clone()));
+    assert_eq!(
+        config.load(&provider(&[("a.0", "value")])),
+        Ok(Value::List(vec![Value::Str("value".to_string())]))
     );
 }
