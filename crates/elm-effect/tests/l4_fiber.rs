@@ -1571,7 +1571,12 @@ fn all_concurrency_interrupts_started_siblings_on_failure() {
         Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"boom".to_owned())),
         Exit::Success(values) => panic!("expected the batch to fail, got {values:?}"),
     }
-    assert_eq!(*started.lock().unwrap(), vec![1u8, 3], "only the window starts");
+    // The two siblings start concurrently, so the order they record in is
+    // arbitrary (a thread that gets the scheduler first wins the push). The row
+    // pins which siblings started, never which got there first.
+    let mut started = started.lock().unwrap().clone();
+    started.sort_unstable();
+    assert_eq!(started, vec![1u8, 3], "only the window starts");
     // Both interrupted siblings notice concurrently, so the order they record
     // in is arbitrary; the row pins which siblings were interrupted.
     let mut noticed = interrupted.lock().unwrap().clone();
