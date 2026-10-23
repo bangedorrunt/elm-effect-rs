@@ -15,6 +15,12 @@
 //! `withAttributes` overlays, where the overlay applied first wins.
 
 use std::collections::HashMap;
+use std::marker::PhantomData;
+use std::sync::{Arc, Mutex};
+
+use crate::cause::{Cause, Defect, Reason};
+use crate::effect::Effect;
+use crate::exit::Exit;
 
 /// A metric attribute set.
 ///
@@ -871,6 +877,164 @@ impl MetricRegistry {
     }
 }
 
+/// A registry an effect can write to: the pin's fiber-owned `MetricRegistry`,
+/// carried as an explicit handle because a description here has no fiber state
+/// of its own to hold it in.
+///
+/// Every registry method runs inside [`read`](Metrics::read) or
+/// [`edit`](Metrics::edit). A panic while the lock is held does not poison it
+/// for later hooks: the registry is a counter table, and losing one update is
+/// better than going deaf for the rest of the run.
+#[derive(Clone, Debug, Default)]
+pub struct Metrics(Arc<Mutex<MetricRegistry>>);
+
+impl Metrics {
+    /// An empty registry.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Read the registry.
+    pub fn read<T>(&self, f: impl FnOnce(&MetricRegistry) -> T) -> T {
+        let guard = match self.0.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        f(&guard)
+    }
+
+    /// Change the registry.
+    pub fn edit<T>(&self, f: impl FnOnce(&mut MetricRegistry) -> T) -> T {
+        let mut guard = match self.0.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        f(&mut guard)
+    }
+}
+
+/// `Effect.trackDuration` as a step: read the ambient clock either side of the
+/// inner effect and record what elapsed.
+///
+/// The pins (`Metric.test.ts:1017`, `:1034`) make two properties observable
+/// here: the clock is the one provided to the effect (so a `TestClock` counts
+/// virtual time), and the reading is monotonic, so a wall clock set backwards
+/// still measures only the time that passed.
+struct TrackDuration<A: Send + 'static, E: Send + 'static, R: crate::Requirement> {
+    inner: Effect<A, E, R>,
+    metrics: Metrics,
+    record: Box<dyn Fn(crate::Duration, &mut MetricRegistry) + Send>,
+}
+
+impl<A, E, R> crate::effect::ErasedStep<A, E> for TrackDuration<A, E, R>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: crate::Requirement,
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
+        let Self {
+            inner,
+            metrics,
+            record,
+        } = *self;
+        let clock = crate::effect::ambient_clock(scope);
+        let start = clock.monotonic_millis();
+        let result = inner.run_sync_with(scope);
+        let elapsed = clock.monotonic_millis().saturating_sub(start);
+        metrics.edit(|registry| record(crate::Duration::from_millis(elapsed), registry));
+        result
+    }
+}
+
+/// The pin's metric hooks: `Effect.track`, `trackErrors`, `trackDefects`, and
+/// `trackDuration`.
+///
+/// Each hook is a combinator around the effect and writes on its exit path. The
+/// pin reaches the registry through the fiber that runs the effect; a
+/// description here holds no fiber, so the hook takes the [`Metrics`] handle to
+/// write to. That is the only difference: the exit, the reason set examined,
+/// and the metric input all follow the pin.
+impl<A: Send + 'static, E: Send + 'static, R: crate::Requirement> Effect<A, E, R> {
+    /// `Effect.track`: run `record` on every exit, after the effect settles.
+    ///
+    /// Success, typed failure, defect, and interrupt all count once
+    /// (`Metric.test.ts:863`).
+    pub fn track<F>(self, metrics: &Metrics, record: F) -> Self
+    where
+        F: Fn(&Exit<A, E>, &mut MetricRegistry) + Send + 'static,
+    {
+        let metrics = metrics.clone();
+        self.on_exit(move |exit| metrics.edit(|registry| record(exit, registry)))
+    }
+
+    /// `Effect.trackErrors`: run `record` for each typed failure.
+    ///
+    /// A defect and an interrupt are not typed failures, so neither runs it —
+    /// the pin's `tapError` rule (`Metric.test.ts:943`).
+    pub fn track_errors<F>(self, metrics: &Metrics, record: F) -> Self
+    where
+        F: Fn(&E, &mut MetricRegistry) + Send + 'static,
+    {
+        let metrics = metrics.clone();
+        self.on_exit(move |exit| {
+            if let Exit::Failure(cause) = exit {
+                for reason in cause.reasons.iter() {
+                    if let Reason::Fail(error) = reason {
+                        metrics.edit(|registry| record(error, registry));
+                    }
+                }
+            }
+        })
+    }
+
+    /// `Effect.trackDefects`: run `record` for each defect.
+    ///
+    /// A typed failure and an interrupt are not defects, so neither runs it
+    /// (`Metric.test.ts:966`).
+    pub fn track_defects<F>(self, metrics: &Metrics, record: F) -> Self
+    where
+        F: Fn(&Defect, &mut MetricRegistry) + Send + 'static,
+    {
+        let metrics = metrics.clone();
+        self.on_exit(move |exit| {
+            if let Exit::Failure(cause) = exit {
+                for reason in cause.reasons.iter() {
+                    if let Reason::Die(defect) = reason {
+                        metrics.edit(|registry| record(defect, registry));
+                    }
+                }
+            }
+        })
+    }
+
+    /// `Effect.trackDuration`: record how long the effect ran, measured on the
+    /// ambient clock and reported as a [`Duration`](crate::Duration).
+    ///
+    /// The clock is the one provided to the effect, so a `TestClock` measures
+    /// virtual time, and the reading is monotonic, so wall time moving backwards
+    /// cannot make the measurement negative.
+    pub fn track_duration<F>(self, metrics: &Metrics, record: F) -> Self
+    where
+        F: Fn(crate::Duration, &mut MetricRegistry) + Send + 'static,
+    {
+        // The clock is read from the step's scope, so whatever this effect was
+        // provided with travels with the wrapper: a provided `TestClock` is the
+        // clock that measures, which is the mechanism `Metric.test.ts:1017`
+        // turns on.
+        let services = self.services.clone();
+        Self {
+            step: crate::effect::Step::Suspend(Box::new(TrackDuration {
+                inner: self,
+                metrics: metrics.clone(),
+                record: Box::new(record),
+            })),
+            services,
+            marker: PhantomData,
+        }
+    }
+}
+
 /// The pin's nearest-rank quantile over the retained samples.
 ///
 /// The pin keeps chunked samples and interpolates; the rows here assert
@@ -898,6 +1062,27 @@ pub fn linear_boundaries(start: f64, width: f64, count: usize) -> Vec<f64> {
         .collect();
     boundaries.push(f64::INFINITY);
     boundaries
+}
+
+/// Geometric boundaries: `count - 1` values from `start` by `factor`, then
+/// infinity (`Metric.exponentialBoundaries`).
+pub fn exponential_boundaries(start: f64, factor: f64, count: usize) -> Vec<f64> {
+    let mut boundaries: Vec<f64> = (0..count.saturating_sub(1))
+        .map(|index| start * factor.powi(index as i32))
+        .collect();
+    boundaries.push(f64::INFINITY);
+    boundaries
+}
+
+/// `Metric.timer`: a histogram over milliseconds, tagged `time_unit`.
+///
+/// The pin's timer takes a `Duration` input and converts it; a histogram
+/// observation here is already a number, so the caller converts. That is what
+/// `Effect::track_duration` does: it hands the hook a `Duration`, and the hook
+/// observes `duration.to_millis()`.
+pub fn timer(id: impl Into<String>) -> Histogram {
+    Histogram::new(id, exponential_boundaries(0.5, 2.0, 35))
+        .with_attributes(Attributes::from_pairs([("time_unit", "milliseconds")]))
 }
 
 /// A series reports no attributes rather than an empty set.

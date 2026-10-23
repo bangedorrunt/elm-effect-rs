@@ -132,6 +132,18 @@ impl Value {
     }
 }
 
+/// What `map_effect` asks of a transform: run the description and answer the
+/// value or the failure it raised.
+///
+/// Implemented for the effect type in `config_effect.rs` rather than here, so
+/// this module never names a `crate::` path and the path-module tests can keep
+/// loading it as a plain module tree.
+pub trait ConfigEffect {
+    /// Drive the transform. `path` is the descriptor's own lookup path, which
+    /// an error raised without one carries.
+    fn resolve(self, path: &[String]) -> Result<Value, ConfigError>;
+}
+
 /// A config descriptor: named lookup plus decode.
 #[derive(Clone)]
 pub struct Config {
@@ -680,6 +692,37 @@ impl Config {
         Self {
             name: None,
             run: std::rc::Rc::new(move |_, _| Ok(value.clone())),
+        }
+    }
+
+    /// `Config.mapEffect`: transform the decoded value through a described
+    /// effect.
+    ///
+    /// The pin runs the transform in the fiber that parses the config. A load
+    /// here is a bare `Result` with no fiber, so the description is driven on
+    /// the calling thread and must complete without suspending: a transform
+    /// that sleeps or forks has nowhere to park. A typed failure becomes the
+    /// load's failure, which `or_else` recovers from exactly as the pin's
+    /// `orElse` does; a defect has no channel of its own in a load result, so
+    /// it is reported as an invalid value at the descriptor's path.
+    pub fn map_effect<F, M>(self, f: F) -> Self
+    where
+        F: Fn(Value) -> M + 'static,
+        M: ConfigEffect,
+    {
+        let name = self.name.clone();
+        let failure_name = name.clone();
+        let run = self.run.clone();
+        Self {
+            name,
+            run: std::rc::Rc::new(move |provider, prefix| {
+                let value = (*run)(provider, prefix)?;
+                let mut path = prefix.to_vec();
+                if let Some(n) = &failure_name {
+                    path.push(n.clone());
+                }
+                f(value).resolve(&path).map_err(|error| vec![error])
+            }),
         }
     }
 

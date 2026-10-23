@@ -44,6 +44,10 @@ pub mod channel_schema;
 #[cfg(feature = "tokio")]
 mod concurrency;
 mod config;
+// `Config.mapEffect`'s driver: the transform is an `Effect`, and `config`
+// cannot name one without breaking its path-module tests, so the bridge lives
+// beside it.
+mod config_effect;
 pub mod config_provider;
 mod context;
 mod crypto;
@@ -178,7 +182,8 @@ pub use foundation::{
 pub use layer::{BuiltServices, Cycle, Layer, LayerMemo, LayerSpanOptions, RequirementIds};
 pub use metric::{
     Attributes, Counter, CounterState, Frequency, FrequencyState, Gauge, GaugeState, Histogram,
-    HistogramState, MetricRegistry, Series, SeriesState, Summary, SummaryState, linear_boundaries,
+    HistogramState, MetricRegistry, Metrics, Series, SeriesState, Summary, SummaryState,
+    exponential_boundaries, linear_boundaries, timer,
 };
 #[cfg(feature = "tokio")]
 pub use mock::{Mock, Unimplemented, UnimplementedError};

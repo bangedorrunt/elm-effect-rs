@@ -915,6 +915,15 @@ pub trait ClockImpl: Send + Sync + 'static {
     fn sleep(&self, duration: Duration, interrupted: &dyn Fn() -> bool) -> SleepOutcome;
     /// Current time in millis (virtual for tests, wall for system).
     fn now_millis(&self) -> u64;
+    /// Monotonic time in millis: it only ever moves forward.
+    ///
+    /// A measured duration reads this, never `now_millis`, so a wall clock set
+    /// backwards cannot make elapsed time negative (`Metric.test.ts:1034`). An
+    /// implementation with no separate monotonic source reuses its wall
+    /// reading.
+    fn monotonic_millis(&self) -> u64 {
+        self.now_millis()
+    }
 }
 
 /// A service tag for the clock: provide any [`ClockImpl`].
@@ -953,6 +962,13 @@ impl ClockImpl for SystemClock {
             .map(|d| d.as_millis() as u64)
             .unwrap_or(0)
     }
+
+    /// Process-relative elapsed time: an `Instant` never runs backwards, so a
+    /// wall-clock correction changes nothing here.
+    fn monotonic_millis(&self) -> u64 {
+        static ORIGIN: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+        ORIGIN.get_or_init(std::time::Instant::now).elapsed().as_millis() as u64
+    }
 }
 
 struct Sleeper {
@@ -965,6 +981,10 @@ struct Sleeper {
 /// through a 1ms poll quantum (latency only, never completion).
 pub struct TestClock {
     now_ms: Mutex<u64>,
+    /// Time that passed, which only [`adjust`](TestClock::adjust) moves.
+    /// `set_time` moves the wall reading and leaves this alone, exactly as the
+    /// pin's test clock does.
+    monotonic_ms: Mutex<u64>,
     sleepers: Mutex<Vec<Sleeper>>,
 }
 
@@ -972,6 +992,7 @@ impl TestClock {
     pub fn new() -> Self {
         Self {
             now_ms: Mutex::new(0),
+            monotonic_ms: Mutex::new(0),
             sleepers: Mutex::new(Vec::new()),
         }
     }
@@ -980,6 +1001,10 @@ impl TestClock {
     /// Never wakes the future: sleepers scheduled after this call see the new
     /// time (the adjust-first test pins this).
     pub fn adjust(&self, duration: Duration) {
+        {
+            let mut monotonic = self.monotonic_ms.lock().unwrap();
+            *monotonic = monotonic.saturating_add(duration.as_millis());
+        }
         let now = {
             let mut guard = self.now_ms.lock().unwrap();
             *guard = guard.saturating_add(duration.as_millis());
@@ -999,6 +1024,13 @@ impl TestClock {
     /// not) before driving time.
     pub fn pending_sleepers(&self) -> usize {
         self.sleepers.lock().unwrap().len()
+    }
+
+    /// Set the wall reading without advancing time (`TestClock.setTime`).
+    /// Sleepers keep their deadlines; the monotonic reading is untouched, so a
+    /// duration measured across this call is the time that really passed.
+    pub fn set_time(&self, millis: u64) {
+        *self.now_ms.lock().unwrap() = millis;
     }
 
     fn remove_sleeper(&self, woken: &Arc<(Mutex<bool>, Condvar)>) {
@@ -1049,6 +1081,10 @@ impl ClockImpl for TestClock {
 
     fn now_millis(&self) -> u64 {
         *self.now_ms.lock().unwrap()
+    }
+
+    fn monotonic_millis(&self) -> u64 {
+        *self.monotonic_ms.lock().unwrap()
     }
 }
 

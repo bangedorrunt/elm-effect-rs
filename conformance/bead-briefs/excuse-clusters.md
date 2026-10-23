@@ -72,12 +72,15 @@ forms, `shuffle`, `choice` with the pin's `NoSuchElement` message, string seeds,
 and a `from_draws` source that stands in for the pin's injected service; all 25
 are ported in `crates/elm-effect/tests/random.rs`.
 
-`Metric.test.ts` was the fifth and is half done: 12 of 32 rows are value math
-and now ported (`Frequency`, `Histogram`, `Summary`, `linear_boundaries` in
-`crates/elm-effect/tests/metric_instruments.rs`). The other 20 are not
-instruments at all, they are runtime hooks: 12 drive `track`/
-`trackErrors`/`trackDefects`, 3 measure `trackDuration`, and 5 need interval
-collection, a dump, or fiber metrics. That is a runtime unit, not a metric one.
+`Metric.test.ts` was the fifth and is now finished but for four rows: value
+math went to `crates/elm-effect/tests/metric_instruments.rs`, and the exit
+hooks are ported as `Effect::track`/`track_errors`/`track_defects`/
+`track_duration` over a `Metrics` handle in
+`crates/elm-effect/tests/metric_track.rs` (16 rows, including `trackDuration`
+against a `TestClock` and its monotonic reading). The hook shape differs from
+the pin in one way only: the registry is an explicit handle, because a
+description here has no fiber to own one. The four left need an interval
+collector, a dump format, fiber runtime metrics, and an OTLP exporter.
 
 `ExecutionPlan.test.ts` was the sixth: 22 of its 23 rows are runtime plan
 machinery (step layers, requirement capture, partial streams, observer events),
