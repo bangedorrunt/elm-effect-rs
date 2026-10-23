@@ -24,15 +24,16 @@ use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 
 use crate::effect::Requirement;
+use crate::fiber::{Fiber, FiberTag};
 use crate::scope::Scope;
 use crate::service::{Cons, Provide, ServiceMaps, ServiceTag, Services, empty_services};
 use crate::tracer::{
     AnySpan, CURRENT_SPAN, CURRENT_TRACER, ParentSpanTag, Span, SpanOptions, Tracer, TracerTag,
 };
-use crate::{Cause, Defect, Effect, Exit};
+use crate::{Cause, Defect, Effect, Exit, Reason};
 
 /// A dependency cycle: the tags involved, in dependency order. Returned
 /// before any constructor runs.
@@ -295,7 +296,13 @@ enum Hook<E> {
     /// hook to answer ends the search.
     Recover(
         Arc<
-            dyn Fn(&Cause<E>, &LayerMemo, &Scope, &Services) -> Option<Result<Services, Cause<E>>>
+            dyn Fn(
+                    &Cause<E>,
+                    &LayerMemo,
+                    &Scope,
+                    &Services,
+                    Option<&Fiber>,
+                ) -> Option<Result<Services, Cause<E>>>
                 + Send
                 + Sync,
         >,
@@ -332,6 +339,9 @@ enum Kind<E> {
     Fresh(Arc<Node<E>>),
     /// `suspend`: evaluate the thunk at build time, then build the layer.
     Suspend(Arc<dyn Fn() -> Arc<Node<E>> + Send + Sync>),
+    /// `orDie`: build a child of another error type and turn its typed
+    /// failures into defects, so the result can only die or be interrupted.
+    OrDie(Arc<dyn ErasedBuild>),
     /// `tap*`/`catch*`: run hooks around one subtree.
     Hook {
         inner: Arc<Node<E>>,
@@ -354,10 +364,76 @@ fn next_node_id() -> u64 {
     NEXT.fetch_add(1, Ordering::Relaxed)
 }
 
+/// A child build erased over its error type, for `orDie`: the wrapper's node
+/// is `Node<Infallible>`, but the child it builds fails with `E`.
+trait ErasedBuild: Send + Sync {
+    fn build_erased(
+        &self,
+        memo: &LayerMemo,
+        scope: &Scope,
+        base: &Services,
+        ctx: Ctx<'_>,
+    ) -> Result<Services, Cause<std::convert::Infallible>>;
+}
+
+struct OrDieNode<E> {
+    inner: Arc<Node<E>>,
+}
+
+impl<E: std::fmt::Debug + Send + 'static> ErasedBuild for OrDieNode<E> {
+    fn build_erased(
+        &self,
+        memo: &LayerMemo,
+        scope: &Scope,
+        base: &Services,
+        ctx: Ctx<'_>,
+    ) -> Result<Services, Cause<std::convert::Infallible>> {
+        build_node(&self.inner, memo, scope, base, ctx).map_err(die_like)
+    }
+}
+
+/// Turn every typed failure into a defect, keeping defects and interrupts.
+fn die_like<E: std::fmt::Debug>(cause: Cause<E>) -> Cause<std::convert::Infallible> {
+    let mut out = Cause::empty();
+    for reason in cause.reasons {
+        out.reasons.push(match reason {
+            Reason::Fail(error) => Reason::Die(Defect::new(format!("orDie: {error:?}"))),
+            Reason::Die(defect) => Reason::Die(defect),
+            Reason::Interrupt { fiber_id } => Reason::Interrupt { fiber_id },
+        });
+    }
+    out
+}
+
+/// Widen an `Infallible` cause back to any `E`: there is no typed failure to
+/// carry, so only defects and interrupts survive.
+fn widen<E>(cause: Cause<std::convert::Infallible>) -> Cause<E> {
+    let mut out = Cause::empty();
+    for reason in cause.reasons {
+        out.reasons.push(match reason {
+            Reason::Fail(never) => match never {},
+            Reason::Die(defect) => Reason::Die(defect),
+            Reason::Interrupt { fiber_id } => Reason::Interrupt { fiber_id },
+        });
+    }
+    out
+}
+
+/// The state of a memo entry. `Building` is visible to a second requester,
+/// which waits rather than starting a duplicate construction; `Failed` wakes
+/// those waiters with the failure that ended the build and leaves the map, so
+/// a later requester constructs again (`Layer.test.ts:505`/`:531`).
+enum EntryState {
+    Building,
+    Done(Services),
+    Failed { interrupted: bool },
+}
+
 /// A memoized build: the services, the scope that owns them, and how many
 /// caller scopes still observe them.
 struct Entry {
-    services: Mutex<Option<Services>>,
+    state: Mutex<EntryState>,
+    ready: Condvar,
     scope: Arc<Scope>,
     observers: AtomicUsize,
     owner: std::sync::Weak<Mutex<EntryMap>>,
@@ -366,13 +442,64 @@ struct Entry {
 
 type EntryMap = HashMap<u64, Arc<Entry>>;
 
+/// The fiber a build runs on, when it has one. Constructors see it in their
+/// ambient services and the stage loop polls it, which is what lets an
+/// interrupt stop a build part-way (the pin's construction fiber).
+#[derive(Clone, Copy)]
+struct Ctx<'a> {
+    fiber: Option<&'a Fiber>,
+}
+
+impl<'a> Ctx<'a> {
+    fn none() -> Self {
+        Self { fiber: None }
+    }
+
+    fn of(fiber: &'a Fiber) -> Self {
+        Self { fiber: Some(fiber) }
+    }
+
+    fn from(fiber: Option<&'a Fiber>) -> Self {
+        Self { fiber }
+    }
+}
+
+/// The interrupt in hand, if the current fiber was asked to stop and is not
+/// inside a masked region. Polled between constructors, never during one.
+fn interrupted<E: Send + 'static>(ctx: Ctx<'_>) -> Option<Cause<E>> {
+    let fiber = ctx.fiber?;
+    if fiber.is_interrupted() && !fiber.is_masked() {
+        return Some(Cause::interrupt(Some(fiber.id())));
+    }
+    None
+}
+
 impl Entry {
-    fn services(&self) -> Services {
-        self.services
-            .lock()
-            .unwrap()
-            .clone()
-            .expect("a published entry is complete before it is visible")
+    /// Wait until the build finishes and answer its provision, or the cause
+    /// that ended it.
+    fn wait_done<E: Send + 'static>(&self, ctx: Ctx<'_>) -> Result<Services, Cause<E>> {
+        loop {
+            let state = self.state.lock().unwrap();
+            match &*state {
+                EntryState::Done(services) => return Ok(Arc::clone(services)),
+                EntryState::Failed { interrupted: true } => {
+                    return Err(Cause::interrupt(None));
+                }
+                EntryState::Failed { interrupted: false } => {
+                    return Err(Cause::die(Defect::new("shared layer build failed")));
+                }
+                EntryState::Building => {
+                    if let Some(cause) = interrupted::<E>(ctx) {
+                        return Err(cause);
+                    }
+                    let (state, _) = self
+                        .ready
+                        .wait_timeout(state, std::time::Duration::from_millis(20))
+                        .unwrap();
+                    drop(state);
+                }
+            }
+        }
     }
 }
 
@@ -429,16 +556,18 @@ impl LayerMemo {
         E: Send + 'static,
     {
         let id = layer.node.id;
-        let (owner, entry) = self.find(id)?;
+        let (_, entry) = self.find(id)?;
         let scope = Arc::clone(scope);
         Some(Effect::suspend(move || {
-            let services = if scope.is_closed() {
-                entry.services()
-            } else {
-                observe_entry(&owner, &entry, &scope);
-                entry.services()
-            };
-            Effect::<BuiltServices, E, ()>::succeed(BuiltServices { values: services })
+            match entry.wait_done::<E>(Ctx::none()) {
+                Ok(services) => {
+                    if !scope.is_closed() {
+                        observe_entry(&entry, &scope);
+                    }
+                    Effect::<BuiltServices, E, ()>::succeed(BuiltServices { values: services })
+                }
+                Err(cause) => Effect::<BuiltServices, E, ()>::fail_with(cause),
+            }
         }))
     }
 
@@ -449,30 +578,24 @@ impl LayerMemo {
         self.parent.as_ref().and_then(|parent| parent.find(id))
     }
 
-    /// Answer with the recorded services, counting one more observer that
-    /// releases them when `scope` closes. `None` when the scope is already
-    /// closed: a dead scope cannot own a shared entry, so the caller builds
-    /// instead.
-    fn observe(&self, id: u64, scope: &Scope) -> Option<Services> {
-        let (owner, entry) = self.find(id)?;
-        if scope.is_closed() {
-            return None;
-        }
-        observe_entry(&owner, &entry, scope);
-        Some(entry.services())
-    }
-
-    /// Record a completed build and count the caller as its first observer.
-    fn publish(&self, id: u64, services: Services, entry_scope: Arc<Scope>, scope: &Scope) {
+    /// Start an entry before the constructors run, so a second requester can
+    /// see the build in flight and wait on it.
+    fn open(&self, id: u64, entry_scope: Arc<Scope>) -> Arc<Entry> {
         let entry = Arc::new(Entry {
-            services: Mutex::new(Some(services)),
+            state: Mutex::new(EntryState::Building),
+            ready: Condvar::new(),
             scope: entry_scope,
             observers: AtomicUsize::new(1),
             owner: Arc::downgrade(&self.map),
             id,
         });
         self.map.lock().unwrap().insert(id, Arc::clone(&entry));
-        register_observer(&entry, scope);
+        entry
+    }
+
+    fn finish(&self, entry: &Arc<Entry>, services: Services) {
+        *entry.state.lock().unwrap() = EntryState::Done(services);
+        entry.ready.notify_all();
     }
 }
 
@@ -493,7 +616,7 @@ impl Clone for LayerMemo {
 
 /// Count one observer of `entry` on `scope`; the last one to leave closes the
 /// entry's scope and forgets the entry.
-fn observe_entry(_owner: &Arc<Mutex<EntryMap>>, entry: &Arc<Entry>, scope: &Scope) {
+fn observe_entry(entry: &Arc<Entry>, scope: &Scope) {
     entry.observers.fetch_add(1, Ordering::SeqCst);
     register_observer(entry, scope);
 }
@@ -862,6 +985,41 @@ impl<O1: RequirementIds, E: Send + 'static, O3: RequirementIds> Layer<O3, E, O1>
 }
 
 impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
+    /// `Layer.launch`: build the layer, keep its scope open, and never
+    /// complete on its own. An interrupt closes the scope, running every
+    /// finalizer the build registered, then ends the effect interrupted
+    /// (`Layer.test.ts:389`).
+    ///
+    /// A construction failure fails the effect and closes what the attempt
+    /// acquired, exactly as a scoped build does.
+    pub fn launch(self) -> Effect<std::convert::Infallible, E, ()> {
+        let node = self.node;
+        let memo = self.memo;
+        Effect::suspend(move || {
+            let scope = Arc::new(Scope::new(crate::fiber::next_id().0));
+            match build_root(&node, &memo, &scope, Ctx::none()) {
+                Ok(_) => {
+                    let parked = Arc::clone(&scope);
+                    Effect::with_fiber(move |fiber| {
+                        let fiber = fiber.clone();
+                        let parked = Arc::clone(&parked);
+                        Effect::<std::convert::Infallible, E, ()>::suspend(move || {
+                            while !fiber.is_interrupted() {
+                                std::thread::park_timeout(std::time::Duration::from_millis(1));
+                            }
+                            parked.close();
+                            Effect::<std::convert::Infallible, E, ()>::interrupt()
+                        })
+                    })
+                }
+                Err(cause) => {
+                    scope.close();
+                    Effect::<std::convert::Infallible, E, ()>::fail_with(cause)
+                }
+            }
+        })
+    }
+
     /// Run every constructor this build needs. A constructor failure fails
     /// the build with the constructor's cause, and closes `scope`: a caller
     /// that handed a scope over owns no half-built layer.
@@ -869,7 +1027,40 @@ impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
     /// Memoized nodes run at most once per memo map; a node that fails
     /// leaves no entry, so a retry builds again.
     pub fn build(&self, scope: &Scope) -> Result<BuiltServices, Cause<E>> {
-        match build_root(&self.node, &self.memo, scope) {
+        self.build_in(&self.memo, scope, Ctx::none())
+    }
+
+    /// Build with a construction fiber: an interrupt requested on `fiber`
+    /// stops the build between constructors, closes what the attempt
+    /// acquired, and ends the build interrupted (`Layer.test.ts:292`/:307/
+    /// :322). The constructors also see the fiber ambiently, so an effect
+    /// inside one polls the same flag.
+    pub fn build_with_fiber(
+        &self,
+        fiber: &Fiber,
+        scope: &Scope,
+    ) -> Result<BuiltServices, Cause<E>> {
+        self.build_in(&self.memo, scope, Ctx::of(fiber))
+    }
+
+    /// [`build_with_fiber`](Layer::build_with_fiber) on an explicit memo map,
+    /// so a waiter can share one in-flight build (`Layer.test.ts:505`).
+    pub fn build_with_fiber_and_memo(
+        &self,
+        fiber: &Fiber,
+        memo: &LayerMemo,
+        scope: &Scope,
+    ) -> Result<BuiltServices, Cause<E>> {
+        self.build_in(memo, scope, Ctx::of(fiber))
+    }
+
+    fn build_in(
+        &self,
+        memo: &LayerMemo,
+        scope: &Scope,
+        ctx: Ctx<'_>,
+    ) -> Result<BuiltServices, Cause<E>> {
+        match build_root(&self.node, memo, scope, ctx) {
             Ok(built) => Ok(built),
             Err(cause) => {
                 scope.close();
@@ -890,10 +1081,12 @@ impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
         let node = Arc::clone(&self.node);
         let memo = memo.clone();
         let scope = Arc::clone(scope);
-        Effect::suspend(move || match build_root(&node, &memo, &scope) {
-            Ok(built) => Effect::<BuiltServices, E, ()>::succeed(built),
-            Err(cause) => Effect::<BuiltServices, E, ()>::fail_with(cause),
-        })
+        Effect::suspend(
+            move || match build_root(&node, &memo, &scope, Ctx::none()) {
+                Ok(built) => Effect::<BuiltServices, E, ()>::succeed(built),
+                Err(cause) => Effect::<BuiltServices, E, ()>::fail_with(cause),
+            },
+        )
     }
 }
 
@@ -981,10 +1174,14 @@ impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
         F: Fn(&E) -> Self + Send + Sync + 'static,
     {
         self.with_hook(Hook::Recover(Arc::new(
-            move |cause: &Cause<E>, memo: &LayerMemo, scope: &Scope, base: &Services| {
-                cause
-                    .failure()
-                    .map(|error| build_node(&on_error(error).node, memo, scope, base))
+            move |cause: &Cause<E>,
+                  memo: &LayerMemo,
+                  scope: &Scope,
+                  base: &Services,
+                  fiber: Option<&Fiber>| {
+                cause.failure().map(|error| {
+                    build_node(&on_error(error).node, memo, scope, base, Ctx::from(fiber))
+                })
             },
         )))
     }
@@ -996,10 +1193,36 @@ impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
         F: Fn(&Cause<E>) -> Self + Send + Sync + 'static,
     {
         self.with_hook(Hook::Recover(Arc::new(
-            move |cause: &Cause<E>, memo: &LayerMemo, scope: &Scope, base: &Services| {
-                Some(build_node(&on_cause(cause).node, memo, scope, base))
+            move |cause: &Cause<E>,
+                  memo: &LayerMemo,
+                  scope: &Scope,
+                  base: &Services,
+                  fiber: Option<&Fiber>| {
+                Some(build_node(
+                    &on_cause(cause).node,
+                    memo,
+                    scope,
+                    base,
+                    Ctx::from(fiber),
+                ))
             },
         )))
+    }
+}
+
+impl<O, E: Send + std::fmt::Debug + 'static, I> Layer<O, E, I> {
+    /// `Layer.orDie`: narrow the construction error to `never` by turning a
+    /// typed failure into a defect. The child keeps its identity, so wrapping
+    /// it with `orDie` does not break sharing with a plain build of the same
+    /// layer (`Layer.test.ts:368`).
+    pub fn or_die(self) -> Layer<O, std::convert::Infallible, I> {
+        Layer {
+            node: Node::new(false, Kind::OrDie(Arc::new(OrDieNode { inner: self.node }))),
+            out_ids: self.out_ids,
+            in_ids: self.in_ids,
+            memo: self.memo,
+            marker: PhantomData,
+        }
     }
 }
 
@@ -1083,25 +1306,31 @@ fn build_root<E: Send + 'static>(
     node: &Arc<Node<E>>,
     memo: &LayerMemo,
     scope: &Scope,
+    ctx: Ctx<'_>,
 ) -> Result<BuiltServices, Cause<E>> {
     let base = empty_services();
-    let values = build_node(node, memo, scope, &base)?;
+    let values = build_node(node, memo, scope, &base, ctx)?;
     Ok(BuiltServices { values })
 }
 
 /// Build one node under `memo`. A memoized node answers from its entry when
-/// one exists; otherwise it builds into its own scope, which the caller
-/// observes and which closes with that observation. A plain node builds into
-/// a forked scope, so a failure releases exactly what it acquired.
+/// one exists, waits when one is in flight, and otherwise opens an entry
+/// before its constructors run so a second requester can see the build. A
+/// plain node builds into a forked scope, so a failure releases exactly what
+/// it acquired.
 fn build_node<E: Send + 'static>(
     node: &Arc<Node<E>>,
     memo: &LayerMemo,
     scope: &Scope,
     base: &Services,
+    ctx: Ctx<'_>,
 ) -> Result<Services, Cause<E>> {
+    if let Some(cause) = interrupted::<E>(ctx) {
+        return Err(cause);
+    }
     if !node.memoized {
         let attempt = scope.fork();
-        return match run_kind(node, memo, &attempt, base) {
+        return match run_kind(node, memo, &attempt, base, ctx) {
             Ok(services) => Ok(services),
             Err(cause) => {
                 attempt.close();
@@ -1109,21 +1338,34 @@ fn build_node<E: Send + 'static>(
             }
         };
     }
-    if let Some(services) = memo.observe(node.id, scope) {
+    if let Some((_, entry)) = memo.find(node.id) {
+        let services = entry.wait_done(ctx)?;
+        if !scope.is_closed() {
+            observe_entry(&entry, scope);
+        }
         return Ok(services);
     }
+    if scope.is_closed() {
+        let attempt = scope.fork();
+        return run_kind(node, memo, &attempt, base, ctx);
+    }
     let entry_scope = Arc::new(Scope::new(crate::fiber::next_id().0));
-    match run_kind(node, memo, &entry_scope, base) {
+    let entry = memo.open(node.id, Arc::clone(&entry_scope));
+    match run_kind(node, memo, &entry_scope, base, ctx) {
         Ok(services) => {
-            memo.publish(
-                node.id,
-                Arc::clone(&services),
-                Arc::clone(&entry_scope),
-                scope,
-            );
+            memo.finish(&entry, Arc::clone(&services));
+            register_observer(&entry, scope);
             Ok(services)
         }
         Err(cause) => {
+            let was_interrupted = cause.is_interrupted();
+            *entry.state.lock().unwrap() = EntryState::Failed {
+                interrupted: was_interrupted,
+            };
+            entry.ready.notify_all();
+            if let Some(map) = entry.owner.upgrade() {
+                map.lock().unwrap().remove(&node.id);
+            }
             entry_scope.close();
             Err(cause)
         }
@@ -1135,32 +1377,36 @@ fn run_kind<E: Send + 'static>(
     memo: &LayerMemo,
     scope: &Scope,
     base: &Services,
+    ctx: Ctx<'_>,
 ) -> Result<Services, Cause<E>> {
     match &node.kind {
-        Kind::Stages(stages) => run_stages(stages, base, scope),
+        Kind::Stages(stages) => run_stages(stages, base, scope, ctx),
         Kind::Wrap { head, inner } => {
-            let installed = run_stages(head, base, scope)?;
+            let installed = run_stages(head, base, scope, ctx)?;
             let over = overlay(base, &installed);
-            let built = build_node(inner, memo, scope, &over)?;
+            let built = build_node(inner, memo, scope, &over, ctx)?;
             Ok(overlay(&installed, &built))
         }
         Kind::Merge(left, right) => {
-            let first = build_node(left, memo, scope, base)?;
-            let second = build_node(right, memo, scope, base)?;
+            let first = build_node(left, memo, scope, base, ctx)?;
+            let second = build_node(right, memo, scope, base, ctx)?;
             Ok(overlay(&first, &second))
         }
         Kind::Provide { inner, provider } => {
-            let provided = build_node(provider, memo, scope, base)?;
+            let provided = build_node(provider, memo, scope, base, ctx)?;
             let over = overlay(base, &provided);
-            let built = build_node(inner, memo, scope, &over)?;
+            let built = build_node(inner, memo, scope, &over, ctx)?;
             Ok(overlay(&built, &provided))
         }
-        Kind::Fresh(inner) => build_node(inner, &LayerMemo::new(), scope, base),
+        Kind::Fresh(inner) => build_node(inner, &LayerMemo::new(), scope, base, ctx),
+        Kind::OrDie(inner) => inner
+            .build_erased(memo, scope, base, ctx)
+            .map_err(widen::<E>),
         Kind::Suspend(evaluate) => {
             let child = evaluate();
-            build_node(&child, memo, scope, base)
+            build_node(&child, memo, scope, base, ctx)
         }
-        Kind::Hook { inner, hooks } => match build_node(inner, memo, scope, base) {
+        Kind::Hook { inner, hooks } => match build_node(inner, memo, scope, base, ctx) {
             Ok(services) => {
                 let built = BuiltServices {
                     values: Arc::clone(&services),
@@ -1183,7 +1429,7 @@ fn run_kind<E: Send + 'static>(
                 }
                 for hook in hooks {
                     if let Hook::Recover(f) = hook
-                        && let Some(outcome) = f(&cause, memo, scope, base)
+                        && let Some(outcome) = f(&cause, memo, scope, base, ctx.fiber)
                     {
                         return outcome;
                     }
@@ -1197,15 +1443,28 @@ fn run_kind<E: Send + 'static>(
 /// Run a node's own constructors over `base`. The answer holds only what
 /// these stages produced, so a memoized entry never captures a caller's
 /// provision; later stages see earlier ones through `base` plus this run.
+///
+/// The construction fiber, when there is one, rides in the ambient services
+/// and is polled before every constructor: a build stops at the next boundary
+/// after an interrupt, never mid-constructor.
 fn run_stages<E: Send + 'static>(
     stages: &[Stage<E>],
     base: &Services,
     scope: &Scope,
+    ctx: Ctx<'_>,
 ) -> Result<Services, Cause<E>> {
     let mut acc = Arc::clone(base);
+    if let Some(fiber) = ctx.fiber {
+        let mut maps = (*acc).clone();
+        maps.replace_tag(<FiberTag as ServiceTag>::ID, Arc::new(fiber.clone()));
+        acc = Arc::new(maps);
+    }
     let mut own = ServiceMaps::default();
     let mut produced: HashSet<&'static str> = HashSet::new();
     for stage in stages {
+        if let Some(cause) = interrupted::<E>(ctx) {
+            return Err(cause);
+        }
         let runner = (stage.make)();
         let value = runner.run_with(&acc, scope)?;
         if !produced.insert(stage.out_id) {
@@ -1287,7 +1546,9 @@ fn flatten_into<E>(node: &Arc<Node<E>>, out: &mut Vec<Stage<E>>) {
             flatten_into(inner, out);
         }
         Kind::Fresh(inner) | Kind::Hook { inner, .. } => flatten_into(inner, out),
-        Kind::Suspend(_) => {}
+        // `orDie` keeps its child's stages behind an erased builder, and it
+        // cannot rewire a graph, so there is no new cycle to catch here.
+        Kind::Suspend(_) | Kind::OrDie(_) => {}
     }
 }
 
