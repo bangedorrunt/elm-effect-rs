@@ -30,12 +30,12 @@ reason is a design boundary, not a missing module.
 |---|---|---|---|
 | Effectful `SchemaParser` | 56 | Parser is Effect-driven (Deferred/Fiber/Cause); the port has only sync adapters | `crates/elm-effect/src/schema_parser.rs` |
 | `Config.schema` materialization | 57 | No `Config.schema` constructor, so schema nodes are never built from provider data | `crates/elm-effect/src/config.rs` |
-| Atom surface | 60 | `Atom.fn`/idleTTL/batching (33) and `Atom.swr`/refresh (27); the port has the lifecycle core only | `crates/elm-effect/src/atom.rs` (absent) |
-| HTTP client/api/server | 80 | Transport, discovery, handler/middleware wiring | `crates/elm-effect/src/platform/` |
-| MCP transport | 54 | stdio/HTTP/SSE/session/batch; only the in-memory pair exists | `crates/elm-effect/src/platform/` |
+| Atom surface | 60 | `Atom.fn`/idleTTL/batching (33) and `Atom.swr`/refresh (27); the port has the lifecycle core only | `crates/elm-effect-unstable/src/reactivity.rs` |
+| HTTP client/api/server | 80 | Transport, discovery, handler/middleware wiring | `crates/elm-effect-unstable/src/http.rs` |
+| MCP transport | 54 | stdio/HTTP/SSE/session/batch; only the in-memory pair exists | `crates/elm-effect-unstable/src/mcp_server.rs` |
 | Metric observers | 32 | Observer/reporter internals beyond the metric surface | `crates/elm-effect/src/metric.rs` |
 | Schedule policy | 31 | `concat`, `tap`, `modify_delay`, `add_delay`, `concat_result`, cron; `max`/`min` exist | `crates/elm-effect/src/schedule.rs` |
-| Random PRNG | 25 | Split/unsafe PRNG internals | `crates/elm-effect/src/misc/` |
+| Random PRNG | 25 | Split/unsafe PRNG internals | no module yet |
 | Arbitrary pattern strings | 25 | Constructive generator from a regex pattern | `crates/elm-effect-unstable/src/arbitrary.rs` |
 | ExecutionPlan telemetry | 23 | Attempt/event telemetry beyond the attempt budget | `crates/elm-effect/src/execution_plan.rs` |
 
