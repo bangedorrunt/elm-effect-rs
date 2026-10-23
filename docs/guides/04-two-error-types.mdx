@@ -37,6 +37,8 @@ The figure shows the path from a run to an exit code. Park is a separate store. 
 | `Die` | A defect. A panic at the fiber boundary is a defect | The supervisor. `catch_defect` in rare library code |
 | `Interrupt` | The fiber stopped because of cancellation | The runtime. Release still runs |
 
+A source that died is a `Die`, not a `Fail`. A config provider that fails to read reports a typed source error, which a default may answer; a provider that dies reports its own defect, which no default, option, or fallback recovers. `catch` cannot see it, because `catch` takes the typed error. Only `catch_defect` answers for it.
+
 Park is a fifth outcome. Park is a durable wait. Park is not `Fail` and not `Interrupt`. Read [The durable log](12-durable-log.mdx).
 
 ## Catch only the typed error

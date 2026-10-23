@@ -11,3 +11,10 @@ elm-effect-journal = { path = "../elm-effect-journal" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"
+
+# The guide-import fence compiles the `use` lines the guides publish, and one
+# of them names `Schema`, which the crate's default features do not carry. A
+# dev-dependency feature only reaches test builds; the library keeps its own
+# default feature set.
+[dev-dependencies]
+elm-effect = { path = "../elm-effect", features = ["schema"] }

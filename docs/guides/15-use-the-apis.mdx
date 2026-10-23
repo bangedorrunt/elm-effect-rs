@@ -136,6 +136,32 @@ let json = schema.encode_json(&text)?;
 
 `decode` takes `Unknown`. `encode` returns `Unknown`. A bad shape is `SchemaError::TypeMismatch`. Bad bytes are `SchemaError::InvalidJson`. `catch_tag` matches a `TaggedError` on its tag.
 
+## A metric
+
+`Metrics` is in the default build. A `Counter`, `Gauge`, `Frequency`, `Histogram`, or `Summary` describes the series; the registry holds the state.
+
+```rust
+use elm_effect::{Attributes, Counter, Metrics};
+
+let metrics = Metrics::new();
+let hits = Counter::new("app/hits")
+    .with_description("Rows read")
+    .with_attributes(Attributes::from_pairs([("route", "/rows")]));
+
+metrics.edit(|registry| registry.update(&hits, 1.0));
+let table = metrics.read(|registry| registry.dump());
+```
+
+`edit` takes the registry mutably. `read` hands it out shared. `update` adds to a counter, `set` and `add` move a gauge, `record` counts a frequency, `observe_histogram` and `observe_summary` take one number. Each has a `_with` form that merges contextual attributes into the series key.
+
+`dump` returns one padded line per series: `name=`, `description=`, `type=`, the attribute set, then the state. Lines are sorted by id and then by attribute text, so the table is stable across runs. An empty registry dumps an empty string. `snapshot` returns the same series as data.
+
+The four hooks write on an exit: `effect.track(&metrics, |exit, registry| ..)` on every exit, `track_errors` on a typed failure only, `track_defects` on a defect only, and `track_duration(&metrics, |elapsed, registry| ..)` measures on the effect's own clock, so a `TestClock` counts virtual time.
+
+## Internal surfaces
+
+`config` is a private module. `Config`, `ConfigError`, and the provider defect channel are witnessed by the crate's own tests and cannot be called from an application; `config_provider::Lookup` is the public piece. Do not write a call for the rest until the module opens.
+
 ## A cell
 
 `Ref::new(value)` stores a cloneable value. `get` returns a clone. `update` applies a pure function. The function must not call a service.
