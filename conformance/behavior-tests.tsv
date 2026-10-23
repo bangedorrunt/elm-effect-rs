@@ -563,7 +563,7 @@ ported	packages/effect/test/Channel.test.ts	436	it.effect	merge - prioritizes fa
 not-applicable	packages/effect/test/Channel.test.ts	449	it.effect	interrupts previous channels and runs their finalizers	Channel.switchMap, Channel.fromIterable, Channel.empty and Channel.never are all absent from crates/elm-effect/src/channel.rs (0 hits each)
 not-applicable	packages/effect/test/Channel.test.ts	460	it.effect	interrupts the current element	Channel.interruptWhen and Channel.fromEffect are absent from crates/elm-effect/src/channel.rs (0 hits each), and Effect::onInterrupt is absent so the finalizer the row observes cannot be registered
 not-applicable	packages/effect/test/Channel.test.ts	482	it.effect	interruptWhen - propagates errors	Channel.interruptWhen and Channel.fromEffect are both absent (0 hits in channel.rs), so a deferred failure cannot interrupt an effect-driven channel and propagate as a typed error
-ported	packages/effect/test/Channel.test.ts	519	it.effect	catchDefect	channel_catch_defect_routes_to_handler
+ported	packages/effect/test/Channel.test.ts	519	it.effect	catchDefect	channel_catch_defect_routes_the_defect_and_leaves_typed_failures
 ported	packages/effect/test/Channel.test.ts	535	it.effect	catchIf with refinement	channel_catch_if_refines
 ported	packages/effect/test/Channel.test.ts	552	it.effect	catchIf with predicate	channel_catch_if_recovers_matching
 ported	packages/effect/test/Channel.test.ts	561	it.effect	catchFilter with Filter	channel_filter_map_recovers
@@ -2470,7 +2470,7 @@ ported	packages/effect/test/Layer.test.ts	211	it.effect	tapCause - executes effe
 ported	packages/effect/test/Layer.test.ts	231	it.effect	fresh with merge	merging_a_fresh_handle_rebuilds_the_layer
 ported	packages/effect/test/Layer.test.ts	240	it.effect	fresh with provide	providing_a_fresh_handle_rebuilds_the_layer
 ported	packages/effect/test/Layer.test.ts	252	it.effect	with multiple layers	a_fresh_subtree_isolates_its_own_provision
-not-applicable	packages/effect/test/Layer.test.ts	264	it.effect	with identical fresh layers	Would need `Layer.merge` to union its sides' requirements (`RIn1 | RIn2`) so the outer provide can target a tag the inner consumer requires; this port keeps only the left side's requirements.
+ported	packages/effect/test/Layer.test.ts	264	it.effect	with identical fresh layers	identical_fresh_layers_build_their_own_copies
 ported	packages/effect/test/Layer.test.ts	292	it.effect	interruption with merge	interrupting_a_merge_build_releases_what_it_acquired
 ported	packages/effect/test/Layer.test.ts	307	it.effect	interruption with provide	interrupting_a_provide_build_releases_what_it_acquired
 ported	packages/effect/test/Layer.test.ts	322	it.effect	interruption with multiple layers	interrupting_a_multi_layer_build_releases_what_it_acquired

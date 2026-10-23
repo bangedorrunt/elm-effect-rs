@@ -1038,6 +1038,44 @@ impl<O1: RequirementIds, E: Clone + Send + 'static, O3: RequirementIds> Layer<O3
     }
 }
 
+impl<O1: RequirementIds, E: Clone + Send + 'static, I1: RequirementIds> Layer<O1, E, I1> {
+    /// The pin's `Layer.provide` with a provider this layer does **not**
+    /// require: the provider still builds, first, and its services join the
+    /// provision, so a build of two `fresh` copies of one layer acquires
+    /// twice (`Layer.test.ts:264`).
+    ///
+    /// The pin allows this because its `provide` only asks that the
+    /// provider's output be available, never that the consumer use it; here
+    /// [`provide_layer`](Layer::provide_layer) demands that the consumer's
+    /// requirements *be* the provider's output, so a provider nothing needs
+    /// has no spelling without this method.
+    ///
+    /// Both layers build at the same level, so the provider must leave open
+    /// exactly what this layer leaves open.
+    pub fn install_layer<P: RequirementIds>(
+        self,
+        provider: Layer<P, E, I1>,
+    ) -> Result<Layer<Cons<P, O1>, E, I1>, Cycle> {
+        let node = Node::new(
+            false,
+            Kind::Provide {
+                inner: Arc::clone(&self.node),
+                provider: Arc::clone(&provider.node),
+            },
+        );
+        check_cycle(&flatten(&node))?;
+        let mut out_ids = provider.out_ids;
+        out_ids.extend(self.out_ids);
+        Ok(Layer {
+            node,
+            out_ids,
+            in_ids: self.in_ids,
+            memo: LayerMemo::new(),
+            marker: PhantomData,
+        })
+    }
+}
+
 impl<O: RequirementIds, E: Clone + Send + 'static> Layer<O, E, ()> {
     /// `Layer.launch`: build the layer, keep its scope open, and never
     /// complete on its own. An interrupt closes the scope, running every

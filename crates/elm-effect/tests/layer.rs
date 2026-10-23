@@ -25,6 +25,9 @@ impl ServiceTag for Db {
 struct Cache;
 struct CacheConn(u64);
 
+struct Audit;
+struct AuditConn(u64);
+
 impl ServiceTag for Cache {
     type Service = CacheConn;
     const ID: &'static str = "test/cache";
@@ -37,6 +40,17 @@ impl Clone for DbConn {
 }
 
 impl Clone for CacheConn {
+    fn clone(&self) -> Self {
+        Self(self.0)
+    }
+}
+
+impl ServiceTag for Audit {
+    type Service = AuditConn;
+    const ID: &'static str = "test/audit";
+}
+
+impl Clone for AuditConn {
     fn clone(&self) -> Self {
         Self(self.0)
     }
@@ -592,14 +606,15 @@ impl elm_effect::TaggedError for LayerError {
 
 /// A layer that records its own acquire and release under `label`, so a
 /// witness can see which layers a recovery built and in what order.
-fn labelled_resource<T>(
+fn labelled_resource<T, E>(
     label: &'static str,
     arr: &Arc<Mutex<Vec<String>>>,
     value: T::Service,
-) -> Layer<T, LayerError, ()>
+) -> Layer<T, E, ()>
 where
     T: ServiceTag,
     T::Service: Clone + Send + Sync + 'static,
+    E: Clone + Send + 'static,
 {
     let arr = Arc::clone(arr);
     Layer::from_scoped_factory(move |scope| {
@@ -618,14 +633,14 @@ fn catch_tag_builds_the_fallback_only_for_its_own_tag() {
     // the fallback builds, so the record runs acquire1, release1, acquire2,
     // release2. A build that names another tag leaves the cause alone.
     let arr = Arc::new(Mutex::new(Vec::new()));
-    let provider = labelled_resource::<Db>("1", &arr, DbConn(1));
+    let provider = labelled_resource::<Db, LayerError>("1", &arr, DbConn(1));
     let failing = Layer::<Cache, LayerError, Db>::from_factory(|| Effect::fail(LayerError))
         .expect("a single constructor cannot cycle")
         .provide_layer(provider)
         .expect("the provider satisfies the consumer");
     let layer = failing.catch_tag("LayerError", {
         let arr = Arc::clone(&arr);
-        move |_error: &LayerError| labelled_resource::<Cache>("2", &arr, CacheConn(2))
+        move |_error: &LayerError| labelled_resource::<Cache, LayerError>("2", &arr, CacheConn(2))
     });
     let scope = Scope::new(101);
     let built = layer
@@ -645,14 +660,14 @@ fn catch_tag_builds_the_fallback_only_for_its_own_tag() {
 
     // The tag decides: an unmatched tag is not this layer's to recover.
     let other = Arc::new(Mutex::new(Vec::new()));
-    let provider = labelled_resource::<Db>("1", &other, DbConn(1));
+    let provider = labelled_resource::<Db, LayerError>("1", &other, DbConn(1));
     let failing = Layer::<Cache, LayerError, Db>::from_factory(|| Effect::fail(LayerError))
         .expect("a single constructor cannot cycle")
         .provide_layer(provider)
         .expect("the provider satisfies the consumer");
     let layer = failing.catch_tag("OtherError", {
         let other = Arc::clone(&other);
-        move |_error: &LayerError| labelled_resource::<Cache>("2", &other, CacheConn(2))
+        move |_error: &LayerError| labelled_resource::<Cache, LayerError>("2", &other, CacheConn(2))
     });
     let scope = Scope::new(102);
     let cause = layer
@@ -1966,5 +1981,45 @@ fn mock_missing_members_fail_as_unimplemented_effects_and_channels() {
     assert!(
         matches!(piped.pull(), Take::Fail(_)),
         "piping an omitted channel member keeps the failure"
+    );
+}
+
+#[test]
+fn identical_fresh_layers_build_their_own_copies() {
+    // Layer.test.ts:264. An outer provide builds its own fresh copy of layer1
+    // first, then the merge builds left to right, and the right side's fresh
+    // copy of layer1 builds inside it before layer3. Four acquires, released
+    // LIFO, so the two copies of one layer never share a build.
+    let arr = Arc::new(Mutex::new(Vec::new()));
+    let layer1 = || labelled_resource::<Db, std::convert::Infallible>("1", &arr, DbConn(1));
+    let layer2 = labelled_resource::<Cache, std::convert::Infallible>("2", &arr, CacheConn(2));
+    let layer3 = labelled_resource::<Audit, std::convert::Infallible>("3", &arr, AuditConn(3));
+
+    let right = layer3
+        .install_layer(layer1().fresh())
+        .expect("independent tags cannot cycle")
+        .fresh();
+    let merged = layer2.merge(right).expect("independent tags cannot cycle");
+    let layer = merged
+        .install_layer(layer1().fresh())
+        .expect("independent tags cannot cycle");
+
+    let scope = Scope::new(105);
+    let built = layer.build(&scope).expect("all four copies build");
+    assert_eq!(built.get::<Db>().unwrap().0, 1);
+    assert_eq!(built.get::<Cache>().unwrap().0, 2);
+    assert_eq!(built.get::<Audit>().unwrap().0, 3);
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec!["acquire1", "acquire2", "acquire1", "acquire3"],
+        "the outer copy builds first, then the merge's sides left to right"
+    );
+    scope.close();
+    assert_eq!(
+        *arr.lock().unwrap(),
+        vec![
+            "acquire1", "acquire2", "acquire1", "acquire3", "release3", "release1", "release2",
+            "release1"
+        ]
     );
 }
