@@ -1,4 +1,4 @@
-# Excuse clusters: what the 3670 not-applicable rows are waiting on
+# Excuse clusters: what the 3608 not-applicable rows are waiting on
 
 `python3 conformance/excuse-audit.py` reports two shapes worth acting on: 74
 blanket reasons covering 1531 rows, and 2568 reasons that name no API, file or
@@ -8,21 +8,28 @@ the next unit can pick one instead of re-reading the ledger.
 ## How the counts were taken
 
 One pass over `conformance/behavior-tests.tsv`, matching reason substrings; a
-row lands in the first cluster that matches. Counts are rows, not tests. The
-clusters below cover 683 rows. The remaining 2938 carry per-row reasons that
+row lands in the first cluster that matches. Counts are rows, not tests.The clusters below cover 670 rows. The remaining 2925 carry per-row reasons that
 this pass did not re-adjudicate.
 
-## A. Terminal: no Rust change can make the row observable (323 rows)
+## A. Terminal: no Rust change can make the row observable (310 rows)
 
 | Cluster | Rows | Why it is terminal |
 |---|---|---|
 | JS codegen / JIT emit | 227 | `toCodeDocument` (116) and its annotations file (29) assert the emitted JavaScript text; `SchemaJITCompiler` (38) asserts a generated checker. There is no emitter to produce text from. |
 | `Effect.fnUntracedEager` | 41 | The row asserts a JS eager-evaluation optimization on the effect's `_tag`/`value` shape. Effects here are values evaluated by the runtime. |
-| JS `Map`/`Set` equality | 24 | The row compares JS instances entry-by-entry across insertion order. No Rust `Map`/`Set` instance implements `Equal` for these rows to travel through. |
+| JS `Map`/`Set` equality | 11 | The rows that need two distinct-but-equal object keys in one collection, a `NaN` key or member (`f64` has no `Ord`), a homogeneous set holding both a set and a string, or a cycle. The other 13 ported once `Equal`/`Hash` covered `BTreeMap` and `BTreeSet`. |
 | `Function` dual/HKT surface | 31 | The rows exercise JS data-first/data-last dispatch and arity/HKT typing. Porting them would import a calling convention the Rust API does not use. |
 
 Disposition: keep excused. No bead. If one of these ever needs revisiting, the
 reason is a design boundary, not a missing module.
+
+## D. Containers: rows a std collection instance reaches
+
+The eighth sweep was `Equal.test.ts`'s JavaScript `Map`/`Set` block: 24 rows
+excused for want of a container instance. The port's `Equal` now covers
+`BTreeMap` and `BTreeSet` (entry-by-entry, one-to-one, order-independent), so
+13 of the 24 are ported in `crates/elm-effect/tests/equal_containers.rs`. The
+other 11 are excused by representability, listed in A.
 
 ## B. Absent substrate: one enabler each (360 rows)
 

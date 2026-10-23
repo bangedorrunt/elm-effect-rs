@@ -485,6 +485,70 @@ impl<A: Equal, B: Equal> Equal for (A, B) {
     }
 }
 
+// Keyed collections. The pin's `Equal.equals` compares a JavaScript `Map`
+// and `Set` entry by entry, independent of insertion order, so these read
+// as the port's ordered spellings of the same two shapes.
+
+impl<K: Equal + Ord, V: Equal> Hash for std::collections::BTreeMap<K, V> {
+    fn hash_value(&self) -> u32 {
+        // Order-independent: a `Map` built in either insertion order hashes
+        // the same, which is what the equal-values-hash-equally law needs.
+        self.iter().fold(0u32, |acc, (key, value)| {
+            acc.wrapping_add(combine_hash(key.hash_value(), value.hash_value()))
+        })
+    }
+}
+
+impl<K: Equal + Ord, V: Equal> Equal for std::collections::BTreeMap<K, V> {
+    fn equal(&self, other: &Self) -> bool {
+        if self.len() != other.len() {
+            return false;
+        }
+        // One-to-one matching rather than a zip: two keys that compare equal
+        // need not sort together, and a key may not be reused by two entries.
+        let mut matched = vec![false; other.len()];
+        let others: Vec<(&K, &V)> = other.iter().collect();
+        'entries: for (key, value) in self {
+            for (index, (other_key, other_value)) in others.iter().enumerate() {
+                if !matched[index] && key.equal(other_key) && value.equal(other_value) {
+                    matched[index] = true;
+                    continue 'entries;
+                }
+            }
+            return false;
+        }
+        true
+    }
+}
+
+impl<K: Equal + Ord> Hash for std::collections::BTreeSet<K> {
+    fn hash_value(&self) -> u32 {
+        self.iter()
+            .fold(0u32, |acc, key| acc.wrapping_add(key.hash_value()))
+    }
+}
+
+impl<K: Equal + Ord> Equal for std::collections::BTreeSet<K> {
+    fn equal(&self, other: &Self) -> bool {
+        if self.len() != other.len() {
+            return false;
+        }
+        // Same one-to-one rule as the map's keys, for the same reason.
+        let mut matched = vec![false; other.len()];
+        let others: Vec<&K> = other.iter().collect();
+        'members: for key in self {
+            for (index, other_key) in others.iter().enumerate() {
+                if !matched[index] && key.equal(other_key) {
+                    matched[index] = true;
+                    continue 'members;
+                }
+            }
+            return false;
+        }
+        true
+    }
+}
+
 // Equivalence
 
 /// An equivalence relation on `T`: a shared, repeatable boolean test.
