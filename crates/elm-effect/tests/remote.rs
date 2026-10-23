@@ -8,7 +8,7 @@ use std::sync::{
 
 use elm_effect::{
     BreakerConfig, ClockImpl, Duration, Effect, Exit, RateLimiter, Remote, RemoteError,
-    RemotePolicy, Runtime, Scope, TestClock,
+    RemotePolicy, Runtime, Scope, SleepOutcome, TestClock,
 };
 
 fn fast_policy<A: Clone + Send + 'static, E: Send + 'static>() -> RemotePolicy<A, E> {
@@ -202,60 +202,78 @@ fn breaker_open_is_typed() {
     assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
 
+/// A virtual clock that advances itself on every retry backoff sleep, so the
+/// scenario needs no external driver.
+///
+/// A test thread adjusting time in a polling loop races scheduler latency: a
+/// late adjust burns wall-clock budget and turns a deterministic test into a
+/// flake. Here the advancing thread IS the retry loop, and the attempt
+/// deadline (which parks for an hour and is always released before it
+/// elapses) is told apart from a backoff by its duration, so only backoffs
+/// move time.
+struct SelfAdvancingClock {
+    inner: TestClock,
+    attempt_timeout: Duration,
+}
+
+impl ClockImpl for SelfAdvancingClock {
+    fn now_millis(&self) -> u64 {
+        self.inner.now_millis()
+    }
+
+    fn sleep(&self, duration: Duration, interrupted: &dyn Fn() -> bool) -> SleepOutcome {
+        if duration.as_millis() >= self.attempt_timeout.as_millis() {
+            return self.inner.sleep(duration, interrupted);
+        }
+        // A backoff: time passes during the call, so it has elapsed by the
+        // time it returns. Parking in the inner clock instead would wait for
+        // an advance from this very thread, which is the deadlock this clock
+        // exists to avoid.
+        if interrupted() {
+            return SleepOutcome::Interrupted;
+        }
+        self.inner.adjust(duration);
+        SleepOutcome::Elapsed
+    }
+}
+
 #[test]
 fn backoff_sleeps_follow_the_injected_clock() {
     // The retry backoff sleeps on the stack's own clock, not the wall clock:
-    // two 60 s-class backoffs complete in milliseconds of wall time once
-    // the virtual clock advances past them.
+    // two 60 s-class backoffs complete in milliseconds of wall time because
+    // the clock resolves them at once.
+    let attempt_timeout = Duration::from_secs(3600);
     let policy = RemotePolicy {
         retries: 2,
         backoff: Duration::from_secs(60),
-        // Virtual time advances past every backoff below, so the budget
-        // must cover the whole virtual run, not wall time. Attempt
-        // timeouts are disabled so only backoffs gate progress.
+        // The budget is measured on the same virtual clock the backoffs
+        // spend, so it must cover the whole virtual run. Attempt timeouts
+        // are far larger than any backoff below, so they never fire.
         budget: Duration::from_secs(3600),
-        attempt_timeout: Duration::from_secs(3600),
+        attempt_timeout,
         ..Default::default()
     };
     let remote = Remote::new(policy);
     let rt = Runtime::new();
-    let test_clock = Arc::new(TestClock::new());
-    let clock: Arc<dyn ClockImpl> = test_clock.clone();
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let done = Arc::new(AtomicBool::new(false));
-    let wall_start = std::time::Instant::now();
-    let exit = std::thread::scope(|s| {
-        let handle = s.spawn(|| {
-            let attempts = Arc::clone(&attempts);
-            let done = Arc::clone(&done);
-            let exit = remote.call(&rt, &clock, move || {
-                let n = attempts.fetch_add(1, Ordering::SeqCst);
-                if n < 2 {
-                    Effect::<u32, String, ()>::fail("flaky".to_string())
-                } else {
-                    Effect::<u32, String, ()>::succeed(7)
-                }
-            });
-            done.store(true, Ordering::SeqCst);
-            exit
-        });
-        // Drive virtual time until the call finishes or a wall-clock bound
-        // proves it never will (a fixed adjust count races spawn latency).
-        // Small steps: advancing past a backoff wakes it, while the attempt
-        // timeout and budget (both far larger) stay quiet.
-        while !done.load(Ordering::SeqCst) {
-            while test_clock.pending_sleepers() == 0 && !done.load(Ordering::SeqCst) {
-                std::thread::park_timeout(std::time::Duration::from_millis(1));
-            }
-            test_clock.adjust(Duration::from_secs(1));
-            assert!(
-                wall_start.elapsed() < std::time::Duration::from_secs(20),
-                "virtual backoff must not take wall-clock minutes"
-            );
-        }
-        handle.join().unwrap()
+    let clock: Arc<dyn ClockImpl> = Arc::new(SelfAdvancingClock {
+        inner: TestClock::new(),
+        attempt_timeout,
     });
-    assert!(matches!(exit, Exit::Success(7)));
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let calls = Arc::clone(&attempts);
+    let wall_start = std::time::Instant::now();
+    let exit = remote.call(&rt, &clock, move || {
+        let n = calls.fetch_add(1, Ordering::SeqCst);
+        if n < 2 {
+            Effect::<u32, String, ()>::fail("flaky".to_string())
+        } else {
+            Effect::<u32, String, ()>::succeed(7)
+        }
+    });
+    assert!(
+        matches!(&exit, Exit::Success(7)),
+        "the retried call must succeed, got: {exit:?}"
+    );
     assert_eq!(attempts.load(Ordering::SeqCst), 3);
     assert!(
         wall_start.elapsed() < std::time::Duration::from_secs(20),
