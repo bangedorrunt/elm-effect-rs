@@ -272,6 +272,188 @@ fn a_struct_loads_encoded_shapes_somewhere_below_its_fields() {
     );
 }
 
+/// The pin's `Schema.Int`: a Number wire that refuses a non-integer.
+fn integer() -> Schema<Unknown> {
+    Schema::as_unknown(Schema::<f64>::number().refine("an integer", |n| n.fract() == 0.0))
+}
+
+#[test]
+fn a_redacted_schema_reads_the_inner_wire_and_keeps_the_box() {
+    // Config.test.ts:2444 — the box's StringTree encoding is the wrapped Int's
+    // own string wire: absence is missing, a non-integer is a validation
+    // failure at the path, and a good value comes back boxed.
+    let schema = Schema::<Unknown>::redacted(integer(), None);
+    let config = Config::schema(&schema, Some("a".to_string()));
+
+    assert_eq!(
+        config.load(&provider(&[("a", "1")])),
+        Ok(obj(&[("value", Value::Num(1.0))]))
+    );
+    assert!(
+        matches!(
+            config.load(&Provider::empty()),
+            Err(errors) if matches!(errors.as_slice(), [ConfigError::Missing { .. }])
+        ),
+        "absence is missing, not a validation failure"
+    );
+    let error = config.load(&provider(&[("a", "1.1")])).unwrap_err();
+    assert!(
+        matches!(
+            error.as_slice(),
+            [ConfigError::Invalid { path, .. }] if path == &["a".to_string()]
+        ),
+        "a non-integer is invalid at the path: {error:?}"
+    );
+}
+
+#[test]
+fn a_nested_redacted_schema_reports_its_validation_error() {
+    // Config.test.ts:2753 — the same rule one level down: the field is read
+    // through the boxed Int's wire, and its refusal is not absence.
+    let schema = structure(vec![(
+        "a",
+        Schema::<Unknown>::redacted(integer(), None),
+    )]);
+    let config = Config::schema(&schema, None);
+
+    assert_eq!(
+        config.load(&provider(&[("a", "1")])),
+        Ok(obj(&[("a", obj(&[("value", Value::Num(1.0))]))]))
+    );
+    assert!(
+        matches!(
+            config.load(&provider(&[("a", "1.1")])),
+            Err(errors) if matches!(errors.as_slice(), [ConfigError::Invalid { .. }])
+        ),
+        "a nested non-integer is a validation failure"
+    );
+    assert!(
+        config.load(&Provider::empty()).is_err(),
+        "an absent box is missing"
+    );
+}
+
+#[test]
+fn a_check_on_the_union_runs_after_materialization() {
+    // Config.test.ts:2071 — the check attached to the original union sees the
+    // decoded member value, and its own refusal is the reported reason.
+    let schema = Schema::union_with_mode(vec![shape(vec![("child", string())]), string()], "anyOf")
+        .refine("union check failed", |value| {
+            !matches!(value, Unknown::Text(_))
+        });
+    let config = Config::schema(&schema, Some("value".to_string()));
+    let error = config
+        .load(&provider(&[("value", "scalar")]))
+        .unwrap_err();
+
+    assert!(
+        matches!(error.as_slice(), [ConfigError::Invalid { reason, .. }]
+            if reason.contains("union check failed")),
+        "the check's own text is the reason: {error:?}"
+    );
+}
+
+#[test]
+fn durations_include_infinities_and_word_forms() {
+    // Config.test.ts:1577 — the pin's own `DurationFromString` readings: a
+    // count and a unit name, plus the two infinite sentinels.
+    let p = provider(&[
+        ("a", "1000 millis"),
+        ("b", "1 second"),
+        ("c", "Infinity"),
+        ("d", "-Infinity"),
+        ("failure", "value"),
+    ]);
+
+    for (name, expected) in [
+        ("a", 1000.0),
+        ("b", 1000.0),
+        ("c", f64::INFINITY),
+        ("d", f64::NEG_INFINITY),
+    ] {
+        assert_eq!(
+            Config::duration(Some(name.to_string())).load(&p),
+            Ok(Value::Millis(expected))
+        );
+    }
+    assert!(
+        Config::duration(Some("failure".to_string()))
+            .load(&p)
+            .is_err(),
+        "a count with no unit is not a duration"
+    );
+}
+
+#[test]
+fn a_schema_reads_json_out_of_one_scalar() {
+    // Config.test.ts:1973 — `Schema.fromJsonString(Schema.Json)` takes one
+    // scalar string and decodes the document inside it.
+    let schema = Schema::from_json_string(Schema::json());
+    let config = Config::schema(&schema, Some("value".to_string()));
+
+    assert_eq!(
+        config.load(&provider(&[("value", "{\"nested\":[1,true]}")])),
+        Ok(obj(&[(
+            "nested",
+            Value::List(vec![Value::Num(1.0), Value::Bool(true)]),
+        )]))
+    );
+}
+
+#[test]
+fn invalid_input_beside_a_missing_field_is_not_defaulted() {
+    // Config.test.ts:930 — either field order reports the invalid value, and a
+    // default answers for absence, never for a group that holds one.
+    let p = provider(&[("invalid", "not-a-number")]);
+    let fallback = obj(&[
+        ("missing", Value::Str("default".to_string())),
+        ("invalid", Value::Num(0.0)),
+    ]);
+
+    let missing_first = structure(vec![("missing", string()), ("invalid", number())]);
+    let invalid_first = structure(vec![("invalid", number()), ("missing", string())]);
+    for schema in [missing_first, invalid_first] {
+        assert!(
+            Config::schema(&schema, None)
+                .with_default(fallback.clone())
+                .load(&p)
+                .is_err(),
+            "a schema group with an invalid field must not fall back"
+        );
+    }
+
+    for fields in [
+        vec![
+            (
+                "missing".to_string(),
+                Config::string(Some("missing".to_string())),
+            ),
+            (
+                "invalid".to_string(),
+                Config::number(Some("invalid".to_string())),
+            ),
+        ],
+        vec![
+            (
+                "invalid".to_string(),
+                Config::number(Some("invalid".to_string())),
+            ),
+            (
+                "missing".to_string(),
+                Config::string(Some("missing".to_string())),
+            ),
+        ],
+    ] {
+        assert!(
+            Config::record(fields)
+                .with_default(fallback.clone())
+                .load(&p)
+                .is_err(),
+            "an all group with an invalid child must not fall back"
+        );
+    }
+}
+
 #[test]
 fn a_union_loads_every_member_from_its_encoded_shape() {
     // Config.test.ts:1774 — the two members take different encoded shapes, so
@@ -670,6 +852,55 @@ fn one_of_mode_requires_exactly_one_match() {
             .load(&provider(&[("a", "a"), ("b", "1")]))
             .is_err(),
         "two matching members is ambiguous in oneOf mode"
+    );
+}
+
+#[test]
+fn a_union_materializes_each_member_independently() {
+    // Config.test.ts:1983 — the struct member materializes from the child
+    // node while the scalar member materializes from the co-located value, and
+    // the struct is declared first, so it is the match.
+    let union = Schema::union_with_mode(vec![shape(vec![("child", string())]), string()], "anyOf");
+    let config = Config::schema(&union, Some("value".to_string()));
+
+    assert_eq!(
+        config.load(&provider(&[("value", "scalar"), ("value.child", "object")])),
+        Ok(obj(&[("child", Value::Str("object".to_string()))]))
+    );
+}
+
+#[test]
+fn a_union_keeps_declared_order_when_the_scalar_member_comes_first() {
+    // Config.test.ts:2001 — the same node, with the scalar member declared
+    // first, decodes as the scalar: materializing both does not reorder them.
+    let union =
+        Schema::union_with_mode(vec![string(), shape(vec![("child", string())])], "anyOf");
+    let config = Config::schema(&union, Some("value".to_string()));
+
+    assert_eq!(
+        config.load(&provider(&[("value", "scalar"), ("value.child", "object")])),
+        Ok(Value::Str("scalar".to_string()))
+    );
+}
+
+#[test]
+fn a_one_of_union_reports_two_matching_members() {
+    // Config.test.ts:2019 — both members match the same node, one through the
+    // scalar and one through the child; `oneOf` refuses instead of picking.
+    let union =
+        Schema::union_with_mode(vec![shape(vec![("child", string())]), string()], "oneOf");
+    let config = Config::schema(&union, Some("database.value".to_string()));
+    let error = config
+        .load(&provider(&[
+            ("database.value", "scalar"),
+            ("database.value.child", "object"),
+        ]))
+        .expect_err("two matching members is ambiguous");
+
+    assert!(
+        matches!(error.as_slice(), [ConfigError::Invalid { reason, .. }]
+            if reason.contains("more than one member")),
+        "the refusal names the ambiguity: {error:?}"
     );
 }
 

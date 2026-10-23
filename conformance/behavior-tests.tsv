@@ -744,7 +744,7 @@ ported	packages/effect/test/Config.test.ts	870	it	default wholly absent nested c
 ported	packages/effect/test/Config.test.ts	877	it	distinguish an explicit empty schema container from an absent all group	a_present_empty_container_is_validated_not_defaulted
 ported	packages/effect/test/Config.test.ts	897	it	validates partial schema objects and recovers absent all children	a_partial_object_fails_instead_of_defaulting
 ported	packages/effect/test/Config.test.ts	910	it.effect	recovers an absent child alongside a successfully decoded undefined	an_undefined_sibling_of_a_missing_field_keeps_its_undefined
-not-applicable	packages/effect/test/Config.test.ts	930	it.effect	rejects invalid input alongside missing fields in either field order	the row orders a missing schema field against an invalid one and compares the two failures; Config.schema reports one `Invalid` at the config path without the pin's field-level ordering
+ported	packages/effect/test/Config.test.ts	930	it.effect	rejects invalid input alongside missing fields in either field order	invalid_input_beside_a_missing_field_is_not_defaulted
 ported	packages/effect/test/Config.test.ts	968	it.effect	replaces the whole group when a required child remains absent	config_all_replaces_the_whole_group_when_a_required_child_stays_absent
 ported	packages/effect/test/Config.test.ts	990	it.effect	recovers missing tuple and iterable children without hiding invalid input	config_all_recovers_missing_tuple_children_without_hiding_invalid_input
 ported	packages/effect/test/Config.test.ts	1021	it.effect	propagates source failures alongside absence in every group shape	group_shapes_report_a_source_failure_beside_absence
@@ -777,7 +777,7 @@ ported	packages/effect/test/Config.test.ts	1509	it	combines a plain record of co
 ported	packages/effect/test/Config.test.ts	1517	it	recursively combines nested records	config_unwrap_recursively_combines_nested_records
 ported	packages/effect/test/Config.test.ts	1534	it	reports missing redacted input	config_secret_redacted_masked
 ported	packages/effect/test/Config.test.ts	1544	it	decodes supported boolean spellings	config_boolean_spellings
-not-applicable	packages/effect/test/Config.test.ts	1577	it	decodes durations including infinities	the row is Config.Duration over the pin's word forms ('1000 millis', '1 second') and the Infinity/-Infinity literals; the port's duration_ms parses numeric ms/s/m/h suffixes only and has no infinite value
+ported	packages/effect/test/Config.test.ts	1577	it	decodes durations including infinities	durations_include_infinities_and_word_forms
 ported	packages/effect/test/Config.test.ts	1598	it	decodes exact byte sizes and reports invalid input	config_duration_date_bytes_url_port_level
 ported	packages/effect/test/Config.test.ts	1612	it	validates port ranges	config_port_validates_range_and_decodes_number
 ported	packages/effect/test/Config.test.ts	1627	it	validates log-level literals	config_duration_date_bytes_url_port_level
@@ -799,12 +799,12 @@ not-applicable	packages/effect/test/Config.test.ts	1944	it	rejects opaque shapes
 not-applicable	packages/effect/test/Config.test.ts	1951	it	rejects opaque union members	the row asserts a named refusal for an opaque union member; the port's union walk cannot read an opaque member's wire kind and reports one generic `Invalid`
 not-applicable	packages/effect/test/Config.test.ts	1958	it	rejects opaque shapes behind suspensions	the row asserts a named refusal for an opaque shape behind a suspension; the port's `suspend` resolves lazily and records no wire kind for the bridge, so the named refusal has no witness
 not-applicable	packages/effect/test/Config.test.ts	1965	it.effect	supports declarations with concrete StringTree encodings	the row's declaration carries a concrete StringTree encoding; the port's declarations report a reference kind rather than a wire shape, so Config.schema cannot materialize one
-not-applicable	packages/effect/test/Config.test.ts	1973	it.effect	supports arbitrary JSON encoded in a scalar string	the row reads arbitrary JSON out of a scalar string through `Schema.fromJsonString`; that schema reports no wire kind, so the bridge cannot tell it from a plain string
-not-applicable	packages/effect/test/Config.test.ts	1983	it	materializes each member independently before applying first-match semantics	the row asserts the order in which a union's members are materialized before first match; the port materializes each member's paths and exposes no scratch cursor to observe
-not-applicable	packages/effect/test/Config.test.ts	2001	it	preserves first-match semantics when the scalar member is declared first	the row asserts the materializer's ordering when a scalar member is declared first; the port's union walk yields wires in member order without exposing the cursor
-not-applicable	packages/effect/test/Config.test.ts	2019	it	reports oneOf ambiguity without exposing the internal cursor	the row checks that a oneOf ambiguity is reported without exposing the internal cursor; the port reports the ambiguity but names no cursor, so the row's second claim has no witness
+ported	packages/effect/test/Config.test.ts	1973	it.effect	supports arbitrary JSON encoded in a scalar string	a_schema_reads_json_out_of_one_scalar
+ported	packages/effect/test/Config.test.ts	1983	it	materializes each member independently before applying first-match semantics	a_union_materializes_each_member_independently
+ported	packages/effect/test/Config.test.ts	2001	it	preserves first-match semantics when the scalar member is declared first	a_union_keeps_declared_order_when_the_scalar_member_comes_first
+ported	packages/effect/test/Config.test.ts	2019	it	reports oneOf ambiguity without exposing the internal cursor	a_one_of_union_reports_two_matching_members
 ported	packages/effect/test/Config.test.ts	2042	it.effect	recovers an absent sibling of a successfully decoded union	a_union_with_an_undefined_member_decodes_the_undefined_arm
-not-applicable	packages/effect/test/Config.test.ts	2071	it.effect	applies checks attached to the original union	the row re-applies checks attached to the original union after materialization; the port decodes through the union schema and does not re-attach the members' checks separately
+ported	packages/effect/test/Config.test.ts	2071	it.effect	applies checks attached to the original union	a_check_on_the_union_runs_after_materialization
 ported	packages/effect/test/Config.test.ts	2094	it.effect	propagates SourceError defects instead of trying another member	a_union_does_not_try_another_member_after_a_failure
 ported	packages/effect/test/Config.test.ts	2118	it	loads root, flat, and nested paths	undefined_or_decodes_absence_as_undefined
 ported	packages/effect/test/Config.test.ts	2142	it	uses a co-located scalar instead of object children for a leaf schema	leaf_schema_uses_its_own_scalar_over_object_children
@@ -831,7 +831,7 @@ ported	packages/effect/test/Config.test.ts	2399	it	uses first-match semantics by
 ported	packages/effect/test/Config.test.ts	2411	it	enforces exactly one match in oneOf mode	one_of_mode_requires_exactly_one_match
 ported	packages/effect/test/Config.test.ts	2427	it	decodes Number before String	a_numeric_scalar_decodes_as_a_number_in_either_order
 ported	packages/effect/test/Config.test.ts	2435	it	still decodes numeric input when String is listed first	a_numeric_scalar_decodes_as_a_number_in_either_order
-not-applicable	packages/effect/test/Config.test.ts	2444	it	reports Int validation errors	the row's schema is Schema.Redacted(Schema.Int): Redacted reports an opaque kind, so the bridge cannot walk the Int underneath it and cannot report the integer's validation error
+ported	packages/effect/test/Config.test.ts	2444	it	reports Int validation errors	a_redacted_schema_reads_the_inner_wire_and_keeps_the_box
 ported	packages/effect/test/Config.test.ts	2465	it	loads root, flat, and nested paths	config_schema_string_loads_root_flat_and_nested_paths
 ported	packages/effect/test/Config.test.ts	2483	it	decodes Undefined	an_undefined_schema_decodes_absence
 ported	packages/effect/test/Config.test.ts	2491	it	decodes Null	null_schema_decodes_null_and_reports_absence
@@ -855,7 +855,7 @@ ported	packages/effect/test/Config.test.ts	2702	it	enforces exactly one match in
 ported	packages/effect/test/Config.test.ts	2718	it	decodes Number before String	a_numeric_scalar_decodes_as_a_number_in_either_order
 ported	packages/effect/test/Config.test.ts	2726	it	still decodes numeric input when String is listed first	a_numeric_scalar_decodes_as_a_number_in_either_order
 ported	packages/effect/test/Config.test.ts	2735	it	decodes recursive suspended schemas	a_recursive_suspended_schema_decodes_nested_arrays
-not-applicable	packages/effect/test/Config.test.ts	2753	it	reports nested Int validation errors	the row reports a nested Int validation error through a Redacted schema; `Schema.Redacted` reports an opaque kind the bridge cannot walk, and the port reports one `Invalid` at the config path
+ported	packages/effect/test/Config.test.ts	2753	it	reports nested Int validation errors	a_nested_redacted_schema_reports_its_validation_error
 not-applicable	packages/effect/test/Config.test.ts	2772	it	decodes nested URL values	the row decodes nested URL values through `Schema.URLFromString`; that schema reports no wire kind, so the bridge cannot materialize its nested paths
 ported	packages/effect/test/ConfigProvider.test.ts	40	it.effect	exposes lookup absence and input transformation as provider behavior	provider_map_input_prefixes_lookups
 ported	packages/effect/test/ConfigProvider.test.ts	56	it	creates a provider from a lookup function	provider_from_fn_reads_through_lookup

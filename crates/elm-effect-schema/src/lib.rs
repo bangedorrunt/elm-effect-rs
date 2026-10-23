@@ -2468,6 +2468,11 @@ impl<T> Schema<T> {
         out.carries_encoding = schema.carries_encoding;
         out.link_source = schema.link_source.clone();
         out.link_target = schema.link_target.clone();
+        // A boxed schema is reached through `redacted_value`, and every struct
+        // field is spelled by re-typing, so the wrapped schema has to survive
+        // the re-typing or a redacted field would look opaque to the Config
+        // bridge (Config.test.ts:2444).
+        out.wrapped_schema = schema.wrapped_schema.clone();
         out.recovering = schema.recovering;
         out.encoded_annotations = schema.encoded_annotations.clone();
         out.check_base = schema.check_base.clone();

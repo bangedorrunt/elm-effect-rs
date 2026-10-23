@@ -270,11 +270,11 @@ fn config_duration_date_bytes_url_port_level() {
     ]);
     assert_eq!(
         Config::duration_ms(named("ttl")).load(&p),
-        Ok(Value::Millis(150))
+        Ok(Value::Millis(150.0))
     );
     assert_eq!(
         Config::duration_ms(named("backoff")).load(&p),
-        Ok(Value::Millis(2000))
+        Ok(Value::Millis(2000.0))
     );
     assert_eq!(
         Config::date(named("day")).load(&p),

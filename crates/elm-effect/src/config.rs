@@ -91,8 +91,9 @@ pub enum Value {
     Secret(String),
     /// Redacted (never displayed).
     Redacted(String),
-    /// Milliseconds count.
-    Millis(i64),
+    /// Milliseconds count. An infinite duration is an infinite count, which is
+    /// how the pin's sentinels survive the value model (`Config.Duration`).
+    Millis(f64),
     /// JSON null (`Config.schema(Schema.Null)`).
     Null,
     /// `undefined`, which a decode can produce and JSON cannot spell.
@@ -294,6 +295,27 @@ impl Config {
                     path,
                     got: t,
                     reason: "bad duration".to_string(),
+                }]
+            }),
+            None => Err(vec![ConfigError::Missing { path }]),
+        })
+    }
+
+    /// `Config.Duration`: the pin's own duration spellings, a count and a unit
+    /// name (`"1000 millis"`, `"1 second"`, `"1.5 hours"`) plus the two
+    /// infinite sentinels, decoded as milliseconds. The value is the pin's
+    /// `Duration` in the only unit [`Value`] carries.
+    ///
+    /// The parser mirrors `Duration::from_input_string` (time.rs) rather than
+    /// calling it: this file is included by path from test targets that have no
+    /// `time` module, so naming the type here would not compile.
+    pub fn duration(name: Option<String>) -> Self {
+        Self::leaf(name, |text, path| match text {
+            Some(t) => parse_pin_duration_ms(&t).map(Value::Millis).ok_or_else(|| {
+                vec![ConfigError::Invalid {
+                    path,
+                    got: t,
+                    reason: "a valid Duration string".to_string(),
                 }]
             }),
             None => Err(vec![ConfigError::Missing { path }]),
@@ -830,20 +852,52 @@ fn group_errors(errors: Vec<ConfigError>) -> Vec<ConfigError> {
     }
 }
 
-fn parse_duration_ms(s: &str) -> Option<i64> {
+fn parse_duration_ms(s: &str) -> Option<f64> {
     let (n, unit) = if let Some(b) = s.strip_suffix("ms") {
-        (b, 1)
+        (b, 1.0)
     } else if let Some(b) = s.strip_suffix('s') {
-        (b, 1_000)
+        (b, 1_000.0)
     } else if let Some(b) = s.strip_suffix('m') {
-        (b, 60_000)
+        (b, 60_000.0)
     } else if let Some(b) = s.strip_suffix('h') {
-        (b, 3_600_000)
+        (b, 3_600_000.0)
     } else {
-        (s, 1)
+        (s, 1.0)
     };
     // `1m` vs `1ms` ambiguity: prefer ms above, so a trailing `m` here is minutes.
-    n.parse::<i64>().ok().and_then(|v| v.checked_mul(unit))
+    n.parse::<f64>().ok().map(|v| v * unit)
+}
+
+/// The pin's `DurationFromString` readings, in milliseconds.
+fn parse_pin_duration_ms(text: &str) -> Option<f64> {
+    match text {
+        "Infinity" => return Some(f64::INFINITY),
+        "-Infinity" => return Some(f64::NEG_INFINITY),
+        _ => {}
+    }
+    // A unit is required, singular or plural, with no padding on either side.
+    let split = text.find(char::is_whitespace)?;
+    let count_text = &text[..split];
+    let unit = text[split..].trim_start_matches(char::is_whitespace);
+    if unit.is_empty() || unit.contains(char::is_whitespace) {
+        return None;
+    }
+    let count: f64 = count_text.parse().ok()?;
+    if !count.is_finite() {
+        return None;
+    }
+    let factor = match unit {
+        "nano" | "nanos" => 1.0 / 1_000_000.0,
+        "micro" | "micros" => 1.0 / 1_000.0,
+        "milli" | "millis" => 1.0,
+        "second" | "seconds" => 1_000.0,
+        "minute" | "minutes" => 60_000.0,
+        "hour" | "hours" => 3_600_000.0,
+        "day" | "days" => 86_400_000.0,
+        "week" | "weeks" => 604_800_000.0,
+        _ => return None,
+    };
+    Some(count * factor)
 }
 
 fn parse_bytes(s: &str) -> Option<i64> {
@@ -1118,6 +1172,26 @@ fn schema_wires(
     if let Some(resolved) = schema.suspended_schema() {
         return schema_wires(resolved, provider, path);
     }
+    // `Schema.Redacted`: the pin's StringTree encoding is the wrapped schema's
+    // own encoding, while this port's redacted codec takes the box as its wire.
+    // So the path is read as the inner wire and boxed here, which is what lets
+    // a redacted Int report its own validation error (Config.test.ts:2444,
+    // :2753).
+    if matches!(
+        schema.wire_kind(),
+        elm_effect_schema::SchemaKind::Opaque("redacted")
+    ) && let Some(inner) = elm_effect_schema::redacted_value(schema)
+    {
+        let wires = schema_wires(&inner, provider, path)?;
+        return Ok(wires
+            .into_iter()
+            .map(|wire| {
+                let mut boxed = std::collections::BTreeMap::new();
+                boxed.insert("value".to_string(), wire);
+                elm_effect_schema::Unknown::Object(boxed)
+            })
+            .collect());
+    }
     // An array is walked through its element schema for the same reason: the
     // element may be a suspension, which only the schema can resolve.
     if let Some(element) = schema.array_element_schema() {
@@ -1303,8 +1377,10 @@ fn kind_wires(
                 // A numeric-looking value is read as the number before the
                 // text, whatever order the union declares: Config.test.ts:2435
                 // expects `"1"` to decode as `1` even with String listed
-                // first. The sort is stable, so the rest keeps declared order.
-                wires.sort_by_key(|wire| matches!(wire, Unknown::Text(_)));
+                // first. Only numbers move; the rest keeps declared order, so a
+                // scalar member declared first still wins over a struct member
+                // materialized from the same node (Config.test.ts:2001).
+                wires.sort_by_key(|wire| !matches!(wire, Unknown::Number(_)));
                 wires
             }
         }
@@ -1336,6 +1412,12 @@ fn kind_wires(
                 Vec::new()
             }
         }
+        // `Schema.fromJsonString`: the wire is the JSON text itself, so the
+        // path is read as a scalar and the codec does the parsing
+        // (Config.test.ts:1973).
+        SchemaKind::Opaque("fromJsonString") => own
+            .map(|text| vec![Unknown::Text(text)])
+            .unwrap_or_default(),
         // A declaration or an opaque kind has no wire shape to walk; the config
         // reports the gap rather than pretending the path is absent.
         _ => return Err(WireError::Opaque("the schema's wire shape is not introspectable")),
@@ -1631,6 +1713,35 @@ impl Config {
                 if wires.is_empty() {
                     return Err(vec![ConfigError::Missing { path }]);
                 }
+                // `oneOf` demands exactly one member. The walk materializes a
+                // wire per member, so a node holding both a scalar and its
+                // object child makes two members match and is ambiguous —
+                // which one wire alone cannot show (Config.test.ts:2019).
+                if matches!(
+                    walker.wire_kind(),
+                    elm_effect_schema::SchemaKind::Union {
+                        mode: "oneOf",
+                        ..
+                    }
+                ) {
+                    let mut matched = Vec::new();
+                    for wire in &wires {
+                        if let Ok(value) = codec.decode(wire.clone()) {
+                            matched.push(value);
+                        }
+                    }
+                    if matched.len() == 1 {
+                        let value = matched.pop().expect("one match");
+                        return Ok(value.into_config_value());
+                    }
+                    if matched.len() > 1 {
+                        return Err(vec![ConfigError::Invalid {
+                            path,
+                            got: format!("{} matching members", matched.len()),
+                            reason: "the value matches more than one member".to_string(),
+                        }]);
+                    }
+                }
                 let relevant = match has_schema_input(&walker, provider, &path) {
                     Ok(relevant) => relevant,
                     Err(WireError::Source { path, message }) => {
@@ -1640,10 +1751,16 @@ impl Config {
                     Err(WireError::Opaque(_)) => false,
                 };
                 let mut last = String::new();
+                let mut last_error = None;
                 for wire in wires {
                     last = format!("{wire:?}");
-                    if let Ok(value) = codec.decode(wire) {
-                        return Ok(value.into_config_value());
+                    match codec.decode(wire) {
+                        Ok(value) => return Ok(value.into_config_value()),
+                        // The schema's own refusal is the reason the caller
+                        // sees: a named check says which check failed
+                        // (Config.test.ts:2071), and an inner codec says what
+                        // it expected.
+                        Err(error) => last_error = Some(error),
                     }
                 }
                 // The schema refused the input. With a relevant representation
@@ -1658,7 +1775,10 @@ impl Config {
                 Err(vec![ConfigError::Invalid {
                     path,
                     got: last,
-                    reason: "the value does not match the schema".to_string(),
+                    reason: last_error.map_or_else(
+                        || "the value does not match the schema".to_string(),
+                        |error| error.to_string(),
+                    ),
                 }])
             }),
         }
