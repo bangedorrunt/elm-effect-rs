@@ -262,6 +262,8 @@ fn parser_type_side_and_options() {
         ParseOptions {
             errors: Errors::First,
             on_excess_property: elm_effect_schema::ExcessProperty::Ignore,
+            disable_checks: false,
+            report_input: false,
         }
     );
 }

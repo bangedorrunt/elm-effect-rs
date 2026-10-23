@@ -834,13 +834,14 @@ pub enum Errors {
     All,
 }
 
-/// Parse options (`ParseOptions`): the two decisions a call site can make about
-/// one parse.
+/// Parse options (`ParseOptions`): the decisions a call site can make about one
+/// parse.
 ///
-/// The defaults are the pin's: first issue, excess keys dropped. A composite
-/// walk reads these from [`ParseOptions::current`] rather than through an
-/// argument, because the codec closures carry no options parameter and the
-/// entry points scope one call around them.
+/// The defaults are the pin's: first issue, excess keys dropped, checks running,
+/// no reported input. A composite walk reads these from
+/// [`ParseOptions::current`] rather than through an argument, because the codec
+/// closures carry no options parameter and the entry points scope one call
+/// around them.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ParseOptions {
     /// `errors`.
@@ -849,6 +850,14 @@ pub struct ParseOptions {
     /// refuses it. `Strip` exists for constructor policies; at a parse it means
     /// the same thing as `Ignore`.
     pub on_excess_property: crate::ExcessProperty,
+    /// `disableChecks`: skip every refinement while still applying defaults and
+    /// transformations. The pin's option of the same name.
+    pub disable_checks: bool,
+    /// `reportInput`: a refusal carries the value it rejected, so a caller
+    /// inspecting the issue can show what arrived rather than only what was
+    /// expected. The input rides [`SchemaError::WithInput`](crate::SchemaError)
+    /// at the occurrence the entry point named.
+    pub report_input: bool,
 }
 
 std::thread_local! {
@@ -860,6 +869,8 @@ std::thread_local! {
         std::cell::Cell::new(ParseOptions {
             errors: Errors::First,
             on_excess_property: crate::ExcessProperty::Ignore,
+            disable_checks: false,
+            report_input: false,
         })
     };
 }

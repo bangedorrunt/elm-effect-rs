@@ -12,6 +12,10 @@ persistence = []
 cli = []
 ai = []
 schema_obs = []
+# `Schema.URL` as config data: `Config.schema` is behind this feature in
+# `elm-effect`, and the `IntoConfigValue` impl for `Url` lives in this crate
+# because `elm-effect` cannot name the type.
+schema = ["elm-effect/schema"]
 http = ["dep:ureq"]
 
 [dependencies]

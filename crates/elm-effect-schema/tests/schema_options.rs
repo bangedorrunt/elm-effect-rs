@@ -15,6 +15,7 @@ fn options(errors: Errors, on_excess_property: ExcessProperty) -> ParseOptions {
     ParseOptions {
         errors,
         on_excess_property,
+        ..ParseOptions::default()
     }
 }
 

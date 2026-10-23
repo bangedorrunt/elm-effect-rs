@@ -42,6 +42,19 @@ impl ConstructError {
         matches!(self, Self::Die { .. })
     }
 
+    /// Run `f` over every issue this failure carries, leaving a die a die.
+    /// `reportInput` uses it: the issues gain the rejected value and the defect
+    /// stays exactly where it was.
+    pub fn map_issues(self, mut f: impl FnMut(SchemaError) -> SchemaError) -> Self {
+        match self {
+            Self::Issue(error) => Self::Issue(f(error)),
+            Self::Die { defect, issues } => Self::Die {
+                defect,
+                issues: issues.into_iter().map(f).collect(),
+            },
+        }
+    }
+
     /// The issue, when this failure is one. A die never answers an issue: that
     /// is the whole point of the split.
     pub fn issue(&self) -> Option<&SchemaError> {

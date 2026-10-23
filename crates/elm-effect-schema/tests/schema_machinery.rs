@@ -488,6 +488,7 @@ fn an_error_class_encodes_without_its_runtime_internals() {
     let wire = ParseOptions {
         errors: Errors::First,
         on_excess_property: ExcessProperty::Reject,
+        ..ParseOptions::default()
     }
     .scoped(|| schema.try_encode(&value));
 

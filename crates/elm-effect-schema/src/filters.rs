@@ -163,10 +163,14 @@ impl Schema<Unknown> {
         let encode_view = inner.check_view.clone();
         let mut out = Self::new(
             move |unknown| {
-                let seen = crate::check_value(decode_view.as_ref(), &unknown);
-                let issues = run_filters(&decode_chain, &seen, collect_all);
-                if !issues.is_empty() {
-                    return Err(issues_error(issues));
+                // `disableChecks` takes the refinement out of the parse and
+                // leaves the base's own work in it, on both axes.
+                if !crate::transform::ParseOptions::current().disable_checks {
+                    let seen = crate::check_value(decode_view.as_ref(), &unknown);
+                    let issues = run_filters(&decode_chain, &seen, collect_all);
+                    if !issues.is_empty() {
+                        return Err(issues_error(issues));
+                    }
                 }
                 decode_inner.decode(unknown)
             },
@@ -174,10 +178,12 @@ impl Schema<Unknown> {
             // side too: a value they refuse has no wire form rather than one
             // that silently violates the refinement on the way out.
             move |value| {
-                let seen = crate::check_value(encode_view.as_ref(), value);
-                let issues = run_filters(&encode_chain, &seen, false);
-                if !issues.is_empty() {
-                    return Err(issues_error(issues));
+                if !crate::transform::ParseOptions::current().disable_checks {
+                    let seen = crate::check_value(encode_view.as_ref(), value);
+                    let issues = run_filters(&encode_chain, &seen, false);
+                    if !issues.is_empty() {
+                        return Err(issues_error(issues));
+                    }
                 }
                 encode_inner.try_encode(value)
             },
@@ -229,6 +235,9 @@ impl<T: Send + Sync + 'static> Schema<T> {
         let mut out = Self::new(
             move |unknown| {
                 let value = decode_inner.decode(unknown)?;
+                if crate::transform::ParseOptions::current().disable_checks {
+                    return Ok(value);
+                }
                 let wire = decode_inner.try_encode(&value)?;
                 let seen = crate::check_value(decode_view.as_ref(), &wire);
                 let issues = run_filters(&decode_chain, &seen, false);
@@ -239,6 +248,9 @@ impl<T: Send + Sync + 'static> Schema<T> {
             },
             move |value| {
                 let wire = encode_inner.try_encode(value)?;
+                if crate::transform::ParseOptions::current().disable_checks {
+                    return Ok(wire);
+                }
                 let seen = crate::check_value(encode_view.as_ref(), &wire);
                 let issues = run_filters(&encode_chain, &seen, false);
                 if !issues.is_empty() {

@@ -35,3 +35,13 @@ pub fn url_from_string() -> Schema<Url> {
 pub fn url_wire(url: &Url) -> Unknown {
     Unknown::Text(url.render())
 }
+
+/// A URL is its text on the config side, which is what lets `Config.schema`
+/// take `Schema.URL` (`Config.test.ts:1965`). The impl lives here rather than in
+/// `config.rs` because `Url` is this crate's type: `elm-effect` cannot name it.
+#[cfg(feature = "schema")]
+impl elm_effect::config::IntoConfigValue for Url {
+    fn into_config_value(self) -> elm_effect::config::Value {
+        elm_effect::config::Value::Str(self.render())
+    }
+}

@@ -1086,6 +1086,17 @@ impl IntoConfigValue for elm_effect_schema::StructValue {
 }
 
 #[cfg(feature = "schema")]
+impl<T: IntoConfigValue> IntoConfigValue for std::collections::BTreeMap<String, T> {
+    fn into_config_value(self) -> Value {
+        Value::Map(
+            self.into_iter()
+                .map(|(name, item)| (name, item.into_config_value()))
+                .collect(),
+        )
+    }
+}
+
+#[cfg(feature = "schema")]
 impl<T: IntoConfigValue> IntoConfigValue for Vec<T> {
     fn into_config_value(self) -> Value {
         Value::List(self.into_iter().map(IntoConfigValue::into_config_value).collect())

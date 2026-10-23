@@ -128,6 +128,16 @@ pub enum SchemaError {
     /// composite has.
     #[error("{}", composite_message(.issues))]
     Composite { issues: Vec<SchemaError> },
+    /// A refusal carrying the value it rejected (`reportInput`). The pin puts
+    /// an `input` field on every value-bearing issue detail; here it wraps the
+    /// issue instead, so the message stays exactly what the refusal would say
+    /// without the option and a caller reads the value through
+    /// [`SchemaError::input`].
+    #[error("{error}")]
+    WithInput {
+        error: Box<SchemaError>,
+        input: Box<Unknown>,
+    },
 }
 
 /// A composite's members, one message per line.
@@ -282,6 +292,10 @@ pub struct Schema<T> {
     /// composite that embeds one (a struct with rest) can ask which keys the
     /// index signature covers. None for every other shape.
     record_key: Option<std::sync::Arc<Schema<Unknown>>>,
+    /// The value schema of a Record, kept for the same reason the key is: a
+    /// walk (the effect parser, a formatter) needs the schema itself, and the
+    /// kind only carries its shape.
+    record_value: Option<std::sync::Arc<Schema<Unknown>>>,
     /// Whether a decoding default or a transformation rides this node. The pin
     /// stores both as `encoding` links, and `mutable` refuses a schema that
     /// carries one: lifting a readonly marker would have to rewrite the link's
@@ -312,6 +326,11 @@ pub struct Schema<T> {
     /// `decode` works; the SYNC adapters refuse the schema, which is the pin's
     /// "Sync adapter can only throw schema errors" / dies-on-async behaviour.
     requires_effect: bool,
+    /// The step that produces this node's decoded value (`Schema.decode` with a
+    /// getter that yields), waiting for a runtime to drive it.
+    decode_step: Option<std::sync::Arc<dyn EffectStep>>,
+    /// The step that produces this node's wire value from its decoded one.
+    encode_step: Option<std::sync::Arc<dyn EffectStep>>,
     /// The pin's `toCode` answer for a constructor this crate cannot print from
     /// its shape (see [`Schema::with_code`]).
     code_override: Option<String>,
@@ -322,6 +341,62 @@ pub struct Schema<T> {
     /// `Declaration` node from it instead of the structural shape, and a
     /// declaration reviver rebuilds the constructor from it.
     declaration: Option<DeclarationInfo>,
+}
+
+/// A future a schema step answers with: the pin's getter returning an Effect,
+/// in a form this crate can name without depending on the effect runtime.
+pub type StepFuture =
+    std::pin::Pin<Box<dyn std::future::Future<Output = Result<Unknown, SchemaError>> + Send>>;
+
+/// One direction of an Effect-carrying codec.
+///
+/// The parser drives these; nothing in this crate does. A step takes a wire
+/// value and answers the value it produces, which is why the three types that
+/// touch it are all [`Unknown`].
+pub trait EffectStep: Send + Sync + 'static {
+    /// Produce the step's answer for `input`.
+    fn run(&self, input: Unknown) -> StepFuture;
+}
+
+impl<F> EffectStep for F
+where
+    F: Fn(Unknown) -> StepFuture + Send + Sync + 'static,
+{
+    fn run(&self, input: Unknown) -> StepFuture {
+        (self)(input)
+    }
+}
+
+std::thread_local! {
+    /// Whether the parse on this thread is the second phase of an effectful
+    /// one, with every step already resolved. A node that carries a step
+    /// answers its input unchanged there; a node that does not is untouched.
+    static STEPS_RESOLVED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// The flag [`STEPS_RESOLVED`] holds for the current parse.
+fn steps_resolved() -> bool {
+    STEPS_RESOLVED.with(std::cell::Cell::get)
+}
+
+/// Reset the flag when the parse that set it ends, even on a panic.
+struct ResolvedScope(bool);
+
+impl Drop for ResolvedScope {
+    fn drop(&mut self) {
+        STEPS_RESOLVED.with(|cell| cell.set(self.0));
+    }
+}
+
+/// The refusal a step-carrying node answers a synchronous parse with. The
+/// adapters refuse such a schema before its codec runs, so reaching this is a
+/// direct `decode` on a schema that needs the effect parser.
+fn effect_runtime_issue() -> SchemaError {
+    SchemaError::TypeMismatch {
+        path: "$".to_string(),
+        expected: "an Effect runtime",
+        got: "a synchronous parse",
+    }
 }
 
 /// A `suspend` thunk and the cell its result lands in.
@@ -1108,6 +1183,10 @@ fn repath_under(error: SchemaError, prefix: &str) -> SchemaError {
                 .map(|issue| repath_under(issue, prefix))
                 .collect(),
         },
+        SchemaError::WithInput { error, input } => SchemaError::WithInput {
+            error: Box::new(repath_under(*error, prefix)),
+            input,
+        },
     }
 }
 
@@ -1137,6 +1216,9 @@ fn v1_issue(error: &SchemaError) -> V1Issue {
             sentence(&format!("cannot encode {expected}"))
         }
         SchemaError::Composite { .. } => unreachable!("flattened before mapping"),
+        // The wrapper adds no message: the issue says what it said, and the
+        // rejected input is not part of a Standard Schema message.
+        SchemaError::WithInput { error, .. } => v1_issue(error).message,
     };
     V1Issue {
         message,
@@ -1163,6 +1245,7 @@ fn error_path(error: &SchemaError) -> String {
         | SchemaError::EncodingFailed { path, .. }
         | SchemaError::FilterFailed { path, .. } => path.clone(),
         SchemaError::Composite { .. } => unreachable!("flattened before mapping"),
+        SchemaError::WithInput { error, .. } => error_path(error),
     }
 }
 
@@ -1519,6 +1602,78 @@ impl StructValue {
     }
 }
 
+/// A value whose [`Unknown`] spelling is structural, so a walk can see the
+/// parts an Effect step sits in.
+///
+/// The effect parser needs the value tree before it can run encode steps; this
+/// is the seam between a typed value and that tree. It is deliberately narrower
+/// than `Serialize`: only shapes a schema actually decodes are listed.
+pub trait IntoUnknown {
+    /// The structural spelling of this value.
+    fn into_unknown(self) -> Unknown;
+}
+
+impl IntoUnknown for Unknown {
+    fn into_unknown(self) -> Unknown {
+        self
+    }
+}
+
+impl IntoUnknown for String {
+    fn into_unknown(self) -> Unknown {
+        Unknown::Text(self)
+    }
+}
+
+impl IntoUnknown for f64 {
+    fn into_unknown(self) -> Unknown {
+        Unknown::Number(self)
+    }
+}
+
+impl IntoUnknown for i64 {
+    fn into_unknown(self) -> Unknown {
+        Unknown::Number(self as f64)
+    }
+}
+
+impl IntoUnknown for bool {
+    fn into_unknown(self) -> Unknown {
+        Unknown::Bool(self)
+    }
+}
+
+impl IntoUnknown for StructValue {
+    fn into_unknown(self) -> Unknown {
+        self.to_unknown()
+    }
+}
+
+impl<T: IntoUnknown> IntoUnknown for Option<T> {
+    fn into_unknown(self) -> Unknown {
+        match self {
+            Some(value) => value.into_unknown(),
+            None => Unknown::Undefined,
+        }
+    }
+}
+
+impl<T: IntoUnknown> IntoUnknown for Vec<T> {
+    fn into_unknown(self) -> Unknown {
+        Unknown::Array(self.into_iter().map(IntoUnknown::into_unknown).collect())
+    }
+}
+
+impl<T: IntoUnknown> IntoUnknown for std::collections::BTreeMap<String, T> {
+    fn into_unknown(self) -> Unknown {
+        Unknown::Object(
+            self.into_iter()
+                .map(|(key, value)| (key, value.into_unknown()))
+                .collect(),
+        )
+    }
+}
+
 impl Schema<StructValue> {
     /// A struct of `field -> value` schemas (`Schema.Struct`). Each field
     /// decodes through its own schema; a missing or extra field is a
@@ -1733,6 +1888,7 @@ impl<T> Schema<T> {
             key_annotations: Vec::new(),
             class_meta: None,
             record_key: None,
+            record_value: None,
             carries_encoding: false,
             link_source: None,
             link_target: None,
@@ -1740,6 +1896,8 @@ impl<T> Schema<T> {
             encoded_annotations: Vec::new(),
             check_base: None,
             requires_effect: false,
+            decode_step: None,
+            encode_step: None,
             code_override: None,
             type_override: None,
             declaration: None,
@@ -1804,8 +1962,84 @@ impl<T> Schema<T> {
 
     /// Whether a sync adapter must refuse this schema because a step of it is
     /// an Effect (`transformEffect`, `checkEffect`).
+    ///
+    /// A composite answers for its children too: a struct whose field carries a
+    /// step is as un-runnable synchronously as the step itself, and the pin's
+    /// sync adapter dies on it.
     pub fn requires_effect(&self) -> bool {
-        self.requires_effect
+        self.requires_effect || self.has_effect_steps()
+    }
+
+    /// The two directions of the step this node carries, when it carries both.
+    ///
+    /// The effect parser runs `decode` on this node's input and `encode` on its
+    /// value; a node with only one direction is not a codec and answers `None`.
+    pub fn effect_steps(&self) -> Option<(&dyn EffectStep, &dyn EffectStep)> {
+        match (&self.decode_step, &self.encode_step) {
+            (Some(decode), Some(encode)) => Some((decode.as_ref(), encode.as_ref())),
+            _ => None,
+        }
+    }
+
+    /// Whether any node of this schema carries an Effect step, seen through
+    /// wrappers, fields, elements, members and suspensions.
+    pub fn has_effect_steps(&self) -> bool {
+        self.has_effect_steps_in(&mut Vec::new())
+    }
+
+    fn has_effect_steps_in(
+        &self,
+        visiting: &mut Vec<*const Schema<Unknown>>,
+    ) -> bool {
+        if self.decode_step.is_some() || self.encode_step.is_some() {
+            return true;
+        }
+        // A suspension is NOT resolved here: asking whether a schema carries a
+        // step is metadata inspection, and the pin keeps a `suspend` factory
+        // lazy until a value reaches it (`SchemaParser.test.ts:1027`). A step
+        // under a suspension is therefore found by the parse that resolves it,
+        // not by this walk.
+        if self
+            .wrapped_schema
+            .as_ref()
+            .is_some_and(|inner| inner.has_effect_steps_in(visiting))
+        {
+            return true;
+        }
+        if let Some(fields) = &self.struct_fields
+            && fields
+                .iter()
+                .any(|field| field.inner().has_effect_steps_in(visiting))
+        {
+            return true;
+        }
+        if let Some(elements) = &self.tuple_elements
+            && elements
+                .iter()
+                .any(|element| element.has_effect_steps_in(visiting))
+        {
+            return true;
+        }
+        if let Some(element) = &self.array_element
+            && element.has_effect_steps_in(visiting)
+        {
+            return true;
+        }
+        if let Some(members) = &self.union_members
+            && members
+                .iter()
+                .any(|member| member.has_effect_steps_in(visiting))
+        {
+            return true;
+        }
+        if let Some(value) = &self.record_value
+            && value.has_effect_steps_in(visiting)
+        {
+            return true;
+        }
+        self.children
+            .iter()
+            .any(|(_, child)| child.has_effect_steps_in(visiting))
     }
 
     /// `Schema.mutable`: lift the readonly marker a node carries.
@@ -2027,6 +2261,11 @@ impl<T> Schema<T> {
         self.record_key.as_deref()
     }
 
+    /// The value schema of a Record, or `None` for every other shape.
+    pub fn record_value(&self) -> Option<&Schema<Unknown>> {
+        self.record_value.as_deref()
+    }
+
     /// The exact value a `Literal` shape admits, or `None` for every other
     /// shape. A derivation that rebuilds a member list needs it: the member it
     /// receives is the `Literal`, and the value is not in the wire shape.
@@ -2063,15 +2302,50 @@ impl<T> Schema<T> {
         (self.encode)(value)
     }
 
+    /// Decode an input whose Effect steps have already been resolved by the
+    /// effect parser's first phase.
+    ///
+    /// A node that carries a step answers its input unchanged here: the input
+    /// is the step's own answer, and running the step again would run it twice.
+    /// Every other node is decoded exactly as [`decode_with`](Self::decode_with)
+    /// does.
+    pub fn decode_after_steps(
+        &self,
+        input: Unknown,
+        options: &transform::ParseOptions,
+    ) -> Result<T, SchemaError> {
+        let _scope = ResolvedScope(STEPS_RESOLVED.replace(true));
+        self.decode_with(input, options)
+    }
+
+    /// Encode a value whose Effect steps have already been resolved, with the
+    /// same rule as [`decode_after_steps`](Self::decode_after_steps).
+    pub fn encode_after_steps(
+        &self,
+        value: &T,
+        options: &transform::ParseOptions,
+    ) -> Result<Unknown, SchemaError> {
+        let _scope = ResolvedScope(STEPS_RESOLVED.replace(true));
+        self.encode_with(value, options)
+    }
+
     /// Decode under explicit parse options (`decodeUnknown` with options):
-    /// `errors` decides how many issues a composite reports, and
-    /// `on_excess_property` what happens to keys the schema does not model.
+    /// `errors` decides how many issues a composite reports,
+    /// `on_excess_property` what happens to keys the schema does not model,
+    /// `disable_checks` whether a refinement runs, and `report_input` whether
+    /// the refusal carries the value it rejected.
     pub fn decode_with(
         &self,
         input: Unknown,
         options: &transform::ParseOptions,
     ) -> Result<T, SchemaError> {
-        options.scoped(|| self.decode(input))
+        if !options.report_input {
+            return options.scoped(|| self.decode(input));
+        }
+        let snapshot = input.clone();
+        options
+            .scoped(|| self.decode(input))
+            .map_err(|error| error.with_input(snapshot))
     }
 
     /// Construction under explicit parse options (`make` with options).
@@ -2080,10 +2354,21 @@ impl<T> Schema<T> {
         input: Unknown,
         options: &transform::ParseOptions,
     ) -> Result<T, ConstructError> {
-        options.scoped(|| self.construct(input))
+        if !options.report_input {
+            return options.scoped(|| self.construct(input));
+        }
+        let snapshot = input.clone();
+        options
+            .scoped(|| self.construct(input))
+            .map_err(|error| error.map_issues(|issue| issue.with_input(snapshot.clone())))
     }
 
     /// Encode under explicit parse options (`encodeUnknown` with options).
+    ///
+    /// `report_input` attaches nothing here: an encoder's input is the typed
+    /// value it borrows, and this entry point has no `T: Clone` to snapshot it
+    /// with. The decode and construction paths own an `Unknown` by value and
+    /// do carry it.
     pub fn encode_with(
         &self,
         value: &T,
@@ -2360,7 +2645,12 @@ impl<T> Schema<T> {
             recovering: schema.recovering,
             encoded_annotations: schema.encoded_annotations.clone(),
             check_base: schema.check_base.clone(),
+            record_value: schema.record_value.clone(),
             requires_effect: schema.requires_effect,
+            // An annotation rides the codec, so a step underneath is still the
+            // step the effect parser has to run.
+            decode_step: schema.decode_step.clone(),
+            encode_step: schema.encode_step.clone(),
             // A re-typing keeps the identity: a declaration wrapped for a
             // struct field still converts to its own node.
             declaration: schema.declaration.clone(),
@@ -2425,15 +2715,33 @@ impl<T> Schema<T> {
                     }))
                 }
             });
+        // A re-typing keeps the step, because the value type it erases to is
+        // exactly what a step speaks. In the effect parser's second phase the
+        // input IS the step's answer, so the wrapper answers it unchanged; in
+        // the first phase it forwards the inner step so the parser can run it.
+        let carries_step = schema.decode_step.is_some() || schema.encode_step.is_some();
+        let inner_decode_step = schema.decode_step.clone();
+        let inner_encode_step = schema.encode_step.clone();
         let mut out = Schema::new(
             move |unknown| {
+                if carries_step && steps_resolved() {
+                    return Ok(unknown);
+                }
                 decode_schema
                     .decode(unknown)
                     .and_then(|value| encode_schema.try_encode(&value))
             },
-            |value| Ok(value.clone()),
+            move |value| {
+                if carries_step && steps_resolved() {
+                    return Ok(value.clone());
+                }
+                Ok(value.clone())
+            },
             SchemaKind::Opaque("unknown"),
         );
+        out.decode_step = inner_decode_step;
+        out.encode_step = inner_encode_step;
+        out.requires_effect = schema.requires_effect;
         // A re-typing does not change the shape, so the wrapper renders exactly
         // the way the schema it wraps does. Without this the nested Struct rows
         // lose their spacing, because every field has to pass through
@@ -2462,6 +2770,7 @@ impl<T> Schema<T> {
         // recognize an instance.
         out.class_meta = schema.class_meta.clone();
         out.record_key = schema.record_key.clone();
+        out.record_value = schema.record_value.clone();
         // A link and a recovery are properties of the codec, not of the shape,
         // so a re-typing keeps both: an `annotateEncoded` over a re-typed
         // transform must still reach the encoded side.
@@ -2745,14 +3054,44 @@ impl<T> Schema<T> {
         E: Fn(&T) -> A + Send + Sync + 'static,
     {
         let kind = schema.repr_kind();
+        // The value type changes; the WIRE shape does not. A structural reader
+        // (the config bridge, a JSON Schema document) asks the schema for its
+        // fields and elements, and a convert that dropped them would present a
+        // struct as an empty object.
+        Self::retype(schema, decode, move |value: &T| Ok(encode(value)), kind)
+    }
+
+    /// The shared body of [`convert`](Self::convert) and
+    /// [`try_convert`](Self::try_convert): a new codec over the same wire,
+    /// keeping every structural slot the source declared.
+    fn retype<A, D, E>(
+        schema: Schema<A>,
+        decode: D,
+        encode: E,
+        kind: SchemaKind,
+    ) -> Schema<T>
+    where
+        A: Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        D: Fn(A) -> Result<T, SchemaError> + Send + Sync + 'static,
+        E: Fn(&T) -> Result<A, SchemaError> + Send + Sync + 'static,
+    {
         let schema = Arc::new(schema);
         let decode_schema = schema.clone();
         let encode_schema = schema.clone();
-        Schema::new(
+        let mut out = Schema::new(
             move |unknown| decode_schema.decode(unknown).and_then(&decode),
-            move |value| encode_schema.try_encode(&encode(value)),
+            move |value| encode_schema.try_encode(&encode(value)?),
             kind,
-        )
+        );
+        out.children = schema.children.clone();
+        out.struct_fields = schema.struct_fields.clone();
+        out.tuple_elements = schema.tuple_elements.clone();
+        out.union_members = schema.union_members.clone();
+        out.array_element = schema.array_element.clone();
+        out.record_key = schema.record_key.clone();
+        out.record_value = schema.record_value.clone();
+        out
     }
 
     /// [`convert`](Self::convert) with a fallible encoding direction: the value
@@ -2767,14 +3106,45 @@ impl<T> Schema<T> {
         E: Fn(&T) -> Result<A, SchemaError> + Send + Sync + 'static,
     {
         let kind = schema.repr_kind();
-        let schema = Arc::new(schema);
-        let decode_schema = schema.clone();
-        let encode_schema = schema.clone();
-        Schema::new(
-            move |unknown| decode_schema.decode(unknown).and_then(&decode),
-            move |value| encode_schema.try_encode(&encode(value)?),
-            kind,
-        )
+        Self::retype(schema, decode, encode, kind)
+    }
+}
+
+impl Schema<Unknown> {
+    /// `Schema.decode({ decode: getter, encode: getter })` where a getter
+    /// answers an Effect.
+    ///
+    /// The node's wire shape is `from`'s, so a composite that holds it renders
+    /// and describes itself the way it would with the eager codec. The node's
+    /// own codec only runs in the effect parser's second phase, where the input
+    /// is already the step's answer; a synchronous parse answers a refusal
+    /// rather than pretending the step ran.
+    pub fn effect_codec<D, E>(from: Schema<Unknown>, decode: D, encode: E) -> Self
+    where
+        D: Fn(Unknown) -> StepFuture + Send + Sync + 'static,
+        E: Fn(Unknown) -> StepFuture + Send + Sync + 'static,
+    {
+        let mut out = Self::new(
+            |unknown| {
+                if steps_resolved() {
+                    Ok(unknown)
+                } else {
+                    Err(effect_runtime_issue())
+                }
+            },
+            |value| {
+                if steps_resolved() {
+                    Ok(value.clone())
+                } else {
+                    Err(effect_runtime_issue())
+                }
+            },
+            from.repr_kind(),
+        );
+        out.decode_step = Some(std::sync::Arc::new(decode));
+        out.encode_step = Some(std::sync::Arc::new(encode));
+        out.requires_effect = true;
+        out
     }
 }
 
@@ -3053,6 +3423,34 @@ impl SchemaError {
             // member, each with its own root-relative path.
             SchemaError::Composite { issues } => SchemaError::Composite {
                 issues: issues.into_iter().map(|issue| issue.at(prefix)).collect(),
+            },
+            SchemaError::WithInput { error, input } => SchemaError::WithInput {
+                error: Box::new(error.at(prefix)),
+                input,
+            },
+        }
+    }
+
+    /// The value this refusal rejected, when it was parsed with
+    /// `reportInput`. `None` for an issue that carries no input, and for a
+    /// composite (which reports one issue per member, each of which may carry
+    /// its own).
+    pub fn input(&self) -> Option<&Unknown> {
+        match self {
+            Self::WithInput { input, .. } => Some(input),
+            _ => None,
+        }
+    }
+
+    /// Attach the rejected value (`reportInput`). A no-op on an issue that
+    /// already carries one, so the innermost occurrence wins and an outer
+    /// wrapper does not overwrite what actually arrived there.
+    pub fn with_input(self, input: Unknown) -> Self {
+        match self {
+            Self::WithInput { .. } => self,
+            error => Self::WithInput {
+                error: Box::new(error),
+                input: Box::new(input),
             },
         }
     }
@@ -4614,6 +5012,7 @@ impl Schema<BTreeMap<String, Unknown>> {
         let value_kind = value.repr_kind();
         let key = key.map(Arc::new);
         let record_key = key.clone();
+        let record_value = value.clone();
         let decode_key = key.clone();
         let encode_key = key.clone();
         let mut out = Self::new(
@@ -4725,6 +5124,7 @@ impl Schema<BTreeMap<String, Unknown>> {
             format!("{{ {} }}", inner.join(", "))
         }));
         out.record_key = record_key;
+        out.record_value = Some(record_value);
         out
     }
 
@@ -8761,7 +9161,7 @@ impl Schema<Unknown> {
         let mut out = Self::new(
             move |unknown| {
                 let checked = check_value(decode_view.as_ref(), &unknown);
-                if !decode_holds(&checked) {
+                if !decode_holds(&checked) && !transform::ParseOptions::current().disable_checks {
                     return Err(SchemaError::TypeMismatchDynamic {
                         path: "$".to_string(),
                         expected: decode_refusal.clone(),
@@ -8775,7 +9175,7 @@ impl Schema<Unknown> {
             // silently violates the refinement on the way out.
             move |value| {
                 let checked = check_value(encode_view.as_ref(), value);
-                if !encode_holds(&checked) {
+                if !encode_holds(&checked) && !transform::ParseOptions::current().disable_checks {
                     return Err(SchemaError::TypeMismatchDynamic {
                         path: "$".to_string(),
                         expected: encode_refusal.clone(),
