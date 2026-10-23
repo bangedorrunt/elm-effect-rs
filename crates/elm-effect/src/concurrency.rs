@@ -139,7 +139,22 @@ where
     while finished < total {
         match rx.recv_timeout(deadline) {
             Ok(Done::Ok(index, a)) => {
-                live.remove(&index);
+                // Join rather than drop: a body reports over the channel
+                // before its finalizers run, so dropping the handle would let
+                // the batch return while a release is still in flight. The
+                // join is also where a cleanup that died becomes visible.
+                let spilled = match live.remove(&index).map(|handle| handle.join()) {
+                    Some(Exit::Failure(cause)) => {
+                        cause.defects().into_iter().cloned().collect::<Vec<_>>()
+                    }
+                    _ => Vec::new(),
+                };
+                if !spilled.is_empty() && failure.is_none() {
+                    failure = Some(Cause::from_defects(spilled));
+                    for handle in live.values() {
+                        handle.interrupt_unsafe();
+                    }
+                }
                 if failure.is_none() {
                     results[index] = Some(a);
                     spawn_one(&mut pending, &mut live);
@@ -147,7 +162,13 @@ where
                 finished += 1;
             }
             Ok(Done::Failed(index, cause)) => {
-                live.remove(&index);
+                // Same join, same reason: the failing body's own cleanup runs
+                // after it reported, and the batch must not return before it.
+                let tail = live.remove(&index).map(|handle| handle.join());
+                let mut cause = cause;
+                if let Some(Exit::Failure(tail)) = tail {
+                    cause.append_defects(tail.defects().into_iter().cloned().collect());
+                }
                 if failure.is_none() {
                     failure = Some(cause);
                     // Fail fast: interrupt every live sibling. Their exits
