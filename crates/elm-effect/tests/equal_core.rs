@@ -1,6 +1,6 @@
 //! `Equal` for the values the trait can reach: primitives, arrays, nesting, and
-//! the IEEE-754 special values. Rows that need a dynamic JS object, a cycle,
-//! or a Proxy are not representable and are excused in the ledger.
+//! the IEEE-754 special values. Cases that need a dynamic object graph, a
+//! cycle, or a Proxy are not representable and are omitted.
 
 use elm_effect::Equal;
 

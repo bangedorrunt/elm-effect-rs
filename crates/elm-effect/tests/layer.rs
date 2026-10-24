@@ -133,7 +133,7 @@ fn subsequent_provides_share_the_memo_map() {
     // Effect.test.ts:4523 — a `local` provide always builds the layer;
     // every non-local provide of one handle shares that handle's memoized
     // build, so the two non-local provides build between them once. The
-    // port's stand-in for `local: true` is a fresh handle, which shares
+    // crate's stand-in for `local: true` is a fresh handle, which shares
     // no memo with the original, so the whole run builds twice.
     use elm_effect::{Exit, Runtime};
     use std::sync::atomic::AtomicUsize;
@@ -196,9 +196,9 @@ impl Clone for StringConn {
 
 #[test]
 fn managed_runtime_make_exposes_built_services() {
-    // ManagedRuntime row "can be built synchronously": the build happens in
+    // ManagedRuntime case "can be built synchronously": the build happens in
     // `make` (not lazily at first use), and the resulting services are
-    // readable back -- the pin's contextEffect -> Context.get(services, tag).
+    // readable back -- Effect 4's contextEffect -> Context.get(services, tag).
     let layer =
         Layer::<SrvTag, std::convert::Infallible, ()>::from_value(StringConn("test".to_string()));
     let runtime = ManagedRuntime::make(&layer).expect("layer builds");
@@ -221,7 +221,7 @@ fn managed_runtime_new_has_no_built_services() {
 
 #[test]
 fn make_returns_a_construction_failure_instead_of_swallowing_it() {
-    // The pin's shape: ManagedRuntime.make yields an Effect, so a layer whose
+    // Effect 4's shape: ManagedRuntime.make yields an Effect, so a layer whose
     // constructor fails fails the build and the caller cannot ignore it.
     // `build(..).ok()` used to turn a refused connection into a runtime
     // indistinguishable from `new()`, which a services interpreter then
@@ -280,7 +280,7 @@ fn provide_from_with_a_layer_that_never_built_the_tag_is_a_defect_not_a_default(
     }
 }
 /// A layer that owns a resource: it records its acquire and registers the
-/// release on the build scope, the shape `makeLayer1` has at the pin.
+/// release on the build scope, the shape `makeLayer1` has in Effect 4.
 fn resource_layer(
     arr: &Arc<std::sync::Mutex<Vec<&'static str>>>,
 ) -> Layer<Db, std::convert::Infallible, ()> {
@@ -297,7 +297,7 @@ fn resource_layer(
 #[test]
 fn suspend_is_lazy_and_evaluates_per_handle() {
     // Layer.test.ts:86. The thunk does not run at construction, and one build
-    // per handle runs it once. The pin builds twice through `Effect.scoped`,
+    // per handle runs it once. Effect 4 builds twice through `Effect.scoped`,
     // which forks a memo map per fiber; here one handle is one memo, so the
     // second build is the `fresh()` handle.
     let evaluated = Arc::new(AtomicUsize::new(0));
@@ -429,7 +429,7 @@ fn tap_cause_sees_the_defect_and_preserves_the_cause() {
 }
 
 /// A resource layer for any tag, with the acquire/release trail `makeLayer1`
-/// leaves at the pin.
+/// leaves in Effect 4.
 fn tagged_resource<T>(
     arr: &Arc<std::sync::Mutex<Vec<&'static str>>>,
     value: T::Service,
@@ -501,7 +501,7 @@ fn finalizers_with_provide_release_the_provider_last() {
 #[test]
 fn merge_keeps_the_last_value_for_one_tag() {
     // Layer.test.ts :231/:240/:252 — `fresh` puts a second value behind one
-    // tag, and the pin's `Context.merge` keeps the later one. Both builds
+    // tag, and Effect 4's `Context.merge` keeps the later one. Both builds
     // still acquire and release; only the winner is observable.
     let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
     let layer = tagged_resource::<Db>(&arr, DbConn(1))
@@ -524,7 +524,7 @@ fn catch_uses_an_alternative_layer() {
     // the fallback builds, and the fallback's resource releases with the
     // caller's scope: [acquire1, release1, acquire2, release2].
     let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
-    // The provider shares the failing layer's error type: this port has no
+    // The provider shares the failing layer's error type: this crate has no
     // error union to widen into, so a provider that cannot fail is spelled
     // with the consumer's `E`.
     let provider = Layer::<Db, String, ()>::from_scoped_factory({
@@ -542,7 +542,7 @@ fn catch_uses_an_alternative_layer() {
         .provide_layer(provider)
         .expect("the provider satisfies the consumer");
     // `catch` takes an `Fn`, so the fallback is a recipe: one fresh layer per
-    // recovery, the way the pin's thunk builds one per call.
+    // recovery, the way Effect 4's thunk builds one per call.
     let layer = failing.catch({
         let arr = Arc::clone(&arr);
         move |_error| {
@@ -593,7 +593,7 @@ fn catch_cause_recovers_and_exposes_the_original_cause() {
     assert_eq!(*seen.lock().unwrap(), vec![true]);
 }
 
-/// `Data.TaggedError("LayerError")`: the error the tagged-recovery row names.
+/// `Data.TaggedError("LayerError")`: the error the tagged-recovery case names.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct LayerError;
 
@@ -745,11 +745,11 @@ fn with_parent_span_installs_an_external_span_for_construction() {
     ));
 }
 
-// ---- The pin's MemoMap: sharing is layer identity, and an entry lives while
+// ---- Effect 4's MemoMap: sharing is layer identity, and an entry lives while
 // ---- any caller scope still observes it (Layer.test.ts:35..:660).
 
 /// Build through an explicit memo map, failing the test on a construction
-/// failure (the rows below all expect a successful build unless stated).
+/// failure (the cases below all expect a successful build unless stated).
 fn run_memo<O: elm_effect::RequirementIds, E: Clone + std::fmt::Debug + Send + 'static>(
     layer: &Layer<O, E, ()>,
     memo: &LayerMemo,
@@ -962,7 +962,7 @@ fn provide_chains_build_inside_out_and_release_in_reverse() {
 
 #[test]
 fn a_provide_layer_rebuilds_while_its_provider_stays_memoized() {
-    // Layer.test.ts:621. `provide` is a plain node (the pin's `fromBuild`),
+    // Layer.test.ts:621. `provide` is a plain node (Effect 4's `fromBuild`),
     // so building the composed layer twice rebuilds the consumer, while the
     // memoized provider inside it is constructed once.
     let arr = Arc::new(std::sync::Mutex::new(Vec::new()));
@@ -1166,7 +1166,7 @@ fn a_forked_memo_map_reuses_parent_entries_without_writing_back() {
 // ---- and releases what the attempt acquired (Layer.test.ts:292..:531).
 
 /// Poll a flag up to `within`. A witness that would hang instead fails on the
-/// assertion, which is the loud failure these rows need.
+/// assertion, which is the loud failure these cases need.
 fn wait_flag(flag: &Arc<AtomicBool>, within: Duration) -> bool {
     let deadline = Instant::now() + within;
     while Instant::now() < deadline {
@@ -1254,7 +1254,7 @@ fn interrupting_a_merge_build_releases_what_it_acquired() {
         matches!(exit, Exit::Failure(ref cause) if cause.is_interrupted()),
         "an interrupted build must end interrupted, got {exit:?}"
     );
-    // Both sides build at once, so the pin asserts per side rather than per
+    // Both sides build at once, so Effect 4 asserts per side rather than per
     // order: whatever was acquired is released, and nothing is left hanging.
     let arr = arr.lock().unwrap();
     if arr.contains(&"acquire1") {
@@ -1289,7 +1289,7 @@ fn merge_builds_both_sides_at_once_and_stops_on_interrupt() {
             let started = Arc::clone(&started);
             // The construction fiber rides in the ambient services, so the
             // constructor can park until the merge interrupts it, exactly as
-            // the pin's `Effect.never` observes the interrupt.
+            // Effect 4's `Effect.never` observes the interrupt.
             Effect::with_fiber(move |fiber| {
                 let fiber = fiber.clone();
                 Effect::<(), std::convert::Infallible>::sync(move || {
@@ -1895,9 +1895,9 @@ fn launch_keeps_the_layer_open_until_interrupted() {
 }
 
 // ---- Layer.mock (Layer.test.ts:402, :430, :452).
-// A test service with a value member and a method: the pin's
+// A test service with a value member and a method: Effect 4's
 // `{ one: Effect<number>, two(): Effect<number> }`, with each member a recipe
-// because an `Effect` in this port is a description, not a clonable value.
+// because an `Effect` in this crate is a description, not a clonable value.
 
 #[derive(Clone)]
 struct MockedService {
@@ -1927,8 +1927,8 @@ impl elm_effect::Mock for MockedService {
 
 #[test]
 fn mock_serves_the_implemented_member_and_fails_the_omitted_one() {
-    // Layer.test.ts:402, and :430 with it: the pin also accepts the
-    // implementation in the data-first position, so both rows ride this
+    // Layer.test.ts:402, and :430 with it: Effect 4 also accepts the
+    // implementation in the data-first position, so both cases ride this
     // witness; Rust has one call shape, not two.
     let layer = Layer::<MockedTag, std::convert::Infallible, ()>::mock(
         MockedService {
@@ -1959,7 +1959,7 @@ fn mock_serves_the_implemented_member_and_fails_the_omitted_one() {
     );
 }
 
-/// The pin's `{ effect(): Effect<number>, channel: Channel<number, never, void> }`:
+/// Effect 4's `{ effect(): Effect<number>, channel: Channel<number, never, void> }`:
 /// a method and a channel member, with the channel behind a recipe because a
 /// `Channel` owns its step and cannot be cloned.
 type MockChannel = Arc<dyn Fn() -> Channel<u64, std::convert::Infallible, u64> + Send + Sync>;

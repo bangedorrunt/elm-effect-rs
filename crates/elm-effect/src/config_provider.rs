@@ -1,4 +1,4 @@
-//! `ConfigProvider.ts` port: layered key/value lookup.
+//! Layered key/value lookup.
 //!
 //! A [`Provider`] answers dotted paths from an in-memory map. Providers
 //! compose: [`Provider::nested`] scopes every lookup under a prefix,
@@ -55,7 +55,7 @@ pub enum Node {
     /// An object node, which may have no children.
     Object,
     /// An array node with its declared length. A flat map cannot tell a hole
-    /// from the end of the array, and the pin's node can: `makeArray(2)` with
+    /// from the end of the array, and Effect 4's node can: `makeArray(2)` with
     /// only position 0 stored still has position 1, holding `undefined`
     /// (Config.test.ts:1873).
     Array(usize),
@@ -226,7 +226,7 @@ impl Provider {
     }
 
     /// Build from `(key, value)` pairs whose keys are literal segments, not
-    /// dotted paths. The pin's object provider keeps `service.name` as one
+    /// dotted paths. Effect 4's object provider keeps `service.name` as one
     /// key, which [`from_pairs`](Self::from_pairs) cannot: it would split it
     /// into two path segments.
     pub fn record(pairs: impl IntoIterator<Item = (String, String)>) -> Self {
@@ -478,7 +478,7 @@ impl Lookup for Fallback<'_> {
 
     fn try_get(&self, path: &[String]) -> Result<Option<String>, ProviderError> {
         // Absence falls through; a FAILED source poisons the chain, so the
-        // fallback is never consulted — the pin's `SourceError` rule, and a
+        // fallback is never consulted — Effect 4's `SourceError` rule, and a
         // defect poisons it the same way.
         match self.first.try_get(path)? {
             Some(hit) => Ok(Some(hit)),
@@ -488,7 +488,7 @@ impl Lookup for Fallback<'_> {
 }
 
 /// A source that fails every lookup with a `SourceError`-shaped message
-/// (`ConfigProvider.make(() => Effect.fail(...))`): the port's failure
+/// (`ConfigProvider.make(() => Effect.fail(...))`): the crate's failure
 /// channel for providers, which `Fallback` propagates instead of skipping.
 pub struct Failing {
     message: String,

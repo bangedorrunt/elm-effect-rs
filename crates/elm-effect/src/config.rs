@@ -1,4 +1,4 @@
-//! `Config.ts` port: parsed-at-startup descriptors.
+//! Parsed-at-startup descriptors.
 //!
 //! A [`Config`] describes one value: primitives ([`Config::string`],
 //! [`number`](Config::number), [`boolean`](Config::integer) and friends),
@@ -98,7 +98,7 @@ pub enum Value {
     /// Redacted (never displayed).
     Redacted(String),
     /// Milliseconds count. An infinite duration is an infinite count, which is
-    /// how the pin's sentinels survive the value model (`Config.Duration`).
+    /// how Effect 4's sentinels survive the value model (`Config.Duration`).
     Millis(f64),
     /// JSON null (`Config.schema(Schema.Null)`).
     Null,
@@ -324,9 +324,9 @@ impl Config {
         })
     }
 
-    /// `Config.Duration`: the pin's own duration spellings, a count and a unit
+    /// `Config.Duration`: Effect 4's own duration spellings, a count and a unit
     /// name (`"1000 millis"`, `"1 second"`, `"1.5 hours"`) plus the two
-    /// infinite sentinels, decoded as milliseconds. The value is the pin's
+    /// infinite sentinels, decoded as milliseconds. The value is Effect 4's
     /// `Duration` in the only unit [`Value`] carries.
     ///
     /// The parser mirrors `Duration::from_input_string` (time.rs) rather than
@@ -547,11 +547,11 @@ impl Config {
     /// `Config.mapEffect`: transform the decoded value through a described
     /// effect.
     ///
-    /// The pin runs the transform in the fiber that parses the config. A load
+    /// Effect 4 runs the transform in the fiber that parses the config. A load
     /// here is a bare `Result` with no fiber, so the description is driven on
     /// the calling thread and must complete without suspending: a transform
     /// that sleeps or forks has nowhere to park. A typed failure becomes the
-    /// load's failure, which `or_else` recovers from exactly as the pin's
+    /// load's failure, which `or_else` recovers from exactly as Effect 4's
     /// `orElse` does; a defect has no channel of its own in a load result, so
     /// it is reported as an invalid value at the descriptor's path.
     pub fn map_effect<F, M>(self, f: F) -> Self
@@ -638,7 +638,7 @@ impl Config {
             run: std::rc::Rc::new(move |provider, prefix| match (*run)(provider, prefix) {
                 ok @ Ok(_) => ok,
                 // A defect is not a config failure: the fallback would be
-                // answering for the provider dying, which the pin forbids
+                // answering for the provider dying, which Effect 4 forbids
                 // (Config.test.ts:65).
                 Err(errors) if errors.iter().any(is_defect) => Err(errors),
                 Err(_) => (*run_other)(provider, prefix),
@@ -648,7 +648,7 @@ impl Config {
 
     /// Fall back with the failure in hand (`orElse` with a recovery
     /// function): the fallback sees every [`ConfigError`], but a provider
-    /// defect is not offered to it at all — the pin's `orElse` never runs on a
+    /// defect is not offered to it at all — Effect 4's `orElse` never runs on a
     /// defect (`Config.test.ts:65`).
     pub fn or_else_with(self, f: impl Fn(Vec<ConfigError>) -> Config + 'static) -> Self {
         let run = self.run.clone();
@@ -777,7 +777,7 @@ fn parse_duration_ms(s: &str) -> Option<f64> {
     n.parse::<f64>().ok().map(|v| v * unit)
 }
 
-/// The pin's `DurationFromString` readings, in milliseconds.
+/// Effect 4's `DurationFromString` readings, in milliseconds.
 fn parse_pin_duration_ms(text: &str) -> Option<f64> {
     match text {
         "Infinity" => return Some(f64::INFINITY),
@@ -840,54 +840,5 @@ fn parse_bytes(s: &str) -> Option<i64> {
     Some(raw as i64)
 }
 
-// ---------------------------------------------------------------------------
-// `Config.schema`: the Schema bridge.
-// ---------------------------------------------------------------------------
-
-/// Log verbosity with `All`/`None` sentinels.
-///
-/// Ports `packages/effect/src/LogLevel.ts`: levels order
-/// `All < Trace < Debug < Info < Warning < Error < Fatal < None`, and the
-/// default minimum is `Info`.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum LogLevel {
-    /// Everything passes.
-    All,
-    /// Finest detail.
-    Trace,
-    /// Debugging detail.
-    Debug,
-    /// Default minimum.
-    #[default]
-    Info,
-    /// Potential problems.
-    Warning,
-    /// Errors.
-    Error,
-    /// Unrecoverable failures.
-    Fatal,
-    /// Nothing passes.
-    None,
-}
-
-impl LogLevel {
-    /// Parse a level name; `None` when unrecognized.
-    pub fn parse(text: &str) -> Option<Self> {
-        match text {
-            "All" => Some(Self::All),
-            "Trace" => Some(Self::Trace),
-            "Debug" => Some(Self::Debug),
-            "Info" => Some(Self::Info),
-            "Warning" => Some(Self::Warning),
-            "Error" => Some(Self::Error),
-            "Fatal" => Some(Self::Fatal),
-            "None" => Some(Self::None),
-            _ => None,
-        }
-    }
-
-    /// True when a message at `message` passes a `minimum` threshold.
-    pub fn passes(self, minimum: Self) -> bool {
-        self >= minimum
-    }
-}
+#[allow(unused_imports)]
+pub use crate::log_level::LogLevel;

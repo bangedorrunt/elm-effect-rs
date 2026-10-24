@@ -322,10 +322,10 @@ impl FiberControl {
         MaskGuard { control: self }
     }
 
-    /// `restore` at the pin: make the fiber interruptible for one region and
+    /// `restore` in Effect 4: make the fiber interruptible for one region and
     /// hand back a guard that puts the previous depth back on drop.
     ///
-    /// Swaps to zero rather than decrementing because the pin models this as a
+    /// Swaps to zero rather than decrementing because Effect 4 models this as a
     /// flag, not a count: `interruptible` inside two nested `uninterruptible`
     /// regions is still interruptible (`alternating interruptibility` needs
     /// exactly that). Decrementing would leave depth 1 and stay masked.
@@ -476,9 +476,9 @@ pub(crate) fn subscribe_current_interrupt(
 /// identity plus the cooperative interrupt flag. Wider control (finalizers,
 /// spawning) stays on [`Ctx`], which a fiber body owns.
 ///
-/// The pin's `fiber.context` has no counterpart here: services are immutable
-/// per run, never a mutable per-fiber map, so rows that read the running
-/// fiber's context stay unported.
+/// Effect 4's `fiber.context` has no counterpart here: services are immutable
+/// per run, never a mutable per-fiber map, so a read of the running fiber's
+/// context is not carried.
 #[derive(Clone)]
 pub struct Fiber {
     control: Arc<FiberControl>,
@@ -556,7 +556,7 @@ impl Fiber {
         self.driver.children_of(self.control.id)
     }
 
-    /// Fire every deferred start latch. The pin's `yieldNow` does this; the
+    /// Fire every deferred start latch. Effect 4's `yieldNow` does this; the
     /// await is where a parent first gives its deferred children the CPU.
     pub(crate) fn drain_pending(&self) {
         self.driver.drain_pending();
@@ -569,7 +569,7 @@ impl Fiber {
         f()
     }
 
-    /// Run `f` with the depth lowered by one: `restore` at the pin. Raising
+    /// Run `f` with the depth lowered by one: `restore` in Effect 4. Raising
     /// happens on drop, so a panic inside `f` still leaves the depth as it
     /// was.
     pub(crate) fn with_unmasked<R>(&self, f: impl FnOnce() -> R) -> R {
@@ -680,6 +680,13 @@ impl Ctx {
     /// exactly once, before `join`/`interrupt` return.
     pub fn add_finalizer(&self, f: impl FnOnce() + Send + 'static) {
         self.control.scope.add_finalizer(f);
+    }
+
+    /// Register a finalizer that sees this fiber's exit. Same LIFO, once-only
+    /// ordering; the callback reads success, typed-failure count, defects,
+    /// and interruption through [`crate::ScopeExit`].
+    pub fn add_finalizer_with_exit(&self, f: impl FnOnce(&crate::ScopeExit) + Send + 'static) {
+        self.control.scope.add_finalizer_with_exit(f);
     }
 
     /// Run `f` with the interruptibility depth raised by one. The interrupt
@@ -861,6 +868,11 @@ impl<A: Send + 'static, E: Send + 'static> FiberHandle<A, E> {
     /// Register a finalizer from outside the fiber.
     pub fn add_finalizer(&self, f: impl FnOnce() + Send + 'static) {
         self.control.scope.add_finalizer(f);
+    }
+
+    /// Register an exit-aware finalizer from outside the fiber.
+    pub fn add_finalizer_with_exit(&self, f: impl FnOnce(&crate::ScopeExit) + Send + 'static) {
+        self.control.scope.add_finalizer_with_exit(f);
     }
 
     /// Wait for completion and take the exit. Fires the start latch first.

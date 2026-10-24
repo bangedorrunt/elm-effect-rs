@@ -1,9 +1,7 @@
-//! `Stream.range` and `Stream.runForEachWhile` at the pin
-//! (`packages/effect/test/Stream.test.ts`, describe "constructors" and the
-//! `runForEachWhile` block).
+//! `Stream.range` and `Stream.runForEachWhile`.
 //!
-//! Chunk boundaries are observable: `Stream.chunks().runCollect()` in the
-//! pin, `run_collect_chunks` here.
+//! Chunk boundaries are observable: `Stream.chunks().runCollect()` in Effect 4
+//! is `run_collect_chunks` here.
 
 use std::convert::Infallible;
 
@@ -86,7 +84,7 @@ fn run_for_each_while_stops_on_false() {
 }
 
 // ---------------------------------------------------------------------------
-// splitLines at the pin (describe "encoding" / "splitLines")
+// splitLines in Effect 4 (describe "encoding" / "splitLines")
 // ---------------------------------------------------------------------------
 
 fn lines_of(chunks: &[&str]) -> Vec<String> {
@@ -148,7 +146,7 @@ fn split_lines_emits_the_final_line_when_the_stream_does_not_end_with_a_newline(
 
 #[test]
 fn split_lines_pin_doc_example() {
-    // The pin's own example: "a\nb\r\n", "c\n" => ['a', 'b', 'c']
+    // Effect 4's own example: "a\nb\r\n", "c\n" => ['a', 'b', 'c']
     assert_eq!(lines_of(&["a\nb\r\n", "c\n"]), vec!["a", "b", "c"]);
 }
 

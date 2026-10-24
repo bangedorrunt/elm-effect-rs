@@ -84,13 +84,13 @@ fn jitter_is_deterministic_per_seed() {
         .jitter(Random::with_seed(7));
     let (_, d2) = again.decide(0, &"e".to_string()).unwrap();
     assert_eq!(d1.as_millis(), d2.as_millis());
-    // Base 20ms scaled by the pin's jitter band, [0.8, 1.2).
+    // Base 20ms scaled by Effect 4's jitter band, [0.8, 1.2).
     assert!((16..24).contains(&d1.as_millis()));
 }
 
-/// The pin's `runDelays`: step the schedule over a virtual clock that advances
+/// Effect 4's `runDelays`: step the schedule over a virtual clock that advances
 /// by each decided delay, recording the delay, with a trailing zero where the
-/// schedule completes. `toStepWithMetadata` sleeps the delay at the pin, so the
+/// schedule completes. `toStepWithMetadata` sleeps the delay in Effect 4, so the
 /// clock advance is what makes a time-dependent policy observably the same.
 fn run_delays_from<In, A>(schedule: &Schedule<In, A>, inputs: &[In], start: f64) -> Vec<u64>
 where
@@ -276,7 +276,7 @@ fn repeat_reruns_success() {
     assert!(matches!(exit, Exit::Failure(_)));
 }
 
-/// A metadata snapshot the way the pin's rows spell it: input, output,
+/// A metadata snapshot the way Effect 4's cases spell it: input, output,
 /// duration, attempt, and the four timings.
 type Snapshot = (String, String, u64, u64, f64, f64, f64, f64);
 
@@ -545,7 +545,7 @@ fn fixed_delays_with_action(action_ms: u64) -> Vec<u64> {
         now += metadata.duration.as_millis() as f64 + action_ms as f64;
     }
     let mut delays = seen.lock().unwrap().clone();
-    // The pin's driver pushes a zero once the schedule completes.
+    // Effect 4's driver pushes a zero once the schedule completes.
     delays.push(0);
     delays
 }

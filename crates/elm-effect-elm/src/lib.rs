@@ -173,6 +173,20 @@ pub enum Failure<E> {
     Interrupted,
     /// The durable log rejected the append, so the command never ran.
     NotAppended(AppendError),
+    /// The log did not answer: the append may have landed. Recovery must
+    /// reconcile before retrying; the fold must not treat this as a definite
+    /// rejection.
+    Unknown(AppendError),
+}
+
+/// Classify an append failure: `Unavailable` is an unknown outcome, every
+/// other error is a definite rejection.
+fn append_failure<E>(error: AppendError) -> Failure<E> {
+    if matches!(&error, AppendError::Unavailable(_)) {
+        Failure::Unknown(error)
+    } else {
+        Failure::NotAppended(error)
+    }
 }
 
 /// Serde mirror of the core `Defect`, which carries no serde derive. The
@@ -190,7 +204,7 @@ impl<E> Failure<E> {
     /// value because the typed failure is handed over unrendered. First
     /// failure wins, matching Effect's `failureOption`; sibling reasons of
     /// the same kind are not preserved (the fold carries one message, like
-    /// the pin). An empty cause means the runtime lost the failure: that is
+    /// Effect 4). An empty cause means the runtime lost the failure: that is
     /// a bug, reported loudly as a defect rather than guessed at, and
     /// pinned by the empty-cause test.
     pub fn of_cause(cause: Cause<E>) -> Self {
@@ -364,6 +378,8 @@ enum Work<P: Program> {
 /// A durable command whose append the log rejects (including
 /// [`AppendError::StaleEpoch`] for a producer whose epoch was superseded)
 /// reaches the fold as [`Failure::NotAppended`] and its provider never runs.
+/// An [`AppendError::Unavailable`] answer reaches the fold as
+/// [`Failure::Unknown`], because the append may have landed.
 pub struct Loop<P: Program, I: Interpret<P>> {
     model: P::Model,
     /// Live view of the model for subscribers: updated on every fold so a
@@ -602,12 +618,9 @@ where
                     // not record their outcomes.
                     let step = self.steps;
                     if let Err(error) = self.append_message(&msg, origin) {
-                        let outcomes = run_effects(
-                            vec![Effect::succeed(P::failure(&Failure::NotAppended(
-                                error.clone(),
-                            )))],
-                            &self.rt,
-                        );
+                        let failure = append_failure::<P::Err>(error.clone());
+                        let outcomes =
+                            run_effects(vec![Effect::succeed(P::failure(&failure))], &self.rt);
                         for outcome in outcomes {
                             let failure_msg = match outcome {
                                 Exit::Success(msg) => msg,
@@ -664,6 +677,13 @@ where
     /// travels inside the record, because the log returns only the payload.
     /// The sequence number advances only on a successful append, so a retry
     /// stays gap-free.
+    ///
+    /// `AppendError::Unavailable` is not a verdict: the write may have landed.
+    /// Before retrying, read the log for this producer triple. Finding it
+    /// means the append succeeded and only the acknowledgement was lost;
+    /// finding a different payload for the same triple is corruption, not a
+    /// retry. Only a miss is retried, once, and a second `Unavailable` is
+    /// returned to the caller for recovery to handle.
     fn append_payload(&mut self, mut record: serde_json::Value) -> Result<Offset, AppendError> {
         let stamp = serde_json::json!({
             "producer_id": self.producer.producer_id,
@@ -676,9 +696,67 @@ where
             "producer": stamp,
             "payload": record,
         });
-        let at = self.log.append_json(&envelope.to_string())?;
-        self.producer.seq += 1;
-        Ok(at)
+        let text = envelope.to_string();
+        match self.log.append_json(&text) {
+            Ok(at) => {
+                self.producer.seq += 1;
+                Ok(at)
+            }
+            Err(error @ AppendError::Unavailable(_)) => match self.reconcile_append(&envelope) {
+                Ok(Some(at)) => {
+                    self.producer.seq += 1;
+                    Ok(at)
+                }
+                Ok(None) => {
+                    let at = self.log.append_json(&text)?;
+                    self.producer.seq += 1;
+                    Ok(at)
+                }
+                Err(mismatch @ AppendError::PayloadMismatch { .. }) => Err(mismatch),
+                // The append's outcome is still unknown; a failed read did
+                // not turn it into a verdict. Preserve the original error.
+                Err(_) => Err(error),
+            },
+            Err(error) => Err(error),
+        }
+    }
+
+    /// Find this envelope's producer triple in the log. `Ok(Some(offset))`
+    /// means the append landed; `Ok(None)` means it did not. A matching
+    /// triple with a different payload is a `PayloadMismatch`.
+    fn reconcile_append(
+        &self,
+        envelope: &serde_json::Value,
+    ) -> Result<Option<Offset>, AppendError> {
+        let producer = &envelope["producer"];
+        let producer_id = producer["producer_id"].as_str().unwrap_or_default();
+        let epoch = producer["epoch"].as_u64().unwrap_or(0);
+        let seq = producer["seq"].as_u64().unwrap_or(0);
+        // ponytail: a full log scan on an unknown ack; a producer-indexed
+        // lookup on DurableLog would make this O(1).
+        for (at, raw) in self.log.read_from(&Offset::Start)? {
+            let Ok(record) = serde_json::from_str::<serde_json::Value>(&raw) else {
+                // A corrupt record cannot be this append; the log's own read
+                // path reports corruption it can attribute.
+                continue;
+            };
+            let stamp = &record["producer"];
+            if stamp["producer_id"].as_str() != Some(producer_id)
+                || stamp["epoch"].as_u64() != Some(epoch)
+                || stamp["seq"].as_u64() != Some(seq)
+            {
+                continue;
+            }
+            if record["payload"] != envelope["payload"] {
+                return Err(AppendError::PayloadMismatch {
+                    producer_id: producer_id.to_string(),
+                    epoch,
+                    seq,
+                });
+            }
+            return Ok(Some(at));
+        }
+        Ok(None)
     }
 
     /// Map one window to its outcomes. The durable intent is journaled first,
@@ -703,7 +781,7 @@ where
                 match self.append_durable(&key, cmd, origin, 1) {
                     Ok(recorded) => self.intents.push(recorded),
                     Err(error) => {
-                        effects.push(Effect::succeed(P::failure(&Failure::NotAppended(error))));
+                        effects.push(Effect::succeed(P::failure(&append_failure(error))));
                         continue;
                     }
                 }
@@ -1013,39 +1091,26 @@ where
     }
 }
 
-/// Run one window's effects, concurrently. The runtime's edge already turns
-/// a panic into a defect, and [`ManagedRuntime`] is `Sync`, so commands
-/// in a window may overlap. Results keep their position, so the caller sees
-/// them in command order no matter how the threads interleaved.
+/// Run one window's effects, concurrently, as fibers of the loop's runtime.
 ///
-/// A window of one runs inline: there is nothing to overlap, and a thread
-/// would cost more than the work.
+/// Every command is forked before any is joined, so a window overlaps and
+/// the results keep their position: the caller sees command order no matter
+/// how the fibers interleaved. Forking through the managed runtime's fork
+/// method is what gives a command the ambient fiber that `with_fiber`,
+/// `fork_child`, `race`, and `timeout` require; running the interpreter on a
+/// raw thread had no fiber and those combinators failed with "outside a fiber".
 ///
-/// The loop does not catch panics itself (ADR-0002 L2, supervisor only). A
-/// thread that dies outside the runtime's guard makes `join` fail, and that
-/// becomes a defect for its command alone, so the fold keeps every other
-/// outcome.
+/// The supervisor turns a panic into a defect on that command's `Exit`, so
+/// the fold keeps every other outcome. The loop does not catch panics itself
+/// (ADR-0002 L2, supervisor only).
 fn run_effects<A, E>(effects: Vec<Effect<A, E>>, rt: &ManagedRuntime) -> Vec<Exit<A, E>>
 where
     A: Send + 'static,
     E: Send + 'static,
 {
-    if effects.len() < 2 {
-        return effects.into_iter().map(|effect| rt.run(effect)).collect();
-    }
-    std::thread::scope(|scope| {
-        let handles: Vec<_> = effects
-            .into_iter()
-            .map(|effect| scope.spawn(|| rt.run(effect)))
-            .collect();
-        handles
-            .into_iter()
-            .map(|handle| match handle.join() {
-                Ok(exit) => exit,
-                Err(_) => Exit::Failure(Cause::die(Defect::new(
-                    "command thread died before returning an outcome",
-                ))),
-            })
-            .collect()
-    })
+    let handles: Vec<_> = effects
+        .into_iter()
+        .map(|effect| rt.run_fork(effect))
+        .collect();
+    handles.into_iter().map(|handle| handle.join()).collect()
 }

@@ -1,6 +1,6 @@
 # Migrate beads
 
-Repo: the beads workspace. Law: ADR-0002 sibling port "Beads".
+Repo: the beads workspace. Law: ADR-0002 sibling migration "Beads".
 
 ## Gate
 

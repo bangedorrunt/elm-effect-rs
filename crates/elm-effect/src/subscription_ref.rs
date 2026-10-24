@@ -1,4 +1,4 @@
-//! `SubscriptionRef.ts` port: shared cell with change streams.
+//! A shared cell with change streams.
 //!
 //! A [`SubscriptionRef`] holds one current value. [`get`](SubscriptionRef::get)
 //! reads it, [`set`](SubscriptionRef::set)/[`update`](SubscriptionRef::update)
@@ -11,7 +11,7 @@
 //! update that lands concurrently either predates the snapshot or is queued
 //! for the new stream: it cannot fall between the two.
 //!
-//! A stream's queue is unbounded, like the pin's `Queue.unbounded()`: a slow
+//! A stream's queue is unbounded, like Effect 4's `Queue.unbounded()`: a slow
 //! consumer holds every update rather than losing one.
 
 use std::collections::VecDeque;

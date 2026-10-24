@@ -22,7 +22,7 @@ Use the log when a crash must resume the same work. `DurableLog` is the trait. `
   ]}
 />
 
-An offset is opaque. The log mints it. `Offset::Start` and `Offset::Now` are sentinels. The log never mints those values. A hand-built `Offset::At` fails the read.
+An offset is opaque. The log mints it. `Offset::Start` and `Offset::Now` are sentinels. The log never mints those values. A hand-built `Offset::At` that does not name an existing record fails the read.
 
 ## Append
 
@@ -34,7 +34,68 @@ The JSON body has `v`, `producer`, and `payload`. `v` is `1`. `producer` has `pr
 
 `epoch` changes when a new owner takes the effect. A retry of the same append sends the same `epoch` and the same `seq`. The attempt number on a journal row is a different field.
 
-`Closed` rejects a later append. Bytes from before the close stay readable.
+## Close
+
+`close` ends the stream. The close is durable, monotonic, and idempotent: a second `close` succeeds, `status()` becomes `Status::Closed`, and every later `append_json` fails with `AppendError::Closed`.
+
+Bytes written before the close stay readable. That is the difference between "caught up, more may arrive" (`Status::UpToDate`) and "no more data ever" (`Status::Closed`).
+
+```rust
+let log = MemLog::new();
+let last = log.append_json(&message)?;
+log.close()?;
+assert_eq!(log.status(), Status::Closed);
+assert_eq!(log.read_from(&Offset::Start)?.len(), 1);
+```
+
+When the last message and the close must commit together, use `append_json_and_close`. A crash leaves both or neither. Retrying the exact closing `(producer_id, epoch, seq)` triple returns the original offset without appending again.
+
+```rust
+let offset = log.append_json_and_close(&message)?;
+assert_eq!(log.append_json_and_close(&message)?, offset);
+```
+
+`FileLog` stores the pair in one line, and a bare close as its own line, so a reopen sees the same EOF.
+
+## Page
+
+`read_page(from, limit)` is the catch-up read. It returns a `Page`:
+
+- `records` are the records after `from`, at most `limit`. A limit of 0 still returns one record, so a page never makes no progress.
+- `next` is the cursor to pass to the next call. A read is strictly after its cursor, so this is the last record returned, or the resolved tail when the page is empty.
+- `up_to_date` means the page reached the tail at generation time. More records may still arrive.
+- `closed` means the page reached the tail of a closed stream. That is EOF, and only then.
+
+`Offset::Now` resolves to the last existing offset, or `Start` on an empty log, so a live reader that starts at now sees the next append instead of skipping it. A cursor at or beyond the unminted tail is rejected with `UnknownOffset`.
+
+```rust
+let mut cursor = Offset::Start;
+loop {
+    let page = log.read_page(&cursor, 256)?;
+    for (offset, message) in &page.records {
+        apply(offset, message)?;
+    }
+    cursor = page.next;
+    if page.closed {
+        break;
+    }
+    if page.up_to_date {
+        wait_for_more();
+    }
+}
+```
+
+## HTTP and SSE
+
+`elm_effect_journal::http::HttpServer::start(Arc::new(log), "127.0.0.1:0")` serves one log at `/stream`. It is a transport adapter, not a deployment.
+
+- `GET /stream?offset=<token>` returns one page as NDJSON. `Stream-Next-Offset` is the cursor for the next request; `Stream-Up-To-Date: true` means caught up; `Stream-Closed: true` means EOF.
+- `GET /stream?offset=<token>&live=sse` streams catch-up records, then tails. Each record is an `event: data`; after a batch a `control` event carries `streamNextOffset`, `upToDate`, and `streamClosed`. A closed stream sends the final control event and ends the connection.
+- `GET /stream?offset=<token>&live=long-poll&timeout=<seconds>` holds the request at the tail until a record arrives, the stream closes, or the timeout expires. The timeout is 1 to 30 seconds, default 25. The response is the same page as a catch-up read. At the timeout the page is empty and `Stream-Up-To-Date: true`; request the next page at once.
+- `POST /stream` appends the body. With `Stream-Closed: true` it closes; with a body too, the final record and the close commit atomically. A later append is `409` with `Stream-Closed: true`.
+- `HEAD /stream` reports the cursor and closure without a body.
+
+The adapter has no auth, TLS, TTL, delete, fork, `Stream-Seq`, or chunked request body. Bind loopback and put a proxy in front for auth and TLS. Read [Put a proxy in front](16-reverse-proxy.mdx). One thread per connection and a 25 ms tail poll are first-pass choices, not a throughput claim.
 
 ## Park
 

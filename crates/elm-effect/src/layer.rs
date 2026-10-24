@@ -3,21 +3,21 @@
 //! A [`Layer`] is a recipe: named constructors that turn required services
 //! (`RIn`) into provided ones (`ROut`). Composition walks a tree of nodes;
 //! constructors run in [`build`](Layer::build), once per memoized node
-//! identity (the pin's `MemoMap`), each exactly once per handle
+//! identity (Effect 4's `MemoMap`), each exactly once per handle
 //! ([`fresh`](Layer::fresh) builds under a memo map of its own).
 //! A cycle is a typed construction error ([`Cycle`]), never a per-request
 //! failure.
 //!
-//! Two kinds of node exist, matching the pin's two constructors:
+//! Two kinds of node exist, matching Effect 4's two constructors:
 //! - memoized nodes (`Layer.effect`, `Layer.suspend`): the `MemoMap` answers
 //!   a second request for the same node from the first build;
 //! - plain nodes (`merge`, `provide`, `tap`, `withSpan`, `fresh`, `orDie`):
 //!   each build runs their subtree again, and the memoized children inside
 //!   decide what is actually reconstructed.
 //!
-//! Composition follows the pin's merge order: when two sides provide the same
+//! Composition follows Effect 4's merge order: when two sides provide the same
 //! tag, the later side wins. The fail-closed double-provision rule survives
-//! where this port invented it, at the effect boundary (`Effect::provide`,
+//! where this crate invented it, at the effect boundary (`Effect::provide`,
 //! `Layer::provide`), not inside layer composition.
 
 use std::any::Any;
@@ -154,7 +154,7 @@ impl<E: Clone + Send + 'static> RunStage<E> for SpanStage<E> {
         let on_end = self.on_end;
         // The build scope has no exit value here, so a layer span always ends
         // Successful; a constructor failure still reaches the caller as the
-        // build's cause. The pin's onEnd sees that exit, the port cannot.
+        // build's cause. Effect 4's onEnd sees that exit, the crate cannot.
         scope.add_finalizer(move || {
             if let Some(on_end) = on_end {
                 on_end(Arc::clone(&end_span), Exit::Success(()));
@@ -207,13 +207,13 @@ fn span_stage<E: Clone + Send + 'static>(name: String, options: LayerSpanOptions
 }
 
 /// Options for a layer span: the span's own options plus the finalizer the
-/// pin runs when the layer span ends (`Layer.SpanOptions`).
+/// Effect 4 runs when the layer span ends (`Layer.SpanOptions`).
 #[derive(Clone, Default)]
 pub struct LayerSpanOptions {
     /// Span creation options.
     pub span: SpanOptions,
     /// Runs when the layer span ends, before the span's status moves to
-    /// `Ended`, like the pin's extra finalizer.
+    /// `Ended`, like Effect 4's extra finalizer.
     pub on_end: Option<Arc<dyn Fn(Arc<dyn Span>, Exit<(), String>) + Send + Sync>>,
 }
 
@@ -249,7 +249,7 @@ where
 }
 
 /// A constructor that also receives the build scope, so it can register a
-/// finalizer the runtime runs when the built services are released. The pin's
+/// finalizer the runtime runs when the built services are released. Effect 4's
 /// `Layer.effect` whose body calls `Effect.addFinalizer`.
 struct ScopedCtor<S, E, RIn, F> {
     make: Arc<F>,
@@ -276,10 +276,10 @@ where
 /// Marker for a layer producing `ROut`, failing with `E`, needing `RIn`.
 type LayerMarker<ROut, E, RIn> = PhantomData<fn() -> (ROut, E, RIn)>;
 
-/// A build-time hook: the pin's `Layer.tap*`, which wrap a build rather than
+/// A build-time hook: Effect 4's `Layer.tap*`, which wrap a build rather than
 /// add a constructor.
 ///
-/// A tap failure replaces the build's cause, as the pin's `andThen` does: the
+/// A tap failure replaces the build's cause, as Effect 4's `andThen` does: the
 /// callback's own failure is what the caller sees. A recovery hook answers a
 /// replacement provision and gets the memo map, the scope, and the base
 /// provision so the fallback builds exactly where the failed attempt did.
@@ -311,7 +311,7 @@ enum Hook<E> {
 }
 
 /// A node of the composition tree. Only constructor nodes (`Stage`) are
-/// memoized; the pin's `merge`/`provide`/`tap`/`withSpan`/`fresh` are built
+/// memoized; Effect 4's `merge`/`provide`/`tap`/`withSpan`/`fresh` are built
 /// by `fromBuild`, which runs their subtree again on every request.
 struct Node<E> {
     id: u64,
@@ -479,7 +479,7 @@ impl Drop for UnwindGuard<'_> {
 
 /// The fiber a build runs on, when it has one. Constructors see it in their
 /// ambient services and the stage loop polls it, which is what lets an
-/// interrupt stop a build part-way (the pin's construction fiber).
+/// interrupt stop a build part-way (Effect 4's construction fiber).
 #[derive(Clone, Copy)]
 struct Ctx<'a> {
     fiber: Option<&'a Fiber>,
@@ -570,13 +570,13 @@ fn published_cause<E: Clone + Send + 'static>(
     Some(cause)
 }
 
-/// The pin's `MemoMap`: pass one layer's memo to a second build and the
+/// Effect 4's `MemoMap`: pass one layer's memo to a second build and the
 /// second reuses the first's already-constructed services instead of running
 /// the constructors again.
 ///
 /// An entry belongs to the scope that built it, and lives until the last
 /// caller scope observing it closes. That refcount is what makes a shared
-/// layer outlive the first build's scope (the pin's `memoMapObserve`).
+/// layer outlive the first build's scope (Effect 4's `memoMapObserve`).
 /// [`fork`](LayerMemo::fork) adds a child map that reuses the parent's
 /// entries but never writes a new one back.
 pub struct LayerMemo {
@@ -602,7 +602,7 @@ impl LayerMemo {
         }
     }
 
-    /// The number of entries this map holds locally (the pin's `map.size`).
+    /// The number of entries this map holds locally (Effect 4's `map.size`).
     pub fn map_size(&self) -> usize {
         self.map.lock().unwrap().len()
     }
@@ -738,7 +738,7 @@ impl BuiltServices {
 ///
 /// A handle carries its node in the composition tree plus the memo a bare
 /// [`build`](Layer::build) uses. Cloning a handle shares both, which is this
-/// port's stand-in for the pin's reference identity: `layer.merge(layer)`
+/// crate's stand-in for Effect 4's reference identity: `layer.merge(layer)`
 /// asks for one build because both sides name the same node.
 pub struct Layer<ROut, E, RIn> {
     node: Arc<Node<E>>,
@@ -798,7 +798,7 @@ where
     /// Like [`from_factory`](Layer::from_factory), but the constructor also
     /// receives the build scope, so it can register finalizers that run when
     /// the built services are released. This is what a layer needs to own a
-    /// resource (the pin's `Layer.effect` with `Effect.addFinalizer`).
+    /// resource (Effect 4's `Layer.effect` with `Effect.addFinalizer`).
     pub fn from_scoped_factory<S, F>(make: F) -> Result<Self, Cycle>
     where
         E: Clone + Send + 'static,
@@ -878,7 +878,7 @@ impl<O, E, I> Layer<O, E, I> {
 
     /// A handle onto this layer's memo. Share it with
     /// [`with_memo`](Layer::with_memo) so a second layer reuses the services
-    /// this one already built, the pin's `{ memoMap: other.memoMap }`.
+    /// this one already built, Effect 4's `{ memoMap: other.memoMap }`.
     pub fn memo(&self) -> LayerMemo {
         self.memo.clone()
     }
@@ -942,12 +942,12 @@ where
     /// placeholder, so exercising one fails naming the service and the member
     /// instead of quietly answering a wrong value.
     ///
-    /// The pin finds the omitted keys through a Proxy. Rust cannot see a
+    /// Effect 4 finds the omitted keys through a Proxy. Rust cannot see a
     /// struct's fields, so the caller names them: that is the whole difference,
     /// and it is why `missing` exists at all.
     ///
     /// A mock never fails to build, so its construction error is `Infallible`,
-    /// the pin's `Layer<I>` with no error channel.
+    /// Effect 4's `Layer<I>` with no error channel.
     pub fn mock(implementation: T::Service, missing: &'static [&'static str]) -> Self {
         Self::from_value(implementation.fill_missing(T::ID, missing))
     }
@@ -987,7 +987,7 @@ impl Layer<ParentSpanTag, std::convert::Infallible, ()> {
 
 impl Layer<TracerTag, std::convert::Infallible, ()> {
     /// Provide a tracer as the ambient backend for layers built beside this
-    /// one and for effects run through them. The pin's `Layer.effect` over
+    /// one and for effects run through them. Effect 4's `Layer.effect` over
     /// `Tracer.Tracer`.
     pub fn tracer(tracer: Arc<dyn Tracer>) -> Self {
         Self::from_value(tracer)
@@ -1027,7 +1027,7 @@ impl<O1: RequirementIds, E: Clone + Send + 'static, I1: RequirementIds> Layer<O1
     ///
     /// Both sides build at once, each on its own construction fiber, and their
     /// provisions are merged with the later side winning a doubled tag, as
-    /// `Context.merge` does at the pin. A handle merged with itself still
+    /// `Context.merge` does in Effect 4. A handle merged with itself still
     /// builds once: one side constructs and the other waits on the same memo
     /// entry.
     ///
@@ -1059,13 +1059,13 @@ impl<O1: RequirementIds, E: Clone + Send + 'static, I1: RequirementIds> Layer<O1
 
 impl<O1: RequirementIds, E: Clone + Send + 'static, O3: RequirementIds> Layer<O3, E, O1> {
     /// `Layer.provide(provider)` between two layers: build `provider` first,
-    /// then this layer over its services (the pin's `provide`, not
+    /// then this layer over its services (Effect 4's `provide`, not
     /// `provideMerge`).
     ///
     /// The provider builds first because this layer's constructors read its
     /// tags; when the scope closes, the LIFO order releases this layer before
     /// the provider it consumed. The provider's tags stay in `BuiltServices`:
-    /// this port's build answers everything it constructed, so hiding is a
+    /// this crate's build answers everything it constructed, so hiding is a
     /// typing fact (`out_ids` names only this layer's provision), not a value
     /// filter. Filtering would strip the tracer and span references a
     /// provider installs.
@@ -1092,12 +1092,12 @@ impl<O1: RequirementIds, E: Clone + Send + 'static, O3: RequirementIds> Layer<O3
 }
 
 impl<O1: RequirementIds, E: Clone + Send + 'static, I1: RequirementIds> Layer<O1, E, I1> {
-    /// The pin's `Layer.provide` with a provider this layer does **not**
+    /// Effect 4's `Layer.provide` with a provider this layer does **not**
     /// require: the provider still builds, first, and its services join the
     /// provision, so a build of two `fresh` copies of one layer acquires
     /// twice (`Layer.test.ts:264`).
     ///
-    /// The pin allows this because its `provide` only asks that the
+    /// Effect 4 allows this because its `provide` only asks that the
     /// provider's output be available, never that the consumer use it; here
     /// [`provide_layer`](Layer::provide_layer) demands that the consumer's
     /// requirements *be* the provider's output, so a provider nothing needs
@@ -1311,7 +1311,7 @@ impl<T: ServiceTag, E: Clone + Send + 'static> Layer<T, E, ()> {
 
 impl<O: RequirementIds, E: Clone + Send + 'static> Layer<O, E, ()> {
     /// `Layer.catch`: build an alternative layer when this one fails with a
-    /// typed error. Defects and interruptions are not caught, as the pin's
+    /// typed error. Defects and interruptions are not caught, as Effect 4's
     /// `catch_` does not catch them; use [`catch_cause`](Layer::catch_cause)
     /// for those.
     pub fn catch<F>(self, on_error: F) -> Self
@@ -1421,7 +1421,7 @@ impl<O, E: Clone + Send + 'static, I> Layer<O, E, I> {
     /// `Layer.tap`: run an effect with the built services when the build
     /// succeeds, and answer the same services.
     ///
-    /// The pin hands the callback a `Context` and widens `E` with the
+    /// Effect 4 hands the callback a `Context` and widens `E` with the
     /// callback's error; here the callback reads [`BuiltServices`] and shares
     /// the layer's error type, because Rust has no union to widen into.
     pub fn tap<F>(self, f: F) -> Self
@@ -1633,7 +1633,7 @@ fn run_kind<E: Clone + Send + 'static>(
 
 /// Build both sides of a merge at once, each on its own construction fiber
 /// (`Layer.test.ts:15`). A side that never completes on its own would hang a
-/// sequential build before the other side ever ran, so the latch the pin's
+/// sequential build before the other side ever ran, so the latch Effect 4's
 /// witness opens from the second side could never open.
 ///
 /// An interrupt of the parent, or a failure on either side, reaches both
@@ -1806,7 +1806,7 @@ fn run_stages<E: Clone + Send + 'static>(
 }
 
 /// Layer-composition merge: `later` wins a tag both sides provide, matching
-/// the pin's `Context.mergeAll` (`Layer.test.ts`'s `fresh` rows).
+/// Effect 4's `Context.mergeAll` (`Layer.test.ts`'s `fresh` rows).
 fn overlay(earlier: &Services, later: &Services) -> Services {
     if later.len() == 0 {
         return Arc::clone(earlier);

@@ -1,0 +1,105 @@
+# Put a proxy in front
+
+`HttpServer` is a transport adapter. It has no authentication and no TLS. Bind it to loopback, and let a reverse proxy own those two concerns.
+
+```rust
+let log = FileLog::open("journal.jsonl")?;
+let mut server = elm_effect_journal::http::HttpServer::start(
+    std::sync::Arc::new(log),
+    "127.0.0.1:8080",
+)?;
+// Stop accepting on shutdown.
+server.shutdown();
+```
+
+If you bind a public address without a proxy, any client that can reach the port can read, append, and close the stream.
+
+## What the proxy must do
+
+- Terminate TLS.
+- Authenticate every request. The adapter trusts every request that reaches it.
+- Turn response buffering off. SSE must flush each event. Long-poll must return as soon as a record arrives.
+- Allow a response to stay open for more than 30 seconds for long-poll. The default `timeout` is 25 seconds. Allow more than 15 seconds for SSE keep-alive comments.
+- Allow request bodies up to 8 MiB. The adapter rejects a larger body with `413`.
+- Buffer request bodies and send `Content-Length`. The adapter rejects chunked request bodies with `501`.
+- Do not cache `/stream`. The adapter sends `Cache-Control: no-store`.
+- Use HTTP/1.1 to the adapter.
+
+## Nginx
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name stream.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/stream.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/stream.example.com/privkey.pem;
+
+    client_max_body_size 8m;
+
+    location /stream {
+        auth_basic "journal";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+
+        # Only trusted hosts may append or close.
+        limit_except GET HEAD {
+            allow 10.0.0.0/8;
+            deny all;
+        }
+
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # SSE needs immediate flushes. Long-poll needs a timeout above 30s.
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+    }
+}
+```
+
+`limit_except GET HEAD` limits `POST` to the trusted network. Remove it if every authenticated client may append.
+
+## Caddy
+
+```caddyfile
+stream.example.com {
+    basic_auth {
+        alice $2a$14$replace_with_a_hash
+    }
+
+    reverse_proxy 127.0.0.1:8080 {
+        flush_interval -1
+    }
+}
+```
+
+Make the password hash with `caddy hash-password`. `flush_interval -1` turns response buffering off, so SSE events reach the client at once.
+
+## Verify
+
+Read with SSE:
+
+```bash
+curl -N -u alice:secret \
+  "https://stream.example.com/stream?offset=-1&live=sse"
+```
+
+Read with long-poll:
+
+```bash
+curl -i -u alice:secret \
+  "https://stream.example.com/stream?offset=now&live=long-poll&timeout=25"
+```
+
+`-N` turns curl buffering off. A request with no credentials must return `401` from the proxy, not from the adapter.
+
+## Limits
+
+Proxy authentication is one gate for the whole stream. It does not give each producer an identity. The log still checks `(producer_id, epoch, seq)` on every append. If you need per-producer permissions, add an application layer; the adapter does not implement it.
+
+A proxy does not add `Stream-Seq`, TTL, delete, or fork. It can buffer a chunked request body into a `Content-Length` body, but the adapter still has no streaming-upload mode.

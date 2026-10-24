@@ -358,7 +358,7 @@ fn cause_reason_narrowers_reject() {
 }
 
 // ---------------------------------------------------------------------------
-// Cause combinators at the pin (describe fromReasons/has*/squash)
+// Cause combinators in Effect 4 (describe fromReasons/has*/squash)
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -492,7 +492,7 @@ fn squash_reports_an_empty_cause() {
 }
 
 // ---------------------------------------------------------------------------
-// Cause.find* family at the pin (describe findFail..findInterrupt)
+// Cause.find* family in Effect 4 (describe findFail..findInterrupt)
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -619,7 +619,7 @@ fn interruptor_ids_excludes_undefined_fiber_ids() {
 }
 
 // ---------------------------------------------------------------------------
-// Cause.combine / map / constructors at the pin
+// Cause.combine / map / constructors in Effect 4
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -709,11 +709,11 @@ fn interrupt_allows_an_undefined_fiber_id() {
     }
 }
 
-// --- Cause.annotate (packages/effect/test/Cause.test.ts, describe "annotate")
+// --- Cause.annotate
 
 /// "attaches annotations to a cause (data-first)".
 ///
-/// The pin asserts the result is still a Cause carrying the original reason;
+/// Effect 4 asserts the result is still a Cause carrying the original reason;
 /// the annotation is additive context, never a replacement for the failure.
 #[test]
 fn annotate_attaches_annotations_and_keeps_the_reason() {
@@ -732,8 +732,8 @@ fn annotate_attaches_annotations_and_keeps_the_reason() {
 
 /// "does not mutate the original cause".
 ///
-/// The pin holds the original's reason count unchanged after annotating. This
-/// port consumes `self`, so the invariant is stated at the boundary the caller
+/// Effect 4 holds the original's reason count unchanged after annotating. This
+/// crate consumes `self`, so the invariant is stated at the boundary the caller
 /// actually has: a cause handed on to a sibling is not silently carrier of
 /// another call's context. Proved with a clone because the method takes
 /// ownership — which is what makes the non-mutation total rather than

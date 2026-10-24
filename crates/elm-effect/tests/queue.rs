@@ -1,5 +1,5 @@
 //! Queue behaviors: offers, draining takes, shutdown, clearing.
-//! Ports packages/effect/test/Queue.test.ts (synchronous core; fiber
+//! Queue behavior (synchronous core; fiber
 //! back-pressure and takeN-wakeup need the async runtime).
 
 use elm_effect::Queue;
@@ -81,7 +81,7 @@ fn capacity_reports_the_bound() {
 }
 
 // ---------------------------------------------------------------------------
-// Queue rows carried on the synchronous core (Queue.test.ts)
+// Queue cases carried on the synchronous core (Queue.test.ts)
 // ---------------------------------------------------------------------------
 
 use std::sync::Arc;
@@ -159,7 +159,7 @@ fn take_n_drains_an_insufficient_batch_after_end() {
 
 #[test]
 fn take_n_and_take_between_normalize_counts() {
-    // Queue.test.ts :379 — counts arrive through the pin's Count.normalize:
+    // Queue.test.ts :379 — counts arrive through Effect 4's Count.normalize:
     // 1.9 floors to 1, 2.9 floors to 2, and NaN/non-positive become 0. A
     // zero count takes nothing and leaves the message buffered.
     let take_n_queue = Queue::unbounded();
@@ -327,7 +327,7 @@ fn shutdown_unsafe_resumes_batch_offers_with_their_unaccepted_suffix() {
     park_settle();
     assert_eq!(queue.take(), Ok(1));
     // Let the parked producer resume and land its second item before the
-    // shutdown clears the buffer, matching the pin's deterministic order.
+    // shutdown clears the buffer, matching Effect 4's deterministic order.
     park_settle();
     queue.shutdown_unsafe();
     assert_eq!(producer.join().unwrap(), vec![3]);
@@ -549,8 +549,8 @@ fn interrupted_zero_capacity_take_releases_the_rendezvous() {
 fn take_between_drains_a_waiting_batch_on_failure() {
     // Queue.test.ts :330 — a taker parked below its minimum keeps its
     // already-buffered items when the queue fails: the batch drains, and
-    // the next take reports the failure. (The row's state assertion is the
-    // pin's internal tag; the port pins the same fact as the preserved
+    // the next take reports the failure. (The case's state assertion is the
+    // Effect 4's internal tag; the crate pins the same fact as the preserved
     // failure.)
     let queue = Arc::new(Queue::<i32>::unbounded());
     queue.offer_all([1, 2]);

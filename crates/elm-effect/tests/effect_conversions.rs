@@ -1,9 +1,9 @@
-//! `Effect` conversions at the pin (`packages/effect/test/Effect.test.ts`,
+//! `Effect` conversions in Effect 4 (the `Effect` suite,
 //! describe blocks `fromOption`, `transposeOption`, `fromResult`).
 //!
 //! The edge is `ManagedRuntime::run` (L3: only the edge interprets a
 //! description). A clean typed failure carries `Reason::Fail`; that is what
-//! these rows assert on.
+//! these cases assert on.
 
 use elm_effect::{
     Cause, CauseError, Effect, Exit, ManagedRuntime, Reason, Squash, is_no_such_element_error,
@@ -22,7 +22,7 @@ fn from_option_some_succeeds() {
 
 #[test]
 fn from_option_none_fails_with_the_supplied_error() {
-    // The pin defaults to NoSuchElementError; this port takes the error
+    // Effect 4 defaults to NoSuchElementError; this crate takes the error
     // builder explicitly, so a `None` fails with exactly that error.
     let effect: Effect<&str, String, ()> =
         Effect::from_option(None, || "Missing value".to_string());
@@ -103,7 +103,7 @@ fn conversions_are_descriptions_not_results() {
 
 #[test]
 fn typed_failure_stays_a_fail_reason() {
-    // The row asserts the error channel type: a `Fail`, never a `Die`.
+    // The case asserts the error channel type: a `Fail`, never a `Die`.
     let effect: Effect<&str, String, ()> = Effect::from_result(Err("e".to_string()));
     match run(effect) {
         Exit::Failure(cause) => {
@@ -114,7 +114,7 @@ fn typed_failure_stays_a_fail_reason() {
 }
 
 // ---------------------------------------------------------------------------
-// finalization at the pin (describe "finalization")
+// finalization in Effect 4 (describe "finalization")
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -213,7 +213,7 @@ fn ensuring_does_not_change_the_cause() {
 }
 
 // ---------------------------------------------------------------------------
-// onExit / onResult at the pin (describe "finalization")
+// onExit / onResult in Effect 4 (describe "finalization")
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -289,7 +289,7 @@ fn on_exit_runs_exactly_once() {
 
 #[test]
 fn on_result_runs_the_cleanup_when_the_effect_dies() {
-    // onResult's cleanup runs for a defect. The pin's test branches on
+    // onResult's cleanup runs for a defect. Effect 4's test branches on
     // Exit.hasDies; the observable claim is that the cleanup runs.
     use std::sync::Arc as StdArc;
     use std::sync::Mutex as StdMutex;
@@ -309,16 +309,16 @@ fn on_result_runs_the_cleanup_when_the_effect_dies() {
 
 #[test]
 fn run_of_a_synchronous_effect_completes_without_spawning() {
-    // Scheduler row "runSyncExit does not create a dispatcher for
-    // synchronous effects". The pin measures a dispatcher-spy count of 0;
-    // the port has no public fiber-count probe, so this asserts the part
+    // Scheduler case "runSyncExit does not create a dispatcher for
+    // synchronous effects". Effect 4 measures a dispatcher-spy count of 0;
+    // the crate has no public fiber-count probe, so this asserts the part
     // that is observable from outside: the effect still completes with its
     // value, and the runtime stays usable for subsequent fibers.
     //
     // The "no dispatcher was needed" claim is structural here -- run() on a
-    // Step::Sync effect interprets it directly -- but nothing in this port
+    // Step::Sync effect interprets it directly -- but nothing in this crate
     // lets a caller observe a dispatcher count, so asserting one would mean
-    // inventing an accessor for a test. One row stays honestly unflipped
+    // inventing an accessor for a test. One case stays honestly unflipped
     // rather than fake that.
     let exit = ManagedRuntime::new().run(Effect::<i32, std::convert::Infallible>::sync(|| 21i32));
     assert!(matches!(exit, Exit::Success(21)));
@@ -333,14 +333,40 @@ fn run_of_a_synchronous_effect_completes_without_spawning() {
     assert!(matches!(exit, Exit::Success(())));
 }
 
+#[cfg(feature = "tokio")]
+#[test]
+fn managed_runtime_run_gives_the_effect_a_fiber() {
+    // The edge used to run the interpreter on the caller's thread with no
+    // FiberTag, so with_fiber and the structured combinators died with
+    // "outside a fiber". The edge now owns a fiber; the id it reports is
+    // proof the effect is not running bare.
+    let managed = ManagedRuntime::new();
+    let exit = managed.run(Effect::with_fiber(|fiber| {
+        let id = fiber.id().0;
+        Effect::<u64, std::convert::Infallible>::succeed(id)
+    }));
+    assert!(matches!(exit, Exit::Success(id) if id > 0));
+}
+
+#[cfg(feature = "tokio")]
+#[test]
+fn managed_runtime_run_supports_race_at_the_edge() {
+    // race is one of the combinators that required an ambient fiber. A
+    // top-level race must settle, and its loser must still be interrupted.
+    let managed = ManagedRuntime::new();
+    let fast = Effect::<i32, String>::succeed(1);
+    let slow = Effect::<i32, String>::never();
+    assert!(matches!(managed.run(fast.race(slow)), Exit::Success(1)));
+}
+
 // ---------------------------------------------------------------------------
 // conditional taps and finalizers (Effect.test.ts describes tapCauseIf,
 // onErrorIf, onExitIf: :3496-:3662)
 //
-// The pin's filters select a cause or exit with a `Result`; the port's
+// Effect 4's filters select a cause or exit with a `Result`; the crate's
 // selectors return `std::result::Result` the same way. Every finalizer in
-// these rows is `Effect.sync`, i.e. a plain side effect, which is the
-// closure the port's `on_exit` family takes (see `ensuring`'s note on why
+// these cases is `Effect.sync`, i.e. a plain side effect, which is the
+// closure the crate's `on_exit` family takes (see `ensuring`'s note on why
 // the finalizer is not an effect here).
 // ---------------------------------------------------------------------------
 
@@ -598,8 +624,8 @@ fn on_exit_filter_match_passes_the_value_and_the_exit() {
 
 #[test]
 fn from_option_none_defaults_to_no_such_element() {
-    // Pin :411 — a `none` fails with `Cause.NoSuchElementError`. This port
-    // makes the error explicit, so the row assigns the pin's own default.
+    // Pin :411 — a `none` fails with `Cause.NoSuchElementError`. this crate
+    // makes the error explicit, so the case assigns Effect 4's own default.
     let effect: Effect<&str, CauseError, ()> =
         Effect::from_option(None, || CauseError::no_such_element("no element"));
     match ManagedRuntime::new().run(effect) {

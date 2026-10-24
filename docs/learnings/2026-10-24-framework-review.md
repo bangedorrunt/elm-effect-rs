@@ -2,6 +2,11 @@
 
 Date: 2026-10-24. Mode: full-scope, adversarial, witness-bearing. Skills: `adversarial-reviewer`, `code-quality`.
 
+> **Later on 2026-10-24:** the local `ExecutionPlan` was renamed `AttemptPlan`
+> because it is an attempt budget, not Effect 4's multi-step plan. References
+> to `ExecutionPlan` below are historical. The fiber-first edge and the
+> append reconciliation are recorded in `2026-10-24-fiber-first-edge.md`.
+
 ## Review basis
 
 Reviewed the six-crate workspace after the cut: `elm-effect` (runtime, effect, sync, pubsub, channel, time, layer, STM), `elm-effect-elm` (Loop), `elm-effect-journal`, `elm-effect-test`, `elm-effect-lints`, `elm-effect-conformance`.
@@ -336,3 +341,43 @@ Final gate after the third pass:
 - `cargo fmt --all -- --check`: clean.
 - `cargo test -p elm-effect-conformance`: 4 passed, including the formerly
   ignored `port_rows_are_matched`.
+
+## Fourth pass: port traces removed
+
+The ledger was green on a false witness. `number_order(1.0, 1.0)` returned
+`Greater`, and `Order.test.ts:28` had been flipped to assert exactly that, so
+the gate proved the bug instead of catching it. The comparator now returns
+`Equal` for a tie (`string_order` and `boolean_order` use `Ord::cmp`), and the
+test asserts the equality law plus the predicates that depend on it.
+
+Then the port machinery went:
+
+- `conformance/` (29 files, 3.9 MB) and `crates/elm-effect-conformance` deleted.
+- Fourteen `port_*` test files renamed to the module they cover; their headers
+  no longer cite a ledger row or a TypeScript file.
+- `Predicate`, `Matcher`, `Filter`, `Differ`, and `Tagged`/`tagged` deleted from
+  `foundation` (about 470 lines). No consumer existed outside their own tests;
+  the one `Tagged` hash case went with the type.
+- The `stm` feature deleted with `Effect::tx`/`Effect::tx_retry` and six test
+  files (5,404 lines total). Nothing outside the STM tests used it.
+- `skills/elm-effect/references/port-module.md` deleted, with the skill, the
+  agent guide, README, and ADR-0003 amended to match.
+- The remaining comments that used the port vocabulary now say Effect 4 or
+  "this crate". The test files say "case", not "ledger row".
+
+The second trim removed the last public surface nobody reached:
+
+- The `foundation` function helpers (`identity`, `apply`, `compose`, the
+  `const_*` family, `flip`, `tupled`/`untupled`, `absurd`, `sk`, `hole`,
+  `memoize*`) and the two unused ordering helpers. `pipe!`/`flow!` stay.
+- `execution_plan` now exports `ExecutionPlan`, `NoAttempts`, and `Planned` at
+  the crate root instead of leaving them behind an unreachable public module.
+- `config::LogLevel` and `observability::LogLevel` are one type in
+  `log_level.rs`, re-exported from both paths. The compiler witness lives in
+  `config_effect.rs`: a level parsed through `config` feeds the logger's gate
+  with no conversion.
+
+ADR-0002 and the dated `docs/learnings/` records still describe the ledger.
+They are history, not instructions, and were left as written. Test names used
+earlier in this review (`port_time_clock.rs` and the rest) are the pre-rename
+ones.

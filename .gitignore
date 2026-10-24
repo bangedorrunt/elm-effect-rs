@@ -1,5 +1,7 @@
 /target
 **/*.rs.bk
 .flywheel/
+.agents/
+.lavish/
 __pycache__/
 *.pyc

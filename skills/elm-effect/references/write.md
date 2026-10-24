@@ -1,13 +1,13 @@
 # A red test in elm-effect-rs
 
-The carrier from ADR-0002 and the adoption rules in ADR-0003 are in the crates. Do not re-implement a phase whose tests pass.
+The carrier from ADR-0002 and the adoption rules in ADR-0003 are in the crates. Do not re-implement what the tests already cover.
 
 ## Pick the failure
 
 1. Run `cargo test -p elm-effect`.
 2. If that command fails, fix the failing test. Read the guide for that API in `docs/guides/` before you edit.
-3. If only `cargo test -p elm-effect-conformance -- --ignored` fails, that is the ledger index. Follow `references/port-module.md` only for a behavior the task named. Mark the rest we will not carry as `not-applicable` with a reason. Do not mark them `ported`.
-4. Do not start a later phase because the ledger index is open.
+3. If a test fails, fix the test or the code that broke it. Do not widen the change to cover unrelated behavior.
+4. Do not start a later phase because an unrelated test is open.
 
 ## Shape
 

@@ -1,11 +1,11 @@
-//! `FiberMap` port (`FiberMap.ts` at the pin): keyed supervised fibers.
+//! Keyed supervised fibers.
 //!
 //! Same supervision as [`FiberSet`](super::fiber_set::FiberSet), keyed by
 //! `K`: [`set`](FiberMap::set) replaces (interrupting the previous fiber),
 //! [`remove`](FiberMap::remove) interrupts one member, [`join`](FiberMap::join)
 //! collects all with first-failure-wins.
 //!
-//! Residuals: `runtimePromise`, per-key join handles, attempt telemetry.
+//! Out of scope: `runtimePromise`, per-key join handles, attempt telemetry.
 
 use elm_effect::{Ctx, Exit, FiberHandle, ForkOpts, Runtime, Scope};
 use std::collections::HashMap;

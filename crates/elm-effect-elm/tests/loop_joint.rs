@@ -12,6 +12,7 @@ use elm_effect_elm::{
     Boot, Cmd, Durability, Failure, Interpret, InterpretError, Loop, Producer, Program, Update,
 };
 use elm_effect_journal::durable_log::{AppendError, DurableLog, MemLog, Offset};
+use elm_effect_journal::stream::Status;
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
@@ -149,6 +150,15 @@ impl DurableLog for RefuseIntents {
     }
     fn compact_before(&self, before: &Offset) -> Result<usize, AppendError> {
         self.0.compact_before(before)
+    }
+    fn close(&self) -> Result<(), AppendError> {
+        self.0.close()
+    }
+    fn append_json_and_close(&self, envelope: &str) -> Result<Offset, AppendError> {
+        self.0.append_json_and_close(envelope)
+    }
+    fn status(&self) -> Status {
+        self.0.status()
     }
 }
 

@@ -28,7 +28,7 @@ fn metric_frequency_records_occurrences() {
 
 #[test]
 fn metric_empty_instruments_use_finite_extrema() {
-    // :688 — the empty states carry the pin's finite sentinels.
+    // :688 — the empty states carry Effect 4's finite sentinels.
     let registry = MetricRegistry::new();
     let histogram = Histogram::new("empty-histogram", Vec::new());
     let summary = Summary::new("empty-summary", Duration::from_secs(60), 10, Vec::new());

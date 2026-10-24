@@ -1,16 +1,13 @@
-//! Wave-6 fiber sets: FiberSet, FiberMap, ExecutionPlan, Scheduler behavior
-//! ported from the tag's suites. Modules load via `#[path]` includes (the
-//! .15 precedent): no facade touch, no scope leak into lib.rs.
+//! Fiber sets: FiberSet, FiberMap, AttemptPlan, and scheduler behavior.
+//! Modules load via `#[path]` includes: no facade touch, no scope leak into
+//! lib.rs.
 //!
 //! `FiberHandle` is reused from the runtime crate as-is (join, interrupt,
 //! is_done); these tests pin the set/map/plan/scheduler layer above it.
-//! Residuals stay `unported` and are listed in the close report.
+//! Out-of-scope behavior is named beside the test that would have covered it.
 
 #![cfg(feature = "tokio")]
 
-#[allow(dead_code, clippy::type_complexity)]
-#[path = "../src/execution_plan.rs"]
-mod execution_plan;
 #[allow(dead_code, clippy::type_complexity)]
 #[path = "../src/fiber_map.rs"]
 mod fiber_map;
@@ -20,8 +17,7 @@ mod fiber_set;
 
 use std::time::Duration;
 
-use elm_effect::{Cause, Exit, Runtime};
-use execution_plan::ExecutionPlan;
+use elm_effect::{AttemptPlan, Cause, Exit, Runtime};
 use fiber_map::FiberMap;
 use fiber_set::FiberSet;
 use std::sync::Arc;
@@ -215,23 +211,22 @@ fn map_join_collects_failure() {
     assert!(matches!(map.join(), Exit::Failure(_)));
 }
 
-// --- ExecutionPlan ---
+// --- AttemptPlan ---
 
 #[test]
 fn plan_rejects_zero_attempts() {
-    // ExecutionPlan.test.ts:62 — zero attempts is a plan-time error with the
-    // pin's message, not a runtime refusal.
-    let error = ExecutionPlan::new(0).expect_err("zero attempts is rejected");
+    // Zero attempts is a plan-time error, not a runtime refusal.
+    let error = AttemptPlan::new(0).expect_err("zero attempts is rejected");
     assert_eq!(
         error.to_string(),
-        "ExecutionPlan.make: step[0].attempts must be greater than 0"
+        "AttemptPlan: attempts must be greater than 0"
     );
-    assert_eq!(ExecutionPlan::new(3).expect("valid").max_attempts(), 3);
+    assert_eq!(AttemptPlan::new(3).expect("valid").max_attempts(), 3);
 }
 
 #[test]
 fn plan_succeeds_first_try() {
-    let plan = ExecutionPlan::new(3).expect("valid");
+    let plan = AttemptPlan::new(3).expect("valid");
     let planned = plan.run(&|| false, |attempt, _| {
         assert_eq!(attempt, 1);
         Ok::<i32, String>(7)
@@ -243,7 +238,7 @@ fn plan_succeeds_first_try() {
 
 #[test]
 fn plan_retries_then_succeeds() {
-    let plan = ExecutionPlan::new(3).expect("valid");
+    let plan = AttemptPlan::new(3).expect("valid");
     let tries = counter();
     let tries_body = tries.clone();
     let planned = plan.run(&|| false, move |attempt, _| {
@@ -261,7 +256,7 @@ fn plan_retries_then_succeeds() {
 
 #[test]
 fn plan_exhausts_budget() {
-    let plan = ExecutionPlan::new(2).expect("valid");
+    let plan = AttemptPlan::new(2).expect("valid");
     let planned = plan.run(&|| false, |_, _| Err::<i32, String>("down".to_owned()));
     assert_eq!(planned.outcome, Err("down".to_owned()));
     assert_eq!(planned.attempts, 2);
@@ -272,7 +267,7 @@ fn plan_probes_interruption_once_per_attempt() {
     // The failure branch used to ask the probe twice: once to decide whether
     // to retry and once to fill `interrupted`. A probe that is not a pure read
     // could answer differently on the second call.
-    let plan = ExecutionPlan::new(3).expect("valid");
+    let plan = AttemptPlan::new(3).expect("valid");
     let probes = counter();
     let probe = || {
         probes.fetch_add(1, Ordering::SeqCst);
@@ -290,7 +285,7 @@ fn plan_probes_interruption_once_per_attempt() {
 
 #[test]
 fn plan_stops_when_interrupted() {
-    let plan = ExecutionPlan::new(10).expect("valid");
+    let plan = AttemptPlan::new(10).expect("valid");
     let calls = counter();
     let calls_body = calls.clone();
     let planned = plan.run(&|| calls.load(Ordering::SeqCst) >= 2, move |_, _| {
@@ -304,8 +299,8 @@ fn plan_stops_when_interrupted() {
 
 #[test]
 fn set_await_empty_waits_for_in_flight_fibers() {
-    // FiberSet row "awaitEmpty": the wait is not satisfied while fibers are
-    // still running. The pin asserts this by forking awaitEmpty and checking
+    // FiberSet case "awaitEmpty": the wait is not satisfied while fibers are
+    // still running. Effect 4 asserts this by forking awaitEmpty and checking
     // it is still undefined mid-wait; here the bodies park on a latch so the
     // wait has something to really wait for.
     let release = flag();

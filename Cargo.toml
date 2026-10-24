@@ -1,8 +1,3 @@
 [workspace]
-members = ["crates/elm-effect-conformance", "crates/elm-effect", "crates/elm-effect-lints", "crates/elm-effect-test", "crates/elm-effect-elm", "crates/elm-effect-journal"]
+members = ["crates/elm-effect", "crates/elm-effect-lints", "crates/elm-effect-test", "crates/elm-effect-elm", "crates/elm-effect-journal"]
 resolver = "3"
-
-[workspace.package]
-edition = "2024"
-license = "MIT"
-publish = false

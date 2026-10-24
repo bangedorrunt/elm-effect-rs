@@ -1,12 +1,12 @@
 //! Metric registry scoping: isolation across registries, clear/re-register,
-//! and the attribute series key (TS `Metric.test.ts` registry rows).
+//! and the attribute series key (TS `Metric.test.ts` registry cases).
 
 use elm_effect::{Attributes, Counter, Gauge, MetricRegistry, SeriesState};
 
-/// One stdout series row: attributes (`null` when absent) and its count.
+/// One stdout series case: attributes (`null` when absent) and its count.
 type Series = (Option<Vec<(String, String)>>, f64);
 
-/// TS `series`: `(attributes ?? null, count)`, ordered the way the pin's own
+/// TS `series`: `(attributes ?? null, count)`, ordered the way Effect 4's own
 /// `JSON.stringify` sort orders them (`null` sorts before any object).
 fn series(registry: &MetricRegistry) -> Vec<Series> {
     let mut rows: Vec<Series> = registry
@@ -314,8 +314,8 @@ fn empty_attributes_use_the_unattributed_series() {
     assert_eq!(series(&registry), vec![(None, 111.0)]);
 }
 
-// The counter custom-input rows (Metric.test.ts 428-541). Each uses the same
-// contextual attribute set, so every row also exercises the series key.
+// The counter custom-input cases (Metric.test.ts 428-541). Each uses the same
+// contextual attribute set, so every case also exercises the series key.
 
 fn custom_attributes() -> Attributes {
     Attributes::from_pairs([("x", "a"), ("y", "b")])
@@ -369,10 +369,10 @@ fn custom_decrement_with_constant() {
     assert!(!state.incremental);
 }
 
-// The four bigint rows carry the same arithmetic as their f64 neighbours. The
+// The four bigint cases carry the same arithmetic as their f64 neighbours. The
 // module's established representation is an f64 count, which is exact for these
 // magnitudes.
-// ponytail: f64 count; switch the series state to i128 if a row needs > 2^53.
+// ponytail: f64 count; switch the series state to i128 if a case needs > 2^53.
 #[test]
 fn custom_increment_with_bigint_value() {
     let counter = Counter::new("counter");
@@ -449,7 +449,7 @@ fn incremental_bigint_counter_refuses_a_decrement() {
     assert!(state.incremental);
 }
 
-// The gauge rows (Metric.test.ts 247, 556-654). A gauge's update replaces the
+// The gauge cases (Metric.test.ts 247, 556-654). A gauge's update replaces the
 // value and its modify adds to it, which is the opposite of a counter.
 
 #[test]
@@ -506,9 +506,9 @@ fn gauge_set_with_negative_constant() {
     assert_eq!(registry.gauge_value_with(&gauge, &contextual).value, -1.0);
 }
 
-// The four bigint gauge rows carry the same arithmetic as their f64 neighbours
+// The four bigint gauge cases carry the same arithmetic as their f64 neighbours
 // under the module's established f64 value representation.
-// ponytail: f64 value; switch the series state to i128 if a row needs > 2^53.
+// ponytail: f64 value; switch the series state to i128 if a case needs > 2^53.
 #[test]
 fn gauge_set_with_bigint_value() {
     let gauge = Gauge::new("gauge");
@@ -552,7 +552,7 @@ fn gauge_set_with_negative_bigint_constant() {
 /// Metric.test.ts:318 — the dump is one padded table line per series, grouped
 /// by id and ordered inside a group by attribute text.
 ///
-/// The row drives three tracked effects: two counters with the same id and
+/// The case drives three tracked effects: two counters with the same id and
 /// attributes share a series and count twice, the third is its own series.
 #[test]
 fn dump_renders_every_series_as_a_padded_table() {

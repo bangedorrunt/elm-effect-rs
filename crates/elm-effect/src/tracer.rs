@@ -1,30 +1,29 @@
-//! `Tracer.ts` at `effect@4.0.0`: span identity and lifecycle, the tracer
-//! contract, external parents, sampling references, and the native tracer.
+//! Span identity and lifecycle, the tracer contract, external parents,
+//! sampling references, and the native tracer.
 //!
 //! A span carries its name, trace and span identifiers, parent, attributes,
 //! links, events, kind, sampling decision, and a [`SpanStatus`] that moves
-//! from `Started` to `Ended` exactly once. The [`Span`] trait is the pin's
+//! from `Started` to `Ended` exactly once. The [`Span`] trait is Effect 4's
 //! `Span` interface; [`NativeSpan`] is its in-memory implementation and
 //! [`NoopSpan`] is what a disabled tracer or a `DisablePropagation` span
 //! becomes.
 //!
 //! ## Fiber-locals become references
 //!
-//! The pin keeps the current span, tracer, and trace levels in fiber-local
-//! context. This port keeps them in [`Reference`]s: an innermost-wins
+//! Effect 4 keeps the current span, tracer, and trace levels in fiber-local
+//! context. this crate keeps them in [`Reference`]s: an innermost-wins
 //! override that inherits into forked children, which is the fiber-local
 //! behaviour the rows observe. `withSpan` installs the new span as the
 //! current span for its body and restores the outer one lexically when the
-//! body ends, which is the pin's region rule.
+//! body ends, which is Effect 4's region rule.
 //!
-//! ## What is not ported
+//! ## Out of scope
 //!
-//! The optional `Tracer.context` hook: the pin lets a tracer intercept the
+//! The optional `Tracer.context` hook: Effect 4 lets a tracer intercept the
 //! `~effect/Effect/evaluate` primitive so it can observe continuations after
 //! a region. Rust's interpreter has no such seam, so `withParentSpan`
-//! restores the reference lexically and the `context`-hook row stays
-//! `not-applicable`. `OtlpTracer` is a separate module in the pin and is
-//! not part of this file.
+//! restores the reference lexically. `OtlpTracer` is a separate module in
+//! Effect 4 and is not part of this file.
 
 use std::fmt;
 use std::marker::PhantomData;
@@ -36,7 +35,7 @@ use crate::observability::{LogLevel, STACK_TRACE, is_enabled};
 use crate::service::Services;
 use crate::{Cause, Effect, Exit, Reference, Requirement};
 
-/// A span attribute value. The pin stores `unknown`; the port narrows to the
+/// A span attribute value. Effect 4 stores `unknown`; the crate narrows to the
 /// shapes its formatters and tests read, and renders everything else with
 /// [`AttributeValue::render`] before it reaches a record.
 #[derive(Clone, Debug, PartialEq)]
@@ -111,7 +110,7 @@ pub enum SpanKind {
 }
 
 impl SpanKind {
-    /// The pin's lowercase spelling.
+    /// Effect 4's lowercase spelling.
     pub fn as_str(&self) -> &'static str {
         match self {
             SpanKind::Internal => "internal",
@@ -138,13 +137,13 @@ pub enum SpanStatus {
         start_time: i64,
         /// Nanoseconds since the epoch (zero when timing is disabled).
         end_time: i64,
-        /// The outcome. The port renders a failure's cause because the span
+        /// The outcome. The crate renders a failure's cause because the span
         /// outlives the effect's `E`; see the module note on `Exit`.
         exit: Exit<(), String>,
     },
 }
 
-/// One event recorded on a span (the pin's `[name, startTime, attributes]`).
+/// One event recorded on a span (Effect 4's `[name, startTime, attributes]`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct SpanEvent {
     /// The event's name.
@@ -169,7 +168,7 @@ pub struct ExternalSpan {
     pub annotations: Vec<(String, String)>,
 }
 
-/// Create an [`ExternalSpan`] with the pin's defaults: sampled, no
+/// Create an [`ExternalSpan`] with Effect 4's defaults: sampled, no
 /// annotations.
 pub fn external_span(span_id: impl Into<String>, trace_id: impl Into<String>) -> ExternalSpan {
     ExternalSpan {
@@ -183,7 +182,7 @@ pub fn external_span(span_id: impl Into<String>, trace_id: impl Into<String>) ->
 /// Either an Effect-managed span or one propagated from another system.
 #[derive(Clone)]
 pub enum AnySpan {
-    /// A span this port created.
+    /// A span this crate created.
     Span(Arc<dyn Span>),
     /// A span another tracing system created.
     External(ExternalSpan),
@@ -312,7 +311,7 @@ impl From<Arc<dyn Span>> for AnySpan {
 }
 
 impl PartialEq for AnySpan {
-    /// Identity is the span id, which is how the pin's tests compare a link's
+    /// Identity is the span id, which is how Effect 4's tests compare a link's
     /// span to the span value they created.
     fn eq(&self, other: &Self) -> bool {
         self.span_id() == other.span_id()
@@ -383,7 +382,7 @@ pub trait Span: Send + Sync + fmt::Debug {
     /// The span kind.
     fn kind(&self) -> SpanKind;
     /// Move the status to `Ended`. The first call wins; later ones are
-    /// ignored, because a span has exactly one end at the pin.
+    /// ignored, because a span has exactly one end in Effect 4.
     fn end(&self, end_time: i64, exit: Exit<(), String>);
 
     /// One attribute by key.
@@ -403,7 +402,7 @@ pub struct NativeSpan {
     span_id: String,
     trace_id: String,
     parent: Option<AnySpan>,
-    #[allow(dead_code)] // the pin's `annotations` Context, kept for parity
+    #[allow(dead_code)] // Effect 4's `annotations` Context, kept for parity
     annotations: Vec<(String, String)>,
     kind: SpanKind,
     sampled: bool,
@@ -606,7 +605,7 @@ impl Span for NoopSpan {
 }
 
 /// Span creation options (`Tracer.SpanOptions`, with the trace options the
-/// pin splits out folded in).
+/// Effect 4 splits out folded in).
 #[derive(Clone, Debug, Default)]
 pub struct SpanOptions {
     /// An explicit parent. `root` wins over this when set.
@@ -615,7 +614,7 @@ pub struct SpanOptions {
     pub attributes: Vec<(String, AttributeValue)>,
     /// Links set at creation.
     pub links: Vec<SpanLink>,
-    /// The pin's context annotations, carried verbatim.
+    /// Effect 4's context annotations, carried verbatim.
     pub annotations: Vec<(String, String)>,
     /// The span kind.
     pub kind: SpanKind,
@@ -631,7 +630,7 @@ pub struct SpanOptions {
     pub disable_propagation: bool,
 }
 
-/// A tracing backend: it allocates spans. The pin's optional `context` hook
+/// A tracing backend: it allocates spans. Effect 4's optional `context` hook
 /// has no counterpart here; see the module note.
 pub trait Tracer: Send + Sync {
     /// Create a span from `name` and `options`.
@@ -671,9 +670,9 @@ impl Tracer for NativeTracer {
     }
 }
 
-// Ambient references (the pin's fiber-cached services)
+// Ambient references (Effect 4's fiber-cached services)
 
-/// The span children derive their parent from (`ParentSpan` at the pin).
+/// The span children derive their parent from (`ParentSpan` in Effect 4).
 pub static CURRENT_SPAN: Reference<Option<AnySpan>> = Reference {
     id: "effect/Tracer/ParentSpan",
     default: None,
@@ -709,7 +708,7 @@ pub static MINIMUM_TRACE_LEVEL: Reference<LogLevel> = Reference {
     default: LogLevel::All,
 };
 
-/// A span-timestamp source, overriding the ambient clock tag. The pin reads
+/// A span-timestamp source, overriding the ambient clock tag. Effect 4 reads
 /// the fiber's `TestClock` here; a reference keeps that explicit without
 /// adding `Clock` to every `withSpan` call's requirement.
 pub static TRACE_CLOCK: Reference<Option<Arc<dyn crate::ClockImpl>>> = Reference {
@@ -717,13 +716,13 @@ pub static TRACE_CLOCK: Reference<Option<Arc<dyn crate::ClockImpl>>> = Reference
     default: None,
 };
 
-// Combinators (the pin's Effect.withSpan family)
+// Combinators (Effect 4's Effect.withSpan family)
 
 /// Wrap `effect` in a span (`Effect.withSpan`): create the span, run the body
 /// with it as the current span, then end it with the body's outcome.
 ///
 /// A failure inside the span gains the span name as its stack frame, like
-/// the pin's raise-site capture; an existing frame is kept.
+/// Effect 4's raise-site capture; an existing frame is kept.
 pub fn with_span<A, E, R>(
     name: impl Into<String>,
     options: SpanOptions,
@@ -1156,7 +1155,7 @@ where
 
 static ID_SEED: AtomicU64 = AtomicU64::new(0);
 
-/// A lowercase hex id of `chars` characters. The pin uses a cryptographic
+/// A lowercase hex id of `chars` characters. Effect 4 uses a cryptographic
 /// source; spans only need uniqueness, so a xorshift seeded from the wall
 /// clock and a process counter is enough here.
 pub(crate) fn random_hex(chars: usize) -> String {

@@ -109,7 +109,7 @@ impl<A: Clone + Send> Ref<A> {
     }
 
     /// `Ref.updateSome`: apply `f` only when it returns `Some`. `None`
-    /// leaves the cell untouched (and, matching the pin, bumps no version).
+    /// leaves the cell untouched (and, matching Effect 4, bumps no version).
     pub fn update_some(&self, f: impl Fn(&A) -> Option<A>) {
         let mut inner = self.inner.lock().unwrap();
         if let Some(next) = f(&inner.value) {
@@ -143,7 +143,7 @@ impl<A: Clone + Send> Ref<A> {
     }
 
     /// `Ref.modifySome`: like [`modify`](Ref::modify), but `None` from `f`
-    /// leaves the cell unchanged. The result is always returned; the pin
+    /// leaves the cell unchanged. The result is always returned; Effect 4
     /// implements this by delegating to `modify` and substituting the
     /// current value on `None` (`Ref.ts:521`), so a `None` stores nothing
     /// and bumps no version.
@@ -157,8 +157,8 @@ impl<A: Clone + Send> Ref<A> {
         out
     }
 
-    /// `Ref.set`: store `value`, unconditionally. Verified at the pin
-    /// (`Ref.ts:236`); the port was missing it, so the row that asserts it
+    /// `Ref.set`: store `value`, unconditionally. Verified in Effect 4
+    /// (`Ref.ts:236`); the crate was missing it, so the row that asserts it
     /// could not be pinned without it.
     pub fn set(&self, value: A) {
         let mut inner = self.inner.lock().unwrap();
@@ -356,7 +356,7 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
     /// the PREVIOUS value, running `f`'s effect once afterwards.
     ///
     /// Distinct from [`update_effect`], which returns the effect's result:
-    /// the pin's getAndUpdateEffect returns what was in the cell before the
+    /// Effect 4's getAndUpdateEffect returns what was in the cell before the
     /// update, which is what makes the two rows distinguishable.
     pub fn get_and_update_effect<B, E, R, F>(&self, f: F) -> Effect<A, E, R>
     where
@@ -433,7 +433,7 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
 
 /// A one-shot handoff: completed once, waited on by anyone.
 ///
-/// Carries an [`Exit`], not a bare value, because the pin completes a
+/// Carries an [`Exit`], not a bare value, because Effect 4 completes a
 /// `Deferred` "exactly once with a success, failure, defect, or
 /// interruption" (`Deferred.ts:3`) -- four outcomes, not one. The previous
 /// `Option<A>` shape could only record success, so every failure/interrupt
@@ -639,7 +639,7 @@ pub fn is_queue<A: Send + 'static>(value: &dyn Any) -> bool {
 /// under the backpressure strategy, receivers wait for items; `end`,
 /// `fail`, and `shutdown` close the offer side while the buffer drains.
 ///
-/// Two pin rules need state beyond the buffer. Offers that are parked
+/// Two queue rules need state beyond the buffer. Offers that are parked
 /// when `end`/`fail` arrive keep going: the terminal flip is deferred
 /// until they settle, which is why `await` waits and why the offers a
 /// fail interrupts still land. A zero-capacity queue rendezvouses through
@@ -792,7 +792,7 @@ impl<A: Send> Queue<A> {
         }
     }
 
-    /// `Queue.flush`: the effectful flush. The port's queue is
+    /// `Queue.flush`: the effectful flush. The crate's queue is
     /// synchronous, so this is `flush_unsafe`.
     pub fn flush(&self) {
         self.flush_unsafe();
@@ -856,7 +856,7 @@ impl<A: Send> Queue<A> {
     /// Push while watching `interrupted`: an interrupted offer withdraws
     /// its message (`Err(())`), a closed queue refuses it untouched
     /// (`Ok(Refused(value))`), and an accepted one reports
-    /// `Ok(Accepted)`. The port's interruptible-wait pattern, the one the
+    /// `Ok(Accepted)`. The crate's interruptible-wait pattern, the one the
     /// semaphore uses.
     // `Err(())` is the interrupt marker itself: it carries no data, and the
     // caller's only decision is to withdraw the offer. A named zero-sized
@@ -898,7 +898,7 @@ impl<A: Send> Queue<A> {
                 continue;
             }
             // A full dropping queue refuses the new item instead of parking:
-            // the pin's offer reports false immediately.
+            // Effect 4's offer reports false immediately.
             if self.strategy == Strategy::Dropping && guard.len() >= self.capacity {
                 return Ok(OfferOutcome::Refused(value));
             }
@@ -1106,9 +1106,9 @@ impl<A: Send> Queue<A> {
 
     /// Between `min` and `max` items: waits for `min`, then takes up to
     /// `max` (`Queue.takeBetween`). Counts arrive already normalized by the
-    /// pin's `Count.normalize` — NaN and non-positive become 0, a positive
+    /// Effect 4's `Count.normalize` — NaN and non-positive become 0, a positive
     /// value floors — so a zero `min` takes nothing without waiting, and an
-    /// inverted pair swaps (the pin's row :379).
+    /// inverted pair swaps (Effect 4's row :379).
     pub fn take_between(&self, min: usize, max: usize) -> Result<Vec<A>, QueueError> {
         let (mut min, mut max) = (min, max);
         if min > max {
@@ -1247,7 +1247,7 @@ impl<A: Send> Queue<A> {
     }
 
     /// Everything buffered, including items offered before a terminal
-    /// close (`Queue.collect`: the port's offers are synchronous, so the
+    /// close (`Queue.collect`: the crate's offers are synchronous, so the
     /// buffer is the whole story).
     pub fn collect(&self) -> Vec<A> {
         self.take_all()
@@ -1321,10 +1321,10 @@ impl<A: Send> Queue<A> {
     }
 }
 
-/// A counting semaphore (`Semaphore.ts` at the pin): one pool of `permits`
+/// A counting semaphore (`Semaphore.ts` in Effect 4): one pool of `permits`
 /// permits, `taken` of them out on loan, and takes that are all-or-nothing.
 ///
-/// A take larger than the pool waits forever, which is the pin's `never`
+/// A take larger than the pool waits forever, which is Effect 4's `never`
 /// (row 115): there is no partial grant on this type. The partitioned
 /// semaphore next door is where a wait accumulates permits in stages.
 /// Releasing returns the count actually restored, so a caller cannot
@@ -1376,7 +1376,7 @@ impl Semaphore {
     }
 
     /// `Semaphore.release(n)`: restore up to `n` permits and answer how many
-    /// were actually out on loan, which is the pin's count.
+    /// were actually out on loan, which is Effect 4's count.
     pub fn release(&self, permits: usize) -> usize {
         let mut state = self.inner.lock().unwrap();
         let restored = permits.min(state.taken);
@@ -1440,7 +1440,7 @@ impl Semaphore {
 
     /// A take that observes an external interruption: waits on the changed
     /// latch in the cooperative quantum and gives up holding nothing once
-    /// `interrupted` turns true. This is the portable stand-in for a fiber
+    /// `interrupted` turns true. This is the crateable stand-in for a fiber
     /// interrupt landing on a parked `take`.
     pub fn take_interruptible(
         &self,
@@ -1510,86 +1510,13 @@ impl Drop for HeldPermits<'_> {
     }
 }
 
-/// A snapshot cell broadcasting every assignment to its subscribers
-/// (`SubscriptionRef` shape): `set` updates the current value and pushes
-/// a copy to every subscriber buffer; subscribers poll their own queue.
-///
-/// ```
-/// use elm_effect::SubscriptionRef;
-/// let watched = SubscriptionRef::new(0);
-/// let sub = watched.subscribe();
-/// watched.set(5);
-/// assert_eq!(watched.get(), 5);
-/// assert_eq!(watched.poll(sub), Some(0));
-/// assert_eq!(watched.poll(sub), Some(5));
-/// ```
-pub struct SubscriptionRef<A> {
-    // One lock for the value and the sinks: `subscribe` must snapshot the
-    // current value and register its sink in the same critical section, or a
-    // `set` landing between the two updates the cell and notifies a stream
-    // that does not exist yet, and the new subscriber never sees it.
-    hub: Mutex<SubscriptionHub<A>>,
-}
-
-struct SubscriptionHub<A> {
-    current: A,
-    // Unbounded by design, like the pin's `Queue.unbounded()`: a slow
-    // subscriber holds every update instead of losing one.
-    sinks: Vec<std::collections::VecDeque<A>>,
-}
-
-impl<A: Clone + Send> SubscriptionRef<A> {
-    /// A cell holding `initial` with no subscribers.
-    pub fn new(initial: A) -> Self {
-        Self {
-            hub: Mutex::new(SubscriptionHub {
-                current: initial,
-                sinks: Vec::new(),
-            }),
-        }
-    }
-
-    /// The current value.
-    pub fn get(&self) -> A {
-        self.hub.lock().unwrap().current.clone()
-    }
-
-    /// Assign and broadcast to every subscriber buffer.
-    pub fn set(&self, value: A) {
-        let mut hub = self.hub.lock().unwrap();
-        hub.current = value.clone();
-        for sink in &mut hub.sinks {
-            sink.push_back(value.clone());
-        }
-    }
-
-    /// Subscribe: returns an index seeded with the current value.
-    pub fn subscribe(&self) -> usize {
-        let mut hub = self.hub.lock().unwrap();
-        let mut queue = std::collections::VecDeque::new();
-        queue.push_back(hub.current.clone());
-        hub.sinks.push(queue);
-        hub.sinks.len() - 1
-    }
-
-    /// Pop the subscriber's next value, if any.
-    pub fn poll(&self, subscriber: usize) -> Option<A> {
-        self.hub
-            .lock()
-            .unwrap()
-            .sinks
-            .get_mut(subscriber)?
-            .pop_front()
-    }
-}
-
-/// The pin's `PartitionedSemaphore` (`PartitionedSemaphore.ts`): ONE shared
+/// Effect 4's `PartitionedSemaphore` (`PartitionedSemaphore.ts`): ONE shared
 /// pool of `capacity` permits with parked takes grouped by partition key. A
 /// take that cannot be met in full absorbs whatever is free and parks its
 /// shortfall under its key; each released permit goes to the next key holding
 /// a waiter, in round-robin order, so one busy key cannot monopolise the pool.
 ///
-/// The pin resumes waiters through fiber callbacks; here a parked take is a
+/// Effect 4 resumes waiters through fiber callbacks; here a parked take is a
 /// thread on the pool's condvar. The `interruptible` variants subscribe to the
 /// running fiber's interrupt notification, so the request wakes the condvar;
 /// a thread outside a fiber keeps the bounded wait. An interrupted take hands
@@ -1609,7 +1536,7 @@ pub struct PartitionedSemaphore<K> {
     inner: Arc<PoolInner<K>>,
 }
 
-/// Cloning a handle shares the pool, like the pin's value being the pool.
+/// Cloning a handle shares the pool, like Effect 4's value being the pool.
 impl<K> Clone for PartitionedSemaphore<K> {
     fn clone(&self) -> Self {
         Self {
@@ -1683,7 +1610,7 @@ impl<K: Eq + Hash + Clone> PermitPool<K> {
         *need -= 1;
         self.waiting -= 1;
         // A partly satisfied waiter keeps its place at the head of its key's
-        // queue; only a satisfied one leaves, which is how the pin mutates the
+        // queue; only a satisfied one leaves, which is how Effect 4 mutates the
         // waiter entry and resumes it on the third permit.
         let satisfied = *need == 0;
         let queue_now_empty = if satisfied {
@@ -1751,7 +1678,7 @@ impl<K: Eq + Hash + Clone> PermitPool<K> {
 }
 
 /// Releases a with-permits body's permits on the way out, including an unwind
-/// (the pin gets this from `Effect.ensuring`).
+/// (Effect 4 gets this from `Effect.ensuring`).
 struct Hold<'a, K: Eq + Hash + Clone + Send + Sync + 'static> {
     sem: &'a PartitionedSemaphore<K>,
     permits: usize,
@@ -1800,7 +1727,7 @@ impl<K: Eq + Hash + Clone + Send + Sync + 'static> PartitionedSemaphore<K> {
     }
 
     /// `PartitionedSemaphore.take`: block until `permits` arrive for `key`.
-    /// A take above the pool never returns, which is the pin's `Effect.never`.
+    /// A take above the pool never returns, which is Effect 4's `Effect.never`.
     pub fn take(&self, key: K, permits: usize) {
         let _ = self.take_interruptible(key, permits, &|| false);
     }
@@ -1823,7 +1750,7 @@ impl<K: Eq + Hash + Clone + Send + Sync + 'static> PartitionedSemaphore<K> {
         let mut pool = self.inner.pool.lock().unwrap();
         if permits > pool.capacity {
             // No release can ever satisfy a need larger than the whole pool,
-            // and the pin never grants such a take a partial permit either.
+            // and Effect 4 never grants such a take a partial permit either.
             loop {
                 if interrupted() {
                     return None;
@@ -1948,7 +1875,7 @@ impl<K: Eq + Hash + Clone + Send + Sync + 'static> PartitionedSemaphore<K> {
         self.take_interruptible(key, permits, interrupted)?;
         if interrupted() {
             // The take was satisfied but the interrupt landed before the body:
-            // the pin's `ensuring` still gives the permits back.
+            // Effect 4's `ensuring` still gives the permits back.
             self.release(permits);
             return None;
         }

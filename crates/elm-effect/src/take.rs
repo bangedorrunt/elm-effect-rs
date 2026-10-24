@@ -1,10 +1,10 @@
-//! `Take.ts` port: one pull outcome, items, end of stream, or failure.
+//! One pull outcome: items, end of stream, or failure.
 
 use super::{Cause, Defect};
 
 /// One pull from a source.
 ///
-/// A failure carries the whole [`Cause`], as the pin's `Take` does: a defect
+/// A failure carries the whole [`Cause`], as Effect 4's `Take` does: a defect
 /// is not a typed error, so a channel that dies must not have to name an `E`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Take<A, E> {

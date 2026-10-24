@@ -1,7 +1,7 @@
-//! Semaphore.test.ts rows on the pin's `PartitionedSemaphore`: one shared
+//! Semaphore.test.ts cases on Effect 4's `PartitionedSemaphore`: one shared
 //! permit pool, waiters grouped by key, released permits handed out in
-//! round-robin order. The single-pool `Semaphore` rows live here too, because
-//! the pin's `Semaphore` suite drives the same partitioned type.
+//! round-robin order. The single-pool `Semaphore` cases live here too, because
+//! Effect 4's `Semaphore` suite drives the same partitioned type.
 #![cfg(feature = "tokio")]
 
 use elm_effect::{PartitionedSemaphore, Semaphore};
@@ -438,7 +438,7 @@ fn different_permit_sizes_all_run() {
 }
 
 /// :115 `requesting more permits than total returns never`: a need above the
-/// pool is not a wait that can end, and the pin never grants it a part of the
+/// pool is not a wait that can end, and Effect 4 never grants it a part of the
 /// pool either, so the taker stays parked and holds nothing.
 #[test]
 fn a_need_above_the_pool_stays_parked() {

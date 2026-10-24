@@ -13,6 +13,7 @@ use elm_effect_elm::{
     Program, ProviderCapability, RecoverError, SnapshotError, Update,
 };
 use elm_effect_journal::durable_log::{AppendError, DurableLog, FileLog, MemLog, Offset};
+use elm_effect_journal::stream::Status;
 use serde::{Deserialize, Serialize};
 
 static PROVIDER_RUNS: AtomicUsize = AtomicUsize::new(0);
@@ -167,6 +168,18 @@ impl DurableLog for Flaky {
 
     fn compact_before(&self, before: &Offset) -> Result<usize, AppendError> {
         self.inner.compact_before(before)
+    }
+
+    fn close(&self) -> Result<(), AppendError> {
+        self.inner.close()
+    }
+
+    fn append_json_and_close(&self, envelope: &str) -> Result<Offset, AppendError> {
+        self.inner.append_json_and_close(envelope)
+    }
+
+    fn status(&self) -> Status {
+        self.inner.status()
     }
 }
 

@@ -90,8 +90,8 @@ requirement_tuples! {
 /// Value-level `provide` and `Layer::provide` (a layer into an effect) fail
 /// earlier — at construction — so the poisoned-map Die survives only for
 /// conflicts merged in from elsewhere, which no single call created. Layer
-/// composition itself follows the pin's merge order as of the memo-map work:
-/// when two sides provide one tag, the later side wins, because the pin's
+/// composition itself follows Effect 4's merge order as of the memo-map work:
+/// when two sides provide one tag, the later side wins, because Effect 4's
 /// `Context.mergeAll` does. Re-providing the SAME shared value (a layer's
 /// memo) is fine, told apart by pointer equality.
 /// References override by replacement instead: innermost wins, `R` unchanged.

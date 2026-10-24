@@ -3,18 +3,18 @@
 //! Law L2 lives here: [`Cause`] owns the failure vocabulary at the crate
 //! edge, and [`Exit`] is ordinary data, not an effect.
 //!
-//! Conventions (ADR-0002 Phase 1):
+//! Conventions (ADR-0002):
 //! - `never` is [`std::convert::Infallible`], not `()`. A channel that cannot
 //!   fail is `E = Infallible`.
 //! - A panic becomes [`Reason::Die`] at one of the deliberate boundaries: the
 //!   fiber supervisor, scope finalizers, and the acquire-use-release release.
 //!   Each renders to [`Defect`]; ordinary library code never catches.
-//! - Phase 1 has zero `unsafe`.
+//! - The crate has zero `unsafe`.
 
-// The port's shapes are higher-order by nature: an `Effect` is a boxed
-// transition over boxed handlers, and a family of erased signatures is the
-// pin's own model. Alias-mongering would rename the pin's types rather than
-// describe them, so the complexity lint is off for this crate.
+// The crate's shapes are higher-order by nature: an `Effect` is a boxed
+// transition over boxed handlers, and a family of erased signatures is
+// Effect 4's own model. Alias-mongering would rename Effect 4's types rather
+// than describe them, so the complexity lint is off for this crate.
 #![allow(clippy::type_complexity)]
 
 /// Fallback re-check for a parked wait on a thread outside a fiber, which has
@@ -25,7 +25,7 @@ pub(crate) const COOPERATIVE_QUANTUM: std::time::Duration = std::time::Duration:
 
 pub mod cause;
 pub mod channel;
-// `Logger.console*` writes through this port, so it is part of the surface.
+// `Logger.console*` writes through this crate, so it is part of the surface.
 #[cfg(feature = "tokio")]
 mod concurrency;
 pub mod console;
@@ -35,12 +35,13 @@ pub mod config;
 // `Config.mapEffect`'s driver: the transform is an `Effect`, and `config`
 // cannot name one without breaking its path-module tests, so the bridge lives
 // beside it.
+pub mod attempt_plan;
 mod config_effect;
 pub mod config_provider;
 mod context;
 mod crypto;
 pub mod effect;
-pub mod execution_plan;
+pub use attempt_plan::{AttemptPlan, NoAttempts, Planned};
 #[cfg(feature = "tokio")]
 mod executor;
 mod exit;
@@ -49,6 +50,7 @@ pub mod fiber;
 mod foundation;
 #[cfg(feature = "tokio")]
 mod layer;
+mod log_level;
 mod metric;
 #[cfg(feature = "tokio")]
 mod mock;
@@ -63,11 +65,10 @@ mod schedule;
 #[cfg(feature = "tokio")]
 mod scope;
 mod service;
-#[cfg(feature = "stm")]
-mod stm;
 #[cfg(feature = "tokio")]
 mod stream;
 pub mod subscription_ref;
+pub use subscription_ref::{ChangeStream, SubscriptionRef};
 #[cfg(feature = "tokio")]
 mod supervision;
 mod supervisor;
@@ -75,7 +76,7 @@ pub mod sync;
 mod tagged;
 pub mod take;
 mod time;
-// `Tracer.ts`: the span model the observability port already pointed at.
+// The span model shared with `observability`.
 pub mod tracer;
 
 pub use cause::{
@@ -101,15 +102,13 @@ pub use exit::Exit;
 #[cfg(feature = "tokio")]
 pub use fiber::{Ctx, Fiber, FiberHandle, ForkOpts, Mask, StartMode};
 pub use foundation::{
-    Combiner, Differ, Equal, Equivalence, Filter, Hash, Matcher, Order, Predicate, Reducer, Tagged,
-    absurd, apply, array_equivalence, boolean_equivalence, boolean_order, combine_hash,
-    combine_ordering, compose, const_false, const_null, const_true, const_unit, constant, flip,
-    flip_curried, hash_f64, hash_str, hole, identity, match_ordering, memoize, memoize_idempotent,
-    number_equivalence, number_order, ord_order, reverse_ordering, sk, string_equivalence,
-    string_order, tagged, tuple_equivalence, tupled, untupled,
+    Combiner, Equal, Equivalence, Hash, Order, Reducer, array_equivalence, boolean_equivalence,
+    boolean_order, combine_hash, combine_ordering, hash_f64, hash_str, number_equivalence,
+    number_order, ord_order, string_equivalence, string_order, tuple_equivalence,
 };
 #[cfg(feature = "tokio")]
 pub use layer::{BuiltServices, Cycle, Layer, LayerMemo, LayerSpanOptions, RequirementIds};
+pub use log_level::LogLevel;
 pub use metric::{
     Attributes, Counter, CounterState, Frequency, FrequencyState, Gauge, GaugeState, Histogram,
     HistogramState, MetricRegistry, Metrics, Series, SeriesState, Summary, SummaryState,
@@ -129,22 +128,15 @@ pub use schedule::{
     Stepper, UpTo, repeat, repeat_with, retry, retry_with,
 };
 #[cfg(feature = "tokio")]
-pub use scope::{Scope, ScopeTag};
+pub use scope::{Scope, ScopeExit, ScopeOutcome, ScopeTag};
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};
-#[cfg(feature = "stm")]
-pub use stm::{
-    TxChangeSubscription, TxChunk, TxDeferred, TxDequeue, TxEnqueue, TxHashMap, TxHashSet,
-    TxPriorityQueue, TxPubSub, TxQueue, TxReentrantLock, TxRef, TxSemaphore, TxSubscriptionRef,
-    atomically, is_tx_chunk, is_tx_deferred, is_tx_hash_map, is_tx_hash_set, is_tx_priority_queue,
-    is_tx_semaphore, is_tx_subscription_ref,
-};
 #[cfg(feature = "tokio")]
 pub use stream::{Stream, from_iter, from_iterator_succeed};
 #[cfg(feature = "tokio")]
 pub use supervision::{ChildSnapshot, Escalation, Supervisor};
 pub use sync::{
     Deferred, MutableRef, PartitionedSemaphore, Queue, QueueError, Ref, Semaphore, Strategy,
-    SubscriptionRef, SynchronizedRef, is_dequeue, is_enqueue, is_queue,
+    SynchronizedRef, is_dequeue, is_enqueue, is_queue,
 };
 pub use tagged::TaggedError;
 pub use time::{

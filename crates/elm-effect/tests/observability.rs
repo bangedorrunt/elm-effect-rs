@@ -465,7 +465,7 @@ fn format_simple_quotes_only_when_needed() {
     assert!(!output.contains("message=\"\\\"hello world\""));
 }
 
-// --- Logger records (Logger.test.ts rows) ---
+// --- Logger records (Logger.test.ts cases) ---
 
 fn logger_items() -> Vec<observability::LogItem> {
     use observability::LogItem;
@@ -536,7 +536,7 @@ fn logger_formats_bigint_messages_consistently() {
     let items = logger_items();
     let annotations = LogAnnotations::default();
 
-    // The pin's own line carries a timestamp prefix, so its assertion spells
+    // Effect 4's own line carries a timestamp prefix, so its assertion spells
     // the level and fiber with a leading space; here the line starts there.
     let simple = format_simple_record(LogLevel::Info, 1, &items, &annotations);
     assert!(simple.starts_with("level=INFO fiber=#1 "), "got {simple}");
@@ -674,7 +674,7 @@ fn pipe_supports_extracting_the_protected_value() {
     // extracting function, and it is the only way to read the bytes.
     let inner = vec![1, 2, 3];
     let redacted = Redacted::make(inner.clone());
-    // The port has no pipe operator; `Redacted::value(redacted)` is the same
+    // The crate has no pipe operator; `Redacted::value(redacted)` is the same
     // application the tag's `pipe` performs.
     assert_eq!(Redacted::value(&redacted), &inner);
     // And the Debug side still refuses to show the bytes.

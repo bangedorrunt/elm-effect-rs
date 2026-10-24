@@ -224,7 +224,7 @@ fn acquire_into_closed_scope_releases_immediately() {
 }
 
 // ---------------------------------------------------------------------------
-// Effect.scoped at the pin (Effect.test.ts:79)
+// Effect.scoped in Effect 4 (Effect.test.ts:79)
 // ---------------------------------------------------------------------------
 
 /// Which exit the scoped body ends on.
@@ -370,7 +370,7 @@ fn scoped_mints_a_scope_per_run() {
 }
 
 // ---------------------------------------------------------------------------
-// acquireUseRelease at the pin (Effect.test.ts describe "acquireUseRelease")
+// acquireUseRelease in Effect 4 (Effect.test.ts describe "acquireUseRelease")
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -482,8 +482,8 @@ fn acquire_use_release_error_in_just_usage() {
 #[test]
 fn a_scope_releases_both_disposable_kinds_exactly_once() {
     // Effect.test.ts:1245 / :1254. `Symbol.dispose` and `Symbol.asyncDispose`
-    // are JS protocols; what the rows observe is that the scope releases each
-    // disposable exactly once when it closes. The port's two kinds are the
+    // are JS protocols; what the cases observe is that the scope releases each
+    // disposable exactly once when it closes. The crate's two kinds are the
     // sync closure and the effect finalizer.
     let rt = Runtime::new();
     let sync_releases = Arc::new(AtomicUsize::new(0));

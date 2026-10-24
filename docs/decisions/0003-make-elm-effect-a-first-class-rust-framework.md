@@ -8,10 +8,16 @@ informed: Rust programmers and agents that use elm-effect
 
 # Make elm-effect a first-class Rust framework
 
-> **Amended 2026-10-24 (minimalism audit).** The workspace now ships default
-> features `tokio`, with `stm` behind its own feature. There is no `full`
-> feature, no `schema` feature, and no `elm-effect-unstable` crate. The
-> feature paragraphs below describe the pre-cut state and are kept as history.
+> **Amended 2026-10-24 (minimalism audit).** The workspace now ships the single
+> feature `tokio`. There is no `full` feature, no `schema` feature, no `stm`
+> feature, and no `elm-effect-unstable` crate. The feature paragraphs below
+> describe the pre-cut state and are kept as history.
+>
+> The same cut removed the port ledger: `conformance/`, the
+> `elm-effect-conformance` crate, `skills/elm-effect/references/port-module.md`,
+> and the `Predicate`/`Matcher`/`Filter`/`Differ`/`Tagged` foundation types.
+> The tests stay; the port bookkeeping does not. References to the ledger below
+> are historical.
 
 ## Context and Problem Statement
 

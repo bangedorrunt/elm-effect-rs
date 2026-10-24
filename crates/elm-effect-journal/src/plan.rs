@@ -146,7 +146,7 @@ impl PendingStore {
     }
 }
 
-// Dispatch planning (0c6.43): pure port of the toron reconcile table
+// Dispatch planning: pure implementation of the toron reconcile table
 // (`toron/crates/toron-workflow/src/engine/reconcile.rs::plan_attempt`).
 // A park is interruption, never a terminal return or a blind retry: it
 // resumes with the SAME re-drive key (`ResumeParked`), never `DispatchNew`.

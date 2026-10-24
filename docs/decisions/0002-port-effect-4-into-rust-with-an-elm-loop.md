@@ -9,9 +9,12 @@ informed: agents implementing this repository and agents later adopting it insid
 # Port Effect 4.0.0 into a Rust carrier with an Elm loop
 
 > **Amended 2026-10-24 (minimalism audit).** `Schema`, the `schema` feature,
-> and the `elm-effect-unstable` crate were removed from the workspace. The
-> references to them below are history, not current requirements. The laws,
-> the carrier shape, and the ledger remain in force.
+> the `stm` feature, and the `elm-effect-unstable` crate were removed from the
+> workspace. The port ledger was retired too: `conformance/` and the
+> `elm-effect-conformance` crate are gone, and the tests under
+> `crates/*/tests/` are the proof. The references to all of these below are
+> history, not current requirements. The laws and the carrier shape remain in
+> force.
 
 ## How to read this
 
@@ -600,6 +603,8 @@ Work is phased. A phase's tests land first, red, then the implementation, then t
 **Phase 3. Time, schedule, refs, policy.** `Clock`, `Duration`, `TestClock`, `Random::with_seed`, `Schedule`, `retry`, `repeat`, `timeout`, `Ref`, `SynchronizedRef`, `Deferred`, `Queue`, `Semaphore`, `policy::remote`. Tests: L4, L8, L9, L10, `adjust_before_sleep_is_scheduled_does_not_complete_it`. This is the first phase a sibling could experimentally import. It is not the port being done.
 
 **Phase 4. Concurrency combinators.** `all` (sequential unless a bound is passed), `for_each`, `race`, `race_first`, fiber sets, `ExecutionPlan`. `partition` and `validate` are read from the pin before they are encoded. The v4 concurrency guides do not spell their collect-versus-fail-fast behavior, so the source file is the spec for those two. Tests: L13, `all_without_concurrency_is_sequential`, `race_failure_does_not_beat_later_success`, cause concatenation when every side fails, loser of a race is interrupted and released.
+
+> **Amended 2026-10-24.** Effect 4's `ExecutionPlan` is not ported. The tag's type is ordered fallback steps, each with a `Context`/`Layer`, attempts, a `while` predicate, a schedule, and metadata. The local value is `AttemptPlan`, a bounded attempt budget; the name `ExecutionPlan` stays unclaimed for a future port.
 
 **Phase 5. Streams.** `Stream`, `Channel`, `Sink`, bounded `map_effect`, `run_fold`. Tests from the stream rows of the ledger.
 

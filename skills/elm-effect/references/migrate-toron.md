@@ -1,6 +1,6 @@
 # Migrate toron
 
-Repo: the toron workspace. Law: ADR-0002 journal section and sibling port "Toron".
+Repo: the toron workspace. Law: ADR-0002 journal section and sibling migration "Toron".
 
 ## Gate
 

@@ -143,7 +143,7 @@ where
     }
 }
 
-/// The pin's `Effect.suspend`: build the description on interpretation.
+/// Effect 4's `Effect.suspend`: build the description on interpretation.
 struct Defer<A, E, R: Requirement, F> {
     build: F,
     marker: PhantomData<fn() -> (A, E, R)>,
@@ -199,12 +199,12 @@ where
     }
 }
 
-/// `Effect.catchCause` at the pin, as its own step rather than a [`FoldE`].
+/// `Effect.catchCause` in Effect 4, as its own step rather than a [`FoldE`].
 ///
-/// The pin delivers an externally requested interrupt at the fiber's boundary,
+/// Effect 4 delivers an externally requested interrupt at the fiber's boundary,
 /// so the handler is never offered a cause that only says "you were
 /// interrupted" (`catch + ensuring + interrupt` is the row that pins it).
-/// This port's fold runs the inner effect to completion and hands every cause
+/// This crate's fold runs the inner effect to completion and hands every cause
 /// to the handler, so the rule has to live in the step: a cause carrying an
 /// interrupt, seen while the fiber itself carries an interrupt request, is
 /// re-raised unhandled. `ensuring` and `onExit` stay on [`FoldE`] and keep
@@ -275,8 +275,11 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> ErasedStep<A, E> for 
         };
         let out = body.run_sync_with(&Arc::new(maps));
         // Close after the run, on every path: the scope interrupts its
-        // members and runs finalizers LIFO, exactly once.
-        let spills = fresh.close();
+        // members and runs finalizers LIFO, exactly once. The body's outcome
+        // is handed over, so an exit-aware finalizer can commit or roll back
+        // on success, failure, or interruption.
+        let scope_exit = crate::ScopeExit::from_result(&out);
+        let spills = fresh.close_with(&scope_exit);
         match out {
             Ok(value) => {
                 if spills.is_empty() {
@@ -301,7 +304,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> ErasedStep<A, E> for 
 
 /// Hands the fiber running this effect to the callback, then runs the effect
 /// the callback builds. The fiber comes from the ambient `FiberTag`; asking
-/// where no fiber exists is a defect, the port's fail-closed answer to
+/// where no fiber exists is a defect, the crate's fail-closed answer to
 /// missing context (`tx_retry` outside a transaction is the same shape).
 #[cfg(feature = "tokio")]
 struct WithFiber<A: Send + 'static, E: Send + 'static, R: Requirement, F> {
@@ -360,10 +363,10 @@ where
     }
 }
 
-/// `Effect.forkChild` at the pin: fork the wrapped effect on a child of the
+/// `Effect.forkChild` in Effect 4: fork the wrapped effect on a child of the
 /// fiber running this one and hand its handle back without waiting. The
 /// child inherits the parent's resolved services; its deferred start is the
-/// pin's default (a `yieldNow`, an await, or the parent's own completion
+/// Effect 4's default (a `yieldNow`, an await, or the parent's own completion
 /// fires it).
 #[cfg(feature = "tokio")]
 /// `Effect.acquireUseRelease` as a step.
@@ -404,7 +407,7 @@ where
         let services = crate::service::merged_services(scope, &env);
         let fiber = ambient_fiber(&services);
 
-        // Acquire: masked at the pin, so an interrupt requested here waits for
+        // Acquire: masked in Effect 4, so an interrupt requested here waits for
         // it to finish.
         let resource = match &fiber {
             Some(fiber) => fiber.with_masked(|| acquire.run_sync_with(&services)),
@@ -437,7 +440,7 @@ where
             Ok(Err(cause)) => Exit::Failure(cause),
             Err(payload) => Exit::Failure(Cause::die(crate::runtime::defect_from_panic(payload))),
         };
-        // Release: masked at the pin, so it runs to completion after an
+        // Release: masked in Effect 4, so it runs to completion after an
         // interrupt and is the last thing the region does.
         let released = match &fiber {
             Some(fiber) => {
@@ -514,7 +517,7 @@ where
     }
 }
 
-/// `Effect.awaitAllChildren` at the pin: wait for the children forked by the
+/// `Effect.awaitAllChildren` in Effect 4: wait for the children forked by the
 /// wrapped effect, then hand its outcome back.
 ///
 /// "Forked by the wrapped effect" is a snapshot taken before the body runs.
@@ -522,13 +525,13 @@ where
 /// effect, so it is never awaited.
 ///
 /// The wait polls the fiber's flag, so an interrupt ends it at once, unless a
-/// masked region holds the depth (the pin's uninterruptible await waits the
+/// masked region holds the depth (Effect 4's uninterruptible await waits the
 /// children out, then exits interrupted). A body failure is kept and the
 /// interrupt is appended to it, never substituted for it (L6).
 ///
 /// Ceiling: `FiberControl` stores each child's exit erased, so a child's
-/// failure is not re-raised by the parent; the pin does propagate it. No
-/// ledger row exercises that path.
+/// failure is not re-raised by the parent; Effect 4 does propagate it. No
+/// test exercises that path.
 #[cfg(feature = "tokio")]
 struct AwaitAllChildren<A: Send + 'static, E: Send + 'static, R: Requirement> {
     inner: Effect<A, E, R>,
@@ -580,7 +583,7 @@ where
     }
 }
 
-/// `Effect.uninterruptible` at the pin: raise the fiber's interruptibility
+/// `Effect.uninterruptible` in Effect 4: raise the fiber's interruptibility
 /// depth around the wrapped effect. A request made inside still records; only
 /// delivery waits for the depth to fall back to zero.
 #[cfg(feature = "tokio")]
@@ -704,6 +707,141 @@ where
                 Leg::Right(_) => unreachable!("the right leg answers once"),
             },
         }
+    }
+}
+
+/// `Effect.all` as a step: ordered fan-out over children of the running
+/// fiber, fail-fast on the first failure, bounded by the caller's
+/// [`Concurrency`](crate::Concurrency).
+#[cfg(feature = "tokio")]
+struct FanOut<A: Send + 'static, E: Send + 'static, R: Requirement> {
+    effects: Vec<Effect<A, E, R>>,
+    concurrency: crate::concurrency::Concurrency,
+    env: crate::service::Services,
+    marker: PhantomData<fn() -> (A, E, R)>,
+}
+
+#[cfg(feature = "tokio")]
+impl<A: Send + 'static, E: Send + 'static, R: Requirement> ErasedStep<Vec<A>, E>
+    for FanOut<A, E, R>
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<Vec<A>, Cause<E>> {
+        let Self {
+            effects,
+            concurrency,
+            env,
+            ..
+        } = *self;
+        let services = crate::service::merged_services(scope, &env);
+        let Some(fiber) = ambient_fiber(&services) else {
+            return Err(Cause::die(Defect::new(
+                "Effect::all outside a fiber: run the effect on the fiber the managed or static edge provides",
+            )));
+        };
+        let total = effects.len();
+        if total == 0 {
+            return Ok(Vec::new());
+        }
+        let bound = match concurrency {
+            crate::concurrency::Concurrency::Sequential
+            | crate::concurrency::Concurrency::Bounded(0) => 1,
+            crate::concurrency::Concurrency::Bounded(n) => n.min(total).max(1),
+            crate::concurrency::Concurrency::Unbounded => total,
+        };
+
+        // Lazy spawn: at most `bound` children are alive, so the peak in
+        // flight respects the bound by construction (no semaphore).
+        fn spawn_one<A: Send + 'static, E: Send + 'static, R: Requirement>(
+            pending: &mut std::iter::Enumerate<std::vec::IntoIter<Effect<A, E, R>>>,
+            live: &mut std::collections::HashMap<usize, crate::fiber::FiberHandle<A, E>>,
+            fiber: &crate::Fiber,
+            services: &crate::service::Services,
+        ) {
+            let Some((index, effect)) = pending.next() else {
+                return;
+            };
+            let handle = fiber.fork_effect_bound(
+                effect,
+                Arc::clone(services),
+                true,
+                Vec::new(),
+                crate::ForkOpts::immediate(),
+            );
+            live.insert(index, handle);
+        }
+
+        let mut pending = effects.into_iter().enumerate();
+        let mut live: std::collections::HashMap<usize, crate::fiber::FiberHandle<A, E>> =
+            std::collections::HashMap::new();
+        let mut results: Vec<Option<A>> = (0..total).map(|_| None).collect();
+        let mut finished = 0usize;
+        for _ in 0..bound {
+            spawn_one(&mut pending, &mut live, &fiber, &services);
+        }
+
+        loop {
+            // A pending interrupt ends the wait at once, except inside an
+            // uninterruptible region, which waits the children out.
+            if fiber.is_interrupted() && !fiber.is_masked() {
+                for handle in live.values() {
+                    handle.interrupt_unsafe();
+                }
+                for (_, handle) in live.drain() {
+                    let _ = handle.join();
+                }
+                return Err(Cause::interrupt(Some(fiber.id())));
+            }
+            if finished == total {
+                break;
+            }
+            let done: Vec<usize> = live
+                .iter()
+                .filter(|(_, handle)| handle.is_done())
+                .map(|(index, _)| *index)
+                .collect();
+            if done.is_empty() {
+                // Child completion and an interrupt both notify this signal,
+                // so this parks until the next answer, not a poll tick.
+                fiber.wait_change(&|| {
+                    live.values().any(|handle| handle.is_done())
+                        || (fiber.is_interrupted() && !fiber.is_masked())
+                });
+                continue;
+            }
+            for index in done {
+                let Some(handle) = live.remove(&index) else {
+                    continue;
+                };
+                finished += 1;
+                match handle.join() {
+                    Exit::Success(value) => {
+                        results[index] = Some(value);
+                        // No replacement once the parent is interrupted: the
+                        // next loop turn stops the remaining children.
+                        if !(fiber.is_interrupted() && !fiber.is_masked()) {
+                            spawn_one(&mut pending, &mut live, &fiber, &services);
+                        }
+                    }
+                    Exit::Failure(mut cause) => {
+                        // Fail fast: stop every live sibling, then wait for
+                        // their releases before returning the first failure.
+                        for handle in live.values() {
+                            handle.interrupt_unsafe();
+                        }
+                        for (_, handle) in live.drain() {
+                            if let Exit::Failure(tail) = handle.join() {
+                                cause.append_defects(tail.defects().into_iter().cloned().collect());
+                            }
+                        }
+                        return Err(cause);
+                    }
+                }
+            }
+        }
+        Ok(results
+            .into_iter()
+            .map(|value| value.expect("every fan-out child answered"))
+            .collect())
     }
 }
 
@@ -872,7 +1010,7 @@ where
     E: Send + 'static,
     R: Requirement,
 {
-    // A value-level source is ready when the race starts, and the pin's race
+    // A value-level source is ready when the race starts, and Effect 4's race
     // gives a ready source the tie against a zero-duration deadline (row 1864).
     // Reading that off the step rather than polling for it keeps the answer
     // deterministic under load. `Sync` is deliberately not in this set: a thunk
@@ -1103,7 +1241,7 @@ impl<E: Send + 'static> ErasedStep<(), E> for Sleep {
 }
 
 /// The handle `Effect::uninterruptible_mask` gives its callback: `restore` at
-/// the pin. Copy so a callback can use it in more than one arm.
+/// Effect 4. Copy so a callback can use it in more than one arm.
 #[cfg(feature = "tokio")]
 #[derive(Clone, Copy, Debug)]
 pub struct Restore;
@@ -1121,7 +1259,7 @@ impl Restore {
     }
 }
 
-/// `Effect.interruptible` at the pin: lower the fiber's interruptibility depth
+/// `Effect.interruptible` in Effect 4: lower the fiber's interruptibility depth
 /// by one (never below zero) around the wrapped effect. This is the `restore`
 /// half of `uninterruptibleMask`: inside an uninterruptible region it puts the
 /// wrapped effect back in reach of an interrupt, and the depth comes back on
@@ -1197,7 +1335,7 @@ pub struct Effect<A: Send + 'static, E: Send + 'static, R: Requirement = ()> {
 /// different `R`, and the call site would be one inference hole.
 #[cfg(feature = "tokio")]
 impl<E: Send + 'static> Effect<(), E, crate::service::Cons<crate::time::Clock, ()>> {
-    /// `Effect.sleep` at the pin: park until the ambient clock's deadline
+    /// `Effect.sleep` in Effect 4: park until the ambient clock's deadline
     /// passes, or until an interrupt arrives outside a masked region.
     ///
     /// The `Clock` requirement mirrors `timeoutOption`: a caller that provided
@@ -1215,7 +1353,7 @@ impl<E: Send + 'static> Effect<(), E, crate::service::Cons<crate::time::Clock, (
 /// The resume handle `Effect::callback` hands its registration closure.
 ///
 /// Clonable, so the completion can live on another thread. Completing twice is
-/// harmless: the first answer is the one the effect keeps, which is the pin's
+/// harmless: the first answer is the one the effect keeps, which is Effect 4's
 /// `resume` contract. A completion that arrives after the fiber was interrupted
 /// is ignored, because the effect already answered.
 #[cfg(feature = "tokio")]
@@ -1258,7 +1396,7 @@ impl<A: Send + 'static, E: Send + 'static> Resume<A, E> {
 /// Run an `onExit`-family callback, answering the defect when it panicked.
 ///
 /// The callback is taken exactly once (the slot is `None` afterwards). A
-/// panic here is the port's spelling of the pin's `throw` inside a finalizer:
+/// panic here is the crate's spelling of Effect 4's `throw` inside a finalizer:
 /// a defect that rides beside the body's own reasons instead of unwinding
 /// past the caller's `exit()`.
 fn run_finalizer<A, E, F>(
@@ -1347,10 +1485,10 @@ where
 /// constructor, not a transformation of an existing effect.
 #[cfg(feature = "tokio")]
 impl<A: Send + 'static, E: Send + 'static> Effect<A, E, ()> {
-    /// `Effect.callback` at the pin: hand the registration a [`Resume`] and
+    /// `Effect.callback` in Effect 4: hand the registration a [`Resume`] and
     /// park until it answers or the fiber is interrupted.
     ///
-    /// Ceiling: the pin's registration may return an effect that runs when the
+    /// Ceiling: Effect 4's registration may return an effect that runs when the
     /// fiber is interrupted (its `onInterrupt` cleanup); here the registration
     /// returns nothing, so a cleanup is the caller's `.on_interrupt(...)`.
     pub fn callback<F>(register: F) -> Self
@@ -1426,8 +1564,8 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
-    /// `Effect.fromOption` at the pin: `Some` succeeds, `None` fails with the
-    /// supplied error. The pin defaults to `NoSuchElementError`; this port
+    /// `Effect.fromOption` in Effect 4: `Some` succeeds, `None` fails with the
+    /// supplied error. Effect 4 defaults to `NoSuchElementError`; this crate
     /// takes the error builder explicitly, so no invented type stands in.
     pub fn from_option<F>(option: std::option::Option<A>, on_none: F) -> Self
     where
@@ -1439,7 +1577,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
-    /// `Effect.fromResult` at the pin: `Ok` succeeds, `Err` fails with its
+    /// `Effect.fromResult` in Effect 4: `Ok` succeeds, `Err` fails with its
     /// error. The typed error channel only; defects never enter here.
     pub fn from_result(result: std::result::Result<A, E>) -> Self {
         match result {
@@ -1448,7 +1586,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
-    /// `Effect.transposeOption` at the pin: `Some(effect)` maps the success
+    /// `Effect.transposeOption` in Effect 4: `Some(effect)` maps the success
     /// into `Some`, `None` succeeds with `None`. The inner effect is not run
     /// until interpreted, like every description.
     pub fn transpose_option(
@@ -1460,7 +1598,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
-    /// `Effect.filter` at the pin: keep the iterable's elements the
+    /// `Effect.filter` in Effect 4: keep the iterable's elements the
     /// predicate accepts, in iteration order. Lazy like every description:
     /// the predicate runs at interpretation, not at construction.
     pub fn filter<I, P>(elements: I, mut predicate: P) -> Effect<Vec<A>, std::convert::Infallible>
@@ -1471,7 +1609,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         Effect::sync(move || elements.into_iter().filter(|a| predicate(a)).collect())
     }
 
-    /// `Effect.filterMap` at the pin: the pin's `Filter` shape, a `Result`
+    /// `Effect.filterMap` in Effect 4: Effect 4's `Filter` shape, a `Result`
     /// selector. `Ok` keeps the mapped value, `Err` drops the element.
     pub fn filter_map<B, X, I, S>(
         elements: I,
@@ -1490,11 +1628,11 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         })
     }
 
-    /// `Effect.firstSuccessOf` at the pin: try each effect in order, take
+    /// `Effect.firstSuccessOf` in Effect 4: try each effect in order, take
     /// the first success, and fall through to the next on a clean typed
     /// failure (defects and interrupts pass through, as in `catch`). All
     /// effects failing leaves the last failure; an empty collection is a
-    /// defect, matching the pin's message.
+    /// defect, matching Effect 4's message.
     pub fn first_success_of(effects: Vec<Self>) -> Self {
         let mut rest = effects.into_iter().rev();
         let Some(mut succeed_with) = rest.next() else {
@@ -1506,7 +1644,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         succeed_with
     }
 
-    /// `Effect.onError` at the pin: run `finalizer` only on a clean typed
+    /// `Effect.onError` in Effect 4: run `finalizer` only on a clean typed
     /// `Fail`, then re-raise that failure unchanged. Defects and interrupts
     /// pass through untouched (the same fire condition as [`catch`]).
     pub fn on_error<F>(self, finalizer: F) -> Self
@@ -1519,11 +1657,11 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         })
     }
 
-    /// `Effect.ensuring` at the pin: run `finalizer` on every exit —
+    /// `Effect.ensuring` in Effect 4: run `finalizer` on every exit —
     /// success, typed failure, defect, and interrupt — then pass the exit
     /// through unchanged. Deliberately simple: the finalizer is a plain
     /// side effect, not an effect, so its own failure cannot append to the
-    /// cause (L6's append rule needs a merging error channel this port does
+    /// cause (L6's append rule needs a merging error channel this crate does
     /// not express). The rows this covers finalize with `Effect.sync`.
     pub fn ensuring<F>(self, finalizer: F) -> Self
     where
@@ -1548,19 +1686,19 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
-    /// `Effect.scoped` at the pin: run `self` in a fresh [`Scope`], close that
+    /// `Effect.scoped` in Effect 4: run `self` in a fresh [`Scope`], close that
     /// scope when the run ends (success, typed failure, defect, or interrupt),
     /// and strip the scope tag from the requirements. The body reaches the
     /// fresh scope with `use_service::<ScopeTag>()`.
     ///
-    /// Rust substitution for the pin's `Exclude<R, Scope>`: the tag is the
+    /// Rust substitution for Effect 4's `Exclude<R, Scope>`: the tag is the
     /// head of `R`, so the requirement tuple is ordered by provision, as
     /// everywhere else in this crate.
     ///
-    /// Two differences from the pin worth naming. The pin hands the exit to
+    /// Two differences from Effect 4 worth naming. Effect 4 hands the exit to
     /// the close so a finalizer can inspect it; [`Scope`] finalizers here are
     /// exit-blind by construction. And interruption is cooperative here: the
-    /// pin's `scoped` closes on an interrupt delivered mid-body, while this
+    /// Effect 4's `scoped` closes on an interrupt delivered mid-body, while this
     /// one closes as soon as the body's steps return the interrupt as a
     /// cause. A fiber interrupted while its effect is in flight reaches
     /// [`Ctx::add_finalizer`](crate::Ctx::add_finalizer) instead.
@@ -1580,18 +1718,18 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
-    /// `Effect.withFiber` at the pin: hand the fiber currently running this
+    /// `Effect.withFiber` in Effect 4: hand the fiber currently running this
     /// effect to `f`, and run the effect `f` builds in the same environment.
-    /// The pin's callback receives the fiber object; here it receives a
+    /// Effect 4's callback receives the fiber object; here it receives a
     /// [`Fiber`](crate::Fiber) handle (identity and the interrupt flag),
-    /// because this port keeps no mutable per-fiber context for the pin's
+    /// because this crate keeps no mutable per-fiber context for Effect 4's
     /// `fiber.context`.
     ///
-    /// Where the fiber comes from: the spawn seams that run an effect on a
-    /// fiber's behalf, [`Ctx::spawn_effect`](crate::Ctx::spawn_effect) and
-    /// [`Runtime::spawn_effect`](crate::Runtime::spawn_effect). Outside those
-    /// (a bare `run_sync`, or `Runtime::run`, which executes on the calling
-    /// thread) there is no fiber, and asking is a defect rather than a
+    /// Where the fiber comes from: every runtime edge runs the effect on a
+    /// fiber ([`Runtime::run`](crate::Runtime::run) included), and the spawn
+    /// seams ([`Ctx::spawn_effect`](crate::Ctx::spawn_effect),
+    /// [`Runtime::spawn_effect`](crate::Runtime::spawn_effect)) do too. Only a
+    /// direct `run_sync` has none, and asking there is a defect rather than a
     /// silent stand-in. Nested `with_fiber` sees the same fiber.
     #[cfg(feature = "tokio")]
     pub fn with_fiber<F>(f: F) -> Self
@@ -1625,9 +1763,9 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
-    /// `Effect.forkChild` at the pin: run this effect on a child fiber of the
+    /// `Effect.forkChild` in Effect 4: run this effect on a child fiber of the
     /// one executing the current effect, and hand back its handle at once.
-    /// The child is deferred, as the pin's default is: it starts when the
+    /// The child is deferred, as Effect 4's default is: it starts when the
     /// parent next yields (a join, an interrupt, an `await_all_children`, or
     /// the parent's own completion). It dies with the parent.
     ///
@@ -1646,7 +1784,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         self.fork_with(true, ForkScopes::None, crate::ForkOpts::immediate())
     }
 
-    /// `Effect.forkDetach` at the pin: a daemon child. It starts at once, it
+    /// `Effect.forkDetach` in Effect 4: a daemon child. It starts at once, it
     /// does not die with this fiber, and this fiber's completion does not wait
     /// for it.
     #[cfg(feature = "tokio")]
@@ -1654,7 +1792,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         self.fork_with(false, ForkScopes::None, crate::ForkOpts::immediate())
     }
 
-    /// `Effect.forkIn(scope)` at the pin: a child bound to `scope`, so closing
+    /// `Effect.forkIn(scope)` in Effect 4: a child bound to `scope`, so closing
     /// the scope interrupts it and runs its finalizers.
     #[cfg(feature = "tokio")]
     pub fn fork_in(
@@ -1664,11 +1802,11 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         self.fork_with(true, ForkScopes::Given(scope), crate::ForkOpts::immediate())
     }
 
-    /// `Effect.forkScoped` at the pin: a child bound to the ambient scope.
+    /// `Effect.forkScoped` in Effect 4: a child bound to the ambient scope.
     ///
     /// The scope comes from `Effect::scoped`, which is the only thing that
-    /// installs [`ScopeTag`](crate::scope::ScopeTag); the pin's `Scope.provide`
-    /// is that wrap here, since this port has no ambient service layer to
+    /// installs [`ScopeTag`](crate::scope::ScopeTag); Effect 4's `Scope.provide`
+    /// is that wrap here, since this crate has no ambient service layer to
     /// provide a scope into.
     #[cfg(feature = "tokio")]
     pub fn fork_scoped(
@@ -1710,7 +1848,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
-    /// `Effect.awaitAllChildren` at the pin: wait for the children this effect
+    /// `Effect.awaitAllChildren` in Effect 4: wait for the children this effect
     /// forked, then hand its value (or its cause) back. A child forked before
     /// this effect ran belongs to an enclosing scope and is not awaited.
     ///
@@ -1729,10 +1867,10 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
-    /// `Effect.uninterruptible` at the pin: run this effect with the fiber's
+    /// `Effect.uninterruptible` in Effect 4: run this effect with the fiber's
     /// interruptibility depth raised by one. A single combinator, no region
-    /// callback: the pin's `uninterruptibleMask(restore => ...)` needs a
-    /// `restore` this port has no `interruptible` counterpart for yet.
+    /// callback: Effect 4's `uninterruptibleMask(restore => ...)` needs a
+    /// `restore` this crate has no `interruptible` counterpart for yet.
     #[cfg(feature = "tokio")]
     pub fn uninterruptible(self) -> Self {
         Effect {
@@ -1745,7 +1883,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
-    /// `Effect.zip(..., { concurrent: true })` at the pin: run both legs at
+    /// `Effect.zip(..., { concurrent: true })` in Effect 4: run both legs at
     /// once and pair their values.
     ///
     /// The first failure interrupts the other leg and wins, which is the
@@ -1769,7 +1907,47 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
-    /// `Effect.race` at the pin: run both effects at once and answer with the
+    /// `Effect.all` in Effect 4: run every effect on a child of the fiber
+    /// executing this one and collect the successes in input order.
+    ///
+    /// The first failure interrupts and releases every live sibling before it
+    /// is returned; siblings that never started do not run. The fan-out needs
+    /// a fiber to fork from, so it is a defect outside one (use
+    /// [`Runtime::run`](crate::Runtime::run) or a managed runtime at the
+    /// edge, both of which run the effect on a fiber).
+    ///
+    /// Concurrency is [`Concurrency`](crate::Concurrency): `Sequential` runs
+    /// one child at a time, `Bounded(n)` keeps at most `n` alive, and
+    /// `Unbounded` starts every child at once. Child failures are not merged
+    /// into the winner's cause; only its own cleanup defects are.
+    #[cfg(feature = "tokio")]
+    pub fn all(
+        effects: Vec<Effect<A, E, R>>,
+        concurrency: crate::concurrency::Concurrency,
+    ) -> Effect<Vec<A>, E, R> {
+        let env = crate::service::empty_services();
+        Effect::suspend_op(
+            FanOut {
+                effects,
+                concurrency,
+                env,
+                marker: PhantomData,
+            },
+            crate::service::empty_services(),
+        )
+    }
+
+    /// `Effect.all(..., { discard: true })` in Effect 4: the same fan-out with
+    /// every result dropped. A failure still fails the run.
+    #[cfg(feature = "tokio")]
+    pub fn all_discard(
+        effects: Vec<Effect<A, E, R>>,
+        concurrency: crate::concurrency::Concurrency,
+    ) -> Effect<(), E, R> {
+        Effect::all(effects, concurrency).map(|_| ())
+    }
+
+    /// `Effect.race` in Effect 4: run both effects at once and answer with the
     /// first SUCCESS. A failure does not beat a later success; when both fail,
     /// their reasons are concatenated in that order. The loser is interrupted
     /// and released before this returns.
@@ -1788,7 +1966,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
-    /// `Effect.raceFirst` at the pin: the first settlement wins, success or
+    /// `Effect.raceFirst` in Effect 4: the first settlement wins, success or
     /// failure, and the other side is interrupted and released.
     #[cfg(feature = "tokio")]
     pub fn race_first(self, other: Effect<A, E, R>) -> Self {
@@ -1805,7 +1983,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
-    /// `Effect.timeoutOption` at the pin: run the effect against the clock
+    /// `Effect.timeoutOption` in Effect 4: run the effect against the clock
     /// service's deadline. `Some(value)` when it finishes first, `None` when
     /// the deadline wins (the body is interrupted and released before this
     /// returns).
@@ -1826,7 +2004,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
-    /// `Effect.timeoutOrElse` at the pin: same race as
+    /// `Effect.timeoutOrElse` in Effect 4: same race as
     /// [`timeout_option`](Self::timeout_option), but the deadline runs the
     /// caller's own effect — which is how a timeout dies or fails on its own
     /// terms instead of being mapped to `None`, and how a pending fallback can
@@ -1852,11 +2030,11 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
-    /// `Effect.forever` at the pin: run the effect the factory builds, over
+    /// `Effect.forever` in Effect 4: run the effect the factory builds, over
     /// and over, until one run fails.
     ///
-    /// A factory rather than a value because this port's descriptions are
-    /// one-shot (a step owns its continuation); the pin can reuse a value.
+    /// A factory rather than a value because this crate's descriptions are
+    /// one-shot (a step owns its continuation); Effect 4 can reuse a value.
     ///
     /// The repeat boundary is where an interrupt lands: a body may be
     /// uninterruptible, but it cannot make the next iteration start.
@@ -1875,10 +2053,10 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
-    /// `Effect.uninterruptibleMask` at the pin: run `f` masked and hand it a
+    /// `Effect.uninterruptibleMask` in Effect 4: run `f` masked and hand it a
     /// [`Restore`] that puts one effect back in reach of an interrupt.
     ///
-    /// The pin's callback shape is kept because it is the only way to express
+    /// Effect 4's callback shape is kept because it is the only way to express
     /// "masked except here": a plain `uninterruptible` around a plain
     /// `interruptible` cannot name the single region.
     #[cfg(feature = "tokio")]
@@ -1889,7 +2067,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         Effect::suspend(move || f(Restore)).uninterruptible()
     }
 
-    /// `Effect.interruptible` at the pin: the `restore` half of an
+    /// `Effect.interruptible` in Effect 4: the `restore` half of an
     /// uninterruptible region. The depth drops by one for the wrapped effect
     /// and comes back afterwards, so an interrupt requested while masked is
     /// delivered as soon as the region is entered.
@@ -1905,22 +2083,22 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
-    /// `Effect.acquireUseRelease` at the pin: acquire a resource, run `use`
+    /// `Effect.acquireUseRelease` in Effect 4: acquire a resource, run `use`
     /// with it, then release it whatever the use did.
     ///
-    /// Masking follows the pin phase by phase: the acquire and the release are
+    /// Masking follows Effect 4 phase by phase: the acquire and the release are
     /// uninterruptible, the use is not. So an interrupt that lands during the
     /// acquire still completes it, the use is then skipped, and the release
     /// runs anyway (row 315). A caller that wraps the whole thing in
     /// `uninterruptible` defers that interrupt past the use instead (row 370).
     ///
     /// The release receives the resource and the use's [`Exit`], which is how
-    /// the pin lets a cleanup react to how the body ended. A panicking use
+    /// Effect 4 lets a cleanup react to how the body ended. A panicking use
     /// becomes a defect in that exit, and the release still runs. When both
-    /// the use and the release fail, both are kept (the pin's `Cause.combine`).
+    /// the use and the release fail, both are kept (Effect 4's `Cause.combine`).
     ///
     /// `E: PartialEq` because merging two failures is `Cause::combine`, which
-    /// dedups equal reasons - the pin's own `Equal`/`Hash` rule.
+    /// dedups equal reasons - Effect 4's own `Equal`/`Hash` rule.
     pub fn acquire_use_release<B, U, Rel>(self, use_fn: U, release_fn: Rel) -> Effect<B, E, R>
     where
         A: Clone + Send + 'static,
@@ -1942,14 +2120,14 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
-    /// `Effect.onExit` at the pin: observe the finished exit, then pass the
+    /// `Effect.onExit` in Effect 4: observe the finished exit, then pass the
     /// original outcome through unchanged. The callback sees exactly the
     /// `Exit` a caller would (success, typed failure, defect, or interrupt),
     /// and the effect's own `A` and `E` are preserved. Exactly one call
     /// happens: the shared slot is taken in whichever arm runs.
     ///
     /// The callback borrows the exit rather than owning it, so no `Clone`
-    /// bound on `E` is imposed (the pin hands the exit over by value; a
+    /// bound on `E` is imposed (Effect 4 hands the exit over by value; a
     /// shared reference carries the same observable claim).
     ///
     /// A panicking callback is a defect, the way a panicking body is: the
@@ -1978,7 +2156,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
                 match exit {
                     Exit::Failure(mut cause) => {
                         // The finalizer's own defect rides beside the body's
-                        // reasons, after them, as the pin combines the two.
+                        // reasons, after them, as Effect 4 combines the two.
                         if let Some(defect) = defect {
                             cause.reasons.push(Reason::Die(defect));
                         }
@@ -1990,7 +2168,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
-    /// `Effect.onErrorIf` at the pin: run the finalizer only on a failure
+    /// `Effect.onErrorIf` in Effect 4: run the finalizer only on a failure
     /// whose cause passes `predicate`. Successes, and failures the
     /// predicate declines, skip it; the outcome passes through unchanged.
     pub fn on_error_if<P, F>(self, mut predicate: P, f: F) -> Self
@@ -2007,7 +2185,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         })
     }
 
-    /// `Effect.onErrorFilter` at the pin: the `Filter` shape over the
+    /// `Effect.onErrorFilter` in Effect 4: the `Filter` shape over the
     /// failure cause. `Ok(pass)` hands the pass value and the cause to the
     /// finalizer; `Err` and success exits skip it.
     pub fn on_error_filter<B, X, S, F>(self, selector: S, f: F) -> Self
@@ -2025,7 +2203,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         })
     }
 
-    /// `Effect.onExitIf` at the pin: run the finalizer only when the exit
+    /// `Effect.onExitIf` in Effect 4: run the finalizer only when the exit
     /// passes `predicate`. The exit itself decides, so a success exit can
     /// carry its own finalizer.
     pub fn on_exit_if<P, F>(self, mut predicate: P, f: F) -> Self
@@ -2040,7 +2218,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         })
     }
 
-    /// `Effect.onExitFilter` at the pin: the `Filter` shape over the exit.
+    /// `Effect.onExitFilter` in Effect 4: the `Filter` shape over the exit.
     /// `Ok(pass)` hands the pass value and the original exit to the
     /// finalizer; `Err` skips it.
     pub fn on_exit_filter<B, X, S, F>(self, selector: S, f: F) -> Self
@@ -2077,7 +2255,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         })
     }
 
-    /// `Effect.catchIf` at the pin: recover a clean typed failure only when
+    /// `Effect.catchIf` in Effect 4: recover a clean typed failure only when
     /// `predicate` accepts the error. A rejected error is re-raised, so the
     /// combinator never recovers an error it did not name.
     pub fn catch_if<P, F>(self, mut predicate: P, handler: F) -> Self
@@ -2094,7 +2272,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         })
     }
 
-    /// `Effect.catchIf` with the pin's third argument: a refinement that
+    /// `Effect.catchIf` with Effect 4's third argument: a refinement that
     /// declines the error hands it to `or_else` instead of re-raising it.
     /// The declared error type already covers both branches, so `or_else`
     /// receives `E` and nothing is widened.
@@ -2145,7 +2323,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     ///
     /// The handler for the failure's tag runs; a tag with no handler hands the
     /// failure to `or_else`, so the combinator never swallows a failure it did
-    /// not name. The pin's two forms are this one call: one handler listed
+    /// not name. Effect 4's two forms are this one call: one handler listed
     /// under several tags is its array form, distinct handlers its record form.
     pub fn catch_tags<G>(
         self,
@@ -2223,7 +2401,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
-    /// `Effect.onInterrupt` at the pin: run `f` when the effect ends
+    /// `Effect.onInterrupt` in Effect 4: run `f` when the effect ends
     /// interrupted, then pass the exit through unchanged.
     ///
     /// Built on `on_exit` on purpose: an interrupt requested from outside ends
@@ -2244,7 +2422,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         })
     }
 
-    /// `Effect.sandbox` at the pin: reify the whole cause as a typed failure,
+    /// `Effect.sandbox` in Effect 4: reify the whole cause as a typed failure,
     /// so a caller can inspect a defect or an interrupt through the error
     /// channel.
     ///
@@ -2258,7 +2436,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         self.fold_e(Effect::succeed, Effect::fail)
     }
 
-    /// `Effect.flip` at the pin: swap the success and the typed failure.
+    /// `Effect.flip` in Effect 4: swap the success and the typed failure.
     ///
     /// Only a clean single typed failure becomes a value; a cause that also
     /// carries a defect or an interrupt has no `E` to hand back, so it stays
@@ -2281,7 +2459,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
-    /// `Effect.catchCauseIf` at the pin: recover from any failure whose
+    /// `Effect.catchCauseIf` in Effect 4: recover from any failure whose
     /// whole cause passes `predicate`. A declined cause is re-raised
     /// unchanged, every reason preserved.
     pub fn catch_cause_if<P, F>(self, mut predicate: P, handler: F) -> Self
@@ -2298,7 +2476,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         })
     }
 
-    /// `Effect.catchCauseFilter` at the pin: the pin's `Filter` shape, a
+    /// `Effect.catchCauseFilter` in Effect 4: Effect 4's `Filter` shape, a
     /// `Result` selector over the cause. `Ok(pass)` routes the cause to the
     /// handler; `Err` declines and re-raises the cause unchanged.
     pub fn catch_cause_filter<B, X, S, H>(self, selector: S, handler: H) -> Self
@@ -2313,7 +2491,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         })
     }
 
-    /// `Effect.tapCauseIf` at the pin: observe the cause of any failure the
+    /// `Effect.tapCauseIf` in Effect 4: observe the cause of any failure the
     /// predicate accepts, then re-raise it unchanged. A success never
     /// presents a cause, so the observer stays out of the way.
     pub fn tap_cause_if<P, F>(self, predicate: P, f: F) -> Self
@@ -2327,7 +2505,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         })
     }
 
-    /// `Effect.tapCauseFilter` at the pin: the `Filter` shape over the
+    /// `Effect.tapCauseFilter` in Effect 4: the `Filter` shape over the
     /// cause. The observer receives the selector's pass value and the
     /// cause; a declined cause is re-raised without observation.
     pub fn tap_cause_filter<B, X, S, F>(self, selector: S, f: F) -> Self
@@ -2370,7 +2548,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
-    /// `Effect.suspend` at the pin: build the description only when it is
+    /// `Effect.suspend` in Effect 4: build the description only when it is
     /// interpreted. That is what makes a recursive description finite to
     /// build, and what lets the interpreter run its chain without growing the
     /// call stack (row 2713).
@@ -2482,7 +2660,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
-    /// `Effect.mapError` at the pin: translate the typed failure channel.
+    /// `Effect.mapError` in Effect 4: translate the typed failure channel.
     ///
     /// The direction a service read needs. `use_service::<T>()` is
     /// `Infallible`, because resolving a tag either succeeds or is a defect;
@@ -2505,7 +2683,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
-    /// Re-raise a cause verbatim (`Effect.failCause` at the pin): every
+    /// Re-raise a cause verbatim (`Effect.failCause` in Effect 4): every
     /// reason survives unchanged, so a `Fail` stays a typed failure and a
     /// `Die` stays a defect.
     ///
@@ -2579,7 +2757,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
             // A failure that is already in hand keeps its own reasons and
             // gains the interrupt; only a value is discarded. Replacing the
             // cause would lose the body's failure at exactly the boundary the
-            // pin keeps both (a failure held while awaiting children).
+            // Effect 4 keeps both (a failure held while awaiting children).
             if let Some(fiber) = &fiber
                 && fiber.is_interrupted()
                 && !fiber.is_masked()
@@ -2686,66 +2864,13 @@ where
 
 /// An infallible description satisfies any error channel vacuously: the
 /// step cannot fail, so the target `E` is a widening, not a claim. The
-/// pin gets this from variance over `never`; Rust states it.
+/// Effect 4 gets this from variance over `never`; Rust states it.
 pub fn widen_infallible<E, A>(effect: Effect<A, std::convert::Infallible, ()>) -> Effect<A, E, ()>
 where
     A: Send + 'static,
     E: Send + 'static,
 {
     effect.map_err(|never| match never {})
-}
-
-#[cfg(feature = "stm")]
-impl<A: Send + 'static, E: Send + 'static> Effect<A, E, ()> {
-    /// `Effect.tx` at the pin: the outermost call opens a transaction
-    /// boundary. Writes to transactional refs made inside the body stage
-    /// on those refs and publish together when the body succeeds; a
-    /// failure that escapes the boundary discards them. A nested `tx`
-    /// inside a running boundary composes into it — the same journal, no
-    /// inner boundary — so a failure caught inside the body is an
-    /// ordinary value and its writes survive with it.
-    ///
-    /// A body that calls [`tx_retry`](Self::tx_retry), or whose read set
-    /// went stale while it ran, is parked on its read set and run again
-    /// when a commit moves it: the boundary's loop is optimistic
-    /// concurrency, one attempt per commit of a ref it read.
-    ///
-    /// The body is a factory because this port's descriptions are
-    /// single-shot: running consumes one, so an attempt loop needs a
-    /// fresh build per attempt (the pin re-runs one value; Rust rebuilds
-    /// it). The boundary is likewise staged per interpretation — running
-    /// the same `tx` description twice opens two boundaries with two
-    /// journals.
-    pub fn tx<F>(build: F) -> Self
-    where
-        F: Fn() -> Effect<A, E, ()> + Send + 'static,
-    {
-        Effect::suspend_op(
-            crate::stm::TxBoundary {
-                build: Box::new(build),
-                env: crate::service::empty_services(),
-                marker: std::marker::PhantomData,
-            },
-            crate::service::empty_services(),
-        )
-    }
-
-    /// `Effect.txRetry` at the pin: mark the running boundary for
-    /// another attempt and interrupt the body. The boundary's loop parks
-    /// on its read set and reruns when a commit moves it. Outside a
-    /// boundary it is a defect, the port's fail-closed answer to missing
-    /// context.
-    pub fn tx_retry() -> Self {
-        widen_infallible(crate::service::read_reference(&crate::stm::TX_CURRENT)).flat_map(
-            |current| match current {
-                Some(tx) => {
-                    tx.set_retry();
-                    Effect::interrupt()
-                }
-                None => Effect::die(Defect::new("txRetry outside a transaction")),
-            },
-        )
-    }
 }
 
 #[cfg(test)]
@@ -2804,6 +2929,28 @@ mod tests {
         });
         assert_eq!(f.run_sync(), Err(Cause::fail("no".to_string())));
         assert_eq!(m.load(Ordering::SeqCst), 0);
+    }
+
+    #[cfg(feature = "tokio")]
+    #[test]
+    fn with_fiber_outside_a_fiber_is_a_defect() {
+        // The public edge now always runs on a fiber, but the interpreter can
+        // still be driven directly (`run_sync`); the fault path stays
+        // fail-closed rather than inventing a stand-in fiber.
+        let (n, bump) = calls();
+        let e: Effect<u64, String> = Effect::with_fiber(move |_| {
+            bump();
+            Effect::<u64, String>::succeed(1)
+        });
+        match e.run_sync() {
+            Err(cause) => {
+                assert!(cause.failure().is_none());
+                assert_eq!(cause.defects().len(), 1);
+                assert!(cause.defects()[0].message.contains("outside a fiber"));
+            }
+            Ok(_) => panic!("a fiberless run must refuse before calling the body"),
+        }
+        assert_eq!(n.load(Ordering::SeqCst), 0);
     }
 
     #[test]

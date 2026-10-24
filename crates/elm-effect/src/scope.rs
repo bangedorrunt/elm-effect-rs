@@ -8,6 +8,13 @@
 //!   reason (L6). Finalizers run masked: cancellation requested mid-release
 //!   runs the release to completion, then takes effect (L7).
 //!
+//! Either kind can be exit-aware. A release registered with
+//! [`Scope::add_finalizer_with_exit`] or
+//! [`Scope::add_finalizer_effect_with_exit`] sees the scope's [`ScopeExit`]
+//! and can commit or roll back on success, failure, or interruption. The exit
+//! is erased of the success value and the typed error, because a release
+//! needs the shape of the outcome (and its defects), not the `E` value.
+//!
 //! `Drop` closes the scope, so it is the release path only for resources
 //! whose finalizers need no `.await`: everything here runs synchronously.
 
@@ -18,7 +25,7 @@ use std::sync::{
 };
 
 use crate::fiber::FiberControl;
-use crate::{Cause, Defect, Effect, Reason};
+use crate::{Cause, Defect, Effect, Exit, Reason};
 
 /// How long a close waits for interrupted members to finish their releases
 /// before running the scope's own finalizers. A member may use a resource
@@ -26,9 +33,117 @@ use crate::{Cause, Defect, Effect, Reason};
 /// hanging on a body that ignores interruption.
 const CLOSE_JOIN_BUDGET: std::time::Duration = std::time::Duration::from_secs(5);
 
+/// How a scope saw its body end. `Unknown` is the honest answer for an
+/// explicit [`Scope::close`] or a `Drop`, where no body exit exists.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ScopeOutcome {
+    /// The body succeeded.
+    Success,
+    /// The body failed: typed failure, defect, interrupt, or a mix.
+    Failure,
+    /// The scope closed without observing a body exit.
+    Unknown,
+}
+
+/// The exit a scope's finalizers can inspect, erased of the success value and
+/// the typed error. `failures` counts typed `Fail` reasons; `defects` keeps
+/// the unexpected failures concrete, so a release can report them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ScopeExit {
+    outcome: ScopeOutcome,
+    failures: usize,
+    interrupted: bool,
+    defects: Vec<Defect>,
+}
+
+impl ScopeExit {
+    /// A successful body exit.
+    pub fn success() -> Self {
+        Self {
+            outcome: ScopeOutcome::Success,
+            failures: 0,
+            interrupted: false,
+            defects: Vec::new(),
+        }
+    }
+
+    /// No body exit to report (a direct close or a `Drop`).
+    pub fn unknown() -> Self {
+        Self {
+            outcome: ScopeOutcome::Unknown,
+            failures: 0,
+            interrupted: false,
+            defects: Vec::new(),
+        }
+    }
+
+    /// Erase a finished [`Exit`]. Typed failures are counted, defects kept,
+    /// and an interrupt recorded without discarding any other reason.
+    pub fn from_exit<A, E>(exit: &Exit<A, E>) -> Self {
+        match exit {
+            Exit::Success(_) => Self::success(),
+            Exit::Failure(cause) => Self::from_cause(cause),
+        }
+    }
+
+    /// Erase a run result (what `Effect::scoped` holds at close time).
+    pub fn from_result<A, E>(result: &Result<A, Cause<E>>) -> Self {
+        match result {
+            Ok(_) => Self::success(),
+            Err(cause) => Self::from_cause(cause),
+        }
+    }
+
+    fn from_cause<E>(cause: &Cause<E>) -> Self {
+        Self {
+            outcome: ScopeOutcome::Failure,
+            failures: cause
+                .reasons
+                .iter()
+                .filter(|reason| matches!(reason, Reason::Fail(_)))
+                .count(),
+            interrupted: cause
+                .reasons
+                .iter()
+                .any(|reason| matches!(reason, Reason::Interrupt { .. })),
+            defects: cause.defects().into_iter().cloned().collect(),
+        }
+    }
+
+    /// The outcome shape.
+    pub fn outcome(&self) -> ScopeOutcome {
+        self.outcome
+    }
+
+    /// True only for [`ScopeOutcome::Success`].
+    pub fn is_success(&self) -> bool {
+        self.outcome == ScopeOutcome::Success
+    }
+
+    /// True for [`ScopeOutcome::Failure`].
+    pub fn is_failure(&self) -> bool {
+        self.outcome == ScopeOutcome::Failure
+    }
+
+    /// True when the body's cause carried an interrupt, even beside a failure.
+    pub fn is_interrupted(&self) -> bool {
+        self.interrupted
+    }
+
+    /// How many typed `Fail` reasons the body carried.
+    pub fn failures(&self) -> usize {
+        self.failures
+    }
+
+    /// Defects the body carried, in order.
+    pub fn defects(&self) -> &[Defect] {
+        &self.defects
+    }
+}
+
 enum Finalizer {
-    Sync(Box<dyn FnOnce() + Send>),
-    Effect(Box<dyn FnOnce() -> Option<Defect> + Send>),
+    Sync(Box<dyn FnOnce(&ScopeExit) + Send>),
+    Effect(Box<dyn FnOnce(&ScopeExit) -> Option<Defect> + Send>),
 }
 
 /// Run an effect finalizer, rendering failure to a [`Defect`].
@@ -87,6 +202,10 @@ pub struct Scope {
     closed: AtomicBool,
     finalizers: Mutex<Vec<Finalizer>>,
     members: Mutex<Vec<Weak<FiberControl>>>,
+    /// The exit this scope closed with, so a finalizer registered after close
+    /// sees the same outcome. `None` before close and during the instant
+    /// between claiming the close and recording it.
+    close_exit: Mutex<Option<ScopeExit>>,
 }
 
 impl Scope {
@@ -98,6 +217,7 @@ impl Scope {
             closed: AtomicBool::new(false),
             finalizers: Mutex::new(Vec::new()),
             members: Mutex::new(Vec::new()),
+            close_exit: Mutex::new(None),
         }
     }
 
@@ -137,10 +257,29 @@ impl Scope {
     /// Register a sync finalizer. Runs LIFO at close; never runs twice.
     /// Registration after close runs inline.
     pub fn add_finalizer(&self, f: impl FnOnce() + Send + 'static) {
+        self.add_finalizer_with_exit(move |_| f());
+    }
+
+    /// Register a sync finalizer that sees how the scope's body ended. Same
+    /// LIFO, once-only, and inline-after-close rules as
+    /// [`add_finalizer`](Self::add_finalizer). The exit is
+    /// [`ScopeExit::unknown`] when the scope is closed directly or by `Drop`,
+    /// so a release that must act on a body outcome checks
+    /// [`ScopeExit::is_failure`] rather than assuming success.
+    pub fn add_finalizer_with_exit(&self, f: impl FnOnce(&ScopeExit) + Send + 'static) {
         let mut guard = self.finalizers.lock().unwrap();
         if self.closed.load(Ordering::SeqCst) {
             drop(guard);
-            f();
+            // A registration that races the close can land between the
+            // closed flag and the recorded exit; `Unknown` is the honest
+            // answer for that instant, not a guess at success.
+            let exit = self
+                .close_exit
+                .lock()
+                .unwrap()
+                .clone()
+                .unwrap_or_else(ScopeExit::unknown);
+            f(&exit);
         } else {
             guard.push(Finalizer::Sync(Box::new(f)));
         }
@@ -160,12 +299,35 @@ impl Scope {
     where
         E: Send + 'static + std::fmt::Debug,
     {
+        self.add_finalizer_effect_with_exit(move |_| fin())
+    }
+
+    /// Register an effect finalizer that sees how the scope's body ended.
+    /// Same LIFO, once-only, masking, and inline-after-close rules as
+    /// [`add_finalizer_effect`](Self::add_finalizer_effect). A late run sees
+    /// the recorded exit (or [`ScopeExit::unknown`] in the instant before it
+    /// is recorded) and returns its defect instead of dropping it.
+    pub fn add_finalizer_effect_with_exit<E>(
+        &self,
+        fin: impl FnOnce(&ScopeExit) -> Effect<(), E> + Send + 'static,
+    ) -> Option<Defect>
+    where
+        E: Send + 'static + std::fmt::Debug,
+    {
         let mut guard = self.finalizers.lock().unwrap();
         if self.closed.load(Ordering::SeqCst) {
             drop(guard);
-            render(fin)
+            let exit = self
+                .close_exit
+                .lock()
+                .unwrap()
+                .clone()
+                .unwrap_or_else(ScopeExit::unknown);
+            render(|| fin(&exit))
         } else {
-            guard.push(Finalizer::Effect(Box::new(move || render(fin))));
+            guard.push(Finalizer::Effect(Box::new(move |exit| {
+                render(|| fin(exit))
+            })));
             None
         }
     }
@@ -224,25 +386,34 @@ impl Scope {
         self.members.lock().unwrap().push(Arc::downgrade(fiber));
     }
 
-    /// Close once: interrupt members first, then run finalizers LIFO.
-    /// Returns effect-finalizer failures for the supervisor to append.
-    /// Late registrations run inline with the same accounting.
+    /// Close once without a body exit. Finalizers registered with
+    /// [`add_finalizer_with_exit`](Self::add_finalizer_with_exit) see
+    /// [`ScopeExit::unknown`]. Prefer [`close_with`](Self::close_with) when
+    /// the caller has the body's outcome.
+    pub fn close(&self) -> Vec<Defect> {
+        self.close_with(&ScopeExit::unknown())
+    }
+
+    /// Close once with the body's exit: interrupt members first, then run
+    /// finalizers LIFO. Returns effect-finalizer failures for the supervisor
+    /// to append. Late registrations run inline with the same accounting.
     ///
     /// Masks the current thread's fiber itself (L7): direct close, `Drop`,
     /// layer-failure, and dispose paths all run finalizers uninterruptibly,
     /// not just the runtime fiber-completion path. Off-fiber threads run
     /// sync finalizers to completion anyway, so there is nothing to mask.
-    pub fn close(&self) -> Vec<Defect> {
+    pub fn close_with(&self, exit: &ScopeExit) -> Vec<Defect> {
         if self.closed.swap(true, Ordering::SeqCst) {
             return Vec::new();
         }
-        match FiberControl::with_current_masked(|| self.close_inner()) {
+        *self.close_exit.lock().unwrap() = Some(exit.clone());
+        match FiberControl::with_current_masked(|| self.close_inner(exit)) {
             Some(spills) => spills,
-            None => self.close_inner(),
+            None => self.close_inner(exit),
         }
     }
 
-    fn close_inner(&self) -> Vec<Defect> {
+    fn close_inner(&self, exit: &ScopeExit) -> Vec<Defect> {
         let members = std::mem::take(&mut *self.members.lock().unwrap());
         let closing = FiberControl::current_id();
         let mut live = Vec::new();
@@ -261,7 +432,7 @@ impl Scope {
             }
         }
         // Wait for the interrupted members before releasing the scope's own
-        // resources: a member's release may still need them. The pin waits
+        // resources: a member's release may still need them. Effect 4 waits
         // without a bound; the bound here is the price of a blocking Drop.
         let deadline = std::time::Instant::now() + CLOSE_JOIN_BUDGET;
         let mut stragglers = Vec::new();
@@ -284,13 +455,13 @@ impl Scope {
             match fin {
                 Finalizer::Sync(run) => {
                     if let Err(payload) =
-                        std::panic::catch_unwind(std::panic::AssertUnwindSafe(run))
+                        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(exit)))
                     {
                         spills.push(defect_from_panic(payload));
                     }
                 }
                 Finalizer::Effect(run) => {
-                    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(run)) {
+                    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(exit))) {
                         Ok(None) => {}
                         Ok(Some(defect)) => spills.push(defect),
                         Err(payload) => spills.push(defect_from_panic(payload)),

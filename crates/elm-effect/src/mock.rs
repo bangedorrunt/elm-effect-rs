@@ -1,9 +1,9 @@
 //! `Layer.mock`: a partial test service whose omitted members fail loudly.
 //!
-//! The pin hands `Layer.mock` a partial object and a Proxy fills every omitted
+//! Effect 4 hands `Layer.mock` a partial object and a Proxy fills every omitted
 //! key with a value that dies as an `UnimplementedError` when it is used as an
 //! effect, a channel, or a method. Rust cannot read a struct's fields, so the
-//! port names the omitted members and fills them through [`Mock`];
+//! caller names the omitted members and [`Mock`] fills them;
 //! [`Unimplemented`] is the placeholder, and every shape of it fails.
 
 use crate::Defect;
@@ -87,7 +87,7 @@ impl Unimplemented {
 ///
 /// Implement it beside the service: `fill_missing` replaces each member named
 /// in `missing` with the matching [`Unimplemented`] placeholder, which is what
-/// the pin's Proxy does for an omitted key. The layer calls it once, when it
+/// Effect 4's Proxy does for an omitted key. The layer calls it once, when it
 /// builds.
 pub trait Mock: Sized {
     /// Fill the omitted members and answer the whole service.

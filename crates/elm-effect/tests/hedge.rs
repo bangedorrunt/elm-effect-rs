@@ -1,4 +1,4 @@
-//! Wave-3 policy bead (.14): `policy::hedge` for idempotent reads.
+//! `policy::hedge` for idempotent reads.
 //!
 //! Experience-first: latency wins only when the duplicate is provably safe,
 //! so the fast test pins that a fast first sends zero duplicates.

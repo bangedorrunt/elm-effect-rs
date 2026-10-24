@@ -1,9 +1,9 @@
 //! `Effect.test.ts:3127`, `:3142`, `:3157` and `:3176` — the tag-keyed error
 //! handling combinators.
 //!
-//! `catchTag` recovers one kind, `catchTags` recovers several (the pin's array
+//! `catchTag` recovers one kind, `catchTags` recovers several (Effect 4's array
 //! and record forms are one call here), `orElseSucceed` recovers whatever is
-//! left, and `tapErrorTag` observes a kind without recovering it. The pin keeps
+//! left, and `tapErrorTag` observes a kind without recovering it. Effect 4 keeps
 //! the failing error in a mutable variable and re-runs one description; these
 //! tests do the same through `fail_sync`, which reads the variable when the
 //! effect runs.
@@ -69,7 +69,7 @@ fn catch_tag_arms_compose_with_or_else_succeed() {
     assert_eq!(Runtime::run(effect), Exit::Success(3));
 }
 
-/// `:3142` — the pin's array form: one handler listed under both tags, and
+/// `:3142` — Effect 4's array form: one handler listed under both tags, and
 /// `orElse` for anything else.
 #[test]
 fn catch_tags_runs_one_handler_for_a_list_of_tags() {
@@ -95,7 +95,7 @@ fn catch_tags_runs_one_handler_for_a_list_of_tags() {
     assert_eq!(Runtime::run(build(&state)), Exit::Success(2));
 }
 
-/// `:3157` — the pin's record form: each tag has its own handler.
+/// `:3157` — Effect 4's record form: each tag has its own handler.
 #[test]
 fn catch_tags_runs_a_handler_per_tag() {
     let build = |state: &Arc<Mutex<Error>>| {

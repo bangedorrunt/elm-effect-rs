@@ -1,6 +1,6 @@
 # Migrate flywheel
 
-Repo: the flywheel workspace. Law: ADR-0002 sibling port "Flywheel".
+Repo: the flywheel workspace. Law: ADR-0002 sibling migration "Flywheel".
 
 ## Gate
 

@@ -173,10 +173,20 @@ impl Shared {
             for child in children_of(&this.children, task_control.id) {
                 child.wait_done();
             }
+            // A body that returned success after the interrupt landed exits
+            // interrupted. Settle that before the scope closes, so an
+            // exit-aware finalizer sees the fiber's real outcome, not the
+            // success the body happened to return.
+            if matches!(exit, Exit::Success(_)) && task_control.is_interrupted() {
+                exit = preempted();
+            }
             // L7: Scope::close masks the current fiber itself, so releases
             // run to completion, then cancellation takes effect. Spills
-            // append as Die without erasing (L6).
-            let spills = task_control.scope.close();
+            // append as Die without erasing (L6). The pre-spill exit is what
+            // an exit-aware finalizer sees: its own failure cannot rewrite
+            // how the body ended.
+            let scope_exit = crate::ScopeExit::from_exit(&exit);
+            let spills = task_control.scope.close_with(&scope_exit);
             match &mut exit {
                 Exit::Success(_) if !spills.is_empty() => {
                     exit = Exit::Failure(Cause::from_defects(spills));
@@ -185,9 +195,6 @@ impl Shared {
                     cause.append_defects(spills);
                 }
                 _ => {}
-            }
-            if matches!(exit, Exit::Success(_)) && task_control.is_interrupted() {
-                exit = preempted();
             }
             task_control.mark_done(Box::new(exit));
             this.finish(&task_control);
@@ -362,18 +369,26 @@ impl Runtime {
         self.shared.shutdown_with_deadline(timeout)
     }
 
-    /// The edge: run `effect` to an [`Exit`]. The only place outside tests
-    /// that interprets a description; library code never calls this.
+    /// The static edge: run `effect` to an [`Exit`] on a fiber. The fiber is
+    /// what makes the structured combinators (`with_fiber`, `fork_child`,
+    /// `Effect::all`, `race`, `timeout`) legal here; a bare interpreter run
+    /// on the caller thread made them die with "outside a fiber".
+    ///
+    /// This is the same edge as [`ManagedRuntime::run`], without a layer: a
+    /// private runtime is built for the run, the fiber is joined, and any
+    /// detached fiber the body left behind is stopped by shutdown. Library
+    /// code still never calls this; the binary or a host does.
     pub fn run<A, E>(effect: Effect<A, E>) -> Exit<A, E>
     where
         A: Send + 'static,
         E: Send + 'static,
     {
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| effect.run_sync())) {
-            Ok(Ok(a)) => Exit::Success(a),
-            Ok(Err(cause)) => Exit::Failure(cause),
-            Err(payload) => Exit::Failure(Cause::die(defect_from_panic(payload))),
-        }
+        let runtime = Runtime::new();
+        let exit = runtime.spawn_effect(effect).join();
+        // Join covers this fiber and its parented children. A detach the body
+        // forked has no parent link, so shutdown is what ends it.
+        let _ = runtime.shutdown();
+        exit
     }
 
     /// Turn an outcome into a process exit code: success 0, typed failure 1,
@@ -442,7 +457,7 @@ pub struct ManagedRuntime {
     build_scope: Option<Arc<crate::Scope>>,
     /// The memo this runtime's layer built into, when built from a layer.
     /// [`memo`](ManagedRuntime::memo) hands it out so a second runtime can
-    /// reuse the first's services (the pin's shared `MemoMap`).
+    /// reuse the first's services (Effect 4's shared `MemoMap`).
     memo: Option<crate::LayerMemo>,
 }
 
@@ -458,12 +473,12 @@ impl ManagedRuntime {
     }
 
     /// Build from a layer: the layer's services are constructed eagerly
-    /// (this build is synchronous, like the pin's `ManagedRuntime.make`),
+    /// (this build is synchronous, like Effect 4's `ManagedRuntime.make`),
     /// and the resulting services are readable through
-    /// [`context`](ManagedRuntime::context) as the pin's `contextEffect`
+    /// [`context`](ManagedRuntime::context) as Effect 4's `contextEffect`
     /// exposes them.
     ///
-    /// Construction failure is returned, not swallowed. This is the pin's
+    /// Construction failure is returned, not swallowed. This is Effect 4's
     /// shape: `ManagedRuntime.make` there yields an `Effect`, so a layer
     /// whose constructor fails fails the build and the caller cannot ignore
     /// it. Returning `Result` here is what keeps that property — the earlier
@@ -495,7 +510,7 @@ impl ManagedRuntime {
 
     /// The build memo this runtime's layer used, if it was built from one.
     /// Pass it to [`Layer::with_memo`] to share the build with another
-    /// runtime: the pin's `{ memoMap: other.memoMap }`.
+    /// runtime: Effect 4's `{ memoMap: other.memoMap }`.
     pub fn memo(&self) -> Option<crate::LayerMemo> {
         self.memo.clone()
     }
@@ -503,7 +518,7 @@ impl ManagedRuntime {
     /// Interrupt live fibers and wait for their finalizers, then release the
     /// layer's resources by closing the build scope. That order is the point:
     /// a request fiber's cleanup runs before the layer's `close`, which is
-    /// what the pin's dispose rows observe. Idempotent.
+    /// whin Effect 4's dispose rows observe. Idempotent.
     pub fn dispose(&self) {
         self.runtime.shutdown();
         if let Some(scope) = &self.build_scope {
@@ -515,16 +530,17 @@ impl ManagedRuntime {
     /// `shutdown` interrupts it before the build scope closes. The fiber runs
     /// with the runtime's built services ambient, so `use_service` resolves
     /// without an explicit `provide_from`.
-    pub fn run_fork<A, E>(&self, effect: Effect<A, E, ()>) -> FiberHandle<A, E>
+    pub fn run_fork<A, E, R>(&self, effect: Effect<A, E, R>) -> FiberHandle<A, E>
     where
         A: Send + 'static,
         E: Send + 'static,
+        R: crate::Requirement,
     {
         let env = match &self.services {
             Some(built) => built.env(),
             None => crate::service::empty_services(),
         };
-        // Immediate start, like the pin's `runFork`: the fiber is running
+        // Immediate start, like Effect 4's `runFork`: the fiber is running
         // before `run_fork` returns, so a caller can wait on a signal it
         // raises without draining a deferred latch.
         self.runtime.fork_detach_with(
@@ -548,30 +564,26 @@ impl ManagedRuntime {
     }
 
     /// The edge for a non-effect caller (a CLI handler, a test, a host
-    /// loop): run `effect` to an [`Exit`]. Delegates to
-    /// [`Runtime::run`]; it lives here so library crates never name it (L3).
+    /// loop): run `effect` to an [`Exit`] on a fiber. The fiber is what
+    /// makes the structured combinators (`with_fiber`, `fork_child`,
+    /// `race`, `timeout`) legal at the edge; running the interpreter on the
+    /// caller thread instead made them die with "outside a fiber".
     ///
     /// When this runtime was built from a layer, the layer's services are
     /// ambient, so a `use_service` in `effect` resolves without an explicit
-    /// `provide_from`. That is the pin's `runtime.runPromise(tag)`. A runtime
-    /// from [`new`](ManagedRuntime::new) has no services and runs exactly as
-    /// before.
+    /// `provide_from`. That is Effect 4's `runtime.runPromise(tag)`. A runtime
+    /// from [`new`](ManagedRuntime::new) has no services.
+    ///
+    /// This blocks the caller until the fiber and its finalizers finish.
+    /// Callers that want to start the work without blocking should use
+    /// [`run_fork`](ManagedRuntime::run_fork) and join when ready.
     pub fn run<A, E, R>(&self, effect: Effect<A, E, R>) -> Exit<A, E>
     where
         A: Send + 'static,
         E: Send + 'static,
         R: crate::Requirement,
     {
-        let env = match &self.services {
-            Some(built) => built.env(),
-            None => crate::service::empty_services(),
-        };
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| effect.run_sync_with(&env)))
-        {
-            Ok(Ok(a)) => Exit::Success(a),
-            Ok(Err(cause)) => Exit::Failure(cause),
-            Err(payload) => Exit::Failure(Cause::die(defect_from_panic(payload))),
-        }
+        self.run_fork(effect).join()
     }
 
     /// Interrupt live fibers and wait for finalizers, then release the
@@ -582,7 +594,7 @@ impl ManagedRuntime {
 }
 
 impl Drop for ManagedRuntime {
-    /// Dispose on drop, like the pin's `await using`. `dispose` is
+    /// Dispose on drop, like Effect 4's `await using`. `dispose` is
     /// idempotent, so an explicit call before the drop changes nothing.
     fn drop(&mut self) {
         self.dispose();
@@ -671,13 +683,13 @@ where
     }
 }
 
-/// `Effect.timeout` (the failing variant) at the pin: like [`timeout`], but a
+/// `Effect.timeout` (the failing variant) in Effect 4: like [`timeout`], but a
 /// deadline that arrives first is a typed failure instead of `None`.
 ///
-/// The pin raises its own `TimeoutError`; here the caller names the error its
+/// Effect 4 raises its own `TimeoutError`; here the caller names the error its
 /// channel carries, the same convention `Effect::from_option` and
 /// [`head`](crate::head) use. `CauseError::timeout_after(duration)` is the
-/// pin's message.
+/// Effect 4's message.
 pub fn timeout_fail<A, E>(
     rt: &Runtime,
     clock: std::sync::Arc<dyn crate::ClockImpl>,
@@ -851,7 +863,7 @@ fn concat_causes<E>(mut first: crate::Cause<E>, second: crate::Cause<E>) -> crat
     first
 }
 
-/// `Effect.raceAll` at the pin: run every body, and complete on the first
+/// `Effect.raceAll` in Effect 4: run every body, and complete on the first
 /// SUCCESS. A failure does not end the race -- it is a loser, interrupted
 /// like any other, and the race continues to the first success. If every
 /// body fails, the causes are concatenated. The winners' and losers'
@@ -863,7 +875,7 @@ pub fn race_all<A: Send + 'static, E: Send + 'static>(
     race_all_impl(rt, bodies, true)
 }
 
-/// `Effect.raceAllFirst` at the pin: run every body, and complete on the
+/// `Effect.raceAllFirst` in Effect 4: run every body, and complete on the
 /// first COMPLETION of any kind. A failure ends the race immediately (with
 /// that failure), which is what distinguishes it from [`race_all`].
 pub fn race_all_first<A: Send + 'static, E: Send + 'static>(
@@ -876,8 +888,8 @@ pub fn race_all_first<A: Send + 'static, E: Send + 'static>(
 /// Shared driver. `success_wins` selects `race_all` (true) over
 /// `race_all_first` (false).
 ///
-/// An empty list has no winner by construction. The pin fails with
-/// NoSuchElementError; this port has no such type, so the empty case is a
+/// An empty list has no winner by construction. Effect 4 fails with
+/// NoSuchElementError; this crate has no such type, so the empty case is a
 /// named invariant rather than a silent default outcome.
 fn race_all_impl<A: Send + 'static, E: Send + 'static>(
     rt: &Runtime,
@@ -886,7 +898,7 @@ fn race_all_impl<A: Send + 'static, E: Send + 'static>(
 ) -> Exit<A, E> {
     assert!(
         !bodies.is_empty(),
-        "raceAll of an empty iterable has no winner; the pin fails with NoSuchElementError"
+        "raceAll of an empty iterable has no winner; Effect 4 fails with NoSuchElementError"
     );
     let (tx, rx) = std::sync::mpsc::channel::<Exit<A, E>>();
     let immediate = ForkOpts::immediate();
@@ -938,7 +950,7 @@ fn race_all_impl<A: Send + 'static, E: Send + 'static>(
     winner
 }
 
-/// `Effect.never` at the pin: an effect that never completes and can only end
+/// `Effect.never` in Effect 4: an effect that never completes and can only end
 /// by interruption. A fiber that must stay alive until its scope closes (the
 /// `ManagedRuntime` dispose rows) is the caller.
 ///

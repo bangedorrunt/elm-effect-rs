@@ -1,9 +1,8 @@
-//! `ManagedRuntime` at the pin (`ManagedRuntime.test.ts`): a layer built once,
+//! `ManagedRuntime` in Effect 4: a layer built once,
 //! services readable as context, a shared memo, and a dispose that interrupts
 //! live fibers before it releases the layer's resources.
 //!
-//! Rows bound here (Schema.test.ts is elsewhere; these are
-//! `packages/effect/test/ManagedRuntime.test.ts`):
+//! Cases bound here (the Schema cases live elsewhere):
 //! :6 memoizes the layer build, :18 provides context, :27 allows sharing a
 //! MemoMap, :50 supports await using, :65 fibers are interrupted on dispose,
 //! :75 finishes request cleanup before releasing layer resources,
@@ -120,7 +119,7 @@ fn allows_sharing_a_memo() {
 }
 
 /// :50 — the layer's resource is released when the runtime is disposed (the
-/// pin's `await using`), not while the runtime is still running.
+/// Effect 4's `await using`), not while the runtime is still running.
 #[test]
 fn supports_dispose_releasing_the_layer() {
     let count = Arc::new(AtomicUsize::new(0));
@@ -167,7 +166,7 @@ fn fibers_are_interrupted_on_dispose() {
 /// :75 — dispose waits for an in-flight request's cleanup before it releases
 /// the layer's resources, so the cleanup event always precedes the release.
 ///
-/// The pin's row runs both `disposeEffect` and `dispose`; this port has a
+/// Effect 4's case runs both `disposeEffect` and `dispose`; this crate has a
 /// single synchronous `dispose`, so the two variants are one test here.
 #[test]
 fn dispose_finishes_request_cleanup_before_releasing_the_layer() {
@@ -280,7 +279,7 @@ fn dispose_completes_sequential_layer_finalizers_when_interrupted() {
     disposing.interrupt_unsafe();
     release.complete(());
     let _ = disposing.join();
-    // The pin disposes once more after the interruption; idempotence holds.
+    // Effect 4 disposes once more after the interruption; idempotence holds.
     runtime.dispose();
 
     assert_eq!(

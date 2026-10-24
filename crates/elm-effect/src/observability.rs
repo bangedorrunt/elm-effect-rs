@@ -1,4 +1,4 @@
-//! Observability port at `effect@4.0.0`: log levels, redacted secrets,
+//! Observability: log levels, redacted secrets,
 //! loggers, metrics, tracers, and tap.
 //!
 //! Logging is an effect ([`log_info`] and friends build descriptions over
@@ -14,26 +14,7 @@ use crate::{Cause, Effect, Exit, Requirement, ServiceTag};
 
 // LogLevel
 
-/// Log verbosity, ordered from most (`All`) to least (`None`) permissive.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum LogLevel {
-    /// Everything passes.
-    All,
-    /// Fine-grained tracing.
-    Trace,
-    /// Debugging detail.
-    Debug,
-    /// Notable events.
-    Info,
-    /// Suspicious states.
-    Warn,
-    /// Failures.
-    Error,
-    /// Unrecoverable failures.
-    Fatal,
-    /// Nothing passes.
-    None,
-}
+pub use crate::log_level::LogLevel;
 
 /// True when a message at `level` passes a gate at `minimum`.
 pub fn is_enabled(level: LogLevel, minimum: LogLevel) -> bool {
@@ -141,9 +122,9 @@ impl Clone for Logger {
 }
 
 impl Logger {
-    /// `withConsoleLog(format)` at the pin: render one line per record and
-    /// hand it to `sink`. The pin's formatter sees the whole log call; this
-    /// port's sink receives the joined message, so the formatter takes
+    /// `withConsoleLog(format)` in Effect 4: render one line per record and
+    /// hand it to `sink`. Effect 4's formatter sees the whole log call; this
+    /// crate's sink receives the joined message, so the formatter takes
     /// `(level, message, annotations)`. [`Console::logfmt_logger`] is the
     /// console-backed constructor built on this.
     ///
@@ -158,7 +139,7 @@ impl Logger {
         })
     }
 
-    /// A logfmt line per record, through `sink` (the pin's
+    /// A logfmt line per record, through `sink` (Effect 4's
     /// `withConsoleLog(formatLogFmt)` shape).
     pub fn logfmt<S>(sink: S) -> Self
     where
@@ -176,7 +157,7 @@ impl ServiceTag for LoggerTag {
     const ID: &'static str = "elm-effect/logger";
 }
 
-/// Log one message at `Info` (`Effect.log` at the pin): it reaches the
+/// Log one message at `Info` (`Effect.log` in Effect 4): it reaches the
 /// [`LoggerTag`] sink and, when a span is current, is appended to that span
 /// as an event with `effect.logLevel` (and `effect.fiberId` inside a fiber).
 /// Logging itself never fails; building the description runs nothing.
@@ -184,7 +165,7 @@ pub fn log(message: impl Into<String>) -> Effect<(), std::convert::Infallible, L
     log_at(LogLevel::Info, message)
 }
 
-/// Log at `level` (`Effect.logWithLevel` at the pin).
+/// Log at `level` (`Effect.logWithLevel` in Effect 4).
 pub fn log_at(
     level: LogLevel,
     message: impl Into<String>,
@@ -195,7 +176,7 @@ pub fn log_at(
     }))
 }
 
-/// Log an event at `Info` (the pin's `Effect.logInfo`).
+/// Log an event at `Info` (Effect 4's `Effect.logInfo`).
 pub fn log_info(message: String) -> Effect<(), std::convert::Infallible, LoggerTag> {
     log(message)
 }
@@ -384,8 +365,8 @@ pub struct SpanRecord {
 }
 
 /// An in-process span recorder. No socket, no exporter: spans accumulate
-/// for tests and debugging. This is the audit sink the port added, not the
-/// pin's `Tracer` backend; that one lives in [`crate::tracer`].
+/// for tests and debugging. This is the audit sink the crate added, not the
+/// Effect 4's `Tracer` backend; that one lives in [`crate::tracer`].
 #[derive(Clone, Debug, Default)]
 pub struct SpanRecorder {
     spans: Arc<Mutex<Vec<SpanRecord>>>,
@@ -419,9 +400,9 @@ impl ServiceTag for SpanRecorderTag {
     const ID: &'static str = "elm-effect/span-recorder";
 }
 
-/// The pin's `Cause.StackTrace` annotation key, verbatim.
+/// Effect 4's `Cause.StackTrace` annotation key, verbatim.
 ///
-/// The pin stores a JS `StackFrame` object here. A Rust frame has no `stack`
+/// Effect 4 stores a JS `StackFrame` object here. A Rust frame has no `stack`
 /// thunk to capture and no parent chain, so the frame's name is what a cause
 /// keeps: that is the part the rows assert on (`trace.name`).
 pub const STACK_TRACE: &str = "effect/Cause/StackTrace";
@@ -431,7 +412,7 @@ pub const STACK_TRACE: &str = "effect/Cause/StackTrace";
 ///
 /// A failure raised inside the span gains the span's name as its stack frame.
 /// Innermost wins: an inner span annotates first, so an outer one leaves an
-/// existing frame alone (the pin records the frame at the raise site, not at
+/// existing frame alone (Effect 4 records the frame at the raise site, not at
 /// every span the cause travels through).
 pub fn record_span<A, E, R>(
     tracer: &SpanRecorder,
@@ -661,13 +642,13 @@ pub fn format_simple(message: &str, annotations: &[(String, String)]) -> String 
 
 // Log records: one log call's items, and the four formatters over them
 
-/// One item of a log call. The pin's `Effect.log` takes any number of
+/// One item of a log call. Effect 4's `Effect.log` takes any number of
 /// values, so a message is a sequence of items rather than one string.
 #[derive(Clone, Debug, PartialEq)]
 pub enum LogItem {
     /// A string message.
     Text(String),
-    /// An integer. The pin logs a BigInt as `123n`, which is what the
+    /// An integer. Effect 4 logs a BigInt as `123n`, which is what the
     /// text formatters render; JSON carries it as the string `"123n"`.
     BigInt(i128),
     /// A structured value.
@@ -729,7 +710,7 @@ fn json_string(text: &str) -> String {
 }
 
 /// The level's uppercase name, which is what every formatter prints and what
-/// the pin's JSON rows compare against.
+/// Effect 4's JSON rows compare against.
 pub fn level_name(level: LogLevel) -> &'static str {
     match level {
         LogLevel::Trace => "TRACE",
@@ -789,7 +770,7 @@ impl LogAnnotations {
 
     /// `annotateLogsScoped`: the returned guard carries the scoped set, and
     /// the set it replaced comes back when the guard drops. A `None` value is
-    /// the pin's `NaN`: it applies while scoped and is gone afterwards.
+    /// Effect 4's `NaN`: it applies while scoped and is gone afterwards.
     pub fn annotate_scoped(&self, key: &str, value: Option<&str>) -> ScopedAnnotations {
         let applied = match value {
             Some(value) => self.annotate(key, value),
@@ -834,8 +815,8 @@ impl ScopedAnnotations {
 
 /// The default logger's lines: a header, then one line per message item with
 /// text items in the order they were logged, then the annotations line. A
-/// cause is rendered after the text items, which is the ordering the pin's
-/// row pins.
+/// cause is rendered after the text items, which is the ordering Effect 4
+/// uses.
 pub fn default_log_lines(
     level: LogLevel,
     fiber_id: u64,
@@ -869,7 +850,7 @@ pub fn default_log_lines(
     lines
 }
 
-/// One `message=` field per item: the pin's logfmt and simple formatters
+/// One `message=` field per item: Effect 4's logfmt and simple formatters
 /// print each item of a call as its own field, quoted only when the logfmt
 /// rule says so.
 pub fn message_fields(items: &[LogItem]) -> String {

@@ -1,4 +1,4 @@
-//! `Effect.provideService` at the pin (`Effect.test.ts:398`, "Context.Service").
+//! `Effect.provideService` in Effect 4 (`Effect.test.ts:398`, "Context.Service").
 //!
 //! A tag is a type; providing its service removes the tag from the
 //! requirement tuple and the effect reads the value at interpretation.

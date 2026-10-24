@@ -1,4 +1,4 @@
-//! Wave-11 platform: Config descriptors + providers, Crypto service.
+//! Config descriptors and providers, and the Crypto service.
 //! Modules load via `#[path]` includes: no facade touch. The service
 //! trait keeps tests deterministic; the OS backend is exercised once.
 
@@ -8,6 +8,9 @@ mod config;
 #[allow(dead_code, clippy::type_complexity)]
 #[path = "../src/config_provider.rs"]
 mod config_provider;
+#[allow(dead_code, clippy::type_complexity)]
+#[path = "../src/log_level.rs"]
+mod log_level;
 // The path-included config modules name `crate::Defect`, so the host has to
 // provide that name; the library's own root re-exports the same type.
 pub use elm_effect::Defect;
@@ -397,7 +400,7 @@ fn config_propagates_provider_failures() {
     }
 }
 
-/// The shared tail of the three `:1193`-`:1245` rows: the `orElse` branch
+/// The shared tail of the three `:1193`-`:1245` cases: the `orElse` branch
 /// recovers its source failure, the sibling is absent, and the group reports
 /// only that absence (which `option` then turns into `None`).
 fn assert_absent_sibling_survives_or_else(recovered: Config, failing: &[&str]) {
@@ -766,6 +769,18 @@ fn loglevel_all_and_none_are_sentinels() {
     assert_eq!(config::LogLevel::parse("Verbose"), None);
     assert!(config::LogLevel::All < config::LogLevel::Trace);
     assert!(config::LogLevel::Fatal < config::LogLevel::None);
+}
+
+#[test]
+fn loglevel_parses_both_warning_spellings() {
+    assert_eq!(
+        config::LogLevel::parse("Warning"),
+        Some(config::LogLevel::Warn)
+    );
+    assert_eq!(
+        config::LogLevel::parse("Warn"),
+        Some(config::LogLevel::Warn)
+    );
 }
 
 fn host_config() -> Config {
@@ -1670,7 +1685,7 @@ fn provider_dotenv_preserves_empty_when_requested() {
 
 #[test]
 fn config_literals_accepts_configured_number_alternatives() {
-    // Config row "literals accepts configured number alternatives": the
+    // Config case "literals accepts configured number alternatives": the
     // options are rendered as their source strings, so "1" matches the
     // option 1 and "3" does not match [1, 2]. The failure names the
     // location it was read from, which is the part a bare is_err() would miss.
@@ -1692,9 +1707,9 @@ fn config_literals_accepts_configured_number_alternatives() {
 }
 
 // ---------------------------------------- Config.all absence semantics ---
-// Config.test.ts's absence/orElse rows (":968" through ":1517"). The pin
+// Config.test.ts's absence/orElse cases (":968" through ":1517"). Effect 4
 // states most of them against both `Config.schema` and `Config.all`; the
-// port's config surface is descriptor-based, so these carry the
+// crate's config surface is descriptor-based, so these carry the
 // `Config.all` side of each claim.
 
 #[test]
@@ -1741,8 +1756,8 @@ fn config_all_replaces_the_whole_group_when_a_required_child_stays_absent() {
 
 #[test]
 fn config_all_recovers_missing_tuple_children_without_hiding_invalid_input() {
-    // Config.test.ts:990 — the pin's iterable `Config.all(new Set(...))`
-    // and the positional array share one shape; the port carries the
+    // Config.test.ts:990 — Effect 4's iterable `Config.all(new Set(...))`
+    // and the positional array share one shape; the crate carries the
     // positional form. Absence recovers through default/option; invalid
     // input does not.
     let config = Config::all(vec![
@@ -1912,8 +1927,8 @@ fn config_flat_map_lifts_absence_in_nested_composition() {
 
 #[test]
 fn config_normalizes_unavailable_scalar_representations_to_absence() {
-    // Config.test.ts:1265 — the pin's provider answers the leaf path with
-    // an empty record; the port's empty lookup is `None`, the same
+    // Config.test.ts:1265 — Effect 4's provider answers the leaf path with
+    // an empty record; the crate's empty lookup is `None`, the same
     // absence for a scalar read.
     let present_but_empty = Provider::single(vec!["value".to_string()], None);
     let config = Config::string(named("value"));
@@ -1930,15 +1945,15 @@ fn config_normalizes_unavailable_scalar_representations_to_absence() {
 #[test]
 fn config_record_preserves_special_keys_as_data() {
     // Config.test.ts:551 — `__proto__` and `constructor` are record keys,
-    // not prototype slots. The port's records are key vectors, so no
+    // not prototype slots. The crate's records are key vectors, so no
     // prototype pollution exists by construction; the keys survive as
-    // data, which is the row's observable claim.
+    // data, which is the case's observable claim.
     let config = Config::record(vec![
         (
             "__proto__".to_string(),
             Config::succeed(Value::Str("value".to_string())),
         ),
-        // The pin's `undefined` arm renders as the port's absent value.
+        // Effect 4's `undefined` arm renders as the crate's absent value.
         ("constructor".to_string(), Config::succeed(Value::None)),
     ]);
     assert_eq!(
@@ -2024,7 +2039,7 @@ fn config_logical_error_paths_survive_provider_fallback() {
 #[test]
 fn config_unwrap_recursively_combines_nested_records() {
     // Config.test.ts:1517 — `Config.unwrap` over a nested record of
-    // configs; the port's `record` nests directly.
+    // configs; the crate's `record` nests directly.
     let config = Config::record(vec![(
         "a".to_string(),
         Config::record(vec![("b".to_string(), Config::string(named("b2")))]),
@@ -2041,7 +2056,7 @@ fn config_unwrap_recursively_combines_nested_records() {
 #[test]
 fn config_schema_string_loads_root_flat_and_nested_paths() {
     // Config.test.ts:2465 — `Config.schema(Schema.String, path)` is the
-    // port's named string descriptor; the three arms are the root path
+    // crate's named string descriptor; the three arms are the root path
     // (no name), a flat path, and a nested one.
     let root = Provider::single(Vec::new(), Some("value".to_string()));
     assert_eq!(
@@ -2060,7 +2075,7 @@ fn config_schema_string_loads_root_flat_and_nested_paths() {
 }
 
 // ---------------------------------------------------------------------------
-// ConfigProvider.test.ts rows carried on the existing lookup surface
+// ConfigProvider.test.ts cases carried on the existing lookup surface
 // (:69/:95 SourceError-shape, :176 orElse containers, :292 env record,
 // :622/:632/:672/:677 trie shape, :699-:719 scalars, :791/:803 leaf+container,
 // :1046 dir entries, :1067 source wrapping, :1101-:1149 layers)
@@ -2068,9 +2083,9 @@ fn config_schema_string_loads_root_flat_and_nested_paths() {
 
 #[test]
 fn provider_source_error_is_not_swallowed_by_or_else() {
-    // :69/:95 — a source that FAILS (the port's shape: a lookup source that
+    // :69/:95 — a source that FAILS (the crate's shape: a lookup source that
     // reports its failure rather than answering None) must not fall through
-    // to the fallback; the port models a failing source as an explicit
+    // to the fallback; the crate models a failing source as an explicit
     // failure variant, and orElse only consults the fallback on absence.
     use config_provider::{Failing, Lookup, ProviderError};
     let error = "source unavailable";
@@ -2110,7 +2125,7 @@ fn or_else_does_not_merge_a_fallback_container_into_the_primary() {
 #[test]
 fn env_record_skips_undefined_entries() {
     // :292 — a record with an undefined entry keeps the defined one and the
-    // undefined entry reads as absent; the port's pair source carries only
+    // undefined entry reads as absent; the crate's pair source carries only
     // present entries.
     let env = EnvProvider::from_env_map(vec![
         ("DEFINED".to_string(), "value".to_string()),
@@ -2159,7 +2174,7 @@ fn env_map_trie_shape_is_node_and_value_at_once() {
 #[test]
 fn env_array_nodes_follow_the_pin_density_rules() {
     // :438/:447/:458/:467 — dense numeric children yield array reads; a
-    // non-dense mix yields record reads; the port's paths are text, so each
+    // non-dense mix yields record reads; the crate's paths are text, so each
     // numeric segment resolves exactly and the parent keeps its own value.
     let dense = EnvProvider::from_env_map(vec![
         ("A".to_string(), String::new()),
@@ -2299,8 +2314,8 @@ fn dotenv_expansion_reads_refs_as_literal_data() {
 #[test]
 fn env_inherited_trie_properties_are_not_traversed() {
     // :336 — a variable named after an inherited member of the lookup
-    // namespace (the pin pollutes `Object.children`) still reads by its own
-    // path; the port's map is keyed exactly, so no inherited name can
+    // namespace (Effect 4 pollutes `Object.children`) still reads by its own
+    // path; the crate's map is keyed exactly, so no inherited name can
     // shadow or invent a path.
     let env = EnvProvider::from_env_map(vec![("constructor_X".to_string(), "value".to_string())]);
     assert_eq!(
@@ -2468,7 +2483,7 @@ fn from_unknown_nested_members_read_exactly() {
 
 #[test]
 fn source_reads_only_its_own_members() {
-    // :688 — a source's own keys are its keys: a member the pin would
+    // :688 — a source's own keys are its keys: a member Effect 4 would
     // inherit reads missing, its own member reads, and the structure
     // listing shows only the own key.
     let p = Provider::from_pairs(vec![("own".to_string(), "value2".to_string())]);
@@ -2497,8 +2512,8 @@ fn dotenv_supports_array_children() {
 fn dotenv_expand_variables_option_reaches_the_parser() {
     // :915 — the `expandVariables` option is read from the constructor's
     // options and reaches the parser, so a later `$REF` resolves against
-    // the earlier entry. The pin builds the provider inside an Effect over
-    // a FileSystem service; the port's observable is the parsed provider.
+    // the earlier entry. Effect 4 builds the provider inside an Effect over
+    // a FileSystem service; the crate's observable is the parsed provider.
     let expanding = EnvProvider::from_dotenv_expanding("PASSWORD=value\nDB_PASS=$PASSWORD\n");
     assert_eq!(
         expanding.get(&["PASSWORD".to_string()]),

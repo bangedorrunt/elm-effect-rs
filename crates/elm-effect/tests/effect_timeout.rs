@@ -1,7 +1,6 @@
-//! `Effect.timeout` rows from `packages/effect/test/Effect.test.ts` at the
-//! effect@4.0.0 pin, run against `runtime::{timeout, timeout_fail}`.
+//! `Effect.timeout`, run against `runtime::{timeout, timeout_fail}`.
 //!
-//! The pin drives `TestClock`; `runtime::timeout` blocks until a racer answers,
+//! Effect 4 drives `TestClock`; `runtime::timeout` blocks until a racer answers,
 //! so the test thread calls it and a helper thread advances the clock. The
 //! helper cannot advance once and stop: the deadline sleeper may park after
 //! that adjust, and its deadline would then move past the single step. It
@@ -54,7 +53,7 @@ fn sleeping_body(
 }
 
 /// Effect.test.ts:2004 `timeout a long computation`. The 60s body never
-/// answers: `timeoutOption` stands in for the port's `Option`-returning shape.
+/// answers: `timeoutOption` stands in for the crate's `Option`-returning shape.
 #[test]
 fn timeout_option_returns_none_for_a_long_computation() {
     let clock = Arc::new(TestClock::new());
@@ -79,7 +78,7 @@ fn timeout_option_returns_none_for_a_long_computation() {
 }
 
 /// Effect.test.ts:2064 `timeout a long computation` (the failing variant). The
-/// error carries the pin's message.
+/// error carries Effect 4's message.
 #[test]
 fn timeout_fail_reports_the_pins_message() {
     let clock = Arc::new(TestClock::new());

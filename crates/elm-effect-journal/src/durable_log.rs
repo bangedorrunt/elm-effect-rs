@@ -21,8 +21,27 @@
 //! writes nothing, even when it replays a triple the log accepted before the
 //! epoch moved (fencing beats dedupe). A higher epoch starts its sequence
 //! at 0. Epoch state never expires.
+//!
+//! Closure follows the Durable Streams Protocol: it is durable, monotonic,
+//! and idempotent. An appends-after-close answer is [`AppendError::Closed`];
+//! every byte written before the close stays readable. [`DurableLog::status`]
+//! reports the same [`Status`] the stream model uses, so a reader can tell
+//! "caught up, more may arrive" from "no more data ever". A closing append
+//! is one operation: the bytes and the closed flag share a line, so a crash
+//! leaves both or neither. Retrying the exact closing triple returns its
+//! original offset without appending again; a replay of an earlier triple on
+//! a closed stream is refused.
+//!
+//! [`DurableLog::read_page`] is the catch-up read an HTTP client needs: a
+//! bounded slice of records plus a resume cursor that is valid even when the
+//! page is empty. The kernel resolves `Offset::Now` to a concrete tail token,
+//! so a live tail can start at "now" and still see the next append. A page
+//! carries `up_to_date` (caught up, more may arrive) separately from `closed`
+//! (EOF), the same split the stream header uses.
 
 use std::collections::HashMap;
+
+use crate::stream::Status;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -37,21 +56,12 @@ pub const SCHEMA_VERSION: u32 = 1;
 pub enum Offset {
     /// Read from the beginning. Never minted.
     Start,
-    /// Already at the tail: reads return nothing. Never minted.
+    /// Already at the tail: `read_from` returns nothing. `read_page` resolves
+    /// it to the last existing record so a live reader catches the next
+    /// append. Never minted.
     Now,
     /// A minted offset. Opaque: build only via append.
     At(String),
-}
-
-/// Producer identity: all three parts travel together or not at all.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ProducerId {
-    /// Who is producing.
-    pub producer_id: String,
-    /// The producer's epoch (restarts begin a new epoch).
-    pub epoch: u64,
-    /// The message sequence within the epoch.
-    pub seq: u64,
 }
 
 /// Typed append/read failures.
@@ -106,18 +116,92 @@ pub enum AppendError {
     /// never returns it.
     #[error("log unavailable (outcome unknown, reconcile): {0}")]
     Unavailable(String),
+    /// The stream is closed: no further appends are accepted. Bytes already
+    /// written stay readable. This is a verdict on the log, not on the
+    /// envelope, so only a retry of the exact closing triple can still be
+    /// answered (with its original offset).
+    #[error("stream is closed")]
+    Closed,
 }
 
-/// A durable log: atomic appends, validated reads.
+/// One catch-up page: records, a resume cursor, and the two end signals.
+///
+/// `next` is the cursor to pass to [`DurableLog::read_page`] for the records
+/// after this page: the offset of the last record returned, because a read is
+/// strictly after its cursor. It is a concrete token even when the page is
+/// empty (`Offset::Now` resolves to the last existing offset, or `Start` on an
+/// empty log), so a live reader does not spin on a sentinel. `up_to_date`
+/// means the page reached the tail at generation time; more records may still
+/// arrive. `closed` is EOF: present only once the page has reached the tail of
+/// a closed stream.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Page {
+    /// Records in offset order, at most the requested limit.
+    pub records: Vec<(Offset, String)>,
+    /// Resume cursor for the next page.
+    pub next: Offset,
+    /// True when this page reached the log's current tail.
+    pub up_to_date: bool,
+    /// True when this page reached the tail of a closed stream (EOF).
+    pub closed: bool,
+}
+
+/// A durable log: atomic appends, validated reads, explicit closure.
 pub trait DurableLog: Send + Sync {
     /// Append one JSON envelope, returning its minted offset.
     fn append_json(&self, envelope: &str) -> Result<Offset, AppendError>;
     /// Read every message after `from`. Hand-built offsets are rejected.
     fn read_from(&self, from: &Offset) -> Result<Vec<(Offset, String)>, AppendError>;
+    /// Read one bounded catch-up page after `from`. At least one record is
+    /// admitted per call, even for `limit == 0`, so a page can never skip the
+    /// log. The default implementation is correct but unbounded: it reads
+    /// every record and truncates. [`MemLog`] and [`FileLog`] override it with
+    /// a bounded read.
+    fn read_page(&self, from: &Offset, limit: usize) -> Result<Page, AppendError> {
+        let limit = limit.max(1);
+        // `Now` has no record to name, so the default has to scan from the
+        // start to find the last cursor. Kernels write this directly.
+        let (mut records, cursor) = if matches!(from, Offset::Now) {
+            let all = self.read_from(&Offset::Start)?;
+            let cursor = all
+                .last()
+                .map_or(Offset::Start, |(offset, _)| offset.clone());
+            (Vec::new(), cursor)
+        } else {
+            (self.read_from(from)?, from.clone())
+        };
+        let up_to_date = records.len() <= limit;
+        records.truncate(limit);
+        let next = records.last().map_or(cursor, |(offset, _)| offset.clone());
+        Ok(Page {
+            records,
+            next,
+            up_to_date,
+            closed: up_to_date && self.is_closed(),
+        })
+    }
     /// Drop every record before `before` (a minted offset). Returns how many
     /// records were dropped. The caller must hold a snapshot that covers the
     /// dropped records, or recovery cannot rebuild the model.
     fn compact_before(&self, before: &Offset) -> Result<usize, AppendError>;
+    /// Close the stream: durable, monotonic, idempotent. After this the
+    /// status is [`Status::Closed`] and [`append_json`](Self::append_json)
+    /// fails with [`AppendError::Closed`]; the records written before the
+    /// close stay readable forever. Closing an already-closed log succeeds
+    /// and changes nothing.
+    fn close(&self) -> Result<(), AppendError>;
+    /// Append the final message and close in one operation. The bytes and
+    /// the closed flag commit together, so a crash leaves both or neither.
+    /// Retrying the exact closing `(producer_id, epoch, seq)` triple returns
+    /// the original offset without a duplicate append.
+    fn append_json_and_close(&self, envelope: &str) -> Result<Offset, AppendError>;
+    /// Liveness: [`Status::UpToDate`] while open, [`Status::Closed`] at EOF.
+    /// The same enum the stream model uses, so a caller reads one vocabulary.
+    fn status(&self) -> Status;
+    /// True once closed. Bytes stay readable; only new appends are refused.
+    fn is_closed(&self) -> bool {
+        self.status() == Status::Closed
+    }
 }
 
 /// In-process log: one lock, one record vector. Atomicity falls out of the
@@ -161,6 +245,13 @@ struct Store {
     /// replay with the same triple be checked, not trusted blindly.
     offsets: HashMap<(String, u64, u64), (u64, String)>,
     next: u64,
+    /// Once true, no append is admitted. Persisted by `FileLog`; `MemLog`
+    /// keeps it in process.
+    closed: bool,
+    /// The triple of the append that closed the stream, when the close was
+    /// an append-and-close rather than a bare close. Only this triple is
+    /// still deduplicated on a closed stream.
+    closed_by: Option<(String, u64, u64)>,
 }
 
 #[derive(Debug, Clone)]
@@ -258,7 +349,8 @@ impl Store {
                 current,
             });
         }
-        if let Some((recorded_offset, recorded)) = self.offsets.get(&(id.clone(), epoch, seq)) {
+        let triple = (id.clone(), epoch, seq);
+        if let Some((recorded_offset, recorded)) = self.offsets.get(&triple) {
             if *recorded != message {
                 return Err(AppendError::PayloadMismatch {
                     producer_id: id,
@@ -266,8 +358,16 @@ impl Store {
                     seq,
                 });
             }
+            // A closed stream dedupes only the append that closed it. A
+            // retry of an earlier triple is refused like any other append.
+            if self.closed && self.closed_by.as_ref() != Some(&triple) {
+                return Err(AppendError::Closed);
+            }
             // Idempotent replay: same triple and same bytes, replies the offset.
             return Ok(Admit::Duplicate(*recorded_offset));
+        }
+        if self.closed {
+            return Err(AppendError::Closed);
         }
         let last = self.last_seq.get(&(id.clone(), epoch)).copied();
         let expected = last.map_or(0, |l| l + 1);
@@ -325,8 +425,43 @@ impl Store {
         Ok(())
     }
 
+    /// Mark the stream closed without touching the records. Idempotent, and
+    /// never clears who closed it.
+    fn mark_closed(&mut self, by: Option<(String, u64, u64)>) {
+        self.closed = true;
+        if by.is_some() {
+            self.closed_by = by;
+        }
+    }
+
+    /// Append-and-close under an already-held lock. One admission, one
+    /// commit: the caller wrote nothing until this returns, so a closed
+    /// state can never exist without its final record (or vice versa).
+    fn append_and_close(&mut self, envelope: &str) -> Result<u64, AppendError> {
+        let (id, epoch, seq, _) = parse(envelope)?;
+        let next = self.next;
+        let offset = match self.admit(envelope, next)? {
+            Admit::Duplicate(offset) => {
+                // The final record was already accepted: close on it, and let
+                // a retry of this same triple dedupe instead of hitting the
+                // closed wall.
+                self.mark_closed(Some((id, epoch, seq)));
+                offset
+            }
+            Admit::Fresh(accepted) => {
+                let offset = accepted.offset;
+                let by = (accepted.id.clone(), accepted.epoch, accepted.seq);
+                self.apply(accepted);
+                self.mark_closed(Some(by));
+                offset
+            }
+        };
+        Ok(offset)
+    }
+
     /// The fencing state as JSON: enough to keep sequence and epoch checks
-    /// correct after the records behind them are compacted away.
+    /// correct after the records behind them are compacted away. Closure is
+    /// part of that state: a reopened log must not accept a late append.
     fn checkpoint(&self) -> serde_json::Value {
         let last_seq: Vec<_> = self
             .last_seq
@@ -338,7 +473,17 @@ impl Store {
             .iter()
             .map(|(id, epoch)| serde_json::json!([id, epoch]))
             .collect();
-        serde_json::json!({ "next": self.next, "last_seq": last_seq, "max_epoch": max_epoch })
+        let closed_by = self
+            .closed_by
+            .as_ref()
+            .map(|(id, epoch, seq)| serde_json::json!([id, epoch, seq]));
+        serde_json::json!({
+            "next": self.next,
+            "last_seq": last_seq,
+            "max_epoch": max_epoch,
+            "closed": self.closed,
+            "closed_by": closed_by,
+        })
     }
 
     fn restore_checkpoint(&mut self, value: &serde_json::Value) -> Option<()> {
@@ -352,11 +497,28 @@ impl Store {
             self.max_epoch
                 .insert(item[0].as_str()?.to_string(), item[1].as_u64()?);
         }
+        self.closed = value["closed"].as_bool().unwrap_or(false);
+        // A present-but-malformed `closed_by` fails the open rather than
+        // degrading to "no closing triple": the checkpoint claims to know
+        // which append sealed the stream, and silently forgetting it would
+        // turn an idempotent retry into a Closed refusal.
+        self.closed_by = if value["closed_by"].is_null() {
+            None
+        } else {
+            let item = value["closed_by"].as_array()?;
+            Some((
+                item.first()?.as_str()?.to_string(),
+                item.get(1)?.as_u64()?,
+                item.get(2)?.as_u64()?,
+            ))
+        };
         Some(())
     }
 
     /// Validate a presented offset: `None` reads from the start, `Some(max)`
-    /// reads nothing, and `Some(seq)` reads strictly after `seq`.
+    /// reads nothing, and `Some(seq)` reads strictly after `seq`. Only a
+    /// minted offset (or `Start`/`Now`) is accepted; the tail itself is not a
+    /// cursor, because reading after it would skip the next append.
     fn check(&self, offset: &Offset) -> Result<Option<u64>, AppendError> {
         match offset {
             Offset::Start => Ok(None),
@@ -372,6 +534,17 @@ impl Store {
         }
     }
 
+    /// The cursor that means "caught up": the last existing record, or
+    /// `Start` when the log has no records. Reading after it is empty now and
+    /// includes the next append, which is what a live tail needs.
+    fn last_token(&self) -> Offset {
+        if self.next == 0 {
+            Offset::Start
+        } else {
+            Offset::At(mint(self.next - 1))
+        }
+    }
+
     fn read(&self, from: &Offset) -> Result<Vec<(Offset, String)>, AppendError> {
         let after = self.check(from)?;
         if after == Some(u64::MAX) {
@@ -383,6 +556,51 @@ impl Store {
             .filter(|e| after.is_none_or(|limit| e.offset > limit))
             .map(|e| (Offset::At(mint(e.offset)), e.message.clone()))
             .collect())
+    }
+
+    /// Bounded catch-up read with a resolved tail cursor. `Offset::Now` maps
+    /// to the last existing offset (or `Start` on an empty log), so a live
+    /// reader catches the next append instead of skipping it. The returned
+    /// `next` is always a record offset or `Start`, never the unminted tail.
+    fn page(&self, from: &Offset, limit: usize) -> Result<Page, AppendError> {
+        let limit = limit.max(1);
+        let cursor = match from {
+            Offset::Start => Offset::Start,
+            Offset::Now => self.last_token(),
+            Offset::At(raw) => {
+                let seq: u64 = raw.parse().map_err(|_| AppendError::UnknownOffset)?;
+                if seq >= self.next {
+                    return Err(AppendError::UnknownOffset);
+                }
+                Offset::At(mint(seq))
+            }
+        };
+        let after = match &cursor {
+            Offset::Start => None,
+            Offset::At(raw) => Some(raw.parse::<u64>().map_err(|_| AppendError::UnknownOffset)?),
+            Offset::Now => unreachable!("resolved above"),
+        };
+        let start = after.map_or(0, |after| {
+            self.entries.partition_point(|entry| entry.offset <= after)
+        });
+        let available = &self.entries[start..];
+        let take = available.len().min(limit);
+        let records = available[..take]
+            .iter()
+            .map(|entry| (Offset::At(mint(entry.offset)), entry.message.clone()))
+            .collect();
+        let up_to_date = take == available.len();
+        let next = if take == 0 {
+            cursor
+        } else {
+            Offset::At(mint(available[take - 1].offset))
+        };
+        Ok(Page {
+            records,
+            next,
+            up_to_date,
+            closed: up_to_date && self.closed,
+        })
     }
 
     /// The numeric offset a compaction keeps from; validates `before`.
@@ -429,10 +647,28 @@ impl DurableLog for MemLog {
         self.store.lock().unwrap().read(from)
     }
 
+    fn read_page(&self, from: &Offset, limit: usize) -> Result<Page, AppendError> {
+        self.store.lock().unwrap().page(from, limit)
+    }
+
     fn compact_before(&self, before: &Offset) -> Result<usize, AppendError> {
         let mut store = self.store.lock().unwrap();
         let limit = store.compact_limit(before)?;
         Ok(store.compact_to(limit))
+    }
+
+    fn close(&self) -> Result<(), AppendError> {
+        self.store.lock().unwrap().mark_closed(None);
+        Ok(())
+    }
+
+    fn append_json_and_close(&self, envelope: &str) -> Result<Offset, AppendError> {
+        let offset = self.store.lock().unwrap().append_and_close(envelope)?;
+        Ok(Offset::At(mint(offset)))
+    }
+
+    fn status(&self) -> Status {
+        status_of(&self.store.lock().unwrap())
     }
 }
 
@@ -442,9 +678,18 @@ impl FileLog {
     /// back exactly. A record that is inconsistent with what came before fails
     /// the open and is never skipped. A torn final line (no newline, so its
     /// append never returned `Ok`) is cut off.
+    ///
+    /// Closure survives too: a sealed line carries both the final record and
+    /// the closed flag, and a bare close line marks EOF. A fresh record after
+    /// either is corruption, not a late append to accept.
     pub fn open(path: impl Into<PathBuf>) -> Result<Self, AppendError> {
         let path = path.into();
         let mut store = Store::default();
+        // A bare close line (no envelope) closes the file from that point on.
+        // A checkpoint may also carry `closed`, from a compaction after a
+        // close; `replayed` records after it are the kept history, not new
+        // appends, so they restore rather than fail.
+        let mut closed_marker = false;
         match fs::read_to_string(&path) {
             Ok(text) => {
                 let complete = text.rfind('\n').map_or(0, |i| i + 1);
@@ -464,15 +709,44 @@ impl FileLog {
                             .ok_or_else(|| at("malformed checkpoint"))?;
                         continue;
                     }
+                    let sealed = record["closed"].as_bool() == Some(true);
+                    let Some(envelope) = record["envelope"].as_str() else {
+                        if sealed {
+                            // A close with no final append. Repeating it is
+                            // harmless; a record after it is not.
+                            store.mark_closed(None);
+                            closed_marker = true;
+                            continue;
+                        }
+                        return Err(at("missing envelope"));
+                    };
                     let offset = record["offset"]
                         .as_str()
                         .and_then(|s| s.parse::<u64>().ok())
                         .ok_or_else(|| at("missing offset"))?;
-                    let envelope = record["envelope"]
-                        .as_str()
-                        .ok_or_else(|| at("missing envelope"))?;
                     if record["replayed"].as_bool() == Some(true) {
+                        if closed_marker && !sealed {
+                            return Err(at("record after close"));
+                        }
                         store.restore_entry(envelope, offset)?;
+                        if sealed {
+                            store.mark_closed(parse(envelope).ok().map(|(id, e, s, _)| (id, e, s)));
+                        }
+                        continue;
+                    }
+                    if closed_marker {
+                        return Err(at("record after close"));
+                    }
+                    if sealed {
+                        let by = parse(envelope)
+                            .map(|(id, epoch, seq, _)| (id, epoch, seq))
+                            .map_err(|e| at(&format!("sealed record: {e}")))?;
+                        match store.admit(envelope, offset)? {
+                            Admit::Fresh(accepted) => store.apply(accepted),
+                            Admit::Duplicate(_) => return Err(at("duplicate record")),
+                        }
+                        store.mark_closed(Some(by));
+                        closed_marker = true;
                         continue;
                     }
                     match store.admit(envelope, offset)? {
@@ -521,6 +795,10 @@ impl DurableLog for FileLog {
         self.store.lock().unwrap().read(from)
     }
 
+    fn read_page(&self, from: &Offset, limit: usize) -> Result<Page, AppendError> {
+        self.store.lock().unwrap().page(from, limit)
+    }
+
     fn compact_before(&self, before: &Offset) -> Result<usize, AppendError> {
         let mut store = self.store.lock().unwrap();
         let limit = store.compact_limit(before)?;
@@ -530,6 +808,78 @@ impl DurableLog for FileLog {
         rewrite(&self.path, &store.checkpoint(), &kept)?;
         Ok(store.compact_to(limit))
     }
+
+    fn close(&self) -> Result<(), AppendError> {
+        let mut store = self.store.lock().unwrap();
+        if store.closed {
+            return Ok(());
+        }
+        // The marker is durable before the state moves: a returned Ok means a
+        // reopen sees the close, and a failed write leaves the log open.
+        append_line(
+            &self.path,
+            &serde_json::json!({ "closed": true }).to_string(),
+        )?;
+        store.mark_closed(None);
+        Ok(())
+    }
+
+    fn append_json_and_close(&self, envelope: &str) -> Result<Offset, AppendError> {
+        let mut store = self.store.lock().unwrap();
+        let (id, epoch, seq, _) = parse(envelope)?;
+        let next = store.next;
+        let offset = match store.admit(envelope, next)? {
+            // The final record already exists: close on it. A bare close
+            // marker is the durable half; the triple stays the stream's
+            // closing identity so a retry still dedupes.
+            Admit::Duplicate(offset) => {
+                if !store.closed {
+                    append_line(
+                        &self.path,
+                        &serde_json::json!({ "closed": true }).to_string(),
+                    )?;
+                }
+                offset
+            }
+            Admit::Fresh(accepted) => {
+                let offset = accepted.offset;
+                let by = (accepted.id.clone(), accepted.epoch, accepted.seq);
+                // One line holds the final record and the closed flag, so the
+                // pair is atomic on reopen.
+                append_line(&self.path, &sealed_line(offset, envelope, &by))?;
+                store.apply(accepted);
+                offset
+            }
+        };
+        store.mark_closed(Some((id, epoch, seq)));
+        Ok(Offset::At(mint(offset)))
+    }
+
+    fn status(&self) -> Status {
+        status_of(&self.store.lock().unwrap())
+    }
+}
+
+fn status_of(store: &Store) -> Status {
+    if store.closed {
+        Status::Closed
+    } else {
+        Status::UpToDate
+    }
+}
+
+/// One line for an append-and-close: the final record and the closed flag
+/// commit together, so a crash cannot leave a closed stream without its
+/// final bytes or vice versa.
+fn sealed_line(offset: u64, envelope: &str, by: &(String, u64, u64)) -> String {
+    let (producer, epoch, seq) = by;
+    serde_json::json!({
+        "offset": mint(offset),
+        "envelope": envelope,
+        "closed": true,
+        "closed_by": [producer, epoch, seq],
+    })
+    .to_string()
 }
 
 fn append_line(path: &Path, line: &str) -> Result<(), AppendError> {

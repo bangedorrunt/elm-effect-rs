@@ -2,10 +2,10 @@
 name: elm-effect
 description: >
   Use the finished elm-effect framework: call its APIs, build an app or CLI,
-  add a ServiceTag, Program, or DurableLog, port an Effect module, or migrate
-  flywheel, toron, beads, or chiebukuro. Use when the user says use, call,
-  guide, API, build, scaffold, port, add, extend, migrate, rewrite, or
-  integrate elm-effect, Effect, the Elm loop, the journal, or a durable log.
+  add a ServiceTag, Program, or DurableLog, or migrate flywheel, toron,
+  beads, or chiebukuro. Use when the user says use, call, guide, API, build,
+  scaffold, add, extend, migrate, rewrite, or integrate elm-effect, the Elm
+  loop, the journal, or a durable log.
   Bend work is the sibling carrier: bend, bendx, bird, elm-effect-bend.
   The skill sends you to docs/guides first. It does not ask you to rebuild
   the carrier, delete Resonate, or treat a cursor as the resume position.
@@ -13,7 +13,7 @@ description: >
 
 # elm-effect
 
-The carrier is in the crates. ADR-0002 is the law. ADR-0003 is adoption. The calls are `docs/guides/15-use-the-apis.mdx` and the topic guide next to it. This file only picks the branch. Do not copy an API table into a sibling.
+The carrier is in the crates. ADR-0002 is the carrier law. ADR-0003 is adoption. The calls are `docs/guides/15-use-the-apis.mdx` and the topic guide next to it. This file only picks the branch. Do not copy an API table into a sibling.
 
 Repo root: `/Users/bangedorrunt/workspace/elm-effect-rs`. The Bend carrier is a
 sibling repo, `/Users/bangedorrunt/workspace/elm-effect-bend`; its branch file is
@@ -22,7 +22,7 @@ sibling repo, `/Users/bangedorrunt/workspace/elm-effect-bend`; its branch file i
 
 ## Closed
 
-- Do not rebuild a phase whose tests already pass.
+- Do not rebuild what the tests already cover.
 - Do not ask if ADR-0002 is accepted.
 - Resonate stays during a migration.
 - The resume field is `offset`. `seq` is not the journal attempt number.
@@ -32,7 +32,7 @@ sibling repo, `/Users/bangedorrunt/workspace/elm-effect-bend`; its branch file i
 
 ## Branch
 
-Read `docs/guides/15-use-the-apis.mdx` on every branch. Then the first matching row. A named Effect module is `references/port-module.md` even when a CLI or a sibling is also named. Finish that file, then the row.
+Read `docs/guides/15-use-the-apis.mdx` on every branch. Then the first matching row. Finish that file, then the row.
 
 | Utterance | Then read | Do not read |
 | --- | --- | --- |
@@ -42,7 +42,6 @@ Read `docs/guides/15-use-the-apis.mdx` on every branch. Then the first matching 
 | toron | `references/migrate-toron.md` | other migrate files |
 | beads, br, gates | `references/migrate-beads.md` | other migrate files |
 | chiebukuro, resonate pipeline | `references/migrate-chiebukuro.md` | other migrate files |
-| port or add an Effect module | `references/port-module.md` | migrate files until the port is done |
 | CLI, argv | `references/build-cli.md` | `build-app.md` |
 | app, long-lived program, fold | `references/build-app.md` | `build-cli.md` |
 | add a service, log, or program type | `docs/guides/13-add-a-capability.mdx` | a new scheduler |
@@ -51,7 +50,7 @@ Read `docs/guides/15-use-the-apis.mdx` on every branch. Then the first matching 
 
 ## Gate
 
-A sibling edit waits until `cargo test -p elm-effect` is green. The product is done when `sh conformance/witness.sh` exits 0. A guide edit is not done until `cargo test -p elm-effect-elm --test guide_imports` is green: it compiles the `use` lines the guides print and fails on a line it does not have, so a new snippet needs its import added to that list. A ledger flip is not done until `python3 conformance/witness-audit.py` and `python3 conformance/excuse-audit.py` both exit 0, and a `ported` row needs its witness red under a stub first. The ignored conformance test is an index. A red row we will not carry is `not-applicable` with a reason that names the mechanism. It is not a reason to port the next Effect file.
+A sibling edit waits until `cargo test -p elm-effect` is green. A guide edit is not done until `cargo test -p elm-effect-elm --test guide_imports` is green: it compiles the `use` lines the guides print and fails on a line it does not have, so a new snippet needs its import added to that list.
 
 ## Done
 

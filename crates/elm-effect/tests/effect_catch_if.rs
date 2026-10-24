@@ -1,6 +1,6 @@
-//! `Effect.catchIf` refinement rows at the effect@4.0.0 pin.
+//! `Effect.catchIf` refinement cases.
 //!
-//! The pin's `catchIf` takes a refinement plus an optional `orElse`. Rust has
+//! Effect 4's `catchIf` takes a refinement plus an optional `orElse`. Rust has
 //! no refinement types and no overloading, so the refinement is a predicate
 //! over the error and the two-argument form re-raises a declined error while
 //! `catch_if_else` runs the fallback instead.

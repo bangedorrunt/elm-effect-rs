@@ -4,19 +4,15 @@ version = 4
 
 [[package]]
 name = "elm-effect"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "thiserror",
  "tokio",
 ]
 
 [[package]]
-name = "elm-effect-conformance"
-version = "0.0.0"
-
-[[package]]
 name = "elm-effect-elm"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "elm-effect",
  "elm-effect-journal",
@@ -28,7 +24,7 @@ dependencies = [
 
 [[package]]
 name = "elm-effect-journal"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "elm-effect",
  "serde",
@@ -38,11 +34,11 @@ dependencies = [
 
 [[package]]
 name = "elm-effect-lints"
-version = "0.3.0"
+version = "0.4.0"
 
 [[package]]
 name = "elm-effect-test"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "elm-effect",
 ]

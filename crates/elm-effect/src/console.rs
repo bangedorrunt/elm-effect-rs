@@ -1,4 +1,4 @@
-//! `Console` port (`Console.ts` at the pin): leveled output + exit codes.
+//! Leveled output and exit codes.
 //!
 //! A [`Console`] writes lines to two sinks (stdout lines, stderr lines).
 //! Sinks are plain closures, so the module stays standalone: fakes observe
@@ -12,7 +12,7 @@
 //! Exit-code discipline, documented against `run_main` (`0` success, `1`
 //! typed failure, `2` defect, `130` interruption).
 //!
-//! Residuals: `console` spinners/progress, styled output, and TTY width
+//! Out of scope: `console` spinners/progress, styled output, and TTY width
 //! detection.
 
 use std::sync::{Arc, Mutex};

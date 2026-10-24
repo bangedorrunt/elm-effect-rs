@@ -2,7 +2,7 @@
 //!
 //! `constantCase` maps a REQUEST path into the SCREAMING_SNAKE_CASE key an env
 //! var carries, so `["constant.case"]` finds `CONSTANT_CASE`. Each case below is
-//! one whole row: the source under test, the requested path, and the value that
+//! one whole case: the source under test, the requested path, and the value that
 //! must come back.
 
 #[allow(dead_code, clippy::type_complexity)]
@@ -19,7 +19,7 @@ fn s(text: &str) -> String {
     text.to_string()
 }
 
-/// A path is a list of segments, and the pin's `constantCase` rows pass ONE
+/// A path is a list of segments, and Effect 4's `constantCase` cases pass ONE
 /// segment that itself contains punctuation — `"constant.case"`, `"api-v2 xml"`,
 /// `"field2Value"`. Splitting on `.` here would turn one key into two and the
 /// lookup would miss, which is exactly what happened before this comment.
@@ -29,7 +29,7 @@ fn path(segment: &str) -> Vec<String> {
 
 #[test]
 fn constant_case_converts_string_segments_to_config_case() {
-    // :203 — the shape every row in this family follows.
+    // :203 — the shape every case in this family follows.
     let provider = Provider::from_pairs([("CONSTANT_CASE".to_string(), "value1".to_string())]);
     let provider = provider.constant_case();
     assert_eq!(

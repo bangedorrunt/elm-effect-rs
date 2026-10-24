@@ -96,7 +96,7 @@ fn race_first_takes_any_completion() {
 }
 
 // ---------------------------------------------------------------------------
-// Virtual-time races at the pin (Effect.test.ts describe race / raceFirst)
+// Virtual-time races in Effect 4 (Effect.test.ts describe race / raceFirst)
 // ---------------------------------------------------------------------------
 
 /// Poll until `cond` holds or 10s pass; panic naming `what` on expiry.
@@ -115,7 +115,7 @@ fn wait_until(cond: impl Fn() -> bool, what: &str) {
 fn race_interrupts_the_loser_when_the_other_side_succeeds() {
     // Effect.race(delay(100, succeed("fast")), delay(500, succeed("slow")))
     // with TestClock.adjust("500 millis") => "fast", and the slow side's
-    // onInterrupt ran. The pin drives its clock in one 500ms step, which
+    // onInterrupt ran. Effect 4 drives its clock in one 500ms step, which
     // would wake BOTH sleepers here, so the slow side sleeps past the adjust
     // instead: it stays parked, race interrupts it, and its finalizer is the
     // observable "interrupted" signal.
@@ -255,7 +255,7 @@ fn race_interrupts_a_loser_that_settles_the_race_while_starting() {
     // completes. The awaiter wins, and the settler -- now suspended in
     // never -- is interrupted, which is what its onInterrupt observes.
     //
-    // Ordering is load-bearing and follows the pin: onInterrupt wraps the
+    // Ordering is load-bearing and follows Effect 4: onInterrupt wraps the
     // whole settle-then-never effect, so the finalizer is registered BEFORE
     // the deferred is settled. Registering first closes the window where the
     // winner returns and the loser is interrupted before it armed its
@@ -300,7 +300,7 @@ fn race_interrupts_a_loser_that_settles_the_race_while_starting() {
 }
 
 // ---------------------------------------------------------------------------
-// raceAll / raceAllFirst at the pin (Effect.test.ts, describe-level rows)
+// raceAll / raceAllFirst in Effect 4 (Effect.test.ts, describe-level cases)
 // ---------------------------------------------------------------------------
 
 fn body<A: Send + 'static, E: Send + 'static>(
@@ -313,7 +313,7 @@ fn body<A: Send + 'static, E: Send + 'static>(
 fn race_all_completes_on_the_first_success_not_the_first_completion() {
     // One body fails immediately (delay 0 then fail), the rest are delayed.
     // raceAll ignores that failure -- a failure is a loser, not an outcome --
-    // and completes on the first SUCCESS (delay 100ms), which the pin
+    // and completes on the first SUCCESS (delay 100ms), which Effect 4
     // asserts as result === 100.
     use elm_effect::{ClockImpl, Duration, TestClock};
 
@@ -338,7 +338,7 @@ fn race_all_completes_on_the_first_success_not_the_first_completion() {
                     Exit::Success(100)
                 }),
                 // ms === 5000: never reached, past the adjust. Deliberately
-                // past the 500ms adjust (rather than the pin's 500) so that
+                // past the 500ms adjust (rather than Effect 4's 500) so that
                 // only the 100ms body can answer -- otherwise both wake and
                 // whichever sends first wins, which is nondeterministic.
                 body(move |ctx| {
@@ -391,7 +391,7 @@ fn race_all_concatenates_causes_when_every_body_fails() {
 #[test]
 fn race_all_first_completes_on_the_first_completion_even_a_failure() {
     // A failure ends raceAllFirst immediately, even though another body would
-    // succeed later. The pin asserts Exit.fail("boom") and that the later
+    // succeed later. Effect 4 asserts Exit.fail("boom") and that the later
     // success never starts.
     //
     // This test used to time out about one run in six. The 0ms failure is due

@@ -180,7 +180,7 @@ impl<E> Cause<E> {
     }
 
     /// The typed failure of a cause that holds nothing else, or the cause
-    /// back. A handler acts on one error; the pin's `Cause` can hold several,
+    /// back. A handler acts on one error; Effect 4's `Cause` can hold several,
     /// and recovering one of them does not recover the rest.
     pub fn into_failure(self) -> Result<E, Self> {
         if !self.is_typed_failure() {
@@ -267,7 +267,7 @@ impl<E, D> Cause<E, D> {
     }
 
     /// `Cause.findFail`: the first [`Reason::Fail`], or a unit failure when
-    /// the cause holds none (the pin's `Result<T, void>`).
+    /// the cause holds none (Effect 4's `Result<T, void>`).
     pub fn find_fail(&self) -> Option<&Reason<E, D>> {
         self.reasons.iter().find(|r| is_fail_reason(r))
     }
@@ -476,7 +476,7 @@ impl<E, D> Cause<E, D> {
         !self.reasons.is_empty() && self.reasons.iter().all(is_interrupt_reason)
     }
 
-    /// `Cause.squash`: the reason a caller sees, in the pin's priority —
+    /// `Cause.squash`: the reason a caller sees, in Effect 4's priority —
     /// first `Fail`, else first `Die`, else the interrupt-only or empty
     /// summary. Values are handed back by clone so the cause stays intact.
     pub fn squash(&self) -> Squash<E, D>
@@ -500,9 +500,9 @@ impl<E, D> Cause<E, D> {
     }
 }
 
-/// `Cause.squash`'s outcome. `Interrupted` and `Empty` mirror the pin's
+/// `Cause.squash`'s outcome. `Interrupted` and `Empty` mirror Effect 4's
 /// two summary errors ("All fibers interrupted without error", "Empty
-/// cause"); the port carries them as distinct variants rather than `String`
+/// cause"); the crate carries them as distinct variants rather than `String`
 /// messages so a caller cannot confuse them with a defect.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Squash<E, D = Defect> {
@@ -510,9 +510,9 @@ pub enum Squash<E, D = Defect> {
     Fail(E),
     /// The first defect, by value.
     Die(D),
-    /// Interrupt-only cause: the pin's "All fibers interrupted without error".
+    /// Interrupt-only cause: Effect 4's "All fibers interrupted without error".
     Interrupted,
-    /// Empty cause: the pin's "Empty cause".
+    /// Empty cause: Effect 4's "Empty cause".
     Empty,
 }
 
@@ -524,7 +524,7 @@ impl<E> Default for Cause<E> {
 
 /// `Cause.NoSuchElementError` and its siblings. The tag models each as its own
 /// class extending `TaggedError(name)`, so each carries an optional message
-/// and is an `Error`. This port uses one enum rather than five structs because
+/// and is an `Error`. this crate uses one enum rather than five structs because
 /// the guards below must answer "is this one of ours, and which" about a single
 /// value, and a five-way `match` is the same discriminator the tag's five
 /// classes give it.
@@ -581,7 +581,7 @@ impl CauseError {
         Self::Timeout(None)
     }
 
-    /// The `TimeoutError` a timeout raises, with the pin's message:
+    /// The `TimeoutError` a timeout raises, with Effect 4's message:
     /// `Operation timed out after '<duration>'`, rendered by
     /// [`Duration::format`](crate::Duration::format).
     pub fn timeout_after(duration: crate::Duration) -> Self {
@@ -782,7 +782,7 @@ pub fn make_die_reason<E, D>(defect: D) -> Reason<E, D> {
 }
 
 /// `Cause.makeInterruptReason`. The tag takes a raw fiber id and defaults it to
-/// `undefined`; this port's `Option<FiberId>` is the same distinction.
+/// `undefined`; this crate's `Option<FiberId>` is the same distinction.
 pub fn make_interrupt_reason<E>(fiber_id: Option<FiberId>) -> Reason<E> {
     Reason::Interrupt { fiber_id }
 }
@@ -802,7 +802,7 @@ impl<E, D> Cause<E, D> {
         Ok(self.interruptor_ids())
     }
 
-    /// `Cause.annotations`: every attached annotation. This port's reasons
+    /// `Cause.annotations`: every attached annotation. This crate's reasons
     /// carry none, so this is the whole set the tag merges.
     pub fn annotation_pairs(&self) -> &[(String, String)] {
         &self.annotations
@@ -860,7 +860,7 @@ impl std::fmt::Display for PrettyError {
 impl std::error::Error for PrettyError {}
 
 /// `Cause.StackTrace`: the service the tag reads to render a defect's stack.
-/// The port keeps the tag as a service so a caller can substitute a renderer,
+/// The crate keeps the tag as a service so a caller can substitute a renderer,
 /// which is the reason the tag models it as a context service at all.
 pub struct StackTraceService;
 

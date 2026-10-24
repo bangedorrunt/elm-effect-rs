@@ -1,4 +1,4 @@
-//! `Crypto.ts` port: randomness and digests behind a service.
+//! Randomness and digests behind a service.
 //!
 //! [`Crypto`] serves random bytes and digests so tests are deterministic:
 //! [`TestCrypto`] replays a counter stream, [`SystemCrypto`] reads the OS.
@@ -7,11 +7,9 @@
 //! timestamp, so formatting is pure and separately testable. Digest
 //! algorithms are the spec literals (`SHA-256` implemented; the rest
 //! report [`CryptoError::Unsupported`] instead of pretending).
-// This file belongs to the parked port campaign: a test reaches it through
-// a `#[path]` include to port specific rows, so most of its surface is
-// unused by any one test target. Warnings about the unexercised remainder
-// describe the test's coverage, not a defect in the crate, so they are
-// allowed here rather than fixed one by one.
+// A test reaches this module through a `#[path]` include, so one test target
+// does not exercise its whole surface. The dead-code allowance covers the
+// unexercised remainder, not a defect in the crate.
 #![allow(dead_code)]
 use std::sync::{Arc, Mutex};
 

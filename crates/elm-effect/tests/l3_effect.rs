@@ -61,8 +61,8 @@ fn or_die_type_is_infallible() {
 /// Effect.test.ts :3706 "first argument as success" —
 /// `Effect.catch(Effect.succeed(1), () => Effect.fail("e2"))` yields 1, so a
 /// `catch` over an already-succeeding effect never runs its handler and the
-/// success value passes through unchanged. The pin's two-argument form maps to
-/// this port's `catch`, whose handler is the second argument.
+/// success value passes through unchanged. Effect 4's two-argument form maps to
+/// this crate's `catch`, whose handler is the second argument.
 #[test]
 fn catch_first_argument_as_success() {
     let effect = Effect::<i32, String>::succeed(1).catch(|_e| Effect::fail("e2".to_string()));
@@ -80,8 +80,8 @@ fn catch_cause_first_argument_as_success() {
 }
 
 /// Effect.test.ts :665 "gen" — a generator that yields one effect and returns
-/// its value has no `gen` in this port, so it desugars to a `flat_map` over the
-/// yielded value. The observable the row asserts is that the bound value
+/// its value has no `gen` in this crate, so it desugars to a `flat_map` over the
+/// yielded value. The observable the case asserts is that the bound value
 /// survives the continuation and is what the whole effect returns.
 #[test]
 fn gen_yields_the_value_and_returns_it() {
@@ -91,7 +91,7 @@ fn gen_yields_the_value_and_returns_it() {
 
 /// Effect.test.ts :672 "gen with context" — `gen`'s `self` is the TS `this`
 /// binding. In Rust the same values arrive by capture rather than by a `this`
-/// receiver, so the row's observable is that the continuation sees them and
+/// receiver, so the case's observable is that the continuation sees them and
 /// returns their sum: succeed(1).flatMap(r => succeed(r + 2)) is 3.
 #[test]
 fn gen_with_self_binding_uses_the_bound_values() {
@@ -104,7 +104,7 @@ fn gen_with_self_binding_uses_the_bound_values() {
 
 /// Effect.test.ts :4013 "should support pipeable arguments" — `Effect.fn`'s
 /// second argument transforms the effect by appending its own pipeable args to
-/// the mapped result. No `Effect.fn` in this port, so the observable is a plain
+/// the mapped result. No `Effect.fn` in this crate, so the observable is a plain
 /// closure that builds the effect and maps it: calling with "a" yields the
 /// length of "a" beside the argument that produced it, `[1, "a"]`.
 #[test]
@@ -137,9 +137,9 @@ fn effect_fn_self_binding_uppercases_the_body_result() {
 
 /// Effect.test.ts :936 "tuple" — `Effect.all([succeed(1), succeed(2),
 /// succeed(3)])` yields the tuple `[1, 2, 3]`. No `Effect.all` and no
-/// `tuple3` in this port, so the row's success-only assertion is carried by
+/// `tuple3` in this crate, so the case's success-only assertion is carried by
 /// sequential composition, which produces the same tuple when every member
-/// succeeds: the shape of the result is what the row checks.
+/// succeeds: the shape of the result is what the case checks.
 #[test]
 fn all_collects_the_success_tuple() {
     let effect = Effect::<i32, Infallible>::succeed(1).flat_map(|a| {
@@ -183,8 +183,8 @@ fn catch_cause_filter_first_argument_as_success() {
 
 /// Effect.test.ts :3429 "first argument as failure and predicate return
 /// false" — a `Result::Err` from the filter declines the recovery, so the
-/// original cause is re-raised untouched. (`Effect.flip` in the pin is the
-/// assertion device; the port asserts the failure directly.)
+/// original cause is re-raised untouched. (`Effect.flip` in Effect 4 is the
+/// assertion device; the crate asserts the failure directly.)
 #[test]
 fn catch_cause_filter_declined_cause_is_re_raised() {
     let effect = Effect::<i32, String>::fail("e1".to_string()).catch_cause_filter(
@@ -291,7 +291,7 @@ fn catch_cause_if_predicate_no_match_preserves_error() {
 
 /// Effect.test.ts :3711 "first argument as failure" — the mirror of :3706:
 /// `catch` over a failing effect runs the handler, and the handler's
-/// failure is the outcome. (`Effect.flip` is the pin's assertion device.)
+/// failure is the outcome. (`Effect.flip` is Effect 4's assertion device.)
 #[test]
 fn catch_first_argument_as_failure() {
     let effect =
@@ -328,17 +328,17 @@ fn filter_keeps_the_elements_the_predicate_accepts() {
     assert_eq!(Runtime::run(effect), Exit::Success(vec![2, 4]));
 }
 
-/// A mixed element for the refinement row below.
+/// A mixed element for the refinement case below.
 #[derive(Clone, Debug, PartialEq)]
 enum Mixed {
     Num(i32),
     Str(&'static str),
 }
 
-/// Effect.test.ts :3685 "refinement narrows iterable" — the pin's
+/// Effect.test.ts :3685 "refinement narrows iterable" — Effect 4's
 /// `x is number` guard narrows the element type. Rust has no type predicate,
 /// so the mixed iterable is an enum and the guard is the `Num` arm; the
-/// row's value-level observable survives exactly: only the numbers, in
+/// case's value-level observable survives exactly: only the numbers, in
 /// order.
 #[test]
 fn filter_refinement_keeps_only_the_narrowed_elements() {
@@ -466,10 +466,10 @@ fn filter_runs_nothing_until_interpreted() {
 }
 
 // `catchReason`, `catchReasons`, and `unwrapReason` (Effect.test.ts
-// :4086-:4280). The pin discriminates nested tagged errors by `_tag`
-// strings on both the parent and its `reason`; this port's typed channel
+// :4086-:4280). Effect 4 discriminates nested tagged errors by `_tag`
+// strings on both the parent and its `reason`; this crate's typed channel
 // is a Rust enum, so the same discrimination is an exhaustive match and
-// the recovery itself is the `catch` family. `Ai` is the pin's
+// the recovery itself is the `catch` family. `Ai` is Effect 4's
 // `AiError`, `Nested` the union of its nested reasons, `Other` the
 // non-matching parent tag.
 #[derive(Debug, Clone, PartialEq)]
@@ -686,7 +686,7 @@ fn catch_reasons_preserves_the_cause_for_an_unhandled_reason() {
 }
 
 /// `unwrapReason` narrows the error channel to the union of nested reasons
-/// (the pin's `RateLimitError | QuotaExceededError | OtherError`), so the
+/// (Effect 4's `RateLimitError | QuotaExceededError | OtherError`), so the
 /// port renders the narrowed channel as its own enum and the unwrap
 /// itself as a channel transformation: `Ai(reason)` becomes the reason,
 /// everything else keeps its rendering. Defects and interrupts are not

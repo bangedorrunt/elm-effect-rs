@@ -1,19 +1,19 @@
 //! `Config.mapEffect`'s driver and `Config.load_effect`: how a config result
 //! becomes an effect.
 //!
-//! The pin's config evaluation is itself effect-shaped, so `mapEffect` is just
+//! Effect 4's config evaluation is itself effect-shaped, so `mapEffect` is just
 //! a `flatMap` on the resolution and a provider defect is an ordinary defect in
-//! the parsing effect. This port's evaluation is a synchronous `Result` (see
+//! the parsing effect. This crate's evaluation is a synchronous `Result` (see
 //! `config.rs`), which leaves two seams for this module:
 //!
 //! - a `mapEffect` transform runs on the calling thread, through the same
 //!   interpreter `Runtime::run` uses, so it must be an effect that finishes
 //!   without suspending. A typed failure is the load's failure, with the
-//!   descriptor's path, which `or_else` recovers from the way the pin's
+//!   descriptor's path, which `or_else` recovers from the way Effect 4's
 //!   `orElse` does; a defect has no channel in a `Result<Value, Vec<ConfigError>>`,
 //!   so it surfaces as [`ConfigError::Invalid`] carrying the rendered cause.
 //!   That is the honest ceiling of a load with no fiber: the config still
-//!   refuses, but it says "invalid value" where the pin would have died.
+//!   refuses, but it says "invalid value" where Effect 4 would have died.
 //! - `load_effect` reifies a *provider* defect back into the cause it belongs
 //!   to, because the load can only report it as [`ConfigError::Defect`]
 //!   (`Config.test.ts:65`).
@@ -26,7 +26,7 @@ impl crate::config::Config {
     /// `Config.parse` as an effect: the load's typed failures are the effect's
     /// error, and a provider that died is the effect's *defect*.
     ///
-    /// The pin's `parse` fails with a `ConfigError`; a provider defect is not
+    /// Effect 4's `parse` fails with a `ConfigError`; a provider defect is not
     /// one of those, so `orElse` and `option` never see it and only
     /// `catchDefect` can answer for it (`Config.test.ts:65`). A load here is a
     /// synchronous `Result`, which has no defect channel, so this is the one

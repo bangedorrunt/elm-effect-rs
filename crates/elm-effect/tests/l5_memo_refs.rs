@@ -4,7 +4,7 @@
 //! Design pinned here: ambiguity is a CONSTRUCTION error when values are
 //! provisioned onto one effect. Value-level `provide` panics and
 //! `Layer::provide` returns the defect, never a run-time Die far from the
-//! bug. Layer-to-layer composition is the exception: it follows the pin's
+//! bug. Layer-to-layer composition is the exception: it follows Effect 4's
 //! `Context.mergeAll`, where the later provision of a tag wins. The
 //! run-time `ambiguous tag` Die survives only for conflicts merged in from
 //! elsewhere, which no single call created. Re-providing the SAME shared
@@ -161,9 +161,9 @@ fn memo_map_builds_once_per_instance() {
     assert!(Arc::ptr_eq(&v1, &v2));
 }
 
-// `Effect.updateServiceScoped` (Effect.test.ts :4451-:4490). The pin
+// `Effect.updateServiceScoped` (Effect.test.ts :4451-:4490). Effect 4
 // overlays an updated value on the ambient service for the current scope
-// and restores the original when the scope closes. This port's context is
+// and restores the original when the scope closes. This crate's context is
 // immutable service data, so the overlay is the sub-effect's own service
 // map and the "restore" is that overlay ending with it: the update reads
 // the current value, the sub-effect runs with the update applied, and the
@@ -199,11 +199,11 @@ fn update_service_scoped_updates_a_service_until_the_scope_closes() {
 fn update_service_scoped_skips_restoration_when_the_provider_expires() {
     // Effect.test.ts:4451 — the piped effect updates the service for its
     // inner scope (result 2). The provider ends with its effect, so there
-    // is nothing to restore to: the pin's post-scope `serviceOption`
-    // being `none` maps to the port's structural fact that the overlay
+    // is nothing to restore to: Effect 4's post-scope `serviceOption`
+    // being `none` maps to the crate's structural fact that the overlay
     // lived in the providing effect's own service map, which ended with
     // it. A sibling read still sees its own provided value — the expired
-    // provider's update did not leak into it — and the port has no
+    // provider's update did not leak into it — and the crate has no
     // ambient service slot for an unprovided read to observe (a `Use`
     // with an open requirement cannot reach the runtime edge).
     let rt = Runtime::new();

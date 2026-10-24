@@ -1,8 +1,8 @@
-//! `Effect` collection combinators at the pin
-//! (`packages/effect/test/Effect.test.ts`, describe blocks `partition`,
+//! `Effect` collection combinators in Effect 4
+//! (`Effect` suite, describe blocks `partition`,
 //! `reduce`, `validate`, `findFirst`, `findFirstFilter`).
 //!
-//! The item-mapping forms (`items, f`) are what the rows exercise. This
+//! The item-mapping forms (`items, f`) are what the cases exercise. This
 //! port's collection combinators interpret at the runtime, so they return
 //! `Exit` directly rather than `Effect`: the ADR's `ManagedRuntime::run`
 //! bridge is for a description, and these are already driven bodies.
@@ -279,8 +279,8 @@ fn find_first_filter_returns_none_when_filter_never_succeeds() {
 
 // ---------------------------------------------------------------------------
 // Effect.test.ts :1143 — the zero is evaluated once per run, not at
-// construction. This port's `reduce` takes the zero as a closure, so the
-// counter is the same probe the pin uses.
+// construction. This crate's `reduce` takes the zero as a closure, so the
+// counter is the same probe Effect 4 uses.
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -335,7 +335,7 @@ fn filter_keeps_the_odd_numbers() {
 
 #[test]
 fn filter_accepts_any_iterable() {
-    // A `BTreeSet` is this port's ordered analogue of the pin's `Set`
+    // A `BTreeSet` is this crate's ordered analogue of Effect 4's `Set`
     // argument: the combinator takes `IntoIterator`, not a slice.
     let set: std::collections::BTreeSet<u32> = [1, 2, 3, 4, 5].into_iter().collect();
     let exit: Exit<Vec<u32>, std::convert::Infallible> =

@@ -1,6 +1,6 @@
 //! A typed error that names its own kind (`Data.TaggedError`'s `_tag`).
 //!
-//! The pin reads a `_tag` field off the error value at runtime; this port asks
+//! Effect 4 reads a `_tag` field off the error value at runtime; this crate asks
 //! the value instead, through [`TaggedError`], so
 //! [`Layer::catch_tag`](crate::Layer::catch_tag) can recover one tag and let
 //! every other cause through untouched.

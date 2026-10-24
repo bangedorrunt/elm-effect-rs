@@ -1,4 +1,4 @@
-//! `PubSub.ts` port: broadcast with per-subscriber queues.
+//! Broadcast with per-subscriber queues.
 //!
 //! A [`PubSub`] fans each published value out to every live subscription,
 //! each with its own bounded queue. [`Strategy`] picks the full-queue
@@ -11,13 +11,11 @@
 //! subscription from the trailing history window.
 //!
 //! Threads stand in for fibers here (blocking park/unpark via one
-//! [`Condvar`](std::sync::Condvar) per subscription); Effect scopes and
-//! interruption rows are thread residuals, not silent skips.
-// This file belongs to the parked port campaign: a test reaches it through
-// a `#[path]` include to port specific rows, so most of its surface is
-// unused by any one test target. Warnings about the unexercised remainder
-// describe the test's coverage, not a defect in the crate, so they are
-// allowed here rather than fixed one by one.
+//! [`Condvar`](std::sync::Condvar) per subscription). Effect scopes and
+//! interruption are not carried; a raw thread has no scope to close.
+// A test reaches this module through a `#[path]` include, so one test target
+// does not exercise its whole surface. The dead-code allowance covers the
+// unexercised remainder, not a defect in the crate.
 #![allow(dead_code)]
 use std::collections::VecDeque;
 use std::sync::{Arc, Condvar, Mutex};

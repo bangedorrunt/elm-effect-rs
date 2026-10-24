@@ -9,6 +9,7 @@ use std::sync::Mutex;
 
 use elm_effect_journal::durable_log::{AppendError, DurableLog, MemLog, Offset};
 use elm_effect_journal::laws;
+use elm_effect_journal::stream::Status;
 
 #[test]
 fn stale_epoch_is_fenced_on_the_trait() {
@@ -32,9 +33,24 @@ fn new_epoch_starts_at_zero_on_the_trait() {
 }
 
 #[test]
+fn paging_reaches_every_record_on_the_trait() {
+    laws::paging_reaches_every_record(&MemLog::new()).unwrap();
+}
+
+#[test]
 fn every_law_holds_on_one_shared_memlog() {
     let log = MemLog::new();
     for (name, outcome) in laws::all(&log) {
+        assert!(outcome.is_ok(), "{name}: {outcome:?}");
+    }
+}
+
+#[test]
+fn closing_laws_hold_on_fresh_logs() {
+    // Each closure law closes its log, so each gets its own: sharing one
+    // would make the second law's first append hit the closed wall.
+    for (name, law) in laws::closing() {
+        let outcome = law(&MemLog::new());
         assert!(outcome.is_ok(), "{name}: {outcome:?}");
     }
 }
@@ -85,16 +101,40 @@ impl DurableLog for UnfencedLog {
     fn compact_before(&self, _before: &Offset) -> Result<usize, AppendError> {
         Ok(0)
     }
+    fn close(&self) -> Result<(), AppendError> {
+        let map = self.per_epoch.lock().unwrap();
+        for log in map.values() {
+            log.close()?;
+        }
+        Ok(())
+    }
+    fn append_json_and_close(&self, envelope: &str) -> Result<Offset, AppendError> {
+        let offset = self.append_json(envelope)?;
+        self.close()?;
+        Ok(offset)
+    }
+    fn status(&self) -> Status {
+        let map = self.per_epoch.lock().unwrap();
+        if map.is_empty() || map.values().any(|log| !log.is_closed()) {
+            Status::UpToDate
+        } else {
+            Status::Closed
+        }
+    }
 }
 
 /// Negative control: appends every call, no dedupe.
 #[derive(Default)]
 struct NoDedupeLog {
     rows: Mutex<Vec<String>>,
+    closed: Mutex<bool>,
 }
 
 impl DurableLog for NoDedupeLog {
     fn append_json(&self, envelope: &str) -> Result<Offset, AppendError> {
+        if *self.closed.lock().unwrap() {
+            return Err(AppendError::Closed);
+        }
         let mut rows = self.rows.lock().unwrap();
         rows.push(envelope.to_string());
         Ok(Offset::At(format!("{:020}", rows.len() - 1)))
@@ -109,6 +149,22 @@ impl DurableLog for NoDedupeLog {
     }
     fn compact_before(&self, _before: &Offset) -> Result<usize, AppendError> {
         Ok(0)
+    }
+    fn close(&self) -> Result<(), AppendError> {
+        *self.closed.lock().unwrap() = true;
+        Ok(())
+    }
+    fn append_json_and_close(&self, envelope: &str) -> Result<Offset, AppendError> {
+        let offset = self.append_json(envelope)?;
+        self.close()?;
+        Ok(offset)
+    }
+    fn status(&self) -> Status {
+        if *self.closed.lock().unwrap() {
+            Status::Closed
+        } else {
+            Status::UpToDate
+        }
     }
 }
 

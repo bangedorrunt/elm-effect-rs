@@ -1,4 +1,4 @@
-//! `Sink.ts` port: fold takes to a value. Only sinks interpret pulls —
+//! Fold takes to a value. Only sinks interpret pulls —
 //! everything upstream stays lazy. Sinks run on closed pulls here; providing
 //! services happens before sinking, as with `run_fold`.
 

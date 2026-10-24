@@ -125,7 +125,7 @@ fn random_shuffle_and_choice_match_the_pin() {
     let random = Random::from_draws([0.75]);
     assert_eq!(random.choice(&["a", "b", "c"]), Ok(&"c"));
 
-    // :209 — an empty slice fails with the pin's message.
+    // :209 — an empty slice fails with Effect 4's message.
     let error = Random::with_seed(1).choice::<i32>(&[]).unwrap_err();
     assert_eq!(error, RandomError::NoSuchElement);
     assert_eq!(

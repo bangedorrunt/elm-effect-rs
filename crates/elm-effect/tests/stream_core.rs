@@ -47,7 +47,7 @@ fn take_rounds_positive_fractional_counts_down() {
     // Stream.make(1, 2, 3).pipe(Stream.take(0.5), ...) === []
     // Stream.make(1, 2, 3).pipe(Stream.take(1.9), ...) === [1]
     // Stream.make(1, 2, 3).pipe(Stream.take(2.9), ...) === [1, 2]
-    // The pin floors, it does not round, so 1.9 takes one element.
+    // Effect 4 floors, it does not round, so 1.9 takes one element.
     let source = || from_iter(vec![1i64, 2, 3].into_iter(), 3);
     let half: Exit<Vec<i64>, Infallible> = source().take(0.5).run_collect();
     assert!(matches!(half, Exit::Success(ref v) if v.is_empty()));
@@ -59,7 +59,7 @@ fn take_rounds_positive_fractional_counts_down() {
 
 #[test]
 fn take_treats_nan_as_a_non_positive_count() {
-    // Stream.take(NaN) normalizes to 0, so nothing is collected. The pin's
+    // Stream.take(NaN) normalizes to 0, so nothing is collected. Effect 4's
     // Count.normalize maps NaN to 0 for an element count, the same rule a
     // chunk size uses.
     let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3].into_iter(), 3).take(f64::NAN);
@@ -208,7 +208,7 @@ fn map_effect_smaller_bound_is_sequential() {
 }
 
 // ---------------------------------------------------------------------------
-// Streaming transforms at the pin: filterMap, takeWhile, takeUntil
+// Streaming transforms in Effect 4: filterMap, takeWhile, takeUntil
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -268,7 +268,7 @@ fn take_while_first_element_fails_ends_immediately() {
 }
 
 // ---------------------------------------------------------------------------
-// Scanning at the pin: scan, mapAccumArray
+// Scanning in Effect 4: scan, mapAccumArray
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -329,7 +329,7 @@ fn scan_effect_threads_state_across_chunk_boundaries() {
 
 #[test]
 fn scan_effect_failure_reaches_the_typed_channel() {
-    // The unhappy path the row does not assert: a step that fails fails the
+    // The unhappy path the case does not assert: a step that fails fails the
     // stream at that element, and the elements already folded stay collected.
     let stream: Stream<i64, String, ()> =
         from_iter(vec![1i64, 2, 3].into_iter(), 3).scan_effect(0i64, |acc, cur| {
@@ -368,10 +368,10 @@ fn filter_map_effect_keeps_only_some_results() {
     // Stream.filterMapEffect over Effect.succeed: even values map to
     // Some(n + 1), odd values to None, so the collected result is [3, 5].
     //
-    // Composed from the port's existing primitives rather than a new
+    // Composed from the crate's existing primitives rather than a new
     // combinator: map_effect produces the Option, filter_map flattens it.
     // The effect here is a pure succeed, which is exactly the observable the
-    // row asserts.
+    // case asserts.
     let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3, 4].into_iter(), 4)
         .map_effect(
             |n: i64, _ctx: &elm_effect::Ctx| Effect::succeed((n % 2 == 0).then(|| n + 1)),
@@ -382,7 +382,7 @@ fn filter_map_effect_keeps_only_some_results() {
 }
 
 // ---------------------------------------------------------------------------
-// Stream.takeRight at the pin (describe "taking")
+// Stream.takeRight in Effect 4 (describe "taking")
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -395,7 +395,7 @@ fn take_right_keeps_the_last_n_elements_in_order() {
 
 #[test]
 fn take_right_normalizes_the_element_count() {
-    // n normalizes like the pin's Count.normalize: NaN and non-positive
+    // n normalizes like Effect 4's Count.normalize: NaN and non-positive
     // become 0, a positive value floors. Over [1, 2, 3]:
     //   NaN -> [], -1 -> [], 0.5 -> [], 1.9 -> [3], 2.9 -> [2, 3]
     let expected: Vec<Vec<i64>> = vec![vec![], vec![], vec![], vec![3], vec![2, 3]];
@@ -415,8 +415,8 @@ fn take_right_normalizes_the_element_count() {
 
 #[test]
 fn take_right_zero_count_does_not_evaluate_the_upstream() {
-    // A zero normalized count must not pull the upstream at all: the pin's
-    // row drives a source that dies, so any pull would surface as a defect
+    // A zero normalized count must not pull the upstream at all: Effect 4's
+    // case drives a source that dies, so any pull would surface as a defect
     // rather than an empty result.
     let pulls = Arc::new(AtomicUsize::new(0));
     let counter = Arc::clone(&pulls);
@@ -492,7 +492,7 @@ fn grouped_within_never_elapsing_schedule_is_plain_grouped() {
     // Stream.groupedWithin(size, "1 hour") (and "1 second" over a synchronous
     // stream) is observably Stream.grouped(size): the schedule never fires,
     // so a batch closes on size and the final partial batch flushes when the
-    // upstream ends. Reduced onto the port's `grouped`, which already
+    // upstream ends. Reduced onto the crate's `grouped`, which already
     // normalizes the size through Count.normalizeNonEmpty.
     //
     // :2618 — the normalization table, for size in [NaN, 0.5, 1.9, 2.9].
@@ -592,7 +592,7 @@ fn limit_bytes_does_not_evaluate_the_fallback_below_the_limit() {
 #[test]
 fn limit_bytes_does_not_evaluate_the_fallback_at_the_limit() {
     // limit_bytes(4) over the same two 2-byte chunks:
-    // the total is exactly 4, which is the limit, and the pin's boundary is
+    // the total is exactly 4, which is the limit, and Effect 4's boundary is
     // inclusive. The fallback is still never constructed.
     let evaluated = Arc::new(AtomicUsize::new(0));
     let seen = Arc::clone(&evaluated);
@@ -641,7 +641,7 @@ fn limit_bytes_drops_the_crossing_chunk_and_switches_to_the_fallback() {
 fn stream_callback_with_take_drains_offered_items() {
     // Stream.test.ts :43. The registration offers five items into the
     // mailbox; `take(5)` then collects exactly them. The registration runs
-    // eagerly, so no producer fiber is needed to observe the row.
+    // eagerly, so no producer fiber is needed to observe the case.
     let stream: Stream<i32, String, ()> =
         Stream::callback(|mailbox| mailbox.offer_all([1, 2, 3, 4, 5])).take(5.0);
     match stream.run_collect() {
@@ -679,7 +679,7 @@ fn stream_callback_failure_reaches_the_typed_channel() {
 fn stream_callback_defect_is_a_defect_not_a_typed_failure() {
     // Stream.test.ts :102. A registration that raises becomes a defect, so
     // the exit is `die`, not `fail`. The distinction matters: defects bypass
-    // the typed channel the row's `handles errors` sibling uses.
+    // the typed channel the case's `handles errors` sibling uses.
     let stream: Stream<i32, String, ()> =
         Stream::callback(|mailbox| mailbox.die(Defect::new("registration raised")));
     let exit = stream.run_collect();
@@ -691,12 +691,12 @@ fn stream_callback_defect_is_a_defect_not_a_typed_failure() {
 
 #[test]
 fn split_lines_matches_a_joined_lines_iterator() {
-    // Stream.test.ts :689 (it.effect.prop). The pin asserts that splitting a
+    // Stream.test.ts :689 (it.effect.prop). Effect 4 asserts that splitting a
     // stream of chunks equals `String.linesIterator` of the joined text, for
     // arbitrary chunk boundaries over the alphabet [ab\n\r].
     //
-    // The property is that chunk boundaries never change the lines. This port
-    // splits on \n, \r and \r\n, which is the pin's linesSeparated, so the two
+    // The property is that chunk boundaries never change the lines. this crate
+    // splits on \n, \r and \r\n, which is Effect 4's linesSeparated, so the two
     // agree by construction and this test is the witness for that agreement.
     // Reproduced deterministically with an LCG over the four-character
     // alphabet so a failure is reproducible rather than harness-RNG-dependent.
@@ -710,7 +710,7 @@ fn split_lines_matches_a_joined_lines_iterator() {
     const ALPHABET: [char; 4] = ['a', 'b', '\n', '\r'];
 
     for run in 0..200u32 {
-        // Up to 8 chunks, each up to 8 characters, matching the pin's maxLength.
+        // Up to 8 chunks, each up to 8 characters, matching Effect 4's maxLength.
         let chunk_count = (next() % 9) as usize;
         let chunks: Vec<String> = (0..chunk_count)
             .map(|_| {
@@ -730,7 +730,7 @@ fn split_lines_matches_a_joined_lines_iterator() {
     }
 }
 
-/// The lines of `joined` under the pin's `linesSeparated` rules: `\n`, `\r`,
+/// The lines of `joined` under Effect 4's `linesSeparated` rules: `\n`, `\r`,
 /// and `\r\n` each terminate a line, and a final unterminated segment is
 /// emitted while a trailing terminator produces no extra empty line.
 fn expected_lines(joined: &str) -> Vec<String> {
@@ -761,7 +761,7 @@ fn expected_lines(joined: &str) -> Vec<String> {
 // rechunk property (Stream.test.ts 1718)
 // ---------------------------------------------------------------------------
 
-/// `grouped` from the pin's test file: split `arr` into consecutive groups of
+/// `grouped` from Effect 4's test file: split `arr` into consecutive groups of
 /// exactly `size`, with the final group holding the remainder.
 fn grouped_by<A: Clone>(arr: &[A], size: usize) -> Vec<Vec<A>> {
     let mut out: Vec<Vec<A>> = Vec::new();
@@ -787,7 +787,7 @@ fn rechunk_matches_a_grouped_flat_of_the_source_chunks() {
     //
     // Reproduced deterministically with an xorshift LCG so a failure names the
     // run and the literal chunks rather than depending on a property library's
-    // seed, which this port does not have.
+    // seed, which this crate does not have.
     let mut seed: u64 = 0x1234_5678_9abc_def0;
     let mut next = move || {
         seed ^= seed << 13;
@@ -797,7 +797,7 @@ fn rechunk_matches_a_grouped_flat_of_the_source_chunks() {
     };
 
     for run in 0..200u32 {
-        // The pin's bounds: at least one chunk, size in 1..=100.
+        // Effect 4's bounds: at least one chunk, size in 1..=100.
         let chunk_count = 1 + (next() % 6) as usize;
         let size = 1 + (next() % 100) as usize;
         let chunks: Vec<Vec<i64>> = (0..chunk_count)
@@ -814,7 +814,7 @@ fn rechunk_matches_a_grouped_flat_of_the_source_chunks() {
         // `rechunk` carries across pull boundaries, so the source chunks are
         // fed one at a time rather than pre-flattened: build the source by
         // concatenating one stream per chunk, so the upstream's own chunking
-        // is what the pin's `flattenArray` produces.
+        // is whin Effect 4's `flattenArray` produces.
         let mut stream: Stream<i64, Infallible, ()> = Stream::empty();
         for chunk in &chunks {
             stream = stream.concat(from_iter(chunk.clone().into_iter(), chunk.len()));
@@ -837,10 +837,10 @@ fn nested_chains_run_in_order_closing_each_part_before_the_next() {
     // order, and a part's `start`/`end` must be adjacent: each part opens,
     // emits, and closes before the next one opens.
     //
-    // The port expresses "a part" as a one-element stream that logs `start`
-    // and then `end` around the element it emits, which is the pin's
+    // The crate expresses "a part" as a one-element stream that logs `start`
+    // and then `end` around the element it emits, which is Effect 4's
     // `fromEffect(...).pipe(Stream.ensuring(...))` reduced to what a pull can
-    // observe. The interleaving the row asserts is the interleaving the pull
+    // observe. The interleaving the case asserts is the interleaving the pull
     // sequence produces, so a `concat` that opened a second part before
     // closing the first would show it here.
     //
@@ -859,10 +859,10 @@ fn nested_chains_run_in_order_closing_each_part_before_the_next() {
     }
     let stream = left.concat(right);
 
-    // One traversal rather than the pin's two: this port's `concat` shares one
+    // One traversal rather than Effect 4's two: this crate's `concat` shares one
     // pull `Arc`, so a second `run_collect` re-invokes the same already-fired
     // closure and yields nothing. Rebuilding the chain per run would test two
-    // fresh chains, not the same chain twice, so the pin's idempotence
+    // fresh chains, not the same chain twice, so Effect 4's idempotence
     // assertion is a divergence recorded here rather than an assertion that
     // would pass trivially.
     let collected = match stream.run_collect() {
@@ -880,7 +880,7 @@ fn nested_chains_run_in_order_closing_each_part_before_the_next() {
 }
 
 /// A one-element stream that logs `start name` before emitting and `end name`
-/// right after, the port's counterpart of the pin's
+/// right after, the crate's counterpart of Effect 4's
 /// `Stream.fromEffect(...).pipe(Stream.ensuring(...))`.
 ///
 /// The `emitted` flag is what makes it one-element: `from_pull`'s `FnMut` is
@@ -914,9 +914,9 @@ fn on_start_and_on_end_run_their_effect_exactly_once() {
     // `make(1,1)` for onStart and `make(1,2,3)` for onEnd, and neither changes
     // the elements.
     //
-    // The pin's `onStart`/`onEnd` widen the error channel to E | E2, but both
-    // rows use `Effect.sync`, whose E2 is `never`, so `E | never` is `E` and a
-    // closure with no error channel carries the row exactly.
+    // Effect 4's `onStart`/`onEnd` widen the error channel to E | E2, but both
+    // cases use `Effect.sync`, whose E2 is `never`, so `E | never` is `E` and a
+    // closure with no error channel carries the case exactly.
     let started = Arc::new(AtomicUsize::new(0));
     let ended = Arc::new(AtomicUsize::new(0));
 
@@ -959,9 +959,9 @@ struct Event {
     message: &'static str,
 }
 
-/// The pin's `groupAdjacentBy`, reduced to what these two rows assert: collect
+/// Effect 4's `groupAdjacentBy`, reduced to what these two cases assert: collect
 /// the drained elements into runs of equal key, in order, keeping the run's
-/// elements and dropping the key (both rows assert on `[, chunk]`).
+/// elements and dropping the key (both cases assert on `[, chunk]`).
 fn group_adjacent_by<A, K>(items: Vec<A>, key: impl Fn(&A) -> K) -> Vec<Vec<A>>
 where
     K: PartialEq,
@@ -1064,12 +1064,12 @@ fn group_adjacent_by_one_big_chunk() {
 // zipWith (Stream.test.ts 3152, 3162, 3203)
 // ---------------------------------------------------------------------------
 
-/// The pin's `zipWith`, reduced to what these three rows assert: pair the two
+/// Effect 4's `zipWith`, reduced to what these three cases assert: pair the two
 /// streams position-by-position, stop when the shorter runs out, and produce
 /// an empty result when either side is empty.
 ///
-/// The narrower pairing row (`:3142`, equal lengths) and the leftover/pull
-/// discipline rows are separate and are not asserted here.
+/// The narrower pairing case (`:3142`, equal lengths) and the leftover/pull
+/// discipline cases are separate and are not asserted here.
 fn zip_with<A, B, C>(left: Vec<A>, right: Vec<B>, f: impl Fn(A, B) -> C) -> Vec<C> {
     left.into_iter().zip(right).map(|(a, b)| f(a, b)).collect()
 }
@@ -1290,7 +1290,7 @@ fn buffer_unbounded_passes_the_stream() {
 // zipLatest / zipLatestWith (Stream.test.ts 3842-4036)
 // ---------------------------------------------------------------------------
 
-/// A chunked numeric side. `from_iter` needs both types spelled, and every row
+/// A chunked numeric side. `from_iter` needs both types spelled, and every case
 /// here pairs numbers with words over a `String` failure.
 fn numbers(items: Vec<u32>, chunk: usize) -> Stream<u32, String, ()> {
     from_iter(items.into_iter(), chunk)
@@ -1303,7 +1303,7 @@ fn words(items: Vec<&'static str>, chunk: usize) -> Stream<&'static str, String,
 #[test]
 fn zip_latest_pairs_each_side_with_the_other_s_latest() {
     // :3842 :3929 — both sides emit and the pairs carry a value from each.
-    // :3919 — the method form is the port of the pipe syntax.
+    // :3919 — the method form is the crate of the pipe syntax.
     let exit = numbers(vec![1, 2, 3], 2)
         .zip_latest(words(vec!["a", "b", "c", "d"], 2))
         .run_collect();
@@ -1427,15 +1427,15 @@ enum ZipEnd<E> {
     /// The stream died (a thrown defect); same visibility rule as `Fail`.
     Die(String),
     /// `Stream.never`: never exhausts. `filler` is the element a pull yields;
-    /// its value never surfaces in a carried row, because pairing against
+    /// its value never surfaces in a carried case, because pairing against
     /// `Stream.never` only ever stops through the other side.
     Never,
 }
 
 /// One side of a zip: the chunks pulled on demand, the current leftover, and
-/// the end that follows the last chunk. The leftover matters: the pin pairs
+/// the end that follows the last chunk. The leftover matters: Effect 4 pairs
 /// a leftover against the other side's next pull instead of re-pulling, which
-/// is what makes the array-boundary rows land on element positions.
+/// is what makes the array-boundary cases land on element positions.
 struct ZipSide<A, E> {
     chunks: Vec<Vec<A>>,
     cursor: usize,
@@ -1496,7 +1496,7 @@ impl<A, E> ZipSide<A, E> {
 }
 
 impl<A> ZipSide<A, String> {
-    /// A side that ends cleanly, given as chunks. Most carried rows never
+    /// A side that ends cleanly, given as chunks. Most carried cases never
     /// fail a side, and this keeps their construction free of a type
     /// annotation.
     fn clean(chunks: Vec<Vec<A>>) -> Self {
@@ -1510,18 +1510,18 @@ enum ZipFault<E> {
     Die(String),
 }
 
-/// The pin's zipping fold, reduced to what the family's rows assert. Each
+/// Effect 4's zipping fold, reduced to what the family's cases assert. Each
 /// side is pulled chunk-by-chunk, a leftover is paired against the other
 /// side's next pull rather than re-pulling it, and pairing stops when the
 /// first pull ends cleanly. A side's failure or defect surfaces only while
 /// the other side is still live (an ended side's later failure is never
-/// pulled, which is what the "does not pull too much" row witnesses).
+/// pulled, which is what the "does not pull too much" case witnesses).
 ///
 /// Returns the pairs, both remainders, and whether any pairing left a
-/// leftover — the last is the pin's own leftover counter, which the uneven
-/// chunk-boundary row asserts on. The left side is pulled first when both
-/// are empty, matching the pin's order. Two never-ending sides never pair,
-/// so the loop stops instead of spinning; no carried row reaches that case.
+/// leftover — the last is Effect 4's own leftover counter, which the uneven
+/// chunk-boundary case asserts on. The left side is pulled first when both
+/// are empty, matching Effect 4's order. Two never-ending sides never pair,
+/// so the loop stops instead of spinning; no carried case reaches that case.
 type ZipFoldResult<A, B, C, E> = Result<(Vec<C>, Vec<A>, Vec<B>, bool), ZipFault<E>>;
 
 fn zip_fold<A: Clone, B: Clone, C, E>(
@@ -1564,11 +1564,11 @@ fn zip_fold<A: Clone, B: Clone, C, E>(
 
 #[test]
 fn zip_fold_prioritizes_failures_and_defects() {
-    // The failure and defect law shared by every zipping family row that
+    // The failure and defect law shared by every zipping family case that
     // ends a side with a failure or defect: zipWith (:3174, :3187, :3322,
     // :3338), zipWithArray (:3322, :3338), zip (:3471, :3480), zipLeft
     // (:3545, :3554), zipRight (:3636, :3645), zipFlatten (:3727, :3736) and
-    // zipWithIndex (:3814). The side shapes below are those rows' shapes.
+    // zipWithIndex (:3814). The side shapes below are those cases' shapes.
     //
     // :3174 — zipWith(Stream.never, Stream.fail("Ouch")) fails rather than
     // hanging on the never-ending left side.
@@ -1659,7 +1659,7 @@ fn zip_with_pairs_equal_length_streams() {
 
 #[test]
 fn zip_with_equivalence_with_array_operations() {
-    // :3221 — the property row: zipWith(a, b, f) equals the array-wise
+    // :3221 — the property case: zipWith(a, b, f) equals the array-wise
     // pairwise f truncated to the shorter side. Carried as the fixed cases
     // the generator could produce, including the empty-side degenerates.
     let cases: Vec<(Vec<i64>, Vec<i64>)> = vec![
@@ -1683,7 +1683,7 @@ fn zip_with_equivalence_with_array_operations() {
 
 #[test]
 fn zip_with_array_pairs_point_wise_with_leftovers() {
-    // Every zipWithArray row is the positional pairing law applied at the
+    // Every zipWithArray case is the positional pairing law applied at the
     // array level, with each side's chunks pulled in turn: pair
     // min(left, right), carry the remainder, and emit the pairs flattened.
     // :3388 swaps the pairing closure, which is the only thing that changes.
@@ -1833,7 +1833,7 @@ fn zip_with_array_pairs_point_wise_with_leftovers() {
 fn zip_zip_left_zip_right_zip_flatten_project_the_pairs() {
     // Stream.zip (3426-3489), zipLeft (3500-3563), zipRight (3591-3663) and
     // zipFlatten (3682-3763) are projections over the same pairing law, so
-    // each row's observable is its projection of these pairs.
+    // each case's observable is its projection of these pairs.
     let zip = |left: Vec<i64>, right: Vec<String>| {
         zip_fold(
             ZipSide::clean(vec![left]),
@@ -1996,7 +1996,7 @@ fn zip_with_index_pairs_each_element_with_its_position() {
     // :3798 — order is preserved; :3806 — any element type; :3814 — a
     // failure still surfaces; :3830 — the index increments past the first
     // chunk of a long stream. The index side is the fold's own cursor, so
-    // pairing against 0.. is the port's zipWithIndex: the stream's own end
+    // pairing against 0.. is the crate's zipWithIndex: the stream's own end
     // is what stops it.
     fn indexed(
         items: Vec<&'static str>,
@@ -2046,7 +2046,7 @@ fn zip_with_index_pairs_each_element_with_its_position() {
 // The dropping family (Stream.test.ts 4114-4222)
 // ---------------------------------------------------------------------------
 
-/// `Stream.drop` at the pin, reduced to what the rows assert: drop the first
+/// `Stream.drop` in Effect 4, reduced to what the cases assert: drop the first
 /// `n` elements, then emit the rest. The count normalizes through
 /// `Count.normalize` (NaN and non-positive become 0, a positive value
 /// floors), the same law `take` already pins.
@@ -2071,7 +2071,7 @@ fn drop_fold<A: Clone, E>(side: ZipSide<A, E>, n: usize) -> Result<Vec<A>, ZipFa
     }
 }
 
-/// `Stream.dropRight` at the pin: keep everything except the last `n`
+/// `Stream.dropRight` in Effect 4: keep everything except the last `n`
 /// elements. The whole stream is drained first, which is why a failure at
 /// the end still surfaces.
 fn drop_right_fold<A: Clone, E>(side: ZipSide<A, E>, n: usize) -> Result<Vec<A>, ZipFault<E>> {
@@ -2081,7 +2081,7 @@ fn drop_right_fold<A: Clone, E>(side: ZipSide<A, E>, n: usize) -> Result<Vec<A>,
     Ok(all)
 }
 
-/// `Stream.dropWhile` at the pin: drop while `f` holds, emit from the first
+/// `Stream.dropWhile` in Effect 4: drop while `f` holds, emit from the first
 /// element that fails it. `dropUntil(f)` is the dual with `f` negated and
 /// one more element dropped.
 fn drop_while_fold<A: Clone, E>(
@@ -2113,7 +2113,7 @@ fn drop_while_fold<A: Clone, E>(
 #[test]
 fn drop_drops_the_first_n_elements_and_normalizes_the_count() {
     // :4114 — drop(2) on [1, 2, 3, 4, 5] leaves [3, 4, 5], the same as the
-    // array-wise drop the row compares against.
+    // array-wise drop the case compares against.
     let simple = drop_fold(ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]), 2).unwrap();
     assert_eq!(simple, vec![3, 4, 5]);
 
@@ -2185,7 +2185,7 @@ fn drop_until_drop_while_and_drop_while_filter_walk_the_predicate() {
 
     // :4188 — dropUntil(f) drops while f fails and then one more element, so
     // [1, 2, 3, 4, 5] with f(n) = n < 3 keeps [2, 3, 4, 5] (1 is dropped as
-    // the first element f accepts). The row's own reference is
+    // the first element f accepts). The case's own reference is
     // dropWhile(!f) then drop(1).
     let until =
         drop_while_fold(ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]), |n| !(*n < 3)).unwrap();
@@ -2210,7 +2210,7 @@ fn drop_until_drop_while_and_drop_while_filter_walk_the_predicate() {
     );
 }
 
-/// `Stream.dropWhileFilter` at the pin: drop while the filter SUCCEEDS (the
+/// `Stream.dropWhileFilter` in Effect 4: drop while the filter SUCCEEDS (the
 /// dual of `takeWhileFilter`), emit from the first failure.
 fn drop_while_filter_fold<A: Clone, E>(
     side: ZipSide<A, E>,
@@ -2244,7 +2244,7 @@ fn drop_while_filter_fold<A: Clone, E>(
 // sliding, split, zipWithNext/Previous (Stream.test.ts 4294-5539)
 // ---------------------------------------------------------------------------
 
-/// `Stream.intersperse`/`intersperseAffixes` at the pin: the separator sits
+/// `Stream.intersperse`/`intersperseAffixes` in Effect 4: the separator sits
 /// between elements, and a lone element gets no separator. The affixes form
 /// brackets the whole output. Chunking never matters: the separator lands
 /// between elements wherever the chunk boundaries fall.
@@ -2305,7 +2305,7 @@ fn intersperse_and_intersperse_affixes_place_separators_between_elements() {
     );
 }
 
-/// `Stream.interleave` at the pin: pull one element from each side in turn,
+/// `Stream.interleave` in Effect 4: pull one element from each side in turn,
 /// and keep pulling the side that still has elements after the other ends.
 fn interleave_fold(left: Vec<i64>, right: Vec<i64>) -> Vec<i64> {
     let mut out = Vec::new();
@@ -2331,9 +2331,9 @@ fn interleave_fold(left: Vec<i64>, right: Vec<i64>) -> Vec<i64> {
     }
 }
 
-/// `Stream.interleaveWith` at the pin: a boolean stream chooses the side each
+/// `Stream.interleaveWith` in Effect 4: a boolean stream chooses the side each
 /// element comes from; a side with nothing left falls through to the other,
-/// and the stream ends when the booleans run out. This is the row's own
+/// and the stream ends when the booleans run out. This is the case's own
 /// reference implementation, verbatim in shape.
 fn interleave_with_fold(bools: Vec<bool>, left: Vec<i64>, right: Vec<i64>) -> Vec<i64> {
     match bools.split_first() {
@@ -2377,7 +2377,7 @@ fn interleave_and_interleave_with_alternate_sides() {
     );
 }
 
-/// `Stream.peel` at the pin, reduced to what the rows assert: the sink takes
+/// `Stream.peel` in Effect 4, reduced to what the cases assert: the sink takes
 /// the first `n` elements as one array, and the rest stays a stream.
 fn peel_fold<A: Clone, E>(side: ZipSide<A, E>, n: usize) -> Result<(Vec<A>, Vec<A>), ZipFault<E>> {
     let mut src = side;
@@ -2430,7 +2430,7 @@ enum WhenCondition {
     Die(String),
 }
 
-/// `Stream.when` at the pin: a false condition makes the stream empty, a
+/// `Stream.when` in Effect 4: a false condition makes the stream empty, a
 /// failure or defect in the condition fails or dies the stream, and a true
 /// condition passes the stream through.
 fn when_fold<A: Clone>(
@@ -2468,7 +2468,7 @@ fn when_gates_the_stream_on_the_condition() {
     ));
 }
 
-/// `Stream.sliding`/`slidingSize` at the pin, in the pin's own terms: pull
+/// `Stream.sliding`/`slidingSize` in Effect 4, in Effect 4's own terms: pull
 /// chunks into a list, skip `step` elements between windows, emit every
 /// window of `windowSize` the list can supply, and at the end emit the
 /// remainder as a final window. A `skip` debt carries across pulls, which is
@@ -2490,7 +2490,7 @@ fn sliding_fold<A: Clone, E>(
     loop {
         // Fill until a window is available or the upstream ends. A pull that
         // ends the stream trims the last window's overlap, emits the
-        // remainder, and stops — the pin's `onFailure` arm verbatim.
+        // remainder, and stops — Effect 4's `onFailure` arm verbatim.
         while list.len() < window {
             match src.pull() {
                 Pulled::Chunk => {
@@ -2651,7 +2651,7 @@ fn sliding_and_sliding_size_emit_overlapping_windows() {
     );
 }
 
-/// `Stream.split` at the pin: matching elements are delimiters and are not
+/// `Stream.split` in Effect 4: matching elements are delimiters and are not
 /// emitted; every group between delimiters is emitted, and empty groups
 /// (including a leading one before the first delimiter) are dropped.
 fn split_fold(items: Vec<i64>, f: impl Fn(i64) -> bool) -> Vec<Vec<i64>> {
@@ -2680,7 +2680,7 @@ fn split_delimits_non_empty_groups() {
         split_fold((0..10).collect(), |n| n % 4 == 0),
         vec![vec![1, 2, 3], vec![5, 6, 7], vec![9]]
     );
-    // The row's second case: chunks [1,2],[3,4],[5,6],[7,8,9],[10] flatten to
+    // The case's second case: chunks [1,2],[3,4],[5,6],[7,8,9],[10] flatten to
     // 1..10 and split on n % 3 === 0.
     assert_eq!(
         split_fold((1..=10).collect(), |n| n % 3 == 0),
@@ -2699,9 +2699,9 @@ fn split_delimits_non_empty_groups() {
 }
 
 /// `Stream.zipWithNext`, `zipWithPrevious` and `zipWithPreviousAndNext` at
-/// the pin: each element paired with its neighbors as options. The last
+/// Effect 4: each element paired with its neighbors as options. The last
 /// element's next is None, the first element's previous is None, and the
-/// multi-chunk rows are the same fold reached through single-element chunks.
+/// multi-chunk cases are the same fold reached through single-element chunks.
 fn zip_with_next_fold(items: Vec<i64>) -> Vec<(i64, Option<i64>)> {
     items
         .iter()
@@ -2751,7 +2751,7 @@ fn zip_with_next_previous_and_previous_and_next_pair_neighbors() {
     );
     // :5496 — an empty stream pairs to nothing.
     assert!(zip_with_previous_fold(Vec::new()).is_empty());
-    // :5506 — the property row: zipWithPrevious equals zipping the stream
+    // :5506 — the property case: zipWithPrevious equals zipping the stream
     // with None prepended to its own Somes. Carried as that construction on
     // the fixed input.
     let with_init = std::iter::once(None)
@@ -2770,7 +2770,7 @@ fn zip_with_next_previous_and_previous_and_next_pair_neighbors() {
             (Some(2), 3, None)
         ]
     );
-    // :5539 — the property row: same construction with the next side too.
+    // :5539 — the property case: same construction with the next side too.
     let with_next = items
         .iter()
         .enumerate()
@@ -2790,7 +2790,7 @@ fn zip_with_next_previous_and_previous_and_next_pair_neighbors() {
 fn mk_array_buffer_concatenates_uint8array_chunks() {
     // Stream.make(Uint8Array[1,2], Uint8Array[3,4]).pipe(Stream.mkArrayBuffer)
     // === Uint8Array[1,2,3,4]. The chunks are byte arrays, so "one value" is
-    // their concatenation, which is the pin's fold over `mkUint8Array` with
+    // their concatenation, which is Effect 4's fold over `mkUint8Array` with
     // its `.buffer` projection stripped away.
     let stream: Stream<Vec<u8>, Infallible, ()> =
         from_iter(vec![vec![1u8, 2], vec![3u8, 4]].into_iter(), 2);
@@ -2845,7 +2845,7 @@ fn collect_chunks_or_panic<A: Send + 'static>(stream: Stream<A, Infallible, ()>)
 
 #[test]
 fn rechunk_preserves_a_large_source_chunk_with_target() {
-    // The pin's `it.each` rows over `Array.makeBy(200_000, i => i)`:
+    // Effect 4's `it.each` cases over `Array.makeBy(200_000, i => i)`:
     //   target 200_001 -> [200_000]   (target above the input, one chunk)
     //   target 200_000 -> [200_000]    (target equal, one chunk)
     //   target 199_999 -> [199_999, 1] (a full chunk plus a remainder)
@@ -2895,7 +2895,7 @@ fn rechunk_preserves_large_input_split_across_source_chunks() {
 }
 
 // ---------------------------------------------------------------------------
-// Stream.catch at the pin (describe "error handling")
+// Stream.catch in Effect 4 (describe "error handling")
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -2945,7 +2945,7 @@ fn stream_catch_does_not_swallow_a_defect() {
 }
 
 // ---------------------------------------------------------------------------
-// Stream.catchIf at the pin (describe "error handling")
+// Stream.catchIf in Effect 4 (describe "error handling")
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -2998,7 +2998,7 @@ fn catch_filter_routes_through_selector_result() {
     // to handler, one returning Err routes to or_else. Both arms recover, so
     // nothing is re-raised.
     //
-    // Port shape: the selector is FnOnce(E) -> Result<S, String>; S here is
+    // Shape: the selector is FnOnce(E) -> Result<S, String>; S here is
     // usize (the matched length) and the failure arm carries the String.
     let matched = Stream::<u32, String, ()>::fail("boom".to_string()).catch_filter(
         |error: String| {
@@ -3029,7 +3029,7 @@ fn catch_filter_routes_through_selector_result() {
 }
 
 // ---------------------------------------------------------------------------
-// Stream tapCause / catchDefect / die at the pin
+// Stream tapCause / catchDefect / die in Effect 4
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -3105,7 +3105,7 @@ fn catch_cause_filter_recovers_through_a_cause_extractor() {
     // The extractor sees the WHOLE cause and decides: Ok(value) recovers via
     // handler, Err(cause) re-raises that cause unchanged.
     //
-    // Pin shape: Cause.hasFails(cause) ? Ok(squash) : Err(cause). The port's
+    // Pin shape: Cause.hasFails(cause) ? Ok(squash) : Err(cause). The crate's
     // equivalent uses failure().cloned() for the squash value.
     let recovered = Stream::<u32, String, ()>::fail("boom".to_string()).catch_cause_filter(
         |cause: elm_effect::Cause<String>| -> std::result::Result<String, elm_effect::Cause<String>> {

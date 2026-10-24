@@ -1,4 +1,4 @@
-//! `Pull.ts` port: a repeatable one-take source.
+//! A repeatable one-take source.
 //!
 //! Each `pull` yields one [`Take`]: items until the source is spent, then
 //! `End` forever. An unbounded source stays a pull loop — never materialize

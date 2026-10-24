@@ -9,7 +9,7 @@
 //! Out of scope: fiber-cache invalidation, `Redactable` fallbacks,
 //! `undefined`-vs-absent distinctions, overlay chains and lazy flattening,
 //! reference defaults, structural equality/JSON, and the `Effect` service
-//! machinery (those rows stay unported with reasons in the close report).
+//! machinery.
 
 use std::any::Any;
 use std::marker::PhantomData;

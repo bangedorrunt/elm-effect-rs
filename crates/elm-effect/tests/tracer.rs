@@ -1,9 +1,8 @@
-//! `Tracer.test.ts` at `effect@4.0.0`: the span model, the `withSpan` family,
-//! the logging bridge, and the layer tracing combinators. Each test names the
-//! pin row it carries; OTLP identifiers and nesting live in
-//! `tests/otlp_tracer.rs`, and the rows that stay `not-applicable` (the
-//! `Tracer.context` hook, the interrupt sweep, JS stack sites) are listed in
-//! `conformance/behavior-tests.tsv` with their reasons.
+//! The span model, the `withSpan` family, the logging bridge, and the layer
+//! tracing combinators. OTLP identifiers and nesting live in
+//! `tests/otlp_tracer.rs`. The `Tracer.context` hook, the interrupt sweep, and
+//! host stack sites are out of scope: they name a host facility the carrier
+//! does not expose.
 
 use std::sync::{Arc, Mutex};
 
@@ -533,7 +532,7 @@ fn noop_span_keeps_its_name_and_sampling() {
 }
 
 // `CURRENT_SPAN` is part of the public surface: a caller can read the
-// reference's key, which is the pin's `ParentSpanKey`.
+// reference's key, which is Effect 4's `ParentSpanKey`.
 #[test]
 fn current_span_reference_uses_the_pin_key() {
     assert_eq!(CURRENT_SPAN.id, "effect/Tracer/ParentSpan");
@@ -543,7 +542,7 @@ fn current_span_reference_uses_the_pin_key() {
 fn log_appends_a_span_event() {
     // Tracer.test.ts:183 — `Effect.log("event")` reaches the logger and, when
     // a span is current, lands on it as an event carrying the level.
-    // The port's clock reports milliseconds, so the pin's 0.01 ms becomes
+    // The crate's clock reports milliseconds, so Effect 4's 0.01 ms becomes
     // 10 ms (10_000_000 ns) to keep a non-zero timestamp.
     let clock = Arc::new(TestClock::new());
     clock.adjust(Duration::millis(10.0));
@@ -571,13 +570,26 @@ fn log_appends_a_span_event() {
         events[0].start_time, 10_000_000,
         "the trace clock timestamp"
     );
-    assert_eq!(
-        events[0].attributes,
-        vec![(
+    // The static edge runs on a fiber now, so the event carries both its
+    // level and the executing fiber id (the next test pins the same shape on
+    // an explicitly spawned fiber).
+    assert!(
+        events[0].attributes.contains(&(
             "effect.logLevel".to_owned(),
             AttributeValue::Text("INFO".to_owned())
-        )],
-        "outside a fiber there is no fiber id to record"
+        )),
+        "the level rides every log event: {:?}",
+        events[0].attributes
+    );
+    let fiber_id = events[0]
+        .attributes
+        .iter()
+        .find(|(key, _)| key == "effect.fiberId")
+        .map(|(_, value)| value);
+    assert!(
+        matches!(fiber_id, Some(AttributeValue::Int(id)) if *id > 0),
+        "the edge's fiber id is recorded: {:?}",
+        events[0].attributes
     );
 }
 

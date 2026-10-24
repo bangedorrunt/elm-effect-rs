@@ -13,7 +13,7 @@
 
 use std::sync::{Arc, Condvar, Mutex};
 
-/// The pin's `DurationValue`: a duration is stored in milliseconds (an IEEE
+/// Effect 4's `DurationValue`: a duration is stored in milliseconds (an IEEE
 /// double), in nanoseconds (an exact integer), or as one of the infinite
 /// sentinels.
 #[derive(Clone, Copy, Debug)]
@@ -26,12 +26,12 @@ enum DurationValue {
 
 /// A span of time with nanosecond precision (`effect/Duration`).
 ///
-/// The value model is the pin's: `Millis` for values built from
+/// The value model is Effect 4's: `Millis` for values built from
 /// millisecond-scale constructors, `Nanos` for exact sub-millisecond
-/// values, and the two infinite sentinels. Equality is the pin's
+/// values, and the two infinite sentinels. Equality is Effect 4's
 /// equivalence, so `millis(1)` and `nanos(1_000_000)` are equal and hash
 /// alike; structural equality (`==`) still distinguishes the
-/// representations, which is what the pin's `deepStrictEqual` rows observe.
+/// representations, which is whin Effect 4's `deepStrictEqual` rows observe.
 #[derive(Clone, Copy, Debug)]
 pub struct Duration {
     value: DurationValue,
@@ -60,7 +60,7 @@ impl Duration {
         }
     }
 
-    /// The pin's `make`: a millis value that is not an integer becomes an
+    /// Effect 4's `make`: a millis value that is not an integer becomes an
     /// exact nanos value, and NaN and both zeros are the zero duration.
     pub(crate) fn make_millis(millis: f64) -> Self {
         if millis.is_nan() || millis == 0.0 {
@@ -86,7 +86,7 @@ impl Duration {
         Self::make_millis(millis)
     }
 
-    /// `Duration.nanos`. The pin's `make` maps a zero bigint to the zero
+    /// `Duration.nanos`. Effect 4's `make` maps a zero bigint to the zero
     /// duration rather than to `Nanos(0)`, so this does too.
     pub fn nanos(nanos: i128) -> Self {
         if nanos == 0 {
@@ -129,13 +129,13 @@ impl Duration {
         Self::make_millis(weeks * 604_800_000.0)
     }
 
-    /// The string arm of the pin's `fromInput`: `"1000 millis"`,
+    /// The string arm of Effect 4's `fromInput`: `"1000 millis"`,
     /// `"1.5 hours"`, `"Infinity"`, `"-Infinity"`. A unit is required and may
     /// be singular or plural, the count may be signed and fractional, and no
-    /// padding whitespace is allowed — the pin's own regex.
+    /// padding whitespace is allowed — Effect 4's own regex.
     ///
     /// `None` for anything else, which is what `Schema.DurationFromString`
-    /// turns into a decoding failure. The pin reads nanos through a BigInt, so
+    /// turns into a decoding failure. Effect 4 reads nanos through a BigInt, so
     /// `"1.0000000001 nanos"` stays exact; the count here is an f64, so a
     /// fraction of a nanosecond rounds to the nearest whole one.
     pub fn from_input_string(text: &str) -> Option<Self> {
@@ -190,7 +190,7 @@ impl Duration {
         Self::ZERO
     }
 
-    /// The pin's `roundTiesAwayFromZero`, on integers.
+    /// Effect 4's `roundTiesAwayFromZero`, on integers.
     fn round_ties_away(value: f64) -> i128 {
         if value < 0.0 {
             (value - 0.5).ceil() as i128
@@ -200,8 +200,8 @@ impl Duration {
     }
 
     /// The value's exact nanoseconds, or `None` when the millis value does
-    /// not fit (`Millis` above ~1.7e21) or is infinite. The pin's BigInt is
-    /// unbounded; the port's i128 is not, and the carried rows stay inside.
+    /// not fit (`Millis` above ~1.7e21) or is infinite. Effect 4's BigInt is
+    /// unbounded; the crate's i128 is not, and the carried rows stay inside.
     fn exact_nanos(&self) -> Option<i128> {
         match self.value {
             DurationValue::Nanos(nanos) => Some(nanos),
@@ -220,7 +220,7 @@ impl Duration {
     }
 
     /// Millis rounded to a `u64`, saturating: the accessor the clock and
-    /// schedule paths sleep on. The pin's row-facing conversion is
+    /// schedule paths sleep on. Effect 4's row-facing conversion is
     /// [`Duration::to_millis`].
     pub fn as_millis(self) -> u64 {
         match self.value {
@@ -243,7 +243,7 @@ impl Duration {
         }
     }
 
-    /// Whether this is exactly zero (the pin's `isZero`).
+    /// Whether this is exactly zero (Effect 4's `isZero`).
     pub fn is_zero(self) -> bool {
         match self.value {
             DurationValue::Millis(millis) => millis == 0.0,
@@ -252,7 +252,7 @@ impl Duration {
         }
     }
 
-    /// The pin's `isFinite`.
+    /// Effect 4's `isFinite`.
     pub fn is_finite(self) -> bool {
         matches!(
             self.value,
@@ -260,7 +260,7 @@ impl Duration {
         )
     }
 
-    /// The pin's `isNegative`.
+    /// Effect 4's `isNegative`.
     pub fn is_negative(self) -> bool {
         match self.value {
             DurationValue::Millis(millis) => millis < 0.0,
@@ -270,12 +270,12 @@ impl Duration {
         }
     }
 
-    /// The pin's `isPositive`.
+    /// Effect 4's `isPositive`.
     pub fn is_positive(self) -> bool {
         !self.is_negative() && !self.is_zero()
     }
 
-    /// The pin's `abs`.
+    /// Effect 4's `abs`.
     pub fn abs(self) -> Self {
         match self.value {
             DurationValue::NegativeInfinity => Self::infinity(),
@@ -285,7 +285,7 @@ impl Duration {
         }
     }
 
-    /// The pin's `negate`.
+    /// Effect 4's `negate`.
     pub fn negate(self) -> Self {
         match self.value {
             DurationValue::Infinity => Self::negative_infinity(),
@@ -295,7 +295,7 @@ impl Duration {
         }
     }
 
-    /// The pin's `toMillis`.
+    /// Effect 4's `toMillis`.
     pub fn to_millis(self) -> f64 {
         match self.value {
             DurationValue::Millis(millis) => millis,
@@ -305,7 +305,7 @@ impl Duration {
         }
     }
 
-    /// The pin's `toSeconds`: from the exact representation, so a single
+    /// Effect 4's `toSeconds`: from the exact representation, so a single
     /// nanosecond is exactly `1e-9`.
     pub fn to_seconds(self) -> f64 {
         match self.value {
@@ -316,39 +316,39 @@ impl Duration {
         }
     }
 
-    /// The pin's `toMinutes`.
+    /// Effect 4's `toMinutes`.
     pub fn to_minutes(self) -> f64 {
         self.to_millis() / 60_000.0
     }
 
-    /// The pin's `toHours`.
+    /// Effect 4's `toHours`.
     pub fn to_hours(self) -> f64 {
         self.to_millis() / 3_600_000.0
     }
 
-    /// The pin's `toDays`.
+    /// Effect 4's `toDays`.
     pub fn to_days(self) -> f64 {
         self.to_millis() / 86_400_000.0
     }
 
-    /// The pin's `toWeeks`.
+    /// Effect 4's `toWeeks`.
     pub fn to_weeks(self) -> f64 {
         self.to_millis() / 604_800_000.0
     }
 
-    /// The pin's `toNanos`: `None` for the infinite sentinels.
+    /// Effect 4's `toNanos`: `None` for the infinite sentinels.
     pub fn to_nanos(self) -> Option<i128> {
         self.exact_nanos()
     }
 
-    /// The pin's `toNanosUnsafe`: it throws on the infinite sentinels, so
+    /// Effect 4's `toNanosUnsafe`: it throws on the infinite sentinels, so
     /// this panics.
     pub fn to_nanos_unsafe(self) -> i128 {
         self.exact_nanos()
             .expect("an infinite duration has no nanoseconds")
     }
 
-    /// The pin's `toHrTime`: `[seconds, nanos]` with the sign carried by
+    /// Effect 4's `toHrTime`: `[seconds, nanos]` with the sign carried by
     /// both parts.
     pub fn to_hr_time(self) -> (f64, f64) {
         match self.exact_nanos() {
@@ -363,7 +363,7 @@ impl Duration {
             None => match self.value {
                 DurationValue::Infinity => (f64::INFINITY, 0.0),
                 DurationValue::NegativeInfinity => (f64::NEG_INFINITY, 0.0),
-                // A millis value too large for i128 still renders: the pin's
+                // A millis value too large for i128 still renders: Effect 4's
                 // hr-time of such a value overflows its BigInt too, so this
                 // arm is unreachable for the carried rows.
                 _ => (self.to_millis() / 1000.0, 0.0),
@@ -371,7 +371,7 @@ impl Duration {
         }
     }
 
-    /// The pin's `sum`: same-sign infinities keep the sign, opposite
+    /// Effect 4's `sum`: same-sign infinities keep the sign, opposite
     /// infinities cancel to zero, and finite values add in the wider
     /// representation (the millis side converts to exact nanos).
     pub fn sum(self, that: Self) -> Self {
@@ -394,13 +394,13 @@ impl Duration {
         }
     }
 
-    /// The pin's `subtract`.
+    /// Effect 4's `subtract`.
     pub fn subtract(self, that: Self) -> Self {
         self.sum(that.negate())
     }
 
-    /// The pin's `times`: millis scales in millis space, nanos scales by the
-    /// integer multiplier (a fractional multiplier throws in the pin, and
+    /// Effect 4's `times`: millis scales in millis space, nanos scales by the
+    /// integer multiplier (a fractional multiplier throws in Effect 4, and
     /// panics here), and the infinities scale by sign, with zero yielding
     /// the zero duration.
     pub fn times(self, times: f64) -> Self {
@@ -418,14 +418,14 @@ impl Duration {
             DurationValue::Nanos(nanos) => {
                 assert!(
                     times.is_finite() && times.fract() == 0.0,
-                    "times on a nanos duration needs an integer multiplier, like the pin's BigInt(times)"
+                    "times on a nanos duration needs an integer multiplier, like Effect 4's BigInt(times)"
                 );
                 Self::nanos(nanos * times as i128)
             }
         }
     }
 
-    /// The pin's `divide`: `None` for a zero, NaN or infinite divisor, and
+    /// Effect 4's `divide`: `None` for a zero, NaN or infinite divisor, and
     /// for a nanos value the division does not land exactly on.
     pub fn divide(self, by: f64) -> Option<Self> {
         if by == 0.0 || !by.is_finite() {
@@ -444,7 +444,7 @@ impl Duration {
             }),
             DurationValue::Millis(millis) => Some(Self::make_millis(millis / by)),
             DurationValue::Nanos(nanos) => {
-                // The pin divides the bigint by `BigInt(by)`, which throws
+                // Effect 4 divides the bigint by `BigInt(by)`, which throws
                 // for a non-integer divisor: the quotient truncates toward
                 // zero and the divisor must be a whole number.
                 if by.fract() != 0.0 {
@@ -455,7 +455,7 @@ impl Duration {
         }
     }
 
-    /// The pin's `divideUnsafe`: the IEEE 754 fallbacks instead of `None`.
+    /// Effect 4's `divideUnsafe`: the IEEE 754 fallbacks instead of `None`.
     pub fn divide_unsafe(self, by: f64) -> Self {
         match self.divide(by) {
             Some(divided) => divided,
@@ -487,7 +487,7 @@ impl Duration {
         }
     }
 
-    /// The pin's `compare`: total order across both representations, with
+    /// Effect 4's `compare`: total order across both representations, with
     /// `NegativeInfinity` below every finite value below `Infinity`.
     pub fn compare(&self, other: &Self) -> std::cmp::Ordering {
         use std::cmp::Ordering;
@@ -502,7 +502,7 @@ impl Duration {
                 a.partial_cmp(b).unwrap_or(Ordering::Equal)
             }
             (DurationValue::Nanos(a), DurationValue::Nanos(b)) => a.cmp(b),
-            // Mixed: the pin converts the millis side to exact nanos. When
+            // Mixed: Effect 4 converts the millis side to exact nanos. When
             // that overflows i128, compare in millis space instead.
             (_, _) => match (self.exact_nanos(), other.exact_nanos()) {
                 (Some(a), Some(b)) => a.cmp(&b),
@@ -514,17 +514,17 @@ impl Duration {
         }
     }
 
-    /// The pin's `Duration.Order`.
+    /// Effect 4's `Duration.Order`.
     pub fn order() -> crate::Order<Duration> {
         crate::Order::make(|a: &Duration, b: &Duration| a.compare(b))
     }
 
-    /// The pin's `Duration.Equivalence`.
+    /// Effect 4's `Duration.Equivalence`.
     pub fn equivalence() -> crate::Equivalence<Duration> {
         crate::Equivalence::make(|a: &Duration, b: &Duration| a.compare(b).is_eq())
     }
 
-    /// The pin's `Duration.max` (ties keep the first value).
+    /// Effect 4's `Duration.max` (ties keep the first value).
     pub fn max(self, other: Self) -> Self {
         if self.compare(&other).is_lt() {
             other
@@ -533,7 +533,7 @@ impl Duration {
         }
     }
 
-    /// The pin's `Duration.min` (ties keep the first value).
+    /// Effect 4's `Duration.min` (ties keep the first value).
     pub fn min(self, other: Self) -> Self {
         if self.compare(&other).is_gt() {
             other
@@ -542,57 +542,57 @@ impl Duration {
         }
     }
 
-    /// The pin's `Duration.clamp`, inclusive at both bounds.
+    /// Effect 4's `Duration.clamp`, inclusive at both bounds.
     pub fn clamp(self, minimum: Self, maximum: Self) -> Self {
         self.max(minimum).min(maximum)
     }
 
-    /// The pin's `Duration.equals`: equivalence, not representation.
+    /// Effect 4's `Duration.equals`: equivalence, not representation.
     pub fn equals(self, other: Self) -> bool {
         self.compare(&other).is_eq()
     }
 
-    /// The pin's `Duration.between`, inclusive at both bounds.
+    /// Effect 4's `Duration.between`, inclusive at both bounds.
     pub fn between(self, minimum: Self, maximum: Self) -> bool {
         !self.compare(&minimum).is_lt() && !self.compare(&maximum).is_gt()
     }
 
-    /// The pin's `Duration.isGreaterThan`.
+    /// Effect 4's `Duration.isGreaterThan`.
     pub fn is_greater_than(self, other: Self) -> bool {
         self.compare(&other).is_gt()
     }
 
-    /// The pin's `Duration.isGreaterThanOrEqualTo`.
+    /// Effect 4's `Duration.isGreaterThanOrEqualTo`.
     pub fn is_greater_than_or_equal(self, other: Self) -> bool {
         !self.compare(&other).is_lt()
     }
 
-    /// The pin's `Duration.isLessThan`.
+    /// Effect 4's `Duration.isLessThan`.
     pub fn is_less_than(self, other: Self) -> bool {
         self.compare(&other).is_lt()
     }
 
-    /// The pin's `Duration.isLessThanOrEqualTo`.
+    /// Effect 4's `Duration.isLessThanOrEqualTo`.
     pub fn is_less_than_or_equal(self, other: Self) -> bool {
         !self.compare(&other).is_gt()
     }
 
-    /// The pin's `Duration.CombinerMax`.
+    /// Effect 4's `Duration.CombinerMax`.
     pub fn combiner_max() -> crate::Combiner<Duration> {
         crate::Combiner::max(Self::order())
     }
 
-    /// The pin's `Duration.CombinerMin`.
+    /// Effect 4's `Duration.CombinerMin`.
     pub fn combiner_min() -> crate::Combiner<Duration> {
         crate::Combiner::min(Self::order())
     }
 
-    /// The pin's `Duration.ReducerSum`.
+    /// Effect 4's `Duration.ReducerSum`.
     pub fn reducer_sum() -> crate::Reducer<Duration> {
         crate::Reducer::make(Self::zero(), |a: &Duration, b: &Duration| a.sum(*b))
     }
 
-    /// The pin's `parts`: the signed, normalized decomposition.
+    /// Effect 4's `parts`: the signed, normalized decomposition.
     pub fn parts(self) -> Parts {
         match self.value {
             DurationValue::Infinity | DurationValue::NegativeInfinity => {
@@ -630,7 +630,7 @@ impl Duration {
         }
     }
 
-    /// The pin's `format`.
+    /// Effect 4's `format`.
     pub fn format(self) -> String {
         if matches!(self.value, DurationValue::Infinity) {
             return "Infinity".to_string();
@@ -667,7 +667,7 @@ impl Duration {
         pieces.join(" ")
     }
 
-    /// The pin's `toString`.
+    /// Effect 4's `toString`.
     pub fn to_pin_string(self) -> String {
         match self.value {
             DurationValue::Infinity => "Infinity".to_string(),
@@ -678,15 +678,15 @@ impl Duration {
                     format!("{} millis", millis as i128)
                 } else {
                     // A fractional millis renders in nanoseconds, like the
-                    // pin's toString.
+                    // Effect 4's toString.
                     format!("{} nanos", self.to_nanos_unsafe())
                 }
             }
         }
     }
 
-    /// The pin's `toJSON`: the tagged representation, with nanos rendered
-    /// as a decimal string like the pin's bigint.
+    /// Effect 4's `toJSON`: the tagged representation, with nanos rendered
+    /// as a decimal string like Effect 4's bigint.
     pub fn to_json(self) -> DurationJson {
         match self.value {
             DurationValue::Infinity => DurationJson::Infinity,
@@ -702,12 +702,12 @@ impl Duration {
         }
     }
 
-    /// The pin's `inspect` (node's util.inspect renders the same shape).
+    /// Effect 4's `inspect` (node's util.inspect renders the same shape).
     pub fn inspect(self) -> DurationJson {
         self.to_json()
     }
 
-    /// `Duration.match`: one arm per representation; the pin folds a missing
+    /// `Duration.match`: one arm per representation; Effect 4 folds a missing
     /// `onNegativeInfinity` into `onInfinity`, and this does the same by
     /// taking both closures.
     pub fn match_duration<A>(
@@ -728,7 +728,7 @@ impl Duration {
 
 impl PartialEq for Duration {
     /// Structural equality: the same representation and payload, which is
-    /// what the pin's `deepStrictEqual` rows observe.
+    /// whin Effect 4's `deepStrictEqual` rows observe.
     fn eq(&self, other: &Self) -> bool {
         match (self.value, other.value) {
             (DurationValue::Millis(a), DurationValue::Millis(b)) => a == b,
@@ -755,14 +755,14 @@ impl Ord for Duration {
 }
 
 impl crate::Equal for Duration {
-    /// The pin's equivalence: equal across representations.
+    /// Effect 4's equivalence: equal across representations.
     fn equal(&self, other: &Self) -> bool {
         self.compare(other).is_eq()
     }
 }
 
 impl crate::Hash for Duration {
-    /// The pin's `Hash.symbol`: the canonical nanoseconds, so equal values
+    /// Effect 4's `Hash.symbol`: the canonical nanoseconds, so equal values
     /// hash alike across representations.
     fn hash_value(&self) -> u32 {
         match self.value {
@@ -793,7 +793,7 @@ pub fn is_duration(value: &dyn std::any::Any) -> bool {
     value.is::<Duration>()
 }
 
-/// The pin's `parts` result.
+/// Effect 4's `parts` result.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Parts {
     pub days: f64,
@@ -804,7 +804,7 @@ pub struct Parts {
     pub nanos: f64,
 }
 
-/// The pin's `toJSON` result: the tagged shape with nanos as a string.
+/// Effect 4's `toJSON` result: the tagged shape with nanos as a string.
 #[derive(Clone, Debug, PartialEq)]
 pub enum DurationJson {
     Millis(f64),
@@ -813,9 +813,9 @@ pub enum DurationJson {
     NegativeInfinity,
 }
 
-/// The pin's duration-string number: an optional sign, at least one digit, and
+/// Effect 4's duration-string number: an optional sign, at least one digit, and
 /// an optional `.`-prefixed fraction that must have digits of its own (so `1.`,
-/// `.5` and `1e3` are all refused, exactly as the pin's regex refuses them).
+/// `.5` and `1e3` are all refused, exactly as Effect 4's regex refuses them).
 fn is_decimal_number(text: &str) -> bool {
     let digits = text.strip_prefix('-').unwrap_or(text);
     if digits.is_empty() {
@@ -940,7 +940,7 @@ pub struct TestClock {
     now_ms: Mutex<u64>,
     /// Time that passed, which only [`adjust`](TestClock::adjust) moves.
     /// `set_time` moves the wall reading and leaves this alone, exactly as the
-    /// pin's test clock does.
+    /// Effect 4's test clock does.
     monotonic_ms: Mutex<u64>,
     sleepers: Mutex<Vec<Sleeper>>,
 }

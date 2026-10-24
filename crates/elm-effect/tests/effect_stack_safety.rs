@@ -1,6 +1,6 @@
 //! Stack safety: nesting depth is not stack depth.
 //!
-//! Row 2713 at the effect@4.0.0 pin. The pin's `loop` builds a hundred thousand
+//! Effect 4's `loop` builds a hundred thousand
 //! `map(suspend(() => loop(n - 1)), +1)` continuations; a recursive interpreter
 //! overflows its stack long before that, and the process aborts (a stack
 //! overflow is not a panic `catch_unwind` can see), so this witness fails
@@ -30,7 +30,7 @@ fn deeply_nested_map_continuations_run() {
     }
 }
 
-/// An endless tail-recursive chain: `void.flatMap(_ => loop)`, the pin's
+/// An endless tail-recursive chain: `void.flatMap(_ => loop)`, Effect 4's
 /// `const loop = Effect.void.pipe(Effect.flatMap(() => loop))`. Each level is
 /// built only when the interpreter asks for it, so the description stays
 /// finite and the loop's `frames` stays at one.
@@ -44,8 +44,8 @@ fn runaway_loop(steps: Arc<AtomicU64>) -> Effect<(), Infallible> {
     })
 }
 
-/// Effect.test.ts:2704 `stack safety / recursion`. The pin runs this loop under
-/// `Effect.timeoutOption(50)`, which interrupts the loser; the port interrupts
+/// Effect.test.ts:2704 `stack safety / recursion`. Effect 4 runs this loop under
+/// `Effect.timeoutOption(50)`, which interrupts the loser; the crate interrupts
 /// the fiber directly, the same flag and the same wait.
 ///
 /// Without a poll inside the interpreter loop this test does not fail, it

@@ -1,8 +1,8 @@
-//! `Effect.repeat`/`Effect.retry` option objects at the effect@4.0.0 pin.
+//! `Effect.repeat`/`Effect.retry` option objects.
 //!
-//! The sixteen rows here cover `{ until, while }` (plain and effectful) and
-//! `{ schedule, until|while }`. The pin's rows push failures through
-//! `Effect.flip` because `retry` only accepts a failing effect; this port's
+//! The sixteen cases here cover `{ until, while }` (plain and effectful) and
+//! `{ schedule, until|while }`. Effect 4 pushes failures through
+//! `Effect.flip` because `retry` only accepts a failing effect; this crate's
 //! driver takes a failing recipe directly, so the same counters drive it.
 
 use elm_effect::{Effect, Exit, LoopOptions, Runtime, Schedule, repeat_with, retry_with};
@@ -44,7 +44,7 @@ fn failure<A: std::fmt::Debug, E: Clone + std::fmt::Debug>(exit: Exit<A, E>) -> 
     }
 }
 
-/// The pin's repeat row: decrement the input on every run and count runs.
+/// Effect 4's repeat case: decrement the input on every run and count runs.
 fn decrement(
     input: &Counter,
     output: &Counter,
@@ -59,7 +59,7 @@ fn decrement(
     }
 }
 
-/// The pin's retry row: the same decrement, flipped into a typed failure.
+/// Effect 4's retry case: the same decrement, flipped into a typed failure.
 fn decrement_then_fail(
     input: &Counter,
     output: &Counter,

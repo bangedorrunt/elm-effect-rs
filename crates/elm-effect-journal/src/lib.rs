@@ -13,6 +13,7 @@
 //!
 //! Public modules: [`durable_log`] (the L16 append trait, now fencing a
 //! stale producer epoch through [`AppendError::StaleEpoch`](durable_log::AppendError::StaleEpoch)),
+//! [`http`] (the catch-up/append/close/long-poll/SSE adapter over one log),
 //! [`laws`] (trait-level law checks any `DurableLog` implementation must
 //! pass, so a sibling's own log runs the same checks as [`MemLog`](durable_log::MemLog)),
 //! [`store`] (claim/settle), [`plan`] (`plan_attempt`, `plan_park`,
@@ -29,6 +30,7 @@ extern crate self as elm_effect_journal;
 
 pub mod durable_log;
 pub mod epoch;
+pub mod http;
 pub mod laws;
 pub mod plan;
 pub mod store;

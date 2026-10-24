@@ -1,17 +1,15 @@
-//! `FiberSet` port (`FiberSet.ts` at the pin): supervised fibers.
+//! Supervised fibers bound to a scope.
 //!
 //! A set owns a [`Scope`](crate::Scope): every fiber runs bound to it, so
 //! closing the set interrupts the members. [`join`](FiberSet::join) collects
-//! the members (first failure wins, like the tag's supervised join);
+//! the members (first failure wins);
 //! [`await_empty`](FiberSet::await_empty) waits for quiescence and reaps;
 //! [`clear`](FiberSet::clear) interrupts everything and drains.
 //!
-//! Residuals: attempt telemetry and scope-replacement hooks.
-// This file belongs to the parked port campaign: a test reaches it through
-// a `#[path]` include to port specific rows, so most of its surface is
-// unused by any one test target. Warnings about the unexercised remainder
-// describe the test's coverage, not a defect in the crate, so they are
-// allowed here rather than fixed one by one.
+//! Out of scope: attempt telemetry and scope-replacement hooks.
+// A test reaches this module through a `#[path]` include, so one test target
+// does not exercise its whole surface. The dead-code allowance covers the
+// unexercised remainder, not a defect in the crate.
 #![allow(dead_code)]
 use elm_effect::{Ctx, Deferred, Exit, FiberHandle, ForkOpts, Runtime, Scope};
 use std::sync::{Arc, Mutex};
@@ -62,7 +60,7 @@ where
     }
 
     /// Fork `body` into the set's scope and track it. Starts immediately,
-    /// which is the pin's default.
+    /// which is Effect 4's default.
     pub fn run(&self, body: impl FnOnce(&Ctx) -> Exit<A, E> + Send + 'static) {
         self.fork(body, ForkOpts::immediate(), None, false);
     }
@@ -74,7 +72,7 @@ where
     }
 
     /// Fork with an interruption observer attached to the member's own
-    /// finalizers, which is what `Effect.onInterrupt` contributes in the pin.
+    /// finalizers, which is what `Effect.onInterrupt` contributes in Effect 4.
     pub fn run_observed(
         &self,
         body: impl FnOnce(&Ctx) -> Exit<A, E> + Send + 'static,
@@ -90,7 +88,7 @@ where
 
     /// Fork a member that settles the set when it ends interrupted
     /// (`propagateInterruption`). Returns the member's position, which is the
-    /// fiber `FiberSet.run` hands back in the pin.
+    /// fiber `FiberSet.run` hands back in Effect 4.
     pub fn run_propagating(
         &self,
         body: impl FnOnce(&Ctx) -> Exit<A, E> + Send + 'static,
@@ -152,7 +150,7 @@ where
     }
 
     /// Interrupt one member by position, waiting for its finalizers, which is
-    /// the pin's `Fiber.interrupt(fiber)` on the fiber `run` returned.
+    /// Effect 4's `Fiber.interrupt(fiber)` on the fiber `run` returned.
     pub fn interrupt_member(&self, index: usize) {
         let shared = self.members.lock().expect("set lock").get(index).cloned();
         if let Some(shared) = shared

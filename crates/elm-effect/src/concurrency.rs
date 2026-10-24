@@ -5,11 +5,9 @@
 //! fiber (supervisor, finalizers, interruption); the combinator only decides
 //! how many run at once. Fail-fast: the first failure interrupts the rest
 //! and wins; `validate` (.26) is the collecting twin.
-// This file belongs to the parked port campaign: a test reaches it through
-// a `#[path]` include to port specific rows, so most of its surface is
-// unused by any one test target. Warnings about the unexercised remainder
-// describe the test's coverage, not a defect in the crate, so they are
-// allowed here rather than fixed one by one.
+// A test reaches this module through a `#[path]` include, so one test target
+// does not exercise its whole surface. The dead-code allowance covers the
+// unexercised remainder, not a defect in the crate.
 #![allow(dead_code)]
 use std::sync::Arc;
 
@@ -254,7 +252,7 @@ where
 ///
 /// A defect or an interrupt is not the caller's typed error and cannot be
 /// handed back as a value, so one of those still fails the run (the other
-/// results are dropped, as the pin drops them).
+/// results are dropped, as Effect 4 drops them).
 pub fn all_result<A, E>(
     rt: &Runtime,
     bodies: Vec<Body<A, E>>,
@@ -318,7 +316,7 @@ where
 
 /// `Effect.head`: the first element of a collection, or `on_empty`'s error.
 ///
-/// The builder is explicit because the pin's default (`NoSuchElementError`) is
+/// The builder is explicit because Effect 4's default (`NoSuchElementError`) is
 /// the caller's error type here; a source failure passes through untouched.
 pub fn head<A, E>(items: Exit<Vec<A>, E>, on_empty: impl FnOnce() -> E) -> Exit<A, E> {
     match items {
@@ -354,7 +352,7 @@ where
     all(rt, bodies, concurrency)
 }
 
-/// `Effect.all` at the pin, run from inside a fiber: the same fan-out and
+/// `Effect.all` in Effect 4, run from inside a fiber: the same fan-out and
 /// fail-fast as [`all`], with the caller's fiber as the parent.
 ///
 /// The two things [`all`] cannot do are what an interrupt row needs: the
@@ -602,7 +600,7 @@ where
     }
 }
 
-/// `Effect.forEach` at the pin, run from inside a fiber: same fan-out as
+/// `Effect.forEach` in Effect 4, run from inside a fiber: same fan-out as
 /// [`for_each`], with the caller's fiber as the parent.
 ///
 /// The difference is what an interrupt can do. Workers here are children of
@@ -674,7 +672,7 @@ where
     Exit::Success(out)
 }
 
-/// `Effect.reduce` at the pin: fold items in order, sequentially, passing the
+/// `Effect.reduce` in Effect 4: fold items in order, sequentially, passing the
 /// index. `init` is evaluated once per run, so a lazy zero stays lazy. Stops
 /// at the first failure; the items after the failing one are not seen.
 pub fn reduce<T, S, E, F0, F>(rt: &Runtime, items: Vec<T>, init: F0, f: F) -> Exit<S, E>
@@ -698,7 +696,7 @@ where
     Exit::Success(state)
 }
 
-/// `Effect.findFirst` at the pin: return the first element whose predicate
+/// `Effect.findFirst` in Effect 4: return the first element whose predicate
 /// passes, then stop. Elements after the match are never visited, and a
 /// predicate failure fails the run.
 pub fn find_first<T, E, F>(rt: &Runtime, items: Vec<T>, f: F) -> Exit<Option<T>, E>
@@ -720,7 +718,7 @@ where
     Exit::Success(None)
 }
 
-/// `Effect.findFirstFilter` at the pin: return the first successful mapped
+/// `Effect.findFirstFilter` in Effect 4: return the first successful mapped
 /// value, then stop. A `None` mapping is a skip, not a failure.
 pub fn find_first_filter<T, U, E, F>(rt: &Runtime, items: Vec<T>, f: F) -> Exit<Option<U>, E>
 where
@@ -742,7 +740,7 @@ where
     Exit::Success(None)
 }
 
-/// `Effect.partition(items, f)` at the pin: map each item through `f` and
+/// `Effect.partition(items, f)` in Effect 4: map each item through `f` and
 /// collect typed successes and failures in order. Defects and interrupts
 /// still fail fast through [`partition`].
 pub fn partition_items<T, A, E, F>(
@@ -760,7 +758,7 @@ where
     partition(rt, item_bodies(items, f), concurrency)
 }
 
-/// `Effect.validate(items, f)` at the pin: every typed failure accumulates
+/// `Effect.validate(items, f)` in Effect 4: every typed failure accumulates
 /// into the error list, which is the failure channel itself.
 pub fn validate_items<T, A, E, F>(
     rt: &Runtime,
@@ -794,7 +792,7 @@ where
     validate_discard(rt, item_bodies(items, f), concurrency)
 }
 
-/// Build one fiber body per item (the pin's data-first collection form).
+/// Build one fiber body per item (Effect 4's data-first collection form).
 fn item_bodies<T, A, E, F>(items: Vec<T>, f: F) -> Vec<Body<A, E>>
 where
     T: Send + 'static,

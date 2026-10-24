@@ -138,13 +138,13 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
 
     /// Take at most `n` elements, then end.
     ///
-    /// `n` normalizes like the pin's `Count.normalize`, whose empty is 0:
+    /// `n` normalizes like Effect 4's `Count.normalize`, whose empty is 0:
     /// `NaN` and non-positive counts become 0, a positive count floors. The
-    /// pin's count is a `number`, so `take(0.5)` takes nothing and `take(1.9)`
+    /// Effect 4's count is a `number`, so `take(0.5)` takes nothing and `take(1.9)`
     /// takes one, exactly as `take_right` already normalizes.
     ///
     /// A zero normalized count ends the stream without pulling the upstream,
-    /// which is the short-circuit the pin asserts for both the integer zero
+    /// which is the short-circuit Effect 4 asserts for both the integer zero
     /// and `NaN`.
     pub fn take(self, n: f64) -> Self {
         use std::sync::atomic::{AtomicU64, Ordering};
@@ -196,12 +196,12 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
 
     /// `Stream.zipLatest`: both sides' latest values, paired.
     ///
-    /// The port pulls each side once per output, so a pair appears as soon as
+    /// The crate pulls each side once per output, so a pair appears as soon as
     /// each side answers a chunk, and the last element of a chunk is that
     /// side's latest. The stream ends when either side ends, and a failure on
     /// either side is the stream's failure.
     ///
-    /// ponytail: lockstep, not push. The pin emits on every arrival, so a side
+    /// ponytail: lockstep, not push. Effect 4 emits on every arrival, so a side
     /// that produces two chunks between the other side's one emits two pairs
     /// there and one here. Grow a per-side pending queue if a row counts pairs.
     pub fn zip_latest<B>(self, other: Stream<B, E, R>) -> Stream<(A, B), E, R>
@@ -265,8 +265,8 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
-    /// `Stream.filterMap` at the pin: keep only elements that map to `Some`.
-    /// The pin's `Filter` can fail, but the observable subset here is the
+    /// `Stream.filterMap` in Effect 4: keep only elements that map to `Some`.
+    /// Effect 4's `Filter` can fail, but the observable subset here is the
     /// pure `Option` case (a failure maps to `None`).
     pub fn filter_map<B, F>(self, f: F) -> Stream<B, E, R>
     where
@@ -282,8 +282,8 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
-    /// `Stream.scan` at the pin: emit the running fold, excluding the initial
-    /// value. One output chunk per input chunk, like the pin's channel map.
+    /// `Stream.scan` in Effect 4: emit the running fold, excluding the initial
+    /// value. One output chunk per input chunk, like Effect 4's channel map.
     pub fn scan<S, F>(self, init: S, f: F) -> Stream<S, E, R>
     where
         S: Clone + Send + 'static,
@@ -309,7 +309,7 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
-    /// `Stream.scanEffect` at the pin: the running fold with an effectful
+    /// `Stream.scanEffect` in Effect 4: the running fold with an effectful
     /// step. The step reads and updates one accumulator, so it rides
     /// `map_effect` with a bound of one: one child at a time is what keeps the
     /// fold sequential, and the state lives in the closure rather than in a
@@ -333,7 +333,7 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         )
     }
 
-    /// `Stream.mapAccumArray` at the pin: thread state across chunks, emitting
+    /// `Stream.mapAccumArray` in Effect 4: thread state across chunks, emitting
     /// zero or more values per chunk. The mapping runs once per chunk.
     pub fn map_accum_array<S, B, F>(self, init: S, f: F) -> Stream<B, E, R>
     where
@@ -361,7 +361,7 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
     /// The capacity and the strategy are only observable when the source can
     /// run AHEAD of the fold. A pull source is pulled exactly once per output,
     /// so there is no producer to suspend, drop from, or slide: the transform
-    /// is the identity. What the pin's buffered rows still assert, element
+    /// is the identity. Whin Effect 4's buffered rows still assert, element
     /// order and the failure travelling through, holds exactly.
     ///
     /// ponytail: identity. Feed a bounded queue from a worker thread if a row
@@ -370,7 +370,7 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         self
     }
 
-    /// [`buffer`](Self::buffer) with the pin's `strategy` spelled out. A pull
+    /// [`buffer`](Self::buffer) with Effect 4's `strategy` spelled out. A pull
     /// source never fills the buffer, so the strategy has nothing to act on.
     pub fn buffer_with(self, _strategy: crate::sync::Strategy, _capacity: f64) -> Self {
         self
@@ -384,15 +384,15 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         self.rechunk(capacity)
     }
 
-    /// [`buffer_array`](Self::buffer_array) with the pin's `strategy` spelled
+    /// [`buffer_array`](Self::buffer_array) with Effect 4's `strategy` spelled
     /// out, which a pull source never reaches.
     pub fn buffer_array_with(self, _strategy: crate::sync::Strategy, capacity: f64) -> Self {
         self.rechunk(capacity)
     }
 
-    /// `Stream.takeWhile` at the pin: take while `f` holds. The element that
+    /// `Stream.takeWhile` in Effect 4: take while `f` holds. The element that
     /// failed is NOT taken, and nothing after it is seen. A chunk that
-    /// becomes empty without a stop pumps again, like the pin's `pump`.
+    /// becomes empty without a stop pumps again, like Effect 4's `pump`.
     pub fn take_while<F>(self, f: F) -> Self
     where
         F: Fn(&A) -> bool + Send + Sync + 'static,
@@ -406,8 +406,8 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
-    /// `Stream.takeUntil` at the pin: take until `f` holds. The element that
-    /// satisfied `f` IS taken (the default; the pin's `excludeLast` option
+    /// `Stream.takeUntil` in Effect 4: take until `f` holds. The element that
+    /// satisfied `f` IS taken (the default; Effect 4's `excludeLast` option
     /// would drop it), then the stream ends.
     pub fn take_until<F>(self, f: F) -> Self
     where
@@ -422,9 +422,9 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
-    /// `Stream.takeWhileFilter` at the pin: keep the prefix the filter accepts,
+    /// `Stream.takeWhileFilter` in Effect 4: keep the prefix the filter accepts,
     /// mapping each accepted element through the filter. A filter failure ends
-    /// the stream and drops the failing element, which is the pin's
+    /// the stream and drops the failing element, which is Effect 4's
     /// `Result.failVoid` arm.
     pub fn take_while_filter<B, F>(self, f: F) -> Stream<B, E, R>
     where
@@ -440,14 +440,14 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
-    /// `Stream.rechunk` at the pin: re-emit the upstream in chunks of exactly
+    /// `Stream.rechunk` in Effect 4: re-emit the upstream in chunks of exactly
     /// `target`, carrying a partial accumulator across pull boundaries.
     ///
-    /// `target` normalizes like the pin's `Count.normalizeNonEmpty`, whose
+    /// `target` normalizes like Effect 4's `Count.normalizeNonEmpty`, whose
     /// empty is 1, so `NaN` and non-positive still produce a usable chunk size
     /// rather than an infinite loop.
     ///
-    /// The pin's own two shapes are carried: a source chunk that already is
+    /// Effect 4's own two shapes are carried: a source chunk that already is
     /// exactly `target` passes through untouched, and otherwise elements
     /// accumulate into a buffer of `target` whose leftover is emitted at the
     /// end of the stream. That leftover rule is what makes a target larger
@@ -484,18 +484,18 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
-    /// `Stream.onStart` at the pin: run `f` once when collection begins, before
+    /// `Stream.onStart` in Effect 4: run `f` once when collection begins, before
     /// the upstream is pulled. The elements are untouched.
     ///
-    /// The pin's signature widens the error channel (`E | E2`); this port takes
-    /// an infallible closure instead, which is exactly what the pin's rows
+    /// Effect 4's signature widens the error channel (`E | E2`); this crate takes
+    /// an infallible closure instead, which is exactly whin Effect 4's rows
     /// exercise (`Effect.sync`), and avoids the widening problem that blocked
     /// `takeUntilEffect`. An effectful `onStart` would need that machinery.
     ///
     /// The `Option`-take is what makes it once-only: the pump is `FnMut`, so it
     /// runs again on every pull, and `take` consumes `F` on the first call. A
     /// later call finds the slot empty and delegates straight to the upstream,
-    /// which is the pin's semantics (the callback is not re-run).
+    /// which is Effect 4's semantics (the callback is not re-run).
     pub fn on_start<F>(self, f: F) -> Self
     where
         F: FnOnce() + Send + 'static,
@@ -511,11 +511,11 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
-    /// `Stream.onEnd` at the pin: run `f` once when the upstream is exhausted,
+    /// `Stream.onEnd` in Effect 4: run `f` once when the upstream is exhausted,
     /// after its last chunk has been emitted.
     ///
     /// Same infallible-closure contract as [`Stream::on_start`], and for the
-    /// same reason: both pin rows use `Effect.sync`.
+    /// same reason: both reference rows use `Effect.sync`.
     ///
     /// `f` is consumed when the pull returns `None`, so the upstream ending is
     /// what triggers it and a re-pull after the end does not re-run it.
@@ -539,7 +539,7 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
-    /// `Stream.grouped` at the pin: `chunks` over `rechunk(self, n)`, so each
+    /// `Stream.grouped` in Effect 4: `chunks` over `rechunk(self, n)`, so each
     /// group is emitted as one element and the chunk-size normalization is
     /// shared with `rechunk`.
     pub fn grouped(self, n: f64) -> Stream<Vec<A>, E, R> {
@@ -573,13 +573,13 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
-    /// `Stream.takeRight` at the pin: keep the last `n` elements, in order.
-    /// `n` normalizes like the pin's `Count.normalize`, whose empty is 0.
+    /// `Stream.takeRight` in Effect 4: keep the last `n` elements, in order.
+    /// `n` normalizes like Effect 4's `Count.normalize`, whose empty is 0.
     ///
     /// The whole upstream is drained before anything is emitted, so this
     /// holds a ring of at most `n` elements. That is also why a ZERO count is
     /// handled by returning [`Stream::empty`] rather than by draining and
-    /// emitting nothing: the pin's "zero normalized counts do not evaluate
+    /// emitting nothing: Effect 4's "zero normalized counts do not evaluate
     /// the upstream" row asserts the upstream is never pulled at all, which a
     /// draining implementation could not honor.
     pub fn take_right(self, n: f64) -> Self {
@@ -598,10 +598,10 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
     }
 }
 
-/// `Stream.decodeText` at the pin: decode UTF-8 bytes to text, holding an
+/// `Stream.decodeText` in Effect 4: decode UTF-8 bytes to text, holding an
 /// incomplete trailing sequence until a later pull completes it.
 ///
-/// The pin preserves the failure channel `E`, so an invalid or truncated
+/// Effect 4 preserves the failure channel `E`, so an invalid or truncated
 /// sequence is carried in `E` through the same bound `channel::decode_text`
 /// uses rather than in a fresh error type.
 impl<E, R> Stream<u8, E, R>
@@ -609,8 +609,8 @@ where
     E: From<std::string::FromUtf8Error> + Send + 'static,
     R: crate::effect::Requirement,
 {
-    /// The pin's `mkString` is a fold over the chunks joined with `""`, which
-    /// for this port is `run_collect` then `concat`.
+    /// Effect 4's `mkString` is a fold over the chunks joined with `""`, which
+    /// for this crate is `run_collect` then `concat`.
     pub fn decode_text(self) -> Stream<String, E, R> {
         let (pull, exec) = (self.pull, Arc::clone(&self.exec));
         let carry = Arc::new(Mutex::new(Vec::<u8>::new()));
@@ -670,7 +670,7 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         Arc::clone(&self.pull)
     }
 
-    /// `Stream.catch` at the pin: when this stream fails with a typed error,
+    /// `Stream.catch` in Effect 4: when this stream fails with a typed error,
     /// continue instead with the stream `handler` returns (observing that
     /// error). Defects and interruptions are NOT caught and pass through
     /// untouched.
@@ -718,7 +718,7 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
 }
 
 impl<A: Send + 'static, E: Send + 'static> Stream<A, E, ()> {
-    /// `Stream.fail` at the pin: a stream whose pull fails with `error`, then
+    /// `Stream.fail` in Effect 4: a stream whose pull fails with `error`, then
     /// ends. First pull fails; a later pull sees an already-ended stream.
     ///
     /// Own generics on its own `impl`, separate from the combinator block:
@@ -734,10 +734,10 @@ impl<A: Send + 'static, E: Send + 'static> Stream<A, E, ()> {
 }
 
 impl<E: Send + 'static, R: crate::effect::Requirement> Stream<String, E, R> {
-    /// `Stream.splitLines` at the pin: split a stream of strings into lines,
+    /// `Stream.splitLines` in Effect 4: split a stream of strings into lines,
     /// handling `\n`, `\r`, and `\r\n` across chunk boundaries.
     ///
-    /// Three pieces of state survive across pulls, exactly as the pin keeps
+    /// Three pieces of state survive across pulls, exactly as Effect 4 keeps
     /// them inside its transform closure:
     ///
     /// - `carry`: text not yet terminated by a line break, prepended to the
@@ -770,7 +770,7 @@ struct SplitLinesState {
 }
 
 /// One `split_lines` pull: pull upstream, split what arrived, and only pull
-/// again when the chunk produced no complete line (the pin's `pullOrFlush`).
+/// again when the chunk produced no complete line (Effect 4's `pullOrFlush`).
 fn split_lines_pump<E, R>(
     pull: Pull<String, E, R>,
     state: Arc<Mutex<SplitLinesState>>,
@@ -819,7 +819,7 @@ where
 /// unterminated tail in the shared state.
 ///
 /// Indices are absolute positions in `text`. `str::find` on a *slice*
-/// returns an offset relative to that slice, while the pin's
+/// returns an offset relative to that slice, while Effect 4's
 /// `indexOf(needle, from)` is absolute — so every search after `from`
 /// advances goes through [`find_from`], never a bare `text[from..].find`.
 fn split_one(state: &mut SplitLinesState, text: &str, out: &mut Vec<String>) {
@@ -870,7 +870,7 @@ fn find_from(text: &str, from: usize, needle: char) -> Option<usize> {
 }
 
 /// Emit one complete line: the carried prefix plus this segment, clearing the
-/// carry (the pin's `pushLine`).
+/// carry (Effect 4's `pushLine`).
 fn push_line(
     state: &mut SplitLinesState,
     text: &str,
@@ -924,7 +924,7 @@ where
                 if out.is_empty() && stop {
                     Effect::succeed(None)
                 } else {
-                    // An empty `out` without a filter failure is the pin's
+                    // An empty `out` without a filter failure is Effect 4's
                     // `pump` loop: ask upstream for more. Matches
                     // `take_while`'s convention for an accepted-but-empty chunk.
                     Effect::succeed(Some(out))
@@ -971,7 +971,7 @@ where
                     }
                 } else {
                     // The whole chunk passed; the next pull asks upstream
-                    // again. An empty chunk here is the pin's `pump`.
+                    // again. An empty chunk here is Effect 4's `pump`.
                     Effect::succeed(Some(out))
                 }
             }
@@ -1011,13 +1011,13 @@ where
     })
 }
 
-/// Mirror of the pin's `Count.normalizeNonEmpty` (`internal/count.ts`):
+/// Mirror of Effect 4's `Count.normalizeNonEmpty` (`internal/count.ts`):
 /// `NaN` and non-positive values become 1, a positive value floors, and
 /// a positive infinity saturates to `usize::MAX` exactly as `Math.floor`
 /// preserves it in TypeScript.
-/// Mirror of the pin's `Count.normalize` (`internal/count.ts`), the sibling
+/// Mirror of Effect 4's `Count.normalize` (`internal/count.ts`), the sibling
 /// of [`normalize_non_empty`]: `NaN` and non-positive values become 0, a
-/// positive value floors. The pin keeps these as two functions because a
+/// positive value floors. Effect 4 keeps these as two functions because a
 /// chunk size and an element count have different empty behavior.
 impl<A: Send + 'static> Stream<A, String, ()> {
     /// `Stream.fromQueue`: take from a queue as items arrive.
@@ -1052,8 +1052,8 @@ pub fn normalize_non_empty(n: f64) -> usize {
 }
 
 impl Stream<i64, Infallible, ()> {
-    /// `Stream.range` at the pin: inclusive integer range, chunked. `min` above
-    /// `max` is empty; the chunk size normalizes like the pin's `Count`. Pulls
+    /// `Stream.range` in Effect 4: inclusive integer range, chunked. `min` above
+    /// `max` is empty; the chunk size normalizes like Effect 4's `Count`. Pulls
     /// yield chunks of `normalize(chunk_size)` until the range is exhausted,
     /// then end (`None`), never a zero-length chunk.
     pub fn range(min: i64, max: i64, chunk_size: f64) -> Self {
@@ -1184,16 +1184,16 @@ where
     }
 }
 
-/// `Stream.callback` at the pin: a stream fed by a mailbox the registration
+/// `Stream.callback` in Effect 4: a stream fed by a mailbox the registration
 /// writes into.
 ///
 /// The registration runs eagerly, before the first pull. That covers the
-/// pin's rows whose producer only offers and then signals end, failure, or
+/// Effect 4's rows whose producer only offers and then signals end, failure, or
 /// dies, none of which need the producer to run concurrently with the drain.
-/// It does NOT cover the pin's backpressure and finalizer rows, whose
+/// It does NOT cover Effect 4's backpressure and finalizer rows, whose
 /// producer must block on a full mailbox while the consumer drains and whose
 /// cleanup must fire on a fiber interrupt; both need a forked producer, which
-/// this port's `from_pull`-based streams do not have.
+/// this crate's `from_pull`-based streams do not have.
 impl<A: Send + 'static, E: Send + 'static> Stream<A, E, ()> {
     pub fn callback<F>(register: F) -> Self
     where
@@ -1205,12 +1205,12 @@ impl<A: Send + 'static, E: Send + 'static> Stream<A, E, ()> {
         let chunk = items.len().max(1);
         match terminator {
             // No signal means the registration offered items and returned
-            // without ending. The pin's stream is then unterminated and only a
-            // bound such as `take` ends it. This port has no non-terminating
+            // without ending. Effect 4's stream is then unterminated and only a
+            // bound such as `take` ends it. this crate has no non-terminating
             // primitive, so an unsignalled mailbox ends instead: the two differ
-            // in general (a `take` larger than the offers would block on the
-            // pin and return what was offered here), which is a deliberate
-            // divergence recorded rather than papered over. The row's own
+            // in general (a `take` larger than the offers would block in
+            // Effect 4 and return what was offered here), which is a deliberate
+            // divergence recorded rather than papered over. The test's own
             // case offers exactly as many as it takes, so both agree there.
             None | Some(Terminator::End) => crate::stream::from_iter(items.into_iter(), chunk),
             Some(Terminator::Fail(error)) => {
@@ -1229,7 +1229,7 @@ impl<A: Send + 'static, E: Send + 'static> Stream<A, E, ()> {
 ///
 /// Items accumulate in order and the terminator records how the stream ends.
 /// A registration that neither signals nor returns leaves the terminator unset,
-/// which is the pin's "registration raised" case.
+/// which is Effect 4's "registration raised" case.
 pub struct Mailbox<A, E> {
     items: Vec<A>,
     terminator: Option<Terminator<E>>,
@@ -1275,7 +1275,7 @@ impl<A, E> Mailbox<A, E> {
         self.terminator = Some(Terminator::Fail(error));
     }
 
-    /// End the stream with a defect, which is the pin's registration
+    /// End the stream with a defect, which is Effect 4's registration
     /// raising: the exit is `die`, not a typed failure in the error channel.
     pub fn die(&mut self, defect: Defect) {
         self.terminator = Some(Terminator::Die(defect));
@@ -1286,10 +1286,10 @@ impl<A, E> Mailbox<A, E> {
     }
 }
 
-/// `Stream.mkArrayBuffer` at the pin: concatenate the byte chunks into one
+/// `Stream.mkArrayBuffer` in Effect 4: concatenate the byte chunks into one
 /// buffer.
 ///
-/// The pin folds `mkUint8Array` and then projects `.buffer`; this port has no
+/// Effect 4 folds `mkUint8Array` and then projects `.buffer`; this crate has no
 /// `ArrayBuffer` type, so the fold's accumulated bytes are the value. Declared
 /// on the byte-element stream so `A` is not generic here, and built from
 /// `run_fold`, which owns the same fold.
@@ -1301,13 +1301,13 @@ impl<E: Send + 'static> Stream<Vec<u8>, E, ()> {
         })
     }
 
-    /// `Stream.limitBytes` at the pin: pass byte chunks through while the
+    /// `Stream.limitBytes` in Effect 4: pass byte chunks through while the
     /// running total stays within `limit`, and once a chunk would cross it,
     /// drop that chunk and replace the rest of the stream with
     /// `on_limit_reached`.
     ///
     /// The boundary is inclusive: a total equal to the limit still passes,
-    /// which is what the pin's comparison against the accumulated size means.
+    /// which is whin Effect 4's comparison against the accumulated size means.
     /// The fallback is a `LazyArg`, so constructing it is observable and a
     /// caller can tell "never reached" from "reached", which two of the three
     /// rows assert.
@@ -1329,13 +1329,13 @@ impl<E: Send + 'static> Stream<Vec<u8>, E, ()> {
     }
 }
 
-/// `Stream.fromIteratorSucceed` at the pin: a stream from an iterator whose
+/// `Stream.fromIteratorSucceed` in Effect 4: a stream from an iterator whose
 /// chunk size is a `number`, normalized by the same
 /// `Count.normalizeNonEmpty` law `rechunk` and `grouped` use (NaN and
 /// non-positive become 1, a positive value floors).
 ///
-/// The pin keeps this distinct from `fromIterable`, whose chunking arrives as
-/// an option; this port likewise keeps the `usize` `from_iter` for its
+/// Effect 4 keeps this distinct from `fromIterable`, whose chunking arrives as
+/// an option; this crate likewise keeps the `usize` `from_iter` for its
 /// existing callers and normalizes here rather than widening all of them.
 pub fn from_iterator_succeed<T, E, I>(iter: I, max_chunk_size: f64) -> Stream<T, E, ()>
 where
@@ -1392,10 +1392,10 @@ where
         }
     }
 
-    /// `Stream.runForEachWhile` at the pin: visit every element, stopping at
+    /// `Stream.runForEachWhile` in Effect 4: visit every element, stopping at
     /// the first whose predicate returns false. That element IS visited
     /// (the predicate's own effect runs first); everything after it is not.
-    /// Returns unit on normal completion or a false stop, like the pin's
+    /// Returns unit on normal completion or a false stop, like Effect 4's
     /// `Effect<void>`.
     pub fn run_for_each_while<F>(self, f: F) -> Exit<(), E>
     where
@@ -1782,7 +1782,7 @@ where
 }
 
 impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream<A, E, R> {
-    /// `Stream.tapCause` at the pin: observe the whole cause, then re-raise
+    /// `Stream.tapCause` in Effect 4: observe the whole cause, then re-raise
     /// it VERBATIM. `Fail` stays a typed failure and `Die` stays a defect,
     /// which is the property rows 943/953 assert.
     ///
@@ -1810,13 +1810,13 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
-    /// `Stream.catchDefect` at the pin: recover from a DEFECT with
+    /// `Stream.catchDefect` in Effect 4: recover from a DEFECT with
     /// `handler`, continuing with the stream it returns. A typed `Fail` is
     /// NOT a defect: it is re-raised unchanged, so `catchDefect` never
     /// swallows a typed failure.
     ///
     /// "Defect" here means a cause with at least one `Die` and no `Fail`,
-    /// mirroring how the pin keeps the two reason kinds apart.
+    /// mirroring how Effect 4 keeps the two reason kinds apart.
     pub fn catch_defect<F>(self, handler: F) -> Self
     where
         F: FnOnce(Defect) -> Self + Send + 'static,
@@ -1856,12 +1856,12 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
-    /// `Stream.catchIf` at the pin: catch only failures satisfying
+    /// `Stream.catchIf` in Effect 4: catch only failures satisfying
     /// `predicate`, continuing with the stream `handler` produces. A failure
     /// the predicate rejects is re-raised unchanged, so `catchIf` never
     /// accidentally recovers an error it does not name.
     ///
-    /// Tag dispatch lives in the predicate, which is how the pin's
+    /// Tag dispatch lives in the predicate, which is how Effect 4's
     /// `catchTag`/`catchReason` compose through ordinary closures.
     pub fn catch_if<P, F>(self, predicate: P, handler: F) -> Self
     where
@@ -1884,13 +1884,13 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
 }
 
 impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream<A, E, R> {
-    /// `Stream.catchFilter` at the pin: a `Result`-returning selector decides
+    /// `Stream.catchFilter` in Effect 4: a `Result`-returning selector decides
     /// the recovery. `Ok(value)` is passed to `handler`, whose stream
     /// replaces the failure; `Err(failure)` is passed to `or_else`, whose
     /// stream replaces it instead. Both arms recover, so nothing is
     /// re-raised.
     ///
-    /// This is the `orElse` shape the port already has on `Channel`, with a
+    /// This is the `orElse` shape the crate already has on `Channel`, with a
     /// `Result` selector in place of a boolean predicate.
     pub fn catch_filter<S, EF, H, G>(self, selector: EF, handler: H, or_else: G) -> Self
     where
@@ -1902,7 +1902,7 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         // Own state, not CatchState: the selector produces a type S that the
         // handler consumes, which CatchState's FnOnce(E) handler cannot
         // express. The failure channel is fixed at String here because that
-        // is what the port's selector maps to.
+        // is what the crate's selector maps to.
         let substitute: Arc<Mutex<Option<Self>>> = Arc::new(Mutex::new(None));
         let or_else: std::sync::Arc<Mutex<Option<Box<dyn FnOnce(String) -> Self + Send>>>> =
             std::sync::Arc::new(std::sync::Mutex::new(Some(Box::new(or_else))));
@@ -1941,7 +1941,7 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
 }
 
 impl<A: Send + 'static, E: Send + 'static> Stream<A, E, ()> {
-    /// `Stream.die` at the pin: a stream whose pull dies with `defect`, then
+    /// `Stream.die` in Effect 4: a stream whose pull dies with `defect`, then
     /// ends. Distinct from [`Stream::fail`]: a defect is never a typed error,
     /// so `catch_if`/`catch` must not recover it.
     pub fn die(defect: Defect) -> Self {
@@ -1954,13 +1954,13 @@ impl<A: Send + 'static, E: Send + 'static> Stream<A, E, ()> {
 }
 
 impl<A: Send + 'static, E: Clone + Send + 'static, R: crate::effect::Requirement> Stream<A, E, R> {
-    /// `Stream.catchCauseFilter` at the pin: a cause-level extractor decides
+    /// `Stream.catchCauseFilter` in Effect 4: a cause-level extractor decides
     /// the recovery. `Ok(value)` is passed to `handler`, whose stream
     /// replaces the failure; `Err(cause)` RE-RAISES that cause unchanged, so
     /// a cause the extractor declines is preserved verbatim.
     ///
     /// Cause-level, not error-level: the extractor sees the whole cause
-    /// (matching the pin's `Cause.hasFails ? Ok(squash) : Err(cause)` shape),
+    /// (matching Effect 4's `Cause.hasFails ? Ok(squash) : Err(cause)` shape),
     /// which is what lets a non-typed reason reach the re-raise path instead
     /// of being collapsed into a typed failure.
     pub fn catch_cause_filter<V, EF, H>(self, extractor: EF, handler: H) -> Self

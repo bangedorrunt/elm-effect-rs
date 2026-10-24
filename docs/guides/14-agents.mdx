@@ -1,6 +1,6 @@
 # Agents
 
-An agent that writes application code reads [Use the APIs](15-use-the-apis.mdx) and then the guide for that task. It reads ADR-0002 when it changes the carrier or the ledger. It reads `skills/elm-effect` when the user says migrate, port a module, or build an app. Extension is [Add a capability](13-add-a-capability.mdx). It is one task, not the whole manual.
+An agent that writes application code reads [Use the APIs](15-use-the-apis.mdx) and then the guide for that task. It reads ADR-0002 when it changes the carrier. It reads `skills/elm-effect` when the user says migrate or build an app. Extension is [Add a capability](13-add-a-capability.mdx). It is one task, not the whole manual.
 
 ## Rules that do not change
 
@@ -14,11 +14,9 @@ An agent that writes application code reads [Use the APIs](15-use-the-apis.mdx) 
 * Do not rebuild `.beads/gates.jsonl` from the issues log.
 * Do not remove the Resonate dependency during a migration.
 
-## A port of an Effect module
+## A new module
 
-The product is done when the witness list in ADR-0002 passes. Open `conformance/behavior-tests.tsv` only for a behavior we chose to carry. Set `status` to `ported` only when the Rust test fails on a stub and then passes. Fill the `rust` column. A behavior we will not carry is `not-applicable` with a reason. Do not open the next Effect file to grow the port.
-
-The path under `packages/effect/src/` links only to the same path under `packages/effect/test/`.
+A module earns its place when a caller uses it. Add the type or function, a test that fails without it, and the guide entry that names it. Do not add a module just to mirror another library's file layout.
 
 ## Extension from an application
 

@@ -11,14 +11,13 @@ elm-effect = { path = "../elm-effect-rs/crates/elm-effect" }
 
 ## Features
 
-The default feature set is `tokio` alone (ADR-0003). A plain dependency gives you `Runtime`, fibers, `Scope`, `Layer`, and the remote policy. The STM cells sit behind the `stm` feature; they are not on by default.
+The default feature set is `tokio` alone (ADR-0003). A plain dependency gives you `Runtime`, fibers, `Scope`, `Layer`, and the remote policy.
 
 | Feature | You get |
 | --- | --- |
 | `tokio` (default) | `Runtime`, fibers, `Scope`, `Layer`, remote policy |
-| `stm` | `TxRef` and `atomically` |
 
-`Runtime` needs the `tokio` feature. Enable `stm` when you use the STM cells.
+`Runtime` needs the `tokio` feature.
 
 ## Related crates
 

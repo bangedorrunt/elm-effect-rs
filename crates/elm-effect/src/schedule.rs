@@ -36,7 +36,7 @@ pub enum RandomError {
 }
 
 impl RandomError {
-    /// The pin's message text.
+    /// Effect 4's message text.
     pub fn message(&self) -> &'static str {
         match self {
             Self::NoSuchElement => "Cannot select a random element from an empty array",
@@ -60,8 +60,8 @@ impl Random {
         }
     }
 
-    /// A generator seeded from a string. The pin hashes its seeds; the hash
-    /// only has to separate seeds, not reproduce the pin's sequence.
+    /// A generator seeded from a string. Effect 4 hashes its seeds; the hash
+    /// only has to separate seeds, not reproduce Effect 4's sequence.
     pub fn with_string_seed(seed: &str) -> Self {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -69,7 +69,7 @@ impl Random {
         Self::with_seed(hasher.finish())
     }
 
-    /// A source pinned to `draws`, the port's stand-in for providing a fake
+    /// A source pinned to `draws`, the crate's stand-in for providing a fake
     /// `Random.Random` service. Exhausted draws read as `0.0`.
     pub fn from_draws(draws: impl IntoIterator<Item = f64>) -> Self {
         Self {
@@ -158,7 +158,7 @@ impl Random {
     }
 }
 
-/// The float just below `x`. Infinities are unchanged so the pin's unsupported
+/// The float just below `x`. Infinities are unchanged so Effect 4's unsupported
 /// bounds (`nextBetween(10, Infinity)`) pass through.
 fn predecessor(x: f64) -> f64 {
     if x.is_nan() || x.is_infinite() {
@@ -191,7 +191,7 @@ impl crate::service::ServiceTag for RandomTag {
     const ID: &'static str = "elm-effect/random";
 }
 
-/// What one step is told before it decides: the pin's `InputMetadata`.
+/// What one step is told before it decides: Effect 4's `InputMetadata`.
 ///
 /// `attempt` is 1-based, counting the step being taken. `start` is the `now`
 /// of the run's first step, so `elapsed` is time since the run began and
@@ -212,7 +212,7 @@ pub struct Meta<'a, In> {
     pub elapsed_since_previous: f64,
 }
 
-/// A completed step's metadata: the pin's `Metadata`, which adds the output
+/// A completed step's metadata: Effect 4's `Metadata`, which adds the output
 /// and delay the step chose to [`Meta`].
 pub struct Metadata<'a, In, Out> {
     /// The value the driver handed this step.
@@ -235,7 +235,7 @@ pub struct Metadata<'a, In, Out> {
 
 /// What one step decided: keep going after a delay, or complete.
 ///
-/// The pin's pull carries the value the step produced even when it completes,
+/// Effect 4's pull carries the value the step produced even when it completes,
 /// so a stop is [`Done`](Decision::Done) with that value rather than an
 /// absence. Combinators that refuse a step after it ran (`upTo`, `while`)
 /// therefore report the refused output, which is what their rows assert.
@@ -285,12 +285,12 @@ impl<Out> Decision<Out> {
     }
 }
 
-/// One schedule's own metadata counters, the pin's `metadataFn`.
+/// One schedule's own metadata counters, Effect 4's `metadataFn`.
 ///
 /// Every schedule instance owns one, so `attempt` counts the steps *that
 /// schedule* took. A wrapper (`upTo`, `tap`) therefore counts its own calls,
 /// and a concatenated second schedule starts again at attempt 1, exactly as
-/// the pin's per-`fromStepWithMetadata` closure does.
+/// Effect 4's per-`fromStepWithMetadata` closure does.
 struct Counters {
     attempt: u64,
     start: Option<f64>,
@@ -363,7 +363,7 @@ impl<In: Send + Sync + 'static, Out: Send + 'static> Schedule<In, Out> {
         {
             let mut counters = self.counters.lock().unwrap();
             counters.attempt = attempt;
-            // Zeroed timing is the pin's `toStep(0, …)` starting point, and
+            // Zeroed timing is Effect 4's `toStep(0, …)` starting point, and
             // keeps `decide` idempotent for a caller that repeats an index.
             counters.start = Some(0.0);
             counters.previous = Some(0.0);
@@ -381,7 +381,7 @@ impl<In: Send + Sync + 'static, Out: Send + 'static> Schedule<In, Out> {
     }
 }
 
-/// A schedule's step function bound to a timestamp source (the pin's
+/// A schedule's step function bound to a timestamp source (Effect 4's
 /// `toStep`/`toStepWithMetadata`). The schedule's own counters still advance,
 /// so a test can drive it over a virtual clock without sleeping.
 pub struct Stepper<'a, In: Send + Sync + 'static, Out: Send + 'static> {
@@ -394,10 +394,10 @@ impl<'a, In: Send + Sync + 'static, Out: Send + 'static> Stepper<'a, In, Out> {
         self.schedule.step(now, input)
     }
 
-    /// Take one step and report its metadata, the pin's
+    /// Take one step and report its metadata, Effect 4's
     /// `toStepWithMetadata`. `None` means the schedule completed.
     ///
-    /// The pin also sleeps for the delay after a step; a caller that wants
+    /// Effect 4 also sleeps for the delay after a step; a caller that wants
     /// that sleeps for `metadata.duration` and advances `now` by it.
     pub fn step_with_metadata<'i>(
         &mut self,
@@ -480,7 +480,7 @@ impl<In: Send + Sync + 'static> Schedule<In, u64> {
     }
 
     /// A wait aligned to window boundaries (`fixed`), outputting the
-    /// zero-based attempt index as at the pin.
+    /// zero-based attempt index as in Effect 4.
     ///
     /// The first step asks for one full window, and later steps wait only
     /// until the next boundary after the run started. A step that begins once
@@ -489,7 +489,7 @@ impl<In: Send + Sync + 'static> Schedule<In, u64> {
     pub fn fixed(window: Duration) -> Schedule<In, u64> {
         let window = window.as_millis() as f64;
         // (run start, the time the current window ends): the same two numbers
-        // the pin holds in its step closure.
+        // Effect 4 holds in its step closure.
         let state = Arc::new(Mutex::new((0.0f64, 0.0f64)));
         Schedule::from_step(move |meta| {
             if window == 0.0 {
@@ -592,7 +592,7 @@ impl<In: Clone + Send + Sync + 'static> Schedule<In, In> {
     }
 }
 
-/// Bounds for [`Schedule::up_to`] (the pin's `upTo` options record).
+/// Bounds for [`Schedule::up_to`] (Effect 4's `upTo` options record).
 ///
 /// An unset field imposes no bound, and both unset leaves the schedule
 /// unchanged.
@@ -609,7 +609,7 @@ impl<In: Send + Sync + 'static, A: Send + 'static> Schedule<In, A> {
     /// under both bounds when both are set (`upTo`).
     ///
     /// The bound is checked after the inner step decides, so the refused step
-    /// completes with its own output, as the pin's `while` does.
+    /// completes with its own output, as Effect 4's `while` does.
     pub fn up_to(self, options: UpTo) -> Self {
         if options.times.is_none() && options.duration.is_none() {
             return self;
@@ -760,12 +760,12 @@ impl<In: Send + Sync + 'static, A: Send + 'static> Schedule<In, A> {
 
     /// Run `self` to completion, then `other`, tagging each output with the
     /// side that produced it (`concatResult`): `Err` for `self` and `Ok` for
-    /// `other`, as the pin's `Result` does.
+    /// `other`, as Effect 4's `Result` does.
     pub fn concat_result<B: Send + 'static>(
         self,
         other: Schedule<In, B>,
     ) -> Schedule<In, std::result::Result<B, A>> {
-        // 0 while `self` is producing, 1 once it has completed: the pin keeps
+        // 0 while `self` is producing, 1 once it has completed: Effect 4 keeps
         // the same `currentSide` flag in its step closure.
         let side = Arc::new(Mutex::new(0u8));
         Schedule::from_step(move |meta| {
@@ -780,7 +780,7 @@ impl<In: Send + Sync + 'static, A: Send + 'static> Schedule<In, A> {
                     }
                     // The left side is done: the right side supplies this
                     // same step's decision. Its own counters start at attempt
-                    // 1, as a freshly extracted step does at the pin.
+                    // 1, as a freshly extracted step does in Effect 4.
                     Decision::Done { .. } => *side = 1,
                 }
             }
@@ -800,7 +800,7 @@ impl<In: Send + Sync + 'static, A: Send + 'static> Schedule<In, A> {
     }
 
     /// Scale every delay by a factor in `[0.8, 1.2)` drawn from `rng`, the
-    /// pin's `jittered` band (`Schedule.test.ts:476`).
+    /// Effect 4's `jittered` band (`Schedule.test.ts:476`).
     pub fn jitter(self, rng: Random) -> Self {
         Schedule::from_step(move |meta| match self.step(meta.now, meta.input) {
             Decision::Continue { output, duration } => {
@@ -948,14 +948,14 @@ where
     }
 }
 
-/// A loop predicate recorded as an effect, so the pin's `until`/`while`
+/// A loop predicate recorded as an effect, so Effect 4's `until`/`while`
 /// callbacks can fail and have that failure end the loop.
 pub type LoopPredicate<In, E> = Arc<dyn Fn(&In) -> Effect<bool, E, ()> + Send + Sync + 'static>;
 
 /// `{ schedule, until, while }` for [`repeat_with`] and [`retry_with`].
 ///
 /// Predicates run after each attempt, never before, so a loop always runs at
-/// least once (the pin's "always evaluates at least once" rows). With no
+/// least once (Effect 4's "always evaluates at least once" rows). With no
 /// schedule the loop repeats until a predicate stops it.
 pub struct LoopOptions<In: Send + Sync + 'static, E: Send + 'static> {
     schedule: Option<Schedule<In, ()>>,
@@ -1026,11 +1026,11 @@ impl<In: Send + Sync + 'static, E: Send + 'static> LoopOptions<In, E> {
         self
     }
 
-    /// The pin treats a missing schedule as "repeat forever, no delay".
+    /// Effect 4 treats a missing schedule as "repeat forever, no delay".
     fn base(&self) -> Schedule<In, ()> {
         match &self.schedule {
             // `#[derive(Clone)]` would demand `In: Clone`; the derived clone
-            // shares the counters and step, like the pin's schedule object.
+            // shares the counters and step, like Effect 4's schedule object.
             Some(schedule) => Schedule {
                 counters: Arc::clone(&schedule.counters),
                 step: Arc::clone(&schedule.step),
@@ -1085,7 +1085,7 @@ where
 }
 
 /// Re-run the recipe after typed failure until a predicate or the base
-/// schedule stops it (`options` sees the error, as at the pin). Defects and
+/// schedule stops it (`options` sees the error, as in Effect 4). Defects and
 /// interrupts are never retried, and a failing predicate becomes the result.
 pub fn retry_with<A, E, F>(make: F, options: LoopOptions<E, E>) -> Effect<A, E>
 where

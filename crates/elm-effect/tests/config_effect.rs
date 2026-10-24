@@ -1,4 +1,4 @@
-//! `Config.mapEffect` rows, seen from outside the crate.
+//! `Config.mapEffect` cases, seen from outside the crate.
 //!
 //! These were `#[cfg(test)] mod tests` inside `config_effect.rs` while `config`
 //! was a private module. They are the proof that the surface opens: every name
@@ -105,7 +105,7 @@ fn or_else_recovers_a_map_effect_failure_and_the_group_then_defaults() {
 #[test]
 fn a_defect_in_the_transform_refuses_with_the_descriptor_path() {
     // The ceiling named in the module doc: a defect is not a config error in
-    // the pin, but a load has no defect channel, so it refuses at the
+    // Effect 4, but a load has no defect channel, so it refuses at the
     // descriptor's path instead of passing a wrong value through.
     let config = Config::string(Some("port".to_string()))
         .map_effect(|_| Effect::<Value, ConfigError, ()>::die(Defect::new("boom")));
@@ -192,4 +192,16 @@ mod provider_defect {
             "orElse must not answer for a defect"
         );
     }
+}
+
+#[test]
+fn log_level_is_shared_by_config_and_observability() {
+    // The compiler is the witness: a level parsed through `config` is the
+    // logger's own type, with no conversion.
+    let parsed = elm_effect::config::LogLevel::parse("Warning").expect("valid");
+    assert_eq!(parsed, elm_effect::observability::LogLevel::Warn);
+    assert!(elm_effect::observability::is_enabled(
+        parsed,
+        elm_effect::config::LogLevel::Info
+    ));
 }

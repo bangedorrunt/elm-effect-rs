@@ -11,6 +11,9 @@ mod config;
 #[allow(dead_code, clippy::type_complexity)]
 #[path = "../src/config_provider.rs"]
 mod config_provider;
+#[allow(dead_code, clippy::type_complexity)]
+#[path = "../src/log_level.rs"]
+mod log_level;
 // The path-included config modules name `crate::Defect`, so the host has to
 // provide that name; the library's own root re-exports the same type.
 pub use elm_effect::Defect;

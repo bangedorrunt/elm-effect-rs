@@ -21,7 +21,7 @@ This page is the call catalog. Each section names the crate, the function, and t
 
 ## Run one description
 
-Call `Runtime::run` in `main` or in a test. Call `Runtime::run_main` when the process must exit.
+Call `Runtime::run` for a simple effect in `main` or in a test. Call `Runtime::run_main` when the process must exit. Both run the effect on a fiber, so `with_fiber`, `fork_child`, `race`, `timeout`, and `Effect::all` work at the static edge too. `ManagedRuntime::run` is the same edge when the effect also needs a layer's services and a managed disposal.
 
 ```rust
 use elm_effect::{Effect, Runtime};
@@ -33,7 +33,7 @@ fn main() {
 }
 ```
 
-`Runtime::new` builds a runtime when `Remote::call` needs a reference. `shutdown` stops live fibers and waits for finalizers.
+`Runtime::new` builds a runtime when `Remote::call` needs a reference. `shutdown` stops live fibers and waits for finalizers. `ManagedRuntime::run` runs the effect on a fiber with the layer's services ambient, and disposes the layer when the runtime drops.
 
 ## Build a description
 
@@ -60,23 +60,14 @@ A description does no I/O until `Runtime::run`.
 `pipe!` and `flow!` are macros because a Rust function cannot take a variable number of functions. `pipe!(x, f, g)` is `g(f(x))`. `flow!(f, g)` is `|x| g(f(x))`.
 
 ```rust
-use elm_effect::{apply, compose, const_unit, flow, identity, pipe, sk};
+use elm_effect::{flow, pipe};
 
 let six = pipe!(5, |n: i32| n + 1);
 let double = flow!(|n: i32| n + 1, |n: i32| n * 2);
-let through = pipe!(3, |n: i32| apply(n, |m: i32| m * 2));
-let nothing = const_unit()();
-let kept = sk(1, "second");
-let same = pipe!(identity(4), |n: i32| n);
+let twelve = double(5);
 ```
 
-`apply(a, f)` is `f(a)`, with the value first, the pin's order. `const_unit` answers `()` for both `constUndefined` and `constVoid`: Rust has no `undefined`. `sk` returns its second argument. `compose(f, g)` is `|x| g(f(x))` as a value. `tupled` and `untupled` move a two-argument function between two arguments and one tuple.
-
 A `flow` head that takes several arguments takes them as one tuple, because a Rust closure has a fixed arity: `flow!(|(a, b): (i32, i32)| a + b, double)((1, 2))`.
-
-`hole::<T>()` panics with the pin's sentence. Use it where a branch cannot happen but the type system does not say so. `absurd` takes `Infallible`, so only a branch the compiler has already ruled out can call it.
-
-`memoize(f)` and `memoize_idempotent(f)` cache by `Arc` identity, the pin's `WeakMap` key: equal values in two `Arc`s are two entries. The cache holds a clone of each key, so the address cannot be reused by a later allocation. Entries live as long as the memoizer, so a process that memoizes many transient values wants a store with eviction instead.
 
 ## Ask for a service
 
@@ -111,7 +102,7 @@ let resource = scope.acquire_release(
 );
 ```
 
-`add_finalizer` registers a closure. `add_finalizer_effect` registers an effect. `close` runs finalizers in reverse order. A closed scope releases the resource at once and returns an interrupt.
+`add_finalizer` registers a closure and `add_finalizer_effect` registers an effect. Both have an exit-aware form: `add_finalizer_with_exit` and `add_finalizer_effect_with_exit` hand the release a `ScopeExit`: whether the body succeeded, failed, or was interrupted, plus its typed-failure count and defects. `close` runs finalizers in reverse order; `close_with` supplies the exit when the caller has one. A closed scope releases the resource at once and returns an interrupt.
 
 ## Retry, repeat, and a remote call
 
@@ -133,7 +124,11 @@ let exit = remote.call(&Runtime::new(), &clock, || load_rows());
 
 ## Many effects
 
-`all` with no bound runs one effect, then the next. `for_each` does the same for a list. `race` returns the first success. `race_first` returns the first completion. `timeout` races the effect against `Clock`.
+`Effect::all(effects, concurrency)` is the effect-level fan-out: ordered results, at most `n` children alive under `Concurrency::Bounded(n)`, first failure wins after interrupting and releasing the siblings. `Effect::all_discard` drops the values. Both need a fiber, which every runtime edge provides.
+
+The runtime-level `all`, `all_result`, and `for_each` take `&Runtime` and `Body` closures; they are the imperative-shell edge for the same fan-out.
+
+`race` returns the first success. `race_first` returns the first completion. `timeout` races the effect against `Clock`.
 
 `Concurrency::Unbounded` starts every task. Do not pass it to a remote policy.
 
@@ -248,4 +243,5 @@ let park = plan_park(until_ms, max_wait_secs, now_ms, None);
 | Exit a process | [A command line program](10-cli.mdx) |
 | Fold messages | [A long-lived program](11-application.mdx) |
 | Resume after a crash | [The durable log](12-durable-log.mdx) |
+| Put the log behind TLS and auth | [Put a proxy in front](16-reverse-proxy.mdx) |
 | Add a tag, a log, or a program | [Add a capability](13-add-a-capability.mdx) |

@@ -1,6 +1,5 @@
-//! Wave-7 conversation endpoints: Pull sources, Take outcomes, Channel
-//! transforms, Sink consumers. Modules load via `#[path]` includes (the .15
-//! precedent): no facade touch.
+//! Conversation endpoints: Pull sources, Take outcomes, Channel transforms,
+//! and Sink consumers. Modules load via `#[path]` includes: no facade touch.
 //!
 //! A `Pull` yields one [`Take`] per call: items, end of stream, or failure.
 //! A [`Channel`] transforms takes; a [`Sink`] folds them to a value. Pulls
@@ -968,7 +967,7 @@ fn channel_catch_defect_routes_the_defect_and_leaves_typed_failures() {
 
 #[test]
 fn a_dying_channel_reaches_the_sink_as_a_defect() {
-    // The pin's `Take` carries an `Exit`, so a channel can die. A defect must
+    // Effect 4's `Take` carries an `Exit`, so a channel can die. A defect must
     // survive a pull and a transform as a `Die`, never flattened into `E`, and
     // a sink must report it as the exit's defect.
     let source = pull::Pull::<u32, String>::die(Defect::new("channel died"));

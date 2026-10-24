@@ -11,7 +11,7 @@ Date: 2026-10-24 (updated after the cut landed). Bead: `elm-effect-rs-9sw5` (aud
 - Constraints discovered:
   - ADR-0002 defines the mission as "100% feature and test parity" with `effect@4.0.0`. That mission generated the deleted bulk.
   - ADR-0003 (status `proposed`) already demanded the opposite shape: "Version 1.0 must name a small stable surface", 1.0 = "the kernel, `policy`, `Scope`, and `TestClock`".
-  - The durable streams concept (DurableLog, L16, `elm-effect-journal`) is product vision and is kept. A future durable-function/execution integration (Temporal-style) is anticipated: the deterministic fold, the journal's settle-once states, and `execution_plan.rs` (the attempt plan as a value) are the seam, and that seam is preserved.
+  - The durable streams concept (DurableLog, L16, `elm-effect-journal`) is product vision and is kept. A future durable-function/execution integration (Temporal-style) is anticipated: the deterministic fold, the journal's settle-once states, and `attempt_plan.rs` (`AttemptPlan` as a value) are the seam, and that seam is preserved.
 
 ## 1) The vision preserved (the invariant)
 
@@ -35,7 +35,7 @@ Date: 2026-10-24 (updated after the cut landed). Bead: `elm-effect-rs-9sw5` (aud
 ## 3) What was kept, and why (the keep-list corrections)
 
 - **Kernel**: `effect`, `cause`, `exit`, `foundation`, `fiber*`, `runtime`, `scope`, `service`, `layer`, `context`, `tagged`, `schedule`, `policy`, `sync` (L9), `concurrency`, `supervision`, `supervisor`, `executor`, `lib`. `foundation.rs` is the one port-adjacent survivor: `stm` keys on its `Order`, and `Equal`/`Order`/`Hash`/`Function`/`Combiner` are carried.
-- **Durable-execution seam**: `execution_plan.rs` (attempt plan as a value), `elm-effect-elm` (deterministic fold, replay), `elm-effect-journal` (`DurableLog`, settle-once states). This is where a Temporal-style durable-function layer would sit: as a `Layer`/program over values, not a kernel fork.
+- **Durable-execution seam**: `attempt_plan.rs` (`AttemptPlan` as a value), `elm-effect-elm` (deterministic fold, replay), `elm-effect-journal` (`DurableLog`, settle-once states). This is where a Temporal-style durable-function layer would sit: as a `Layer`/program over values, not a kernel fork.
 - **Services kept** (the substitution surface, effect-oriented principle 8): `time.rs` (Clock/L8 + `TestClock`), `crypto.rs` (Random service + `TestCrypto`), `config` + `config_provider` + `config_effect` (startup read), `console` (Logger), `mock` (`Layer.mock`).
 - **Observation law kept**: `metric`, `tracer`, `observability` (principle 11: logs/traces/metrics observe an effect). Only the OTLP wire exporter went.
 - **Streams kept**: `stream`, `sink`, `channel`, `pubsub`, `pull`, `take`, `subscription_ref` (principle 14), behind `tokio`.

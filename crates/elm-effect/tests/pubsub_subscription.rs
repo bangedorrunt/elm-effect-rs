@@ -1,19 +1,12 @@
-//! Wave-7 PubSub batch: bounded/dropping/sliding/unbounded hubs,
-//! SubscriptionRef change streams, PartitionedSemaphore pools.
-//! Modules load via `#[path]` includes: no facade touch. Threads stand
-//! in for fibers; Effect-scope/interruption rows stay `unported` with
-//! reasons in the close report.
+//! PubSub hubs (bounded, dropping, sliding, unbounded), SubscriptionRef
+//! change streams, and PartitionedSemaphore pools. Threads stand in for
+//! fibers; Effect scopes and interruption are not covered.
 
 #[allow(clippy::type_complexity)]
 #[path = "../src/pubsub.rs"]
 mod pubsub;
-#[allow(dead_code, clippy::type_complexity)]
-#[path = "../src/subscription_ref.rs"]
-mod subscription_ref;
-
-use elm_effect::PartitionedSemaphore;
+use elm_effect::{PartitionedSemaphore, SubscriptionRef};
 use pubsub::{PubSub, Strategy};
-use subscription_ref::SubscriptionRef;
 
 // ----------------------------------------------------------------- PubSub ---
 
@@ -449,8 +442,8 @@ fn semaphore_try_acquire_reports() {
     assert_eq!(sem.with_permits_if_available(1, || ()), Some(()));
 }
 
-/// The pin's defining rule: keys share ONE pool, so a busy key can leave
-/// another key waiting. (This is the row the port used to get wrong with a
+/// Effect 4's defining rule: keys share ONE pool, so a busy key can leave
+/// another key waiting. (This is the case the crate used to get wrong with a
 /// pool per key.)
 #[test]
 fn semaphore_keys_share_one_pool() {
@@ -473,7 +466,7 @@ fn semaphore_with_permits_releases() {
     assert_eq!(sem.available(), 2);
 }
 
-/// Row 122: competing takes cannot acquire the same permit. Two takers of one
+/// Case 122: competing takes cannot acquire the same permit. Two takers of one
 /// permit on one key run one after the other, and the permit comes back.
 #[test]
 fn semaphore_competing_takes_serialize() {
@@ -514,7 +507,7 @@ fn semaphore_competing_takes_serialize() {
 
 #[test]
 fn replay_window_does_not_retain_values_that_slid_out() {
-    // Row: "does not retain values published outside an undrained replay
+    // Case: "does not retain values published outside an undrained replay
     // window". A replay-1 hub: publish one value, snapshot the window, then
     // publish two more. The first value must have slid out of the LIVE
     // window, while the snapshot still holds it.

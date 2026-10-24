@@ -1,9 +1,9 @@
 //! `Metric.test.ts`'s track family: the exit hooks that update a registry.
 //!
-//! The pin reaches the registry through the fiber running the effect. A
+//! Effect 4 reaches the registry through the fiber running the effect. A
 //! description here holds no fiber, so every hook takes the [`Metrics`] handle
 //! it writes to; that is the only difference the tests below work with. What
-//! each row asserts is unchanged: which exits count, and what the hook maps
+//! each case asserts is unchanged: which exits count, and what the hook maps
 //! them to.
 
 use std::convert::Infallible;
@@ -16,7 +16,7 @@ use elm_effect::{
 };
 
 fn counter(id: &str) -> Counter {
-    // Every row counts one occurrence, so the pin's `withConstantInput(1)` is
+    // Every case counts one occurrence, so Effect 4's `withConstantInput(1)` is
     // what makes a counter's numeric input the count itself.
     Counter::new(id).with_constant_input(1.0)
 }
@@ -25,7 +25,7 @@ fn count(metrics: &Metrics, counter: &Counter) -> f64 {
     metrics.read(|registry| registry.value(counter).count)
 }
 
-/// `Effect.track(counter)` with one occurrence per exit: the shape every row
+/// `Effect.track(counter)` with one occurrence per exit: the shape every case
 /// below starts from. The counter is cloned because the hook outlives the call.
 fn tracked<A, E, R>(
     effect: Effect<A, E, R>,

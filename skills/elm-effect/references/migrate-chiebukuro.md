@@ -1,6 +1,6 @@
 # Migrate chiebukuro
 
-Repo: the chiebukuro workspace. Law: ADR-0002 sibling port "Chiebukuro". ADR-0011 (`docs/decisions/0011-chiebukuro-daemon-resonate.md`) stays in force. This migration does not supersede it.
+Repo: the chiebukuro workspace. Law: ADR-0002 sibling migration "Chiebukuro". ADR-0011 (`docs/decisions/0011-chiebukuro-daemon-resonate.md`) stays in force. This migration does not supersede it.
 
 ## Gate
 

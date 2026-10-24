@@ -1,5 +1,5 @@
-//! Wave-1 fiber bead (.4): supervisor isolation, detach shutdown,
-//! interrupt back-pressure. Bodies cooperate via [`Ctx`](elm_effect::Ctx).
+//! Supervisor isolation, detach shutdown, and interrupt back-pressure.
+//! Bodies cooperate via [`Ctx`](elm_effect::Ctx).
 #![cfg(feature = "tokio")]
 
 use elm_effect::Duration as EffectDuration;
@@ -337,7 +337,7 @@ fn closing_scope_interrupts_members() {
 }
 
 // ---------------------------------------------------------------------------
-// awaitAllChildren at the pin (Effect.test.ts describe "awaitAllChildren")
+// awaitAllChildren in Effect 4 (Effect.test.ts describe "awaitAllChildren")
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -354,7 +354,7 @@ fn await_all_children_completes_immediately_without_children() {
 fn await_all_children_waits_for_the_child_the_body_forked() {
     // The wrapped effect forks a child that stays parked. The parent's join
     // returns only after that child's finalizers run, which is the
-    // observable claim of Effect.awaitAllChildren in this port (a parent
+    // observable claim of Effect.awaitAllChildren in this crate (a parent
     // waits for its children's finalizers).
     //
     // The child must poll `is_interrupted` (the proven idiom in this file):
@@ -391,12 +391,12 @@ fn await_all_children_waits_for_the_child_the_body_forked() {
 
 // ---------------------------------------------------------------------------
 // Effect-level forkChild + awaitAllChildren (Effect.test.ts :2457 - :2576).
-// The pin forks children *inside* an effect; this port could not until
+// Effect 4 forks children *inside* an effect; this crate could not until
 // `Effect::fork_child` carried the spawn entry on the ambient fiber, so these
-// rows were unported for want of a fork, not for want of an await.
+// cases were missing for want of a fork, not for want of an await.
 // ---------------------------------------------------------------------------
 
-/// The pin's `Deferred.await(latch)`: park until the fiber is interrupted,
+/// Effect 4's `Deferred.await(latch)`: park until the fiber is interrupted,
 /// then end interrupted. A child that lives exactly as long as the interrupt
 /// takes to arrive.
 fn until_interrupted(started: Arc<AtomicBool>) -> Effect<(), String> {
@@ -425,7 +425,7 @@ fn until_released(released: Arc<AtomicBool>, started: Arc<AtomicBool>) -> Effect
 }
 
 /// Poll a flag up to `within`. A witness that would hang instead fails on the
-/// assertion, which is the loud failure these rows need.
+/// assertion, which is the loud failure these cases need.
 fn wait_for(f: &Arc<AtomicBool>, within: Duration) -> bool {
     let deadline = Instant::now() + within;
     while Instant::now() < deadline {
@@ -634,7 +634,7 @@ fn await_all_children_respects_an_enclosing_uninterruptible_region() {
 
 /// :2556 `does not await children forked outside the wrapped effect`.
 /// The wrapped effect runs on a fiber of its own with no children, so its
-/// await returns while the parent's parked child is still alive. A port that
+/// await returns while the parent's parked child is still alive. A crate that
 /// awaited the room rather than its own children would block here.
 #[test]
 fn await_all_children_ignores_a_child_forked_outside_it() {
@@ -735,7 +735,7 @@ fn await_all_children_ignores_a_preexisting_child() {
 
     let (rt, target) = spawn_effect(effect);
     // The child parks until `released`, so the flag can only be set if the
-    // await returned without waiting for it. A port that awaited every child
+    // await returned without waiting for it. A crate that awaited every child
     // in the registry blocks here and fails loudly instead of passing.
     assert!(
         wait_for(&returned, Duration::from_secs(5)),
@@ -838,8 +838,8 @@ fn await_all_children_ignores_a_preexisting_child_in_the_same_fiber() {
 }
 
 // ---------------------------------------------------------------------------
-// Effect.withFiber at the pin (Effect.test.ts describe-group "withFiber").
-// The port's handle carries identity and the interrupt flag, not the pin's
+// Effect.withFiber in Effect 4 (Effect.test.ts describe-group "withFiber").
+// The crate's handle carries identity and the interrupt flag, not Effect 4's
 // mutable `fiber.context`.
 // ---------------------------------------------------------------------------
 
@@ -962,14 +962,14 @@ fn with_fiber_self_interrupt_turns_success_into_an_interrupt() {
     assert!(matches!(exit, Exit::Failure(_)));
 }
 
-/// Same handover as [`spawn_effect`], for the shapes these rows need: the
+/// Same handover as [`spawn_effect`], for the shapes these cases need: the
 /// forking parent parks, so only the witness can end the effect's fiber.
 ///
 /// The returned handle is only handed over once the effect's first step has
-/// run. These rows interrupt the instant they have the handle, and without that
+/// run. These cases interrupt the instant they have the handle, and without that
 /// handshake the interrupt can land before the fiber body starts: the fiber is
-/// then pre-empted rather than interrupted mid-chain, and a row that counts what
-/// the chain did reads zero. The pin never races here, because its interrupt is
+/// then pre-empted rather than interrupted mid-chain, and a case that counts what
+/// the chain did reads zero. Effect 4 never races here, because its interrupt is
 /// issued from a fiber that only resumes after the child has started.
 fn spawn_effect_any<A, E>(effect: Effect<A, E>) -> (Runtime, FiberHandle<A, E>)
 where
@@ -1007,7 +1007,7 @@ where
 }
 
 /// Wait until exactly `expected` workers are parked on the virtual clock. The
-/// port's sleepers register when they reach the sleep, so this is also how a
+/// crate's sleepers register when they reach the sleep, so this is also how a
 /// test knows a launched item actually started.
 fn wait_for_sleepers(clock: &TestClock, expected: usize) {
     let deadline = Instant::now() + Duration::from_secs(5);
@@ -1017,7 +1017,7 @@ fn wait_for_sleepers(clock: &TestClock, expected: usize) {
     assert_eq!(
         clock.pending_sleepers(),
         expected,
-        "the batch never parked where the row expects"
+        "the batch never parked where the case expects"
     );
 }
 
@@ -1184,7 +1184,7 @@ fn for_each_bounded_interrupt_stops_the_window() {
         "the batch ends interrupted"
     );
     // One adjust wakes both workers, so their record order is arbitrary; the
-    // row pins that only the first window's items finish.
+    // case pins that only the first window's items finish.
     let mut recorded = done.lock().unwrap().clone();
     recorded.sort_unstable();
     assert_eq!(recorded, vec![1u8, 2], "only the first window may finish");
@@ -1241,8 +1241,8 @@ fn for_each_unbounded_failure_cancels_the_slower_workers() {
         ),
         Exit::Success(values) => panic!("expected the batch to fail, got {values:?}"),
     }
-    // The port's TestClock wakes every due sleeper at once, so the three that
-    // were due record in an arbitrary order. What the row pins is which items
+    // The crate's TestClock wakes every due sleeper at once, so the three that
+    // were due record in an arbitrary order. What the case pins is which items
     // record at all: 4 and 5 were still in flight and must not.
     let mut recorded = done.lock().unwrap().clone();
     recorded.sort_unstable();
@@ -1565,13 +1565,13 @@ fn all_concurrency_interrupts_started_siblings_on_failure() {
         Exit::Success(values) => panic!("expected the batch to fail, got {values:?}"),
     }
     // The two siblings start concurrently, so the order they record in is
-    // arbitrary (a thread that gets the scheduler first wins the push). The row
+    // arbitrary (a thread that gets the scheduler first wins the push). The case
     // pins which siblings started, never which got there first.
     let mut started = started.lock().unwrap().clone();
     started.sort_unstable();
     assert_eq!(started, vec![1u8, 3], "only the window starts");
     // Both interrupted siblings notice concurrently, so the order they record
-    // in is arbitrary; the row pins which siblings were interrupted.
+    // in is arbitrary; the case pins which siblings were interrupted.
     let mut noticed = interrupted.lock().unwrap().clone();
     noticed.sort_unstable();
     assert_eq!(
@@ -1609,7 +1609,7 @@ fn concurrent_zip_interrupts_the_other_side_on_failure() {
 }
 
 /// :3405 `concurrent: true interrupts the other side on failure`, the
-/// `zipWith` spelling. The pairing is the same race; the port combines the
+/// `zipWith` spelling. The pairing is the same race; the crate combines the
 /// two values with `map` rather than a separate `zipWith` entry point.
 #[test]
 fn concurrent_zip_with_interrupts_the_other_side_on_failure() {
@@ -1640,7 +1640,7 @@ fn concurrent_zip_with_interrupts_the_other_side_on_failure() {
 
 /// :2013 `timeout a long computation with a failure`.
 /// The deadline runs the caller's own exit — a defect here — and `sandbox` +
-/// `flip` is how the row reads that defect back as a value.
+/// `flip` is how the case reads that defect back as a value.
 #[test]
 fn timeout_or_else_can_die_on_its_own_terms() {
     let effect = Effect::<bool, String>::sync(|| {
@@ -1799,9 +1799,9 @@ fn timeout_inside_an_uninterruptible_region_still_completes() {
 }
 
 /// :1265 `releases on interrupt`.
-/// The pin masks the acquisition, so an interrupt that lands while it is in
+/// Effect 4 masks the acquisition, so an interrupt that lands while it is in
 /// flight still lets it finish and still runs the release. A sync acquisition
-/// is atomic here, which is this port's version of that mask: the interrupt
+/// is atomic here, which is this crate's version of that mask: the interrupt
 /// lands inside the acquire's own step and the release runs when the scope
 /// closes afterwards.
 #[test]
@@ -1836,7 +1836,7 @@ fn acquire_release_still_releases_after_an_interrupt() {
     );
 
     // Land the interrupt in the middle of the acquisition, not before it
-    // starts: the row is about an acquire already in flight.
+    // starts: the case is about an acquire already in flight.
     std::thread::sleep(Duration::from_millis(20));
     fiber.interrupt();
     let _ = fiber.join();
@@ -1890,7 +1890,7 @@ fn alternating_interruptibility_runs_each_observed_window() {
     let first_seen = seen.clone();
     let second_seen = seen.clone();
     // The interrupt must land while the fiber is parked in its FIRST window, as
-    // it does at the pin: there the forked child reaches `never` before the
+    // it does in Effect 4: there the forked child reaches `never` before the
     // test fiber resumes to interrupt it. Without this handshake the interrupt
     // can arrive before the chain enters the window, and the first `exit` never
     // sees it (measured: only the outer window's continuation ran).
@@ -2252,7 +2252,7 @@ fn region_after_a_restored_section_stays_uninterruptible() {
     );
     events.lock().unwrap().push("after restore");
     // `interrupt()` waits for the region to finish, which it cannot do until
-    // the resume below, so the request is the non-blocking one the pin's
+    // the resume below, so the request is the non-blocking one Effect 4's
     // `interruptUnsafe` answers.
     fiber.interrupt_unsafe();
     events.lock().unwrap().push("interrupted");
@@ -2288,7 +2288,7 @@ fn region_after_a_restored_section_stays_uninterruptible() {
 }
 
 /// :2284 `callback cleanup effect runs on interrupt`.
-/// The port's registration returns nothing, so the cleanup is the caller's
+/// The crate's registration returns nothing, so the cleanup is the caller's
 /// `onInterrupt` (the contract `Effect::callback` documents); the observable
 /// is the same: the cleanup runs when the parked callback is interrupted.
 #[test]
@@ -2335,8 +2335,8 @@ fn on_exit_reports_a_thrown_finalizer_on_success() {
 /// Fiber.test.ts:205 `runs an async interrupt finalizer exactly once, in
 /// order`. A self-interrupt ends the run at the next boundary: the finalizer
 /// runs once, the code after it never runs, and an awaiter only resumes once
-/// the run has settled. The pin's finalizer yields between its start and end;
-/// this port's finalizer is synchronous, so both halves are one callback.
+/// the run has settled. Effect 4's finalizer yields between its start and end;
+/// this crate's finalizer is synchronous, so both halves are one callback.
 #[test]
 fn an_interrupt_finalizer_runs_once_before_the_awaiter_resumes() {
     let events = Arc::new(Mutex::new(Vec::<&'static str>::new()));
@@ -2706,7 +2706,7 @@ fn an_external_interrupt_stops_a_pending_fallback() {
 /// :1813 `${form}: factory and body follow cleanup and replay`.
 /// The source's finalizer runs before the fallback, so the fallback observes a
 /// stopped source; a second run of the same program runs the factory and the
-/// body again, in the same order. The port's fallback is an exit builder rather
+/// body again, in the same order. The crate's fallback is an exit builder rather
 /// than an effect builder, so the factory/body split is two closures here.
 #[test]
 fn a_timeout_fallback_runs_after_cleanup_and_again_on_the_next_run() {
@@ -2726,7 +2726,7 @@ fn a_timeout_fallback_runs_after_cleanup_and_again_on_the_next_run() {
             order_cleanup.lock().unwrap().push("stopped".to_owned());
         });
         // A non-zero deadline, so the source has parked in `never` and hung its
-        // finalizer before the deadline can win. The row is about cleanup
+        // finalizer before the deadline can win. The case is about cleanup
         // ordering and replay, not about what a zero-length deadline may skip.
         let fallback = Effect::<bool, String>::sync(move || {
             let seen = stopped.load(Ordering::SeqCst);
@@ -2795,9 +2795,9 @@ fn a_timeout_fallback_runs_after_cleanup_and_again_on_the_next_run() {
 }
 
 /// :2687 `works` (do notation).
-/// Rust has no do-notation: the pin's `bindTo`/`let`/`bind`/`tap` chain is the
+/// Rust has no do-notation: Effect 4's `bindTo`/`let`/`bind`/`tap` chain is the
 /// same threading of bindings through `flat_map`, and the final tap sees the
-/// pair the pin's record holds.
+/// pair Effect 4's record holds.
 #[test]
 fn a_flat_map_chain_threads_every_do_notation_binding() {
     let seen = Arc::new(Mutex::new(None::<(i32, String)>));
@@ -2827,27 +2827,21 @@ fn a_flat_map_chain_threads_every_do_notation_binding() {
 }
 
 #[test]
-fn with_fiber_outside_a_fiber_is_a_defect_and_never_calls_the_body() {
+fn the_static_edge_gives_with_fiber_a_real_fiber() {
+    // `Runtime::run` used to interpret on the caller's thread, so this was a
+    // defect. The edge now runs the description on a fiber like the managed
+    // edge does; the body must run and see that fiber's id.
     let called = flag();
     let body_called = called.clone();
-    let effect: Effect<u64, String> = Effect::with_fiber(move |_f| {
+    let effect: Effect<u64, String> = Effect::with_fiber(move |fiber| {
         body_called.store(true, Ordering::SeqCst);
+        assert!(fiber.id().0 > 0, "the edge hands out a minted fiber id");
         Effect::<u64, String>::succeed(1)
     });
-    match Runtime::run(effect) {
-        Exit::Failure(cause) => {
-            assert!(
-                cause.failure().is_none(),
-                "missing context is a defect, never a typed failure"
-            );
-            assert_eq!(cause.defects().len(), 1);
-            assert!(cause.defects()[0].message.contains("outside a fiber"));
-        }
-        Exit::Success(value) => panic!("expected a defect, got a success of {value}"),
-    }
+    assert_eq!(Runtime::run(effect), Exit::Success(1));
     assert!(
-        !is_set(&called),
-        "a run with no fiber must refuse before calling the body"
+        is_set(&called),
+        "the with-fiber body ran at the static edge"
     );
 }
 
@@ -2939,7 +2933,7 @@ fn acquire_use_release_releases_on_success_and_on_a_failing_use() {
     );
 }
 
-/// Both halves can fail, and the pin keeps both (`Cause.combine`).
+/// Both halves can fail, and Effect 4 keeps both (`Cause.combine`).
 #[test]
 fn acquire_use_release_combines_use_and_release_failures() {
     let exit = Runtime::run(Effect::<u32, String>::succeed(1).acquire_use_release(

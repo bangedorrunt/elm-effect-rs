@@ -1,12 +1,12 @@
-//! `Equal` for keyed collections: the pin's JavaScript `Map` and `Set` rows.
+//! `Equal` for keyed collections: Effect 4's JavaScript `Map` and `Set` cases.
 //!
-//! The port's spellings are `BTreeMap` and `BTreeSet`. Their iteration order
+//! The crate's spellings are `BTreeMap` and `BTreeSet`. Their iteration order
 //! is the keys' order rather than insertion order, so the
-//! "same entries, different insertion order" rows are represented by building
+//! "same entries, different insertion order" cases are represented by building
 //! the two values in different orders, which is the only way insertion order
 //! could have shown up.
 //!
-//! Rows that need two distinct-but-equal keys in one collection (a JS `Map`
+//! Cases that need two distinct-but-equal keys in one collection (a JS `Map`
 //! keyed by object identity), a `NaN` key, or a cycle are not representable:
 //! a `BTreeMap` collapses equal keys and keys on `Ord`, which `f64` does not
 //! implement. Those stay excused with that reason.

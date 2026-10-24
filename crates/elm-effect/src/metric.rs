@@ -10,7 +10,7 @@
 //! colon in it is never confused with a description, and `{a: "b,c=d"}` is
 //! never confused with `{a: "b", c: "d"}`. That is the TS `makeKey` trick,
 //! carried structurally instead of as a JSON string. Series attributes merge
-//! as the pin's `mergeAttributes` does: the metric's own attributes sit
+//! as Effect 4's `mergeAttributes` does: the metric's own attributes sit
 //! underneath the contextual attributes, which sit underneath
 //! `withAttributes` overlays, where the overlay applied first wins.
 
@@ -100,7 +100,7 @@ enum MetricKind {
 /// What a metric contributes to its series key besides its type.
 ///
 /// This is shared rather than duplicated per metric type because the attribute
-/// precedence is the subtle part of the port, and a second copy of it is a
+/// precedence is the subtle part of the crate, and a second copy of it is a
 /// second place to get it wrong.
 #[derive(Debug, Clone, PartialEq, Default)]
 struct Identity {
@@ -125,7 +125,7 @@ impl Identity {
     /// TS `mergeAttributes(mergeAttributes(own, contextual), overlays)` in
     /// insertion order. `overlays[0]` is the last `withAttributes` applied, so
     /// walking in order leaves the first-applied overlay last to win, which is
-    /// the pin's precedence.
+    /// Effect 4's precedence.
     fn merged_attributes(&self, contextual: &Attributes) -> Attributes {
         let mut merged = self.attributes.overlay(contextual);
         for overlay in self.overlays.iter() {
@@ -374,7 +374,7 @@ impl Summary {
     /// Describe a summary.
     ///
     /// `max_age` is recorded but not enforced: the registry has no clock, so
-    /// samples expire only through `max_size`. The pin's rows never advance
+    /// samples expire only through `max_size`. Effect 4's rows never advance
     /// time, so every asserted state is one this carries.
     pub fn new(
         id: impl Into<String>,
@@ -489,7 +489,7 @@ pub struct HistogramState {
     /// Sum of the observed values.
     pub sum: f64,
     /// Smallest observation; `f64::MAX` until something is observed, which is
-    /// the pin's finite-extrema default.
+    /// Effect 4's finite-extrema default.
     pub min: f64,
     /// Largest observation; `-f64::MAX` until something is observed.
     pub max: f64,
@@ -594,7 +594,7 @@ impl MetricRegistry {
     ///
     /// The series is registered by the update call itself, so a refused input
     /// still leaves `{ count: 0, incremental: true }` in place, exactly as the
-    /// pin's hook does: the hook is registered first and `canUpdate` gates only
+    /// Effect 4's hook does: the hook is registered first and `canUpdate` gates only
     /// the accumulation.
     pub fn update_with(&mut self, counter: &Counter, amount: f64, contextual: &Attributes) {
         let entry = self
@@ -881,13 +881,13 @@ impl MetricRegistry {
             .collect()
     }
 
-    /// Every series as the pin's text dump (`Metric.dump`,
+    /// Every series as Effect 4's text dump (`Metric.dump`,
     /// `Metric.test.ts:318`).
     ///
     /// Columns are padded to the widest value plus two spaces, so the dump is
     /// a table: `name=`, `description=`, `type=`, then the attribute set
     /// (itself padded), then the state. Series are sorted by id and then by
-    /// their attribute text, which the pin gets for free from its insertion
+    /// their attribute text, which Effect 4 gets for free from its insertion
     /// ordered map; a hash map has no order to inherit, so the dump imposes
     /// one and stays stable across runs.
     pub fn dump(&self) -> String {
@@ -953,7 +953,7 @@ impl MetricRegistry {
     }
 }
 
-/// A registry an effect can write to: the pin's fiber-owned `MetricRegistry`,
+/// A registry an effect can write to: Effect 4's fiber-owned `MetricRegistry`,
 /// carried as an explicit handle because a description here has no fiber state
 /// of its own to hold it in.
 ///
@@ -992,7 +992,7 @@ impl Metrics {
 /// `Effect.trackDuration` as a step: read the ambient clock either side of the
 /// inner effect and record what elapsed.
 ///
-/// The pins (`Metric.test.ts:1017`, `:1034`) make two properties observable
+/// Effect 4s (`Metric.test.ts:1017`, `:1034`) make two properties observable
 /// here: the clock is the one provided to the effect (so a `TestClock` counts
 /// virtual time), and the reading is monotonic, so a wall clock set backwards
 /// still measures only the time that passed.
@@ -1023,14 +1023,14 @@ where
     }
 }
 
-/// The pin's metric hooks: `Effect.track`, `trackErrors`, `trackDefects`, and
+/// Effect 4's metric hooks: `Effect.track`, `trackErrors`, `trackDefects`, and
 /// `trackDuration`.
 ///
 /// Each hook is a combinator around the effect and writes on its exit path. The
-/// pin reaches the registry through the fiber that runs the effect; a
+/// Effect 4 reaches the registry through the fiber that runs the effect; a
 /// description here holds no fiber, so the hook takes the [`Metrics`] handle to
 /// write to. That is the only difference: the exit, the reason set examined,
-/// and the metric input all follow the pin.
+/// and the metric input all follow Effect 4.
 impl<A: Send + 'static, E: Send + 'static, R: crate::Requirement> Effect<A, E, R> {
     /// `Effect.track`: run `record` on every exit, after the effect settles.
     ///
@@ -1047,7 +1047,7 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::Requirement> Effect<A, E, R
     /// `Effect.trackErrors`: run `record` for each typed failure.
     ///
     /// A defect and an interrupt are not typed failures, so neither runs it —
-    /// the pin's `tapError` rule (`Metric.test.ts:943`).
+    /// Effect 4's `tapError` rule (`Metric.test.ts:943`).
     pub fn track_errors<F>(self, metrics: &Metrics, record: F) -> Self
     where
         F: Fn(&E, &mut MetricRegistry) + Send + 'static,
@@ -1111,10 +1111,10 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::Requirement> Effect<A, E, R
     }
 }
 
-/// The pin's nearest-rank quantile over the retained samples.
+/// Effect 4's nearest-rank quantile over the retained samples.
 ///
-/// The pin keeps chunked samples and interpolates; the rows here assert
-/// nearest-rank answers, so that is what the port carries. A quantile that
+/// Effect 4 keeps chunked samples and interpolates; the rows here assert
+/// nearest-rank answers, so that is what the crate carries. A quantile that
 /// interpolation changes is not observable in this file.
 fn nearest_rank(samples: &[f64], quantile: f64) -> Option<f64> {
     if samples.is_empty() {
@@ -1152,7 +1152,7 @@ pub fn exponential_boundaries(start: f64, factor: f64, count: usize) -> Vec<f64>
 
 /// `Metric.timer`: a histogram over milliseconds, tagged `time_unit`.
 ///
-/// The pin's timer takes a `Duration` input and converts it; a histogram
+/// Effect 4's timer takes a `Duration` input and converts it; a histogram
 /// observation here is already a number, so the caller converts. That is what
 /// `Effect::track_duration` does: it hands the hook a `Duration`, and the hook
 /// observes `duration.to_millis()`.
@@ -1216,7 +1216,7 @@ fn state_text(state: &SeriesState) -> String {
     }
 }
 
-/// `(key -> value)` pairs, joined the way the pin joins them.
+/// `(key -> value)` pairs, joined the way Effect 4 joins them.
 fn key_values(pairs: impl Iterator<Item = (f64, f64)>) -> String {
     pairs
         .map(|(key, value)| format!("({} -> {})", number_text(key), number_text(value)))
