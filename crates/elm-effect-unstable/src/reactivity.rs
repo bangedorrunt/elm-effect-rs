@@ -1698,6 +1698,214 @@ where
     }
 }
 
+/// `Atom.writable(read, write)`: the value half is a readable node, so the
+/// read can depend on more than one atom, and the write half is registered by
+/// id. This is the carrier `optimistic` is built on.
+pub fn writable_read<T, W>(
+    read: impl Fn(&ReadContext) -> T + Send + Sync + 'static,
+    write: impl Fn(&WriteContext, W) + Send + Sync + 'static,
+) -> WritableAtom<T, W>
+where
+    T: Clone + Send + Sync + 'static,
+    W: Clone + Send + Sync + 'static,
+{
+    let atom = readable(read);
+    register_write(atom.spec.id, write);
+    WritableAtom {
+        atom,
+        write_payload: std::marker::PhantomData,
+    }
+}
+
+fn register_write<W>(id: u64, write: impl Fn(&WriteContext, W) + Send + Sync + 'static)
+where
+    W: Clone + Send + Sync + 'static,
+{
+    WRITES
+        .lock()
+        .unwrap()
+        .get_or_insert_with(std::collections::HashMap::new)
+        .insert(
+            id,
+            Arc::new(move |context: &WriteContext, payload: AnyValue| {
+                let payload = Arc::downcast::<W>(payload)
+                    .expect("a write payload carries its declared type");
+                write(context, (*payload).clone());
+            }),
+        );
+}
+
+/// The state `optimistic` keeps across reads and writes: the last value the
+/// base atom reported, whether the base needs a refresh after a transition
+/// settles, and the transitions still in flight.
+struct OptimisticState<T, E> {
+    last: AsyncResult<T, E>,
+    needs_refresh: bool,
+    transitions: std::collections::HashMap<u64, Subscription>,
+}
+
+/// `Atom.optimistic`: reads follow `base`; a write hands over an async atom,
+/// and while that atom is waiting the optimistic value is shown in its place.
+/// When the last transition settles, the base is refreshed, or the last value
+/// is restored if the transition failed.
+///
+/// Ceiling: the pin tracks transitions in a set and cancels each per-transition
+/// subscription when it settles; this does the same one transition at a time,
+/// in registration order. Concurrent overlapping writes are ordered, not
+/// merged.
+pub fn optimistic<T, E>(
+    base: &Atom<AsyncResult<T, E>>,
+) -> WritableAtom<AsyncResult<T, E>, Atom<AsyncResult<T, E>>>
+where
+    T: Clone + Send + Sync + 'static,
+    E: Clone + Send + Sync + 'static,
+{
+    let write_atom: Atom<Option<Atom<AsyncResult<T, E>>>> = Atom::make(None);
+    let state: Arc<Mutex<OptimisticState<T, E>>> = Arc::new(Mutex::new(OptimisticState {
+        last: AsyncResult::initial(),
+        needs_refresh: false,
+        transitions: std::collections::HashMap::new(),
+    }));
+    let base_for_read = base.clone();
+    let base_for_handler = Arc::new(base.clone());
+    let base_for_handler_shared = Arc::clone(&base_for_handler);
+    let writes = write_atom.clone();
+    let wired = Arc::new(Mutex::new(false));
+
+    writable_read(
+        move |context: &ReadContext| {
+            let last = context.get(&base_for_read);
+            // Mounting the base does not notify, so seed the restore value
+            // here; a failed transition restores exactly this.
+            state.lock().unwrap().last = last.clone();
+            let mut wired = wired.lock().unwrap();
+            if *wired {
+                drop(wired);
+                return last;
+            }
+            *wired = true;
+
+            // The base's own answer wins whenever no transition is in flight,
+            // with the pin's ordering: a newer settled success only replaces
+            // an older success when its timestamp is not older.
+            let base_state = Arc::clone(&state);
+            let base_context = context.clone();
+            let base_sub = context.subscribe(&base_for_read, move |value: AsyncResult<T, E>| {
+                let mut state = base_state.lock().unwrap();
+                state.last = value.clone();
+                if !state.transitions.is_empty() {
+                    return;
+                }
+                state.needs_refresh = false;
+                drop(state);
+                let current = base_context.self_value::<AsyncResult<T, E>>();
+                let adopt = match &value {
+                    AsyncResult::Initial { .. } => {
+                        current.as_ref().is_none_or(AsyncResult::is_initial)
+                    }
+                    AsyncResult::Success {
+                        waiting, timestamp, ..
+                    } => match &current {
+                        Some(AsyncResult::Success {
+                            timestamp: seen, ..
+                        }) => !*waiting && *timestamp >= *seen,
+                        _ => true,
+                    },
+                    AsyncResult::Failure { .. } => true,
+                };
+                if adopt {
+                    base_context.set_self(value);
+                }
+            });
+
+            let write_state = Arc::clone(&state);
+            let write_context = context.clone();
+            // Cloned out of the shared handle so the listener below can take
+            // it by value; the read closure itself is `Fn`.
+            let base_for_transition = Arc::clone(&base_for_handler_shared);
+            let write_sub = context.subscribe(&writes, move |payload: Option<
+                Atom<AsyncResult<T, E>>,
+            >| {
+                let Some(transition) = payload else {
+                    return;
+                };
+                let id = transition.spec.id;
+                let mut state = write_state.lock().unwrap();
+                if state.transitions.contains_key(&id) {
+                    return;
+                }
+                let result_state = Arc::clone(&write_state);
+                let result_context = write_context.clone();
+                let base = (*base_for_transition).clone();
+                let on_result = Arc::new(move |result: AsyncResult<T, E>| {
+                    let mut state = result_state.lock().unwrap();
+                    if !state.transitions.contains_key(&id) {
+                        return;
+                    }
+                    // A waiting result, success or not, is still in flight:
+                    // keep the transition tracked. A waiting SUCCESS carries
+                    // the value to show meanwhile; an Initial has none.
+                    if result.is_waiting() {
+                        if result.is_success() {
+                            drop(state);
+                            result_context.set_self(result.clone());
+                        }
+                        return;
+                    }
+                    if let Some(sub) = state.transitions.remove(&id) {
+                        sub.cancel();
+                    }
+                    if !result.is_failure() {
+                        state.needs_refresh = true;
+                    }
+                    if !state.transitions.is_empty() {
+                        return;
+                    }
+                    if state.needs_refresh {
+                        state.needs_refresh = false;
+                        drop(state);
+                        result_context.refresh(&base);
+                    } else {
+                        let last = state.last.clone();
+                        drop(state);
+                        result_context.set_self(last);
+                    }
+                });
+                let subscription = write_context.subscribe(&transition, {
+                    let on_result = Arc::clone(&on_result);
+                    move |result: AsyncResult<T, E>| on_result(result)
+                });
+                state.transitions.insert(id, subscription);
+                drop(state);
+                // Subscribing does not run a fetch: read the transition once
+                // so its first result (waiting or settled) is seen now.
+                let current = write_context.get(&transition);
+                on_result(current);
+            });
+
+            let cleanup_state = Arc::clone(&state);
+            context.add_finalizer(move || {
+                base_sub.cancel();
+                write_sub.cancel();
+                let subs: Vec<Subscription> = cleanup_state
+                    .lock()
+                    .unwrap()
+                    .transitions
+                    .drain()
+                    .map(|(_, sub)| sub)
+                    .collect();
+                for sub in subs {
+                    sub.cancel();
+                }
+            });
+            last
+        },
+        move |context: &WriteContext, transition: Atom<AsyncResult<T, E>>| {
+            context.set(&write_atom, Some(transition));
+        },
+    )
+}
+
 /// The registry's per-atom state.
 struct AtomNodeState {
     value: AnyValue,
