@@ -310,6 +310,28 @@ impl ReadContext {
     pub fn refresh_self(&self) {
         self.registry.invalidate_id(self.self_id);
     }
+
+    /// Register a callback that runs on every [`Registry::tick`]. The carrier
+    /// uses it for sources with no native push, such as a `SubscriptionRef`.
+    pub fn add_pump(&self, pump: impl Fn() + Send + Sync + 'static) -> PumpHandle {
+        PumpHandle {
+            registry: Arc::clone(&self.registry),
+            id: self.registry.add_pump(pump),
+        }
+    }
+}
+
+/// A registered tick pump. Cancelling one is what a node's finalizer does.
+pub struct PumpHandle {
+    registry: Arc<Registry>,
+    id: u64,
+}
+
+impl PumpHandle {
+    /// Stop running this pump on later ticks. Idempotent.
+    pub fn cancel(&self) {
+        self.registry.remove_pump(self.id);
+    }
 }
 
 /// `Atom.readable`: a node whose value comes from a read function that can
@@ -2001,6 +2023,50 @@ where
     })
 }
 
+/// `Atom.subscriptionRef`: a writable atom over an
+/// [`elm_effect::SubscriptionRef`]. Reads return the ref's current value and
+/// writes set it; values assigned by anyone else arrive on the next
+/// [`Registry::tick`], which drains the node's subscription.
+///
+/// Ceiling: the pin listens to `SubscriptionRef.changes` as a stream. This
+/// carrier has no push from the ref, so the pump is a tick hook; a reader that
+/// never ticks sees the value from its last build.
+pub fn subscription_ref<A>(reference: Arc<elm_effect::SubscriptionRef<A>>) -> WritableAtom<A, A>
+where
+    A: Clone + Send + Sync + 'static,
+{
+    let read_ref = Arc::clone(&reference);
+    let wired = Arc::new(Mutex::new(false));
+    let read = move |context: &ReadContext| {
+        let current = read_ref.get();
+        let mut wired = wired.lock().unwrap();
+        if !*wired {
+            *wired = true;
+            let subscriber = read_ref.subscribe();
+            // The queue is seeded with the value this read already returns;
+            // drop it so the first tick does not republish it.
+            let _ = read_ref.poll(subscriber);
+            let sink = context.clone();
+            let pump_ref = Arc::clone(&read_ref);
+            let pump = context.add_pump(move || {
+                while let Some(value) = pump_ref.poll(subscriber) {
+                    sink.set_self(value);
+                }
+            });
+            context.add_finalizer(move || pump.cancel());
+        }
+        drop(wired);
+        current
+    };
+    let write_ref = Arc::clone(&reference);
+    writable_read(read, move |context: &WriteContext, value: A| {
+        write_ref.set(value.clone());
+        // Reflect the write now; the pump would deliver it only on the next
+        // tick, and a read right after a write must not go backwards.
+        context.set_self(value);
+    })
+}
+
 /// The registry's per-atom state.
 struct AtomNodeState {
     value: AnyValue,
@@ -2038,6 +2104,10 @@ struct BatchState {
 /// atom nodes. Each registry is independent.
 pub struct Registry {
     nodes: Mutex<std::collections::HashMap<u64, AtomNodeState>>,
+    /// Callbacks run by [`Registry::tick`], before disposal. A source with no
+    /// native push (`SubscriptionRef`) drains its queue here.
+    pumps: Mutex<std::collections::HashMap<u64, Arc<dyn Fn() + Send + Sync>>>,
+    next_pump: std::sync::atomic::AtomicU64,
     next_listener: std::sync::atomic::AtomicU64,
     scheduler: Arc<dyn TaskScheduler>,
     batch: Mutex<BatchState>,
@@ -2074,6 +2144,8 @@ impl Registry {
     pub fn with_scheduler(scheduler: Arc<dyn TaskScheduler>) -> Arc<Registry> {
         Arc::new(Self {
             nodes: Mutex::new(std::collections::HashMap::new()),
+            pumps: Mutex::new(std::collections::HashMap::new()),
+            next_pump: std::sync::atomic::AtomicU64::new(1),
             next_listener: std::sync::atomic::AtomicU64::new(1),
             scheduler,
             batch: Mutex::new(BatchState::default()),
@@ -2442,11 +2514,33 @@ impl Registry {
         }
     }
 
+    /// Register a callback that [`Registry::tick`] runs before disposal.
+    pub fn add_pump(&self, pump: impl Fn() + Send + Sync + 'static) -> u64 {
+        let id = self
+            .next_pump
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.pumps.lock().unwrap().insert(id, Arc::new(pump));
+        id
+    }
+
+    /// Drop a pump; a later tick will not run it.
+    pub fn remove_pump(&self, id: u64) {
+        self.pumps.lock().unwrap().remove(&id);
+    }
+
     /// The disposal pass: every node with no listeners and no keepAlive is
     /// released, so its next read starts from the initial value again. A node
     /// whose atom declares an idle TTL is kept until that TTL has passed
     /// since its last touch.
     pub fn tick(&self) {
+        // Pumps first: a pushed value lands as an ordinary write, so the
+        // disposal decision below sees the state the push produced.
+        let pumps: Vec<Arc<dyn Fn() + Send + Sync>> = {
+            self.pumps.lock().unwrap().values().cloned().collect()
+        };
+        for pump in pumps {
+            pump();
+        }
         let now = std::time::Instant::now();
         let mut nodes = self.nodes.lock().unwrap();
         let releasable: Vec<u64> = nodes
