@@ -1,7 +1,6 @@
 //! FiberSet external-interruption cells: an interruption requested from
 //! outside the set is recorded on the fiber that owns the work.
 //! Modules load via `#[path]` like fiber_sets.rs: no facade touch.
-#![cfg(feature = "tokio")]
 
 #[allow(clippy::type_complexity)]
 #[path = "../src/fiber_set.rs"]

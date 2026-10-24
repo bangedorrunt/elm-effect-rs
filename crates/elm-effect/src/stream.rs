@@ -54,6 +54,9 @@ impl StreamExec {
     }
 }
 
+/// A lazy stream: a pull source plus the executor its combinators run on,
+/// always driven on a fiber. Cloning shares the source and the executor, not
+/// the position.
 pub struct Stream<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> {
     pull: Pull<A, E, R>,
     exec: Arc<StreamExec>,
@@ -1195,6 +1198,9 @@ where
 /// cleanup must fire on a fiber interrupt; both need a forked producer, which
 /// this crate's `from_pull`-based streams do not have.
 impl<A: Send + 'static, E: Send + 'static> Stream<A, E, ()> {
+    /// A stream fed by a callback: the registration pushes items into a
+    /// mailbox the drain reads. The producer does not need to run
+    /// concurrently with the consumer.
     pub fn callback<F>(register: F) -> Self
     where
         F: FnOnce(&mut Mailbox<A, E>),
@@ -1294,6 +1300,8 @@ impl<A, E> Mailbox<A, E> {
 /// on the byte-element stream so `A` is not generic here, and built from
 /// `run_fold`, which owns the same fold.
 impl<E: Send + 'static> Stream<Vec<u8>, E, ()> {
+    /// The stream's accumulated bytes: this crate's substitute for Effect 4's
+    /// `mkUint8Array(...).buffer`.
     pub fn mk_array_buffer(self) -> Exit<Vec<u8>, E> {
         self.run_fold(Vec::new(), |mut acc, chunk| {
             acc.extend_from_slice(&chunk);

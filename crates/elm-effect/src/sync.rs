@@ -575,6 +575,8 @@ impl std::fmt::Display for QueueError {
     }
 }
 
+impl std::error::Error for QueueError {}
+
 /// The write-only face (`Queue.Enqueue`): offers, nothing else.
 pub struct Enqueue<A: Send + 'static> {
     queue: Arc<Queue<A>>,

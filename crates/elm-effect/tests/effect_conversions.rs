@@ -333,7 +333,6 @@ fn run_of_a_synchronous_effect_completes_without_spawning() {
     assert!(matches!(exit, Exit::Success(())));
 }
 
-#[cfg(feature = "tokio")]
 #[test]
 fn managed_runtime_run_gives_the_effect_a_fiber() {
     // The edge used to run the interpreter on the caller's thread with no
@@ -348,7 +347,6 @@ fn managed_runtime_run_gives_the_effect_a_fiber() {
     assert!(matches!(exit, Exit::Success(id) if id > 0));
 }
 
-#[cfg(feature = "tokio")]
 #[test]
 fn managed_runtime_run_supports_race_at_the_edge() {
     // race is one of the combinators that required an ambient fiber. A

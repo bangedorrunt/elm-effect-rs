@@ -169,11 +169,72 @@ fn accepted_is_its_own_state() {
 fn exhausted_attempts_dead_letter() {
     let db = store();
     db.record_intent("job-1", 1);
-    db.attempt("job-1");
-    let row = db.attempt("job-1").unwrap();
+    db.attempt("job-1", 0);
+    let row = db.attempt("job-1", 0).unwrap();
     assert_eq!(row.state, EffectState::Failed);
     assert_eq!(row.disposition, Some(Disposition::TerminalFailed));
     assert_eq!(Disposition::TerminalFailed.as_str(), "terminal_failed");
+}
+
+#[test]
+fn an_attempt_from_a_stale_generation_notes_nothing() {
+    let db = store();
+    db.record_intent("job-1", 0);
+    // The lease expires and a second worker takes over. The first is a
+    // zombie: it still believes it owns the row.
+    let stale = db.claim("job-1", "old", 10, 0, 0).unwrap();
+    let live = db
+        .claim("job-1", "new", 1_000, 100, stale.generation)
+        .unwrap();
+    assert!(live.generation > stale.generation);
+
+    assert!(
+        db.attempt("job-1", stale.generation).is_none(),
+        "a stale holder must not spend the live holder's attempt budget"
+    );
+    let row = db.get("job-1").unwrap();
+    assert_eq!(row.attempts, 0, "the live row was left untouched");
+    assert_eq!(row.state, EffectState::Prepared);
+    assert_eq!(row.owner.as_deref(), Some("new"));
+}
+
+#[test]
+fn a_terminal_row_notes_no_attempt() {
+    let db = store();
+    db.record_intent("job-1", 3);
+    let claimed = db.claim("job-1", "w", 1_000, 0, 0).unwrap();
+    db.settle("job-1", claimed.generation, EffectState::Cancelled)
+        .unwrap();
+    assert!(db.attempt("job-1", claimed.generation).is_none());
+    assert_eq!(db.get("job-1").unwrap().state, EffectState::Cancelled);
+}
+
+#[test]
+fn read_returns_the_row_as_it_was_at_that_offset() {
+    let db = store();
+    db.record_intent("job-1", 3); // offset 0: Prepared, generation 0
+    let claimed = db.claim("job-1", "w", 1_000, 0, 0).unwrap();
+    db.settle("job-1", claimed.generation, EffectState::InFlight)
+        .unwrap();
+
+    match db.read(0).unwrap() {
+        Read::Entry { offset, row } => {
+            assert_eq!(offset, 0);
+            assert_eq!(row.offset, 0, "the row carries its own offset");
+            assert_eq!(row.state, EffectState::Prepared, "not the later state");
+            assert_eq!(row.generation, 0, "not the later generation");
+        }
+        Read::Gone { .. } => panic!("expected a retained entry"),
+    }
+
+    // The latest read still answers the current row.
+    match db.read(-1).unwrap() {
+        Read::Entry { row, .. } => {
+            assert_eq!(row.state, EffectState::InFlight);
+            assert_eq!(row.generation, 1);
+        }
+        Read::Gone { .. } => panic!("expected the latest entry"),
+    }
 }
 
 #[test]

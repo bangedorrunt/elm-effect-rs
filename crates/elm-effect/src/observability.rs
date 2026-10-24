@@ -527,7 +527,9 @@ pub enum IgnoreLog {
 /// optional prepend message (`message` replaces the rendered cause).
 #[derive(Clone, Debug, Default)]
 pub struct IgnoreOptions {
+    /// Which log level the ignored reason is reported at.
     pub log: IgnoreLog,
+    /// Replaces the rendered cause when present.
     pub message: Option<String>,
 }
 
@@ -654,7 +656,12 @@ pub enum LogItem {
     /// A structured value.
     Object(Vec<(String, LogItem)>),
     /// A plain error: JSON carries its name and message, not a bare string.
-    Error { name: String, message: String },
+    Error {
+        /// The error's type name.
+        name: String,
+        /// The error's rendered message.
+        message: String,
+    },
     /// A cause: its rows in order, as text.
     Cause(Vec<String>),
 }

@@ -1,0 +1,31 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # rust-toolchain.toml pins the channel and its components; `rustup show`
+      # installs a missing override toolchain.
+      - name: Toolchain
+        run: rustup show active-toolchain
+
+      # The test suite is the parity proof the README points at, and its last
+      # test (`workspace_audit`) is the lint gate the workspace passes itself.
+      - name: Test
+        run: cargo test --workspace
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Format
+        run: cargo fmt --all -- --check

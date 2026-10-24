@@ -11,8 +11,8 @@ use elm_effect::{
 use elm_effect_elm::{
     Boot, Cmd, Durability, Failure, Interpret, InterpretError, Loop, Producer, Program, Update,
 };
+use elm_effect_journal::durable_log::Status;
 use elm_effect_journal::durable_log::{AppendError, DurableLog, MemLog, Offset};
-use elm_effect_journal::stream::Status;
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------

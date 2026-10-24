@@ -80,6 +80,14 @@ impl HttpServer {
             while !flag.load(Ordering::SeqCst) {
                 match listener.accept() {
                     Ok((stream, _)) => {
+                        // accept() inherits the listener's non-blocking flag on
+                        // BSD/macOS. Without this, a connection whose request
+                        // has not arrived yet fails its first read with EAGAIN
+                        // and is dropped with no answer, which looks like the
+                        // server vanishing.
+                        if stream.set_nonblocking(false).is_err() {
+                            continue;
+                        }
                         let log = Arc::clone(&log);
                         let flag = Arc::clone(&flag);
                         thread::spawn(move || {
@@ -89,6 +97,13 @@ impl HttpServer {
                     Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
                         thread::sleep(Duration::from_millis(5));
                     }
+                    // A connection that died before it could be accepted, or a
+                    // signal, is not a reason to stop serving everyone else.
+                    Err(error)
+                        if matches!(
+                            error.kind(),
+                            io::ErrorKind::Interrupted | io::ErrorKind::ConnectionAborted
+                        ) => {}
                     Err(_) => break,
                 }
             }
@@ -105,9 +120,11 @@ impl HttpServer {
         self.addr
     }
 
-    /// Stop accepting and wait for the accept thread. Connection threads
-    /// notice the flag on their next read or poll; an SSE reader exits within
-    /// one poll interval.
+    /// Stop accepting and wait for the accept thread. This returns before the
+    /// connection threads do, on purpose: an SSE reader or a long-poll waiter
+    /// exits on its next poll (25 ms), but a request that stopped mid-header
+    /// can sit out its full 30-second read timeout. They hold their own
+    /// `Arc` to the log, so the log outlives them.
     pub fn shutdown(&mut self) {
         self.shutdown.store(true, Ordering::SeqCst);
         if let Some(handle) = self.accept.take() {
@@ -154,8 +171,20 @@ fn handle_connection<L: DurableLog>(
 
     let request = match read_request(&mut stream) {
         Ok(Some(request)) => request,
+        // The peer connected and left without sending anything; there is
+        // nobody to answer.
         Ok(None) => return Ok(()),
-        Err(RequestError::Io(error)) => return Err(error),
+        Err(RequestError::Io(error)) => {
+            // A read timeout arrives as WouldBlock/TimedOut (SO_RCVTIMEO).
+            // Answer before closing: a silent drop looks like a crash.
+            if matches!(
+                error.kind(),
+                io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
+            ) {
+                return respond_text(&mut stream, 408, "request timeout");
+            }
+            return Err(error);
+        }
         Err(RequestError::Bad(reason)) => return respond_text(&mut stream, 400, reason),
         Err(RequestError::TooLarge) => {
             return respond_text(&mut stream, 413, "request body too large");
@@ -241,8 +270,16 @@ fn read_request(stream: &mut TcpStream) -> Result<Option<Request>, RequestError>
     if length > MAX_BODY {
         return Err(RequestError::TooLarge);
     }
-    let mut body = vec![0; length];
-    reader.read_exact(&mut body)?;
+    // Grow with the bytes that actually arrive. `vec![0; length]` reserved the
+    // whole declared body before the peer sent one, so a single header could
+    // pin eight megabytes per connection for the read timeout.
+    let mut body = Vec::new();
+    let copied = std::io::copy(&mut reader.take(length as u64), &mut body)?;
+    if copied as usize != length {
+        return Err(RequestError::Bad(
+            "request body shorter than its content-length",
+        ));
+    }
 
     Ok(Some(Request {
         method: method.to_string(),
@@ -684,6 +721,7 @@ fn reason(status: u16) -> &'static str {
         204 => "No Content",
         400 => "Bad Request",
         403 => "Forbidden",
+        408 => "Request Timeout",
         404 => "Not Found",
         405 => "Method Not Allowed",
         409 => "Conflict",

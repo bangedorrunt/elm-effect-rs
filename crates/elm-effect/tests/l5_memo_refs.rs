@@ -10,8 +10,6 @@
 //! elsewhere, which no single call created. Re-providing the SAME shared
 //! value (layer memo) is fine, told apart by pointer equality.
 
-#![cfg(feature = "tokio")]
-
 use elm_effect::{
     Effect, Exit, Layer, MemoMap, Reference, Runtime, Scope, ServiceTag, read_reference,
     use_service,

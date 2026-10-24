@@ -329,6 +329,8 @@ type StepFn<In, Out> = Arc<dyn Fn(&Meta<'_, In>) -> Decision<Out> + Send + Sync 
 /// Marker for a driver loop over `A`, failing with `E`, needing `R`.
 type LoopMarker<A, E, R, O> = PhantomData<fn() -> (A, E, R, O)>;
 
+/// A policy as data: each step reads the attempt's input and answers the
+/// next delay plus an output (`retry` and `repeat` drive it).
 #[derive(Clone)]
 pub struct Schedule<In: Send + Sync + 'static, Out: Send + 'static> {
     counters: Arc<Mutex<Counters>>,

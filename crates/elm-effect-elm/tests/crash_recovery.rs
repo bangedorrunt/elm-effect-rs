@@ -12,8 +12,8 @@ use elm_effect_elm::{
     Boot, Cmd, DispatchPlan, Durability, Failure, Interpret, InterpretError, Loop, Producer,
     Program, ProviderCapability, RecoverError, SnapshotError, Update,
 };
+use elm_effect_journal::durable_log::Status;
 use elm_effect_journal::durable_log::{AppendError, DurableLog, FileLog, MemLog, Offset};
-use elm_effect_journal::stream::Status;
 use serde::{Deserialize, Serialize};
 
 static PROVIDER_RUNS: AtomicUsize = AtomicUsize::new(0);

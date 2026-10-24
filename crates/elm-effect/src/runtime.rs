@@ -251,6 +251,8 @@ pub struct Runtime {
 }
 
 impl Runtime {
+    /// A runtime on the process-wide executor. Every `Runtime::new()` shares
+    /// one four-worker pool, so N runtimes do not mean N pools.
     pub fn new() -> Self {
         Self::with_executor(TokioExecutor::new())
     }
@@ -285,6 +287,9 @@ impl Runtime {
         self.fork_detach_with(body, ForkOpts::default())
     }
 
+    /// [`fork_detach`](Self::fork_detach) with explicit start and mask
+    /// options. There is no spawning fiber here, so `Mask::Inherit` resolves
+    /// to unmasked.
     pub fn fork_detach_with<A, E, F>(&self, body: F, opts: ForkOpts) -> FiberHandle<A, E>
     where
         A: Send + 'static,
@@ -960,8 +965,9 @@ fn race_all_impl<A: Send + 'static, E: Send + 'static>(
 /// parks in a short poll loop and ends interrupted once the fiber's flag is
 /// set. Without the poll a body parked on a condvar would never observe the
 /// flag, and `shutdown` (which waits for its fibers) would hang.
-#[cfg(feature = "tokio")]
 impl<A: Send + 'static, E: Send + 'static> Effect<A, E, ()> {
+    /// An effect that never answers, ending only when the fiber is
+    /// interrupted.
     pub fn never() -> Self {
         Effect::with_fiber(|fiber| {
             let fiber = fiber.clone();

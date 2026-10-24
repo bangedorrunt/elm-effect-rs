@@ -2,7 +2,6 @@
 //! permit pool, waiters grouped by key, released permits handed out in
 //! round-robin order. The single-pool `Semaphore` cases live here too, because
 //! Effect 4's `Semaphore` suite drives the same partitioned type.
-#![cfg(feature = "tokio")]
 
 use elm_effect::{PartitionedSemaphore, Semaphore};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};

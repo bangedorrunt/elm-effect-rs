@@ -1,8 +1,6 @@
 //! Exit-aware scope finalizers: a release can see whether the body
 //! succeeded, failed, was interrupted, or left no exit at all.
 
-#![cfg(feature = "tokio")]
-
 use std::sync::{Arc, Mutex};
 
 use elm_effect::{

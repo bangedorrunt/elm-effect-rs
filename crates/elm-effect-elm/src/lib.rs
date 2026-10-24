@@ -26,6 +26,10 @@
 //! [`ManagedRuntime`] is `Sync`; the fold stays sequential, so a
 //! concurrent window is still deterministic and ordered.
 
+// The public surface is the product: a missing doc on a public item ships
+// silently. CI turns this warning into an error.
+#![warn(missing_docs)]
+
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::rc::Rc;
@@ -302,6 +306,10 @@ pub struct InFlight<C> {
 
 /// Read-only view of the model. There is deliberately no send path:
 /// [`Loop::send`] is the one entrance.
+///
+/// A subscriber is thread-local: it shares the model with the loop through
+/// `Rc<RefCell<_>>`, so neither type is `Send` or `Sync`. Hand the loop a
+/// message channel if another thread has to talk to it.
 #[derive(Clone)]
 pub struct Subscriber<Model> {
     read: std::rc::Rc<dyn Fn() -> Model>,
@@ -380,6 +388,24 @@ enum Work<P: Program> {
 /// reaches the fold as [`Failure::NotAppended`] and its provider never runs.
 /// An [`AppendError::Unavailable`] answer reaches the fold as
 /// [`Failure::Unknown`], because the append may have landed.
+///
+/// The loop is a single-threaded value. It shares its model with every
+/// [`Subscriber`] through `Rc<RefCell<_>>`, so it is `!Send` and `!Sync`: it
+/// cannot be moved into another thread or spawned on a runtime task. Own the
+/// thread and give other threads a message channel.
+///
+/// The compile-fail case below is the pin: if `Loop` ever becomes `Send`, the
+/// doctest compiles and fails, which is the signal to revisit this promise.
+///
+/// ```compile_fail
+/// use elm_effect_elm::{Interpret, Loop, Program};
+///
+/// fn needs_send<T: Send>(_: &T) {}
+///
+/// fn check<P: Program, I: Interpret<P>>(looping: &Loop<P, I>) {
+///     needs_send(looping);
+/// }
+/// ```
 pub struct Loop<P: Program, I: Interpret<P>> {
     model: P::Model,
     /// Live view of the model for subscribers: updated on every fold so a
@@ -599,9 +625,11 @@ where
     /// command-to-message hops off the call stack.
     fn drain(&mut self, work: Vec<Work<P>>) -> Result<(), AppendError> {
         let result = self.run_work(work);
-        if result.is_err() {
-            self.halted = true;
-        }
+        // A completed drain leaves no unrun work, so the halt is the failure
+        // itself, not a permanent verdict on the log. Keeping it set would
+        // let one transient append error disable compaction for the life of
+        // the loop, and the log would grow exactly as snapshots prevent.
+        self.halted = result.is_err();
         result
     }
 
@@ -1063,8 +1091,10 @@ where
     /// Write a snapshot of the model, then drop the log records it covers.
     /// The log then holds the snapshot and what came after it, so recovery
     /// and the log both stay bounded. Refused while durable commands are in
-    /// flight, or after a drain halted on a log error, because either would
-    /// hide unrun work from recovery.
+    /// flight, or while the loop is halted after a failed drain, because
+    /// either would hide unrun work from recovery. A later drain that finishes
+    /// clears the halt, so one transient append error does not disable
+    /// compaction forever.
     ///
     /// After a recovery, [`Loop::intents`] covers only records after the last
     /// snapshot. Earlier intents were compacted away.

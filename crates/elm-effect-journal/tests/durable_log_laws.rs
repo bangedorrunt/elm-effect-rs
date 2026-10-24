@@ -7,9 +7,9 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+use elm_effect_journal::durable_log::Status;
 use elm_effect_journal::durable_log::{AppendError, DurableLog, MemLog, Offset};
 use elm_effect_journal::laws;
-use elm_effect_journal::stream::Status;
 
 #[test]
 fn stale_epoch_is_fenced_on_the_trait() {

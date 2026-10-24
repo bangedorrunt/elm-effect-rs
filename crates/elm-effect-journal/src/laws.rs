@@ -9,8 +9,7 @@
 //! Every law uses its own producer id, so the laws can share one log. Pass a
 //! log that has never seen the `laws/` producer namespace.
 
-use crate::durable_log::{AppendError, DurableLog, Offset, SCHEMA_VERSION};
-use crate::stream::Status;
+use crate::durable_log::{AppendError, DurableLog, Offset, SCHEMA_VERSION, Status};
 
 /// The JSON envelope every `DurableLog` accepts: schema version, the
 /// all-or-none producer triple, and an opaque payload.

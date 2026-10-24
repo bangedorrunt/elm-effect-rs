@@ -40,8 +40,6 @@
 //! (EOF), the same split the stream header uses.
 
 use std::collections::HashMap;
-
-use crate::stream::Status;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -49,6 +47,17 @@ use std::sync::Mutex;
 
 /// Schema versions this log reads.
 pub const SCHEMA_VERSION: u32 = 1;
+
+/// Liveness of a log. `UpToDate` means caught up, with more records possibly
+/// arriving; `Closed` is EOF, and closure is monotonic (an append after it is
+/// refused, bytes before it stay readable).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Status {
+    /// Caught up; more records may arrive.
+    UpToDate,
+    /// End of file; monotonic, never reopens.
+    Closed,
+}
 
 /// An offset: opaque to callers, ordered lexicographically. `Start` reads
 /// from the beginning, `Now` reads nothing (already at the tail).
@@ -78,7 +87,12 @@ pub enum AppendError {
     UnknownVersion(u32),
     /// `seq` is neither `last + 1` nor already accepted.
     #[error("seq gap: got {got}, last accepted {last:?}")]
-    SeqGap { got: u64, last: Option<u64> },
+    SeqGap {
+        /// The sequence number the append carried.
+        got: u64,
+        /// The producer's last accepted sequence in this epoch, if any.
+        last: Option<u64>,
+    },
     /// The producer already moved to a newer epoch; this write is fenced.
     /// A stale incarnation (a zombie after a restart) writes nothing.
     #[error("stale epoch for producer {producer}: sent {sent}, current {current}")]

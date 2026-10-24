@@ -32,6 +32,19 @@ pub enum ProviderError {
     Defect(Defect),
 }
 
+impl std::fmt::Display for ProviderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Source(message) => write!(f, "config source failed: {message}"),
+            // A defect has no Display of its own (`cause::Defect` carries a
+            // message and a rendered backtrace); its message is the sentence.
+            Self::Defect(defect) => write!(f, "config provider died: {}", defect.message),
+        }
+    }
+}
+
+impl std::error::Error for ProviderError {}
+
 impl ProviderError {
     /// A typed source failure.
     pub fn source(message: impl Into<String>) -> Self {
@@ -495,6 +508,8 @@ pub struct Failing {
 }
 
 impl Failing {
+    /// A provider that always fails with `message`, for exercising the
+    /// `Fallback` path and for tests that need a source error.
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),

@@ -7,7 +7,6 @@
 //! MemoMap, :50 supports await using, :65 fibers are interrupted on dispose,
 //! :75 finishes request cleanup before releasing layer resources,
 //! :127 completes sequential layer finalizers when disposeEffect is interrupted.
-#![cfg(feature = "tokio")]
 
 use std::convert::Infallible;
 use std::sync::atomic::{AtomicUsize, Ordering};

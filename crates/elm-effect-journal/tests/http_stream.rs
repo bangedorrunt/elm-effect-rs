@@ -577,3 +577,125 @@ fn a_reader_sees_the_closing_append_and_eof_in_one_page() {
 
     server.shutdown();
 }
+
+/// Write raw bytes and read whatever answer comes back. Used for requests the
+/// well-formed `send` helper cannot express.
+fn send_raw(addr: SocketAddr, request: &[u8]) -> Response {
+    let mut stream = TcpStream::connect(addr).expect("connect");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .expect("read timeout");
+    // A rejection can arrive before the last byte is written, so a write
+    // error here is the server doing its job, not a test failure.
+    let _ = stream.write_all(request);
+    let mut raw = Vec::new();
+    let _ = stream.read_to_end(&mut raw);
+    parse_response(&raw)
+}
+
+#[test]
+fn a_declared_body_over_the_limit_is_refused_without_reading_it() {
+    let log = Arc::new(MemLog::new());
+    let server = HttpServer::start(Arc::clone(&log), "127.0.0.1:0").unwrap();
+    let addr = server.local_addr();
+    // Declare 9 MB and send no body at all: the answer must be 413, not a
+    // 30-second wait for bytes that never arrive.
+    let request = b"POST /stream HTTP/1.1\r\nHost: x\r\nContent-Length: 9000000\r\n\r\n";
+    let response = send_raw(addr, request);
+    assert_eq!(response.status, 413);
+}
+
+#[test]
+fn chunked_transfer_encoding_is_refused() {
+    let log = Arc::new(MemLog::new());
+    let server = HttpServer::start(Arc::clone(&log), "127.0.0.1:0").unwrap();
+    let request = b"POST /stream HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n";
+    let response = send_raw(server.local_addr(), request);
+    assert_eq!(response.status, 501);
+}
+
+#[test]
+fn a_malformed_request_line_is_a_bad_request() {
+    let log = Arc::new(MemLog::new());
+    let server = HttpServer::start(Arc::clone(&log), "127.0.0.1:0").unwrap();
+    let response = send_raw(server.local_addr(), b"BOGUS\r\n\r\n");
+    assert_eq!(response.status, 400);
+}
+
+#[test]
+fn an_over_long_header_line_is_a_bad_request() {
+    let log = Arc::new(MemLog::new());
+    let server = HttpServer::start(Arc::clone(&log), "127.0.0.1:0").unwrap();
+    let mut request = b"GET /stream HTTP/1.1\r\nHost: x\r\nX-Big: ".to_vec();
+    request.extend(std::iter::repeat_n(b'a', 20_000));
+    request.extend_from_slice(b"\r\n\r\n");
+    let response = send_raw(server.local_addr(), &request);
+    assert_eq!(response.status, 400);
+}
+
+#[test]
+fn too_many_headers_is_a_bad_request() {
+    let log = Arc::new(MemLog::new());
+    let server = HttpServer::start(Arc::clone(&log), "127.0.0.1:0").unwrap();
+    let mut request = String::from("GET /stream HTTP/1.1\r\nHost: x\r\n");
+    for i in 0..70 {
+        request.push_str(&format!("X-{i}: v\r\n"));
+    }
+    request.push_str("\r\n");
+    let response = send_raw(server.local_addr(), request.as_bytes());
+    assert_eq!(response.status, 400);
+}
+
+#[test]
+fn an_unknown_path_is_not_found_and_an_unknown_method_is_not_allowed() {
+    let log = Arc::new(MemLog::new());
+    let server = HttpServer::start(Arc::clone(&log), "127.0.0.1:0").unwrap();
+    let addr = server.local_addr();
+    assert_eq!(send(addr, "GET", "/nope", &[], b"").status, 404);
+    let put = send(addr, "PUT", "/stream", &[], b"");
+    assert_eq!(put.status, 405);
+    assert_eq!(
+        put.headers.get("allow").map(String::as_str),
+        Some("GET, HEAD, POST")
+    );
+}
+
+#[test]
+fn an_unknown_offset_token_is_a_bad_request() {
+    let log = Arc::new(MemLog::new());
+    let server = HttpServer::start(Arc::clone(&log), "127.0.0.1:0").unwrap();
+    let response = send(
+        server.local_addr(),
+        "GET",
+        "/stream?offset=nonsense",
+        &[],
+        b"",
+    );
+    assert_eq!(response.status, 400);
+}
+
+#[test]
+fn a_connection_that_has_not_written_yet_is_answered_not_dropped() {
+    // accept() inherits the listener's non-blocking flag on BSD/macOS. A
+    // connection that arrives before its request bytes did then failed its
+    // first read with EAGAIN and was closed with no response; under load the
+    // accept wins the race against the client's write, so the client saw an
+    // empty reply. The accepted socket must be blocking.
+    let log = Arc::new(MemLog::new());
+    let server = HttpServer::start(Arc::clone(&log), "127.0.0.1:0").unwrap();
+    let mut stream = TcpStream::connect(server.local_addr()).expect("connect");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .expect("read timeout");
+
+    // Let the accept loop accept and start reading while the socket is idle.
+    thread::sleep(Duration::from_millis(150));
+    let request = b"GET /stream HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n";
+    stream.write_all(request).expect("write request");
+
+    let mut raw = Vec::new();
+    stream.read_to_end(&mut raw).expect("read response");
+    let response = parse_response(&raw);
+    assert_eq!(response.status, 200, "the idle connection was answered");
+    assert!(response.headers.contains_key("stream-next-offset"));
+}

@@ -337,10 +337,10 @@ impl<K: Equal + Ord> Equal for std::collections::BTreeSet<K> {
 
 // Equivalence
 
-/// An equivalence relation on `T`: a shared, repeatable boolean test.
 /// Shared equivalence-test type.
 type EquivalenceFn<T> = Arc<dyn Fn(&T, &T) -> bool + Send + Sync>;
 
+/// An equivalence relation on `T`: a shared, repeatable boolean test.
 #[derive(Clone)]
 pub struct Equivalence<T> {
     is_equivalent: EquivalenceFn<T>,
@@ -442,6 +442,7 @@ pub fn array_equivalence<A: Equal>() -> Equivalence<Vec<A>> {
 /// Shared comparison type.
 type CompareFn<T> = Arc<dyn Fn(&T, &T) -> Ordering + Send + Sync>;
 
+/// A total order on `T`: the comparison `Order.combine` and `clamp` build on.
 #[derive(Clone)]
 pub struct Order<T> {
     compare: CompareFn<T>,
@@ -627,6 +628,8 @@ pub fn ord_order<T: Ord>() -> Order<T> {
 /// An associative combination function.
 type CombineFn<A> = Arc<dyn Fn(&A, &A) -> A + Send + Sync>;
 
+/// An associative, order-insensitive way to combine `A` (`Reducer.sum` and
+/// friends are built from one).
 #[derive(Clone)]
 pub struct Combiner<A> {
     combine: CombineFn<A>,

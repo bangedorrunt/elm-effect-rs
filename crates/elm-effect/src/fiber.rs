@@ -46,7 +46,9 @@ pub enum Mask {
 /// Options for [`crate::Runtime`] fork operations.
 #[derive(Clone, Copy, Debug)]
 pub struct ForkOpts {
+    /// When the child begins (deferred until the next yield, or immediately).
     pub start: StartMode,
+    /// The child's initial interruptibility.
     pub mask: Mask,
 }
 
@@ -62,6 +64,7 @@ impl ForkOpts {
         }
     }
 
+    /// A child that waits for the spawner's next yield, interruptible.
     pub fn deferred() -> Self {
         Self {
             start: StartMode::Deferred,
@@ -69,6 +72,7 @@ impl ForkOpts {
         }
     }
 
+    /// A child that is eligible to run at once, interruptible.
     pub fn immediate() -> Self {
         Self {
             start: StartMode::Immediate,
@@ -838,10 +842,12 @@ impl<A: Send + 'static, E: Send + 'static> FiberHandle<A, E> {
         }
     }
 
+    /// This fiber's id, as the runtime minted it.
     pub fn id(&self) -> FiberId {
         self.control.id
     }
 
+    /// True once the body and its finalizers have finished.
     pub fn is_done(&self) -> bool {
         self.control.is_done()
     }

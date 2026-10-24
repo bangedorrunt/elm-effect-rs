@@ -11,13 +11,12 @@ elm-effect = { path = "../elm-effect-rs/crates/elm-effect" }
 
 ## Features
 
-The default feature set is `tokio` alone (ADR-0003). A plain dependency gives you `Runtime`, fibers, `Scope`, `Layer`, and the remote policy.
-
-| Feature | You get |
-| --- | --- |
-| `tokio` (default) | `Runtime`, fibers, `Scope`, `Layer`, remote policy |
-
-`Runtime` needs the `tokio` feature.
+There are none. `elm-effect` always depends on Tokio, because the fiber
+runtime is the carrier: `Runtime`, fibers, `Scope`, `Layer`, and the remote
+policy are not optional. An earlier `tokio` feature was removed in 0.4.0: it
+gated those modules but not their references, so `default-features = false`
+never compiled. A switch that only ever produced a compile error is worse than
+no switch.
 
 ## Related crates
 

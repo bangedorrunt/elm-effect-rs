@@ -23,7 +23,11 @@ use crate::{Effect, Requirement};
 /// type. Services are shared by clone between provider and fiber: wrap a
 /// non-cloneable resource in an [`Arc`] and serve that.
 pub trait ServiceTag: Send + 'static {
+    /// The value a provider hands out. Shared by clone, so a resource that
+    /// cannot be cloned travels behind an `Arc`.
     type Service: Clone + Send + Sync + 'static;
+    /// Stable lookup key. It must be unique per process and must not change
+    /// between providers and users of the tag.
     const ID: &'static str;
 }
 
@@ -328,7 +332,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// value-level `provide` panics at construction, and [`Layer::provide`](crate::Layer::provide)
     /// returns it as an error. The `ambiguous tag` run-time Die survives only
     /// for conflicts merged in from elsewhere, which no single call created.)
-    #[cfg(feature = "tokio")]
     pub fn provide_from<T, Rest>(self, services: &crate::BuiltServices) -> Effect<A, E, Rest>
     where
         T: ServiceTag,
@@ -392,6 +395,7 @@ fn erase_arc<T: Send + Sync + 'static>(arc: Arc<T>) -> Arc<dyn Any + Send + Sync
 }
 
 impl MemoMap {
+    /// An empty memo map: a layer's build results, keyed by what it built.
     pub fn new() -> Self {
         Self {
             built: Mutex::new(HashMap::new()),
@@ -429,7 +433,9 @@ impl Default for MemoMap {
 /// Domain code never reads environment variables here; configuration is
 /// parsed at startup into a value the layer closes over.
 pub struct Reference<T: Clone + Send + Sync + 'static> {
+    /// Stable lookup key, unique among references in a process.
     pub id: &'static str,
+    /// The value read when no override is in scope.
     pub default: T,
 }
 

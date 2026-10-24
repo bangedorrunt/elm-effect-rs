@@ -7,10 +7,10 @@
 use std::fs;
 use std::path::PathBuf;
 
+use elm_effect_journal::durable_log::Status;
 use elm_effect_journal::durable_log::{
     AppendError, DurableLog, FileLog, MemLog, Offset, SCHEMA_VERSION,
 };
-use elm_effect_journal::stream::Status;
 
 fn envelope(producer: &str, epoch: u64, seq: u64, payload: &str) -> String {
     format!(

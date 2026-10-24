@@ -1,6 +1,5 @@
 //! Interruptible partitioned takes: a blocking wait observes interruption on
 //! a 1 ms poll quantum, the same bound the test clock uses.
-#![cfg(feature = "tokio")]
 
 use elm_effect::PartitionedSemaphore;
 use std::sync::Arc;

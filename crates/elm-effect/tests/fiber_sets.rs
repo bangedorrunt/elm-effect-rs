@@ -6,8 +6,6 @@
 //! is_done); these tests pin the set/map/plan/scheduler layer above it.
 //! Out-of-scope behavior is named beside the test that would have covered it.
 
-#![cfg(feature = "tokio")]
-
 #[allow(dead_code, clippy::type_complexity)]
 #[path = "../src/fiber_map.rs"]
 mod fiber_map;

@@ -583,3 +583,24 @@ fn dump_renders_every_series_as_a_padded_table() {
                     name=counter  description=  type=Counter  attributes=[z: c]        state=[count: [1]]";
     assert_eq!(dumped, expected);
 }
+
+#[test]
+fn the_registry_reports_its_series_count_and_can_be_bounded_by_the_host() {
+    use elm_effect::{Attributes, Counter, MetricRegistry};
+    let mut registry = MetricRegistry::new();
+    assert!(registry.is_empty());
+    let counter = Counter::new("requests");
+    for user in 0..4 {
+        let attrs = Attributes::from_pairs([("user", user.to_string())]);
+        registry.update_with(&counter, 1.0, &attrs);
+    }
+    assert_eq!(registry.len(), 4, "one series per distinct attribute set");
+    assert!(!registry.is_empty());
+
+    // The host decides when the cardinality ceiling is reached; the registry
+    // only reports and obeys.
+    registry.clear();
+    assert_eq!(registry.len(), 0);
+    registry.update(&counter, 1.0);
+    assert_eq!(registry.len(), 1, "the registry stays usable after clear");
+}

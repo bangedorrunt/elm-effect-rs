@@ -564,6 +564,17 @@ pub struct Series {
 
 /// Registry of counter and gauge series by series key (TS `MetricRegistry`).
 #[derive(Debug, Clone, Default)]
+/// Every series the process has recorded, keyed by metric id plus its
+/// attribute set.
+///
+/// The series count is unbounded on purpose: the registry does not know what
+/// a low-cardinality attribute is, so any eviction policy it picked would be
+/// wrong for some host. One series exists per distinct attribute set, so an
+/// attribute carrying a user id, path, or request id grows the map for as
+/// long as the process lives. A host that records such attributes must bound
+/// the registry itself: watch [`len`](Self::len) and call
+/// [`clear`](Self::clear) at whatever ceiling it can afford (or swap in a
+/// fresh registry).
 pub struct MetricRegistry {
     /// The state plus the merged attributes in insertion order, because a
     /// snapshot reports the order the metric was described with and the key
@@ -582,6 +593,21 @@ impl MetricRegistry {
     /// An empty registry.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// How many series are held, across every kind. Compare this against the
+    /// host's ceiling; it is the number that grows with attribute cardinality.
+    pub fn len(&self) -> usize {
+        self.counters.len()
+            + self.gauges.len()
+            + self.frequencies.len()
+            + self.histograms.len()
+            + self.summaries.len()
+    }
+
+    /// True when nothing has been recorded.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// TS `Metric.update(counter, amount)`: add `amount` to the series.
@@ -943,7 +969,9 @@ impl MetricRegistry {
             .join("\n")
     }
 
-    /// Drop every series.
+    /// Drop every series. The registry stays usable; counters start again at
+    /// zero. This is the knob a host uses to enforce its own cardinality
+    /// ceiling, because choosing the policy here would impose one.
     pub fn clear(&mut self) {
         self.counters.clear();
         self.gauges.clear();

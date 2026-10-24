@@ -5,8 +5,6 @@
 //! another thread: while the first body is parked, the second must not have
 //! started.
 
-#![cfg(feature = "tokio")]
-
 #[allow(clippy::type_complexity)]
 #[path = "../src/concurrency.rs"]
 mod concurrency;

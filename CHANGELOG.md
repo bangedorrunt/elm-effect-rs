@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `MetricRegistry::len` and `is_empty`. The series count is the number that
+  grows with attribute cardinality; the registry still imposes no ceiling of
+  its own, and its docs say so beside `clear`.
+- A CI workflow (`.github/workflows/ci.yml`) running the suite, clippy with
+  `-D warnings`, and `cargo fmt --check`, plus a workspace self-audit test that
+  runs every `elm-effect-lints` rule over `crates/*/src` and
+  `crates/*/examples`. The lint crate now has a caller instead of only tests.
+- `#![warn(missing_docs)]` in all three library crates, with every public
+  item documented.
+- HTTP rejection tests: oversized declared body, chunked transfer encoding,
+  malformed request line, over-long header line, too many headers, unknown
+  path, unknown method, unknown offset token.
+- `std::error::Error` for `ProviderError`, `QueueError`, and `RemoteError<E>`.
+- A compile-fail doctest pinning `Loop: !Send` (and `Subscriber`), so the
+  single-threaded promise cannot drift unnoticed.
 - Durable stream closure on the real log: `DurableLog::close`,
   `append_json_and_close`, `status`, and `is_closed`. `AppendError::Closed`
   refuses a later append, bytes before the close stay readable, and `FileLog`
@@ -33,6 +48,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- The `tokio` feature. It gated `fiber`, `runtime`, `scope`, `layer`,
+  `concurrency` and the rest, but not the code naming them, so
+  `--no-default-features` failed with 19 type errors. Tokio is a plain
+  dependency; ADR-0002's no-default-features witness is withdrawn and the
+  installation guide no longer lists a feature.
+- `journal::epoch` (`EpochLog`, `Fence`, `Appended`). It was a second
+  producer-fence implementation that disagreed with the real log (it accepted
+  a `seq` gap that `MemLog`/`FileLog` reject) and had no consumer outside its
+  own test. `Store::admit` is the one fence.
+- `journal::stream` (`Stream`, `Gone`, `Read`, `Snapshot`, `StreamError`). A
+  third log model, exercised only by one test; `Status` moved into
+  `durable_log` and the rest is gone. `Gone`/retention and soft-delete were
+  never reachable from the loop or the HTTP adapter.
+- `supervision` (`Supervisor`, `ChildSnapshot`, `Escalation`). Its own doc
+  said shutdown was not wired to it; no runtime path used it.
 - The port ledger: `conformance/` (3.9 MB of TSV/TOML and 19 scripts) and the
   `elm-effect-conformance` crate. The behavior tests themselves stay; only the
   bookkeeping and its four gates are gone.
@@ -52,6 +82,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `JournalStore::attempt` takes the row's `generation` and refuses a mismatch,
+  like `settle`. A zombie that lost its lease could previously spend the live
+  holder's attempt budget and dead-letter its row.
+- `JournalStore::read(offset)` answers the row as it was at that offset. It
+  used to look the key up in the current row map, so an old offset returned a
+  later state and a `Row::offset` that disagreed with the offset read.
+- `Provider` and `ProviderError` are re-exported from the crate root, beside
+  `Config` and `ConfigError`.
+- `Loop::snapshot` is refused while the loop is halted, and a drain that
+  finishes clears the halt. One transient append error used to disable
+  compaction for the life of the loop.
+- `Loop` and `Subscriber` document that they are `!Send`/`!Sync`.
+- `HttpServer::shutdown` documents that it returns before live connection
+  threads exit (SSE and long-poll on their next poll, a half-sent request on
+  its 30-second read timeout), and that they hold their own `Arc` to the log.
 - Workspace crates bumped 0.3.0 to 0.4.0. The public removals below are why
   this is a breaking release under 0.x.
 - `Runtime::run` and `Runtime::run_main` execute the effect on a fiber, like
@@ -75,6 +120,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `HttpServer` answers a connection that arrives before its request bytes do,
+  on platforms where `accept()` inherits the listener's non-blocking flag
+  (macOS/BSD). The first read could fail with `EAGAIN` and the connection was
+  closed without a response, so a client saw an empty reply whenever the
+  accept won the race against its write; under CPU load that was roughly one
+  run in three. Linux does not inherit the flag, which is why CI could not see
+  it. A read timeout now answers `408` instead of closing silently, and a
+  transient accept error (`EINTR`, `ECONNABORTED`) no longer stops the accept
+  loop for the life of the server.
+- `HttpServer` no longer reserves the declared request body up front. A single
+  `Content-Length` header could pin eight megabytes per connection for the
+  read timeout; the body now grows with the bytes that actually arrive, and a
+  short body is a 400.
+- `Duration::times` on an exact `Nanos` value falls back to milliseconds when
+  the product overflows `i128` instead of wrapping to a negative duration.
 - `number_order`, `string_order`, and `boolean_order` returned `Greater` for
   equal values. That made `is_less_than_or_equal` false for a tie, excluded
   bounds from `is_between`, skipped `clamp`'s own value, and stopped

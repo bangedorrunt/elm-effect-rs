@@ -181,18 +181,31 @@ pub enum DispatchPlan {
     DispatchNew,
     /// Uncertainty with an idempotent provider: re-dispatch the SAME
     /// logical key as this next attempt number.
-    RetrySameKey { attempt: i64 },
+    RetrySameKey {
+        /// The attempt number this re-dispatch becomes.
+        attempt: i64,
+    },
     /// Uncertainty with a queryable provider: ask what happened before
     /// dispatch. Never a second dispatch first.
-    ReconcileFirst { reason: String },
+    ReconcileFirst {
+        /// Why the row is uncertain, for the log and the caller.
+        reason: String,
+    },
     /// No safe move exists (live owner elsewhere, reconciler owns the row,
     /// or no provider contract): do not dispatch, say why.
-    RefuseBlindRetry { reason: String },
+    RefuseBlindRetry {
+        /// What blocked the dispatch (a live owner, a reconciler, or no
+        /// provider contract).
+        reason: String,
+    },
     /// The row is terminal: return the stored outcome, dispatch nothing.
     DuplicateTerminal,
     /// A park is interruption: resume at its wake time with the same key,
     /// attempt at least one.
-    ResumeParked { attempt: i64 },
+    ResumeParked {
+        /// The attempt number the resume becomes; at least one.
+        attempt: i64,
+    },
 }
 
 /// Pure dispatch planning: exactly the toron reconcile table.

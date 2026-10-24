@@ -1,6 +1,5 @@
 //! Supervisor isolation, detach shutdown, and interrupt back-pressure.
 //! Bodies cooperate via [`Ctx`](elm_effect::Ctx).
-#![cfg(feature = "tokio")]
 
 use elm_effect::Duration as EffectDuration;
 use elm_effect::{

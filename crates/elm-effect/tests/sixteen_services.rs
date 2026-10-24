@@ -2,7 +2,6 @@
 //! providing removes the tag at the type level. A missing service is a
 //! compile error, never a runtime lookup.
 
-#[cfg(feature = "tokio")]
 use elm_effect::Runtime;
 use elm_effect::{Cons, Effect, Requirement, ServiceTag, use_service};
 use std::convert::Infallible;
@@ -41,7 +40,6 @@ fn db_url() -> Db {
 }
 
 #[test]
-#[cfg(feature = "tokio")]
 fn tagged_service_resolves() {
     let rt = Runtime::new();
     let e: Effect<String, Infallible, Database> =
@@ -68,7 +66,6 @@ fn provide_removes_requirement() {
 }
 
 #[test]
-#[cfg(feature = "tokio")]
 fn provided_values_reach_use_nodes() {
     // Provided values reach Use nodes through flat_map chains.
     let rt = Runtime::new();
@@ -91,7 +88,6 @@ fn provide_merge_removes_two_at_once() {
 }
 
 #[test]
-#[cfg(feature = "tokio")]
 fn sixteen_services() {
     type R16 = (
         Database,
@@ -193,7 +189,6 @@ fn sixteen_services() {
 }
 
 #[test]
-#[cfg(feature = "tokio")]
 fn effect_macro_expands_to_flat_map() {
     let rt = Runtime::new();
     let e = elm_effect::effect! {

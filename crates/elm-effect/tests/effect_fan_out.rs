@@ -1,8 +1,6 @@
 //! Effect-level fan-out: ordered results, bounded concurrency, fail-fast
 //! sibling interruption, ambient services, and parent interruption.
 
-#![cfg(feature = "tokio")]
-
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Barrier};
 

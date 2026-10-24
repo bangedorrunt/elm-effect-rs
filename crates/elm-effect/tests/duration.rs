@@ -399,3 +399,21 @@ fn duration_equality_through_the_equal_trait() {
         Duration::seconds(2.0)
     );
 }
+
+#[test]
+fn nanos_times_an_overflowing_multiplier_stays_positive() {
+    // i128::MAX nanos times 4 does not fit the exact representation. It must
+    // fall back to millis, never wrap to a negative duration.
+    let huge = Duration::nanos(i128::MAX);
+    let scaled = huge.times(4.0);
+    assert!(
+        scaled.to_millis() > 0.0,
+        "an overflowing scale wrapped the sign: {scaled:?}"
+    );
+    // Small values still take the exact path.
+    assert_eq!(
+        Duration::nanos(1_000).times(3.0),
+        Duration::nanos(3_000),
+        "the exact path is unchanged"
+    );
+}

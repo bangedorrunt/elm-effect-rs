@@ -38,22 +38,26 @@ pub struct Duration {
 }
 
 impl Duration {
+    /// The zero duration.
     pub const ZERO: Self = Self {
         value: DurationValue::Millis(0.0),
     };
 
+    /// `millis` milliseconds.
     pub const fn from_millis(millis: u64) -> Self {
         Self {
             value: DurationValue::Millis(millis as f64),
         }
     }
 
+    /// `secs` seconds.
     pub const fn from_secs(secs: u64) -> Self {
         Self {
             value: DurationValue::Millis(secs as f64 * 1000.0),
         }
     }
 
+    /// `minutes` minutes.
     pub const fn from_minutes(minutes: u64) -> Self {
         Self {
             value: DurationValue::Millis(minutes as f64 * 60.0 * 1000.0),
@@ -420,7 +424,14 @@ impl Duration {
                     times.is_finite() && times.fract() == 0.0,
                     "times on a nanos duration needs an integer multiplier, like Effect 4's BigInt(times)"
                 );
-                Self::nanos(nanos * times as i128)
+                match nanos.checked_mul(times as i128) {
+                    Some(product) => Self::nanos(product),
+                    // An exact value that does not fit i128 falls back to
+                    // millis, the same way `sum` does for mixed values. The
+                    // alternative is a wrap to a negative duration, which a
+                    // caller would read as a sleep in the past.
+                    None => Self::make_millis(self.to_millis() * times),
+                }
             }
         }
     }
@@ -796,20 +807,30 @@ pub fn is_duration(value: &dyn std::any::Any) -> bool {
 /// Effect 4's `parts` result.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Parts {
+    /// Whole days.
     pub days: f64,
+    /// Whole hours after the days are taken out.
     pub hours: f64,
+    /// Whole minutes after the hours are taken out.
     pub minutes: f64,
+    /// Whole seconds after the minutes are taken out.
     pub seconds: f64,
+    /// Whole milliseconds after the seconds are taken out.
     pub millis: f64,
+    /// Sub-millisecond remainder, in nanoseconds.
     pub nanos: f64,
 }
 
 /// Effect 4's `toJSON` result: the tagged shape with nanos as a string.
 #[derive(Clone, Debug, PartialEq)]
 pub enum DurationJson {
+    /// A millisecond value.
     Millis(f64),
+    /// A nanosecond value, as a decimal string (nanos exceed JS integers).
     Nanos(String),
+    /// Positive infinity.
     Infinity,
+    /// Negative infinity.
     NegativeInfinity,
 }
 
@@ -946,6 +967,8 @@ pub struct TestClock {
 }
 
 impl TestClock {
+    /// A clock at virtual time zero, advancing only through
+    /// [`adjust`](Self::adjust).
     pub fn new() -> Self {
         Self {
             now_ms: Mutex::new(0),

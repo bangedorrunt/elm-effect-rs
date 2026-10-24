@@ -4,7 +4,9 @@
 //! a stable key so retries reuse the same row. Claiming sets owner, lease
 //! deadline, and `generation + 1` atomically and returns the row;
 //! settling carries the generation and a stale generation settles
-//! nothing. Terminal states never move. `Accepted` advances only through
+//! nothing. An attempt carries the generation too, so a zombie that lost
+//! its lease cannot spend the live holder's budget or dead-letter its row.
+//! Terminal states never move. `Accepted` advances only through
 //! explicit transitions. `Unknown` has no default exit: settling names an
 //! explicit target and the golden table admits only
 //! `Settled`/`Failed`/`Unknown`/`Cancelled` from there. Exhausted attempts
@@ -113,8 +115,12 @@ pub trait JournalStore {
     /// Settle toward `to` carrying `generation`; stale generations,
     /// illegal edges, and terminal rows settle nothing.
     fn settle(&self, key: &str, generation: u64, to: EffectState) -> Option<Row>;
-    /// Note one provider attempt; exhaustion dead-letters the row.
-    fn attempt(&self, key: &str) -> Option<Row>;
+    /// Note one provider attempt for the holder of `generation`; a stale
+    /// generation, or a terminal row, notes nothing. Fenced like
+    /// [`settle`](Self::settle), so a zombie that lost its lease cannot
+    /// dead-letter the row a live worker now holds. Exhaustion
+    /// dead-letters the row.
+    fn attempt(&self, key: &str, generation: u64) -> Option<Row>;
     /// Read one offset (`-1` means latest).
     fn read(&self, offset: i64) -> Option<Read>;
     /// Current row for a key, if any.
@@ -129,7 +135,10 @@ pub struct InMemoryStore {
 
 struct Inner {
     rows: BTreeMap<String, Row>,
-    log: Vec<(i64, String, EffectState)>,
+    /// Offset and the row as it was committed there. The row is kept whole,
+    /// not its state: a read of an old offset must answer what the row was
+    /// then, not what it has become since.
+    log: Vec<(i64, Row)>,
     next_offset: i64,
 }
 
@@ -151,17 +160,15 @@ impl InMemoryStore {
         inner.next_offset += 1;
         let mut row = row.clone();
         row.offset = offset;
-        inner.rows.insert(key.to_string(), row);
-        inner
-            .log
-            .push((offset, key.to_string(), inner.rows[key].state));
+        inner.rows.insert(key.to_string(), row.clone());
+        inner.log.push((offset, row));
         while inner.log.len() > self.retention {
             inner.log.remove(0);
         }
     }
 
     fn first_replayable(inner: &Inner) -> i64 {
-        inner.log.first().map(|(o, _, _)| *o).unwrap_or(0)
+        inner.log.first().map(|(o, _)| *o).unwrap_or(0)
     }
 }
 
@@ -233,11 +240,16 @@ impl JournalStore for InMemoryStore {
         Some(inner.rows[key].clone())
     }
 
-    fn attempt(&self, key: &str) -> Option<Row> {
+    fn attempt(&self, key: &str, generation: u64) -> Option<Row> {
         let mut inner = self.inner.lock().unwrap();
         let mut row = inner.rows.get(key)?.clone();
+        // Fencing beats counting: a worker whose lease was taken over must
+        // not be able to spend the new holder's attempt budget.
+        if row.generation != generation || row.state.is_terminal() {
+            return None;
+        }
         row.attempts += 1;
-        if row.attempts > row.max_attempts && !row.state.is_terminal() {
+        if row.attempts > row.max_attempts {
             row.state = EffectState::Failed;
             row.disposition = Some(Disposition::TerminalFailed);
         }
@@ -248,10 +260,10 @@ impl JournalStore for InMemoryStore {
     fn read(&self, offset: i64) -> Option<Read> {
         let inner = self.inner.lock().unwrap();
         if offset == -1 {
-            let (o, k, _) = inner.log.last()?;
+            let (o, row) = inner.log.last()?;
             return Some(Read::Entry {
                 offset: *o,
-                row: inner.rows[k].clone(),
+                row: row.clone(),
             });
         }
         let first = Self::first_replayable(&inner);
@@ -263,10 +275,10 @@ impl JournalStore for InMemoryStore {
         inner
             .log
             .iter()
-            .find(|(o, _, _)| *o == offset)
-            .map(|(o, k, _)| Read::Entry {
+            .find(|(o, _)| *o == offset)
+            .map(|(o, row)| Read::Entry {
                 offset: *o,
-                row: inner.rows[k].clone(),
+                row: row.clone(),
             })
     }
 

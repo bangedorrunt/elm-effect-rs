@@ -1,5 +1,4 @@
 //! Law L5 (cycle part): layers wire services; cycles fail construction.
-#![cfg(feature = "tokio")]
 
 use std::sync::{
     Arc, Condvar, Mutex,

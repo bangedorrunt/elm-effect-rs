@@ -157,6 +157,21 @@ pub enum RemoteError<E> {
     Filtered,
 }
 
+impl<E: std::fmt::Display> std::fmt::Display for RemoteError<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Inner(error) => write!(f, "remote call failed: {error}"),
+            Self::BreakerOpen => f.write_str("circuit breaker is open"),
+            Self::AttemptTimeout => f.write_str("attempt timed out"),
+            Self::BudgetTimeout => f.write_str("operation exceeded its budget"),
+            Self::BulkheadFull => f.write_str("bulkhead queue is full"),
+            Self::Filtered => f.write_str("call was filtered out"),
+        }
+    }
+}
+
+impl<E: std::fmt::Display + std::fmt::Debug> std::error::Error for RemoteError<E> {}
+
 /// Bulkhead bounds: `permits` running, `queue` waiting, `wait` at most.
 #[derive(Clone, Debug)]
 pub struct Bulkhead {

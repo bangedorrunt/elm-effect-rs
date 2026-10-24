@@ -43,7 +43,10 @@ pub enum Reason<E, D = Defect> {
     /// An unexpected defect. Never an `E`.
     Die(D),
     /// The fiber was interrupted. Carries the interrupting fiber when known.
-    Interrupt { fiber_id: Option<FiberId> },
+    Interrupt {
+        /// The fiber that asked for the interrupt, when the caller named one.
+        fiber_id: Option<FiberId>,
+    },
 }
 
 impl<E, D> Reason<E, D> {

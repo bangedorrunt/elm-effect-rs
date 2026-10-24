@@ -1,6 +1,5 @@
 //! `SynchronizedRef::modify_some_effect`: a conditional effect update runs
 //! under the ref's lock and writes only when it returns `Some`.
-#![cfg(feature = "tokio")]
 
 use elm_effect::{Effect, Exit, Runtime, SynchronizedRef};
 

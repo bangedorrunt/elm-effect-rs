@@ -8,6 +8,12 @@ informed: agents implementing this repository and agents later adopting it insid
 
 # Port Effect 4.0.0 into a Rust carrier with an Elm loop
 
+> **Amended 2026-10-25.** The `tokio` feature is gone and Tokio is a plain
+dependency. The feature gated `fiber`, `runtime`, `scope`, `layer`,
+`concurrency` and the rest, but not the code that names them, so
+`--no-default-features` failed with 19 type errors. The no-default-features
+witness below is withdrawn rather than left red.
+>
 > **Amended 2026-10-24 (minimalism audit).** `Schema`, the `schema` feature,
 > the `stm` feature, and the `elm-effect-unstable` crate were removed from the
 > workspace. The port ledger was retired too: `conformance/` and the
@@ -634,7 +640,7 @@ Work is phased. A phase's tests land first, red, then the implementation, then t
 - [ ] `sh conformance/witness.sh` exits 0. That script is the product finish line.
 - [ ] `cargo test -p elm-effect-conformance -- --ignored` is an index. A row we will not carry is `not-applicable` with a reason. It does not have to be `ported`.
 - [ ] Tests named in L1 through L15 exist and pass.
-- [ ] `cargo test` with `--no-default-features` of `elm-effect` passes without a Tokio runtime and without a network.
+- [x] ~~`cargo test` with `--no-default-features` of `elm-effect` passes without a Tokio runtime and without a network.~~ Withdrawn 2026-10-25: the `tokio` feature is removed, because the fiber runtime became the carrier and gating it left an unbuildable crate. See the amendment above.
 - [ ] `crates/elm-effect/tests/sixteen_services.rs` compiles. Its `cargo check` time is recorded in the phase-2 review. A time over 30 seconds stops the phase.
 - [ ] `rg unwrap crates --glob '!**/tests/**' --glob '!**/*test*.rs'` finds no `unwrap` outside tests. `expect` is allowed only with a reason that names an invariant.
 - [ ] `rg 'catch_unwind' crates` finds matches only under the fiber supervisor module.

@@ -4,7 +4,6 @@
 //! so the fast test pins that a fast first sends zero duplicates.
 //! Prove-it-works: the loser-cancel test pins the winner's value plus
 //! observed cancellation of the loser.
-#![cfg(feature = "tokio")]
 
 use elm_effect::hedge;
 use elm_effect::{Cause, ClockImpl, Duration, Exit, Runtime, TestClock};

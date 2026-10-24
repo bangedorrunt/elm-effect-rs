@@ -245,13 +245,11 @@ where
 
 /// Runs an inner effect under a scope minted for that run, then closes the
 /// scope. Every exit path closes: success, typed failure, defect, interrupt.
-#[cfg(feature = "tokio")]
 struct Scoped<A: Send + 'static, E: Send + 'static, R: Requirement> {
     inner: Effect<A, E, R>,
     env: crate::service::Services,
 }
 
-#[cfg(feature = "tokio")]
 impl<A: Send + 'static, E: Send + 'static, R: Requirement> ErasedStep<A, E> for Scoped<A, E, R> {
     fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
         let Self { inner, env } = *self;
@@ -306,13 +304,11 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> ErasedStep<A, E> for 
 /// the callback builds. The fiber comes from the ambient `FiberTag`; asking
 /// where no fiber exists is a defect, the crate's fail-closed answer to
 /// missing context.
-#[cfg(feature = "tokio")]
 struct WithFiber<A: Send + 'static, E: Send + 'static, R: Requirement, F> {
     f: F,
     marker: PhantomData<fn() -> (A, E, R)>,
 }
 
-#[cfg(feature = "tokio")]
 impl<A, E, R, F> ErasedStep<A, E> for WithFiber<A, E, R, F>
 where
     A: Send + 'static,
@@ -337,13 +333,11 @@ where
 /// Like [`WithFiber`], but passes `None` outside a fiber instead of dying:
 /// internal waits that are interruptible when they can be and still valid
 /// when they run on a plain thread.
-#[cfg(feature = "tokio")]
 struct WithOptionalFiber<A: Send + 'static, E: Send + 'static, R: Requirement, F> {
     f: F,
     marker: PhantomData<fn() -> (A, E, R)>,
 }
 
-#[cfg(feature = "tokio")]
 impl<A, E, R, F> ErasedStep<A, E> for WithOptionalFiber<A, E, R, F>
 where
     A: Send + 'static,
@@ -368,9 +362,7 @@ where
 /// child inherits the parent's resolved services; its deferred start is the
 /// Effect 4's default (a `yieldNow`, an await, or the parent's own completion
 /// fires it).
-#[cfg(feature = "tokio")]
 /// `Effect.acquireUseRelease` as a step.
-#[cfg(feature = "tokio")]
 struct AcquireUseRelease<
     A: Send + 'static,
     B: Send + 'static,
@@ -386,7 +378,6 @@ struct AcquireUseRelease<
     marker: PhantomData<fn() -> (A, B, E)>,
 }
 
-#[cfg(feature = "tokio")]
 impl<A, B, E, R, U, Rel> ErasedStep<B, E> for AcquireUseRelease<A, B, E, R, U, Rel>
 where
     A: Clone + Send + 'static,
@@ -475,7 +466,6 @@ struct ForkChild<A: Send + 'static, E: Send + 'static, R: Requirement> {
     marker: PhantomData<fn() -> (A, E, R)>,
 }
 
-#[cfg(feature = "tokio")]
 impl<A, E, R> ErasedStep<crate::fiber::FiberHandle<A, E>, E> for ForkChild<A, E, R>
 where
     A: Send + 'static,
@@ -532,13 +522,11 @@ where
 /// Ceiling: `FiberControl` stores each child's exit erased, so a child's
 /// failure is not re-raised by the parent; Effect 4 does propagate it. No
 /// test exercises that path.
-#[cfg(feature = "tokio")]
 struct AwaitAllChildren<A: Send + 'static, E: Send + 'static, R: Requirement> {
     inner: Effect<A, E, R>,
     marker: PhantomData<fn() -> (A, E, R)>,
 }
 
-#[cfg(feature = "tokio")]
 impl<A, E, R> ErasedStep<A, E> for AwaitAllChildren<A, E, R>
 where
     A: Send + 'static,
@@ -586,13 +574,11 @@ where
 /// `Effect.uninterruptible` in Effect 4: raise the fiber's interruptibility
 /// depth around the wrapped effect. A request made inside still records; only
 /// delivery waits for the depth to fall back to zero.
-#[cfg(feature = "tokio")]
 struct Uninterruptible<A: Send + 'static, E: Send + 'static, R: Requirement> {
     inner: Effect<A, E, R>,
     marker: PhantomData<fn() -> ()>,
 }
 
-#[cfg(feature = "tokio")]
 impl<A, E, R> ErasedStep<A, E> for Uninterruptible<A, E, R>
 where
     A: Send + 'static,
@@ -613,7 +599,6 @@ where
 }
 
 /// `Effect.zip(..., { concurrent: true })` as a step.
-#[cfg(feature = "tokio")]
 struct ZipConcurrent<A, B, E, RA, RB>
 where
     A: Send + 'static,
@@ -628,7 +613,6 @@ where
     marker: PhantomData<fn() -> (A, B)>,
 }
 
-#[cfg(feature = "tokio")]
 impl<A, B, E, RA, RB> ErasedStep<(A, B), E> for ZipConcurrent<A, B, E, RA, RB>
 where
     A: Send + 'static,
@@ -713,7 +697,6 @@ where
 /// `Effect.all` as a step: ordered fan-out over children of the running
 /// fiber, fail-fast on the first failure, bounded by the caller's
 /// [`Concurrency`](crate::Concurrency).
-#[cfg(feature = "tokio")]
 struct FanOut<A: Send + 'static, E: Send + 'static, R: Requirement> {
     effects: Vec<Effect<A, E, R>>,
     concurrency: crate::concurrency::Concurrency,
@@ -721,7 +704,6 @@ struct FanOut<A: Send + 'static, E: Send + 'static, R: Requirement> {
     marker: PhantomData<fn() -> (A, E, R)>,
 }
 
-#[cfg(feature = "tokio")]
 impl<A: Send + 'static, E: Send + 'static, R: Requirement> ErasedStep<Vec<A>, E>
     for FanOut<A, E, R>
 {
@@ -853,7 +835,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> ErasedStep<Vec<A>, E>
 /// policies differ only in what counts as a settlement: `race` waits for a
 /// success (failures are remembered, and two of them are concatenated),
 /// `raceFirst` takes the first exit either way.
-#[cfg(feature = "tokio")]
 struct Race<A: Send + 'static, E: Send + 'static, R: Requirement> {
     left: Effect<A, E, R>,
     right: Effect<A, E, R>,
@@ -864,7 +845,6 @@ struct Race<A: Send + 'static, E: Send + 'static, R: Requirement> {
 
 /// Interrupt both legs and join whatever is left of them. A handle already
 /// taken has had its exit read, so it is skipped.
-#[cfg(feature = "tokio")]
 fn stop_legs<A: Send + 'static, E: Send + 'static>(
     left: &mut Option<crate::fiber::FiberHandle<A, E>>,
     right: &mut Option<crate::fiber::FiberHandle<A, E>>,
@@ -877,7 +857,6 @@ fn stop_legs<A: Send + 'static, E: Send + 'static>(
     }
 }
 
-#[cfg(feature = "tokio")]
 impl<A, E, R> ErasedStep<A, E> for Race<A, E, R>
 where
     A: Send + 'static,
@@ -999,7 +978,6 @@ pub(crate) fn ambient_clock(
 /// effect finished first, `Ok(None)` when the deadline won, and the effect's
 /// own cause when it failed. The loser is interrupted and joined before this
 /// returns, so its finalizers have run by the time the caller sees the answer.
-#[cfg(feature = "tokio")]
 fn race_deadline<A, E, R>(
     inner: Effect<A, E, R>,
     duration: crate::Duration,
@@ -1070,7 +1048,6 @@ where
 }
 
 /// `Effect.timeoutOption` as a step.
-#[cfg(feature = "tokio")]
 struct TimeoutOption<A: Send + 'static, E: Send + 'static, R: Requirement> {
     inner: Effect<A, E, R>,
     duration: crate::Duration,
@@ -1078,7 +1055,6 @@ struct TimeoutOption<A: Send + 'static, E: Send + 'static, R: Requirement> {
     marker: PhantomData<fn() -> (A, E)>,
 }
 
-#[cfg(feature = "tokio")]
 impl<A, E, R> ErasedStep<Option<A>, E> for TimeoutOption<A, E, R>
 where
     A: Send + 'static,
@@ -1101,7 +1077,6 @@ where
 }
 
 /// `Effect.timeoutOrElse` as a step.
-#[cfg(feature = "tokio")]
 struct TimeoutOrElse<A: Send + 'static, E: Send + 'static, R: Requirement> {
     inner: Effect<A, E, R>,
     duration: crate::Duration,
@@ -1110,7 +1085,6 @@ struct TimeoutOrElse<A: Send + 'static, E: Send + 'static, R: Requirement> {
     marker: PhantomData<fn() -> (A, E)>,
 }
 
-#[cfg(feature = "tokio")]
 impl<A, E, R> ErasedStep<A, E> for TimeoutOrElse<A, E, R>
 where
     A: Send + 'static,
@@ -1171,14 +1145,12 @@ where
 
 /// `Effect.forever` as a step: rebuild and run until a run fails, with the
 /// repeat boundary as the interrupt delivery point.
-#[cfg(feature = "tokio")]
 struct Forever<A: Send + 'static, E: Send + 'static, R: Requirement, F> {
     build: F,
     env: crate::service::Services,
     marker: PhantomData<fn() -> (A, E, R)>,
 }
 
-#[cfg(feature = "tokio")]
 impl<A, E, R, F> ErasedStep<A, E> for Forever<A, E, R, F>
 where
     A: Send + 'static,
@@ -1212,14 +1184,12 @@ where
 /// `uninterruptible` would be interruptible at every sleep and only
 /// "uninterruptible" between steps. Here the deadline wins inside a mask and
 /// the pending interrupt is delivered once the region ends.
-#[cfg(feature = "tokio")]
 struct Sleep {
     duration: crate::Duration,
 }
 
 /// Generic in `E` so a sleep fits any effect's error channel: its only failure
 /// is interruption, which carries no typed error of its own.
-#[cfg(feature = "tokio")]
 impl<E: Send + 'static> ErasedStep<(), E> for Sleep {
     fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<(), Cause<E>> {
         let Self { duration } = *self;
@@ -1242,11 +1212,9 @@ impl<E: Send + 'static> ErasedStep<(), E> for Sleep {
 
 /// The handle `Effect::uninterruptible_mask` gives its callback: `restore` at
 /// Effect 4. Copy so a callback can use it in more than one arm.
-#[cfg(feature = "tokio")]
 #[derive(Clone, Copy, Debug)]
 pub struct Restore;
 
-#[cfg(feature = "tokio")]
 impl Restore {
     /// Run `effect` interruptible inside the masked region.
     pub fn apply<A, E, R>(self, effect: Effect<A, E, R>) -> Effect<A, E, R>
@@ -1264,13 +1232,11 @@ impl Restore {
 /// half of `uninterruptibleMask`: inside an uninterruptible region it puts the
 /// wrapped effect back in reach of an interrupt, and the depth comes back on
 /// the way out.
-#[cfg(feature = "tokio")]
 struct Interruptible<A: Send + 'static, E: Send + 'static, R: Requirement> {
     inner: Effect<A, E, R>,
     marker: PhantomData<fn() -> ()>,
 }
 
-#[cfg(feature = "tokio")]
 impl<A, E, R> ErasedStep<A, E> for Interruptible<A, E, R>
 where
     A: Send + 'static,
@@ -1333,7 +1299,6 @@ pub struct Effect<A: Send + 'static, E: Send + 'static, R: Requirement = ()> {
 /// `Effect.sleep` lives on a concrete `Self` so the `Clock` requirement shows
 /// up in its return type: a `Self` generic over `R` could not answer with a
 /// different `R`, and the call site would be one inference hole.
-#[cfg(feature = "tokio")]
 impl<E: Send + 'static> Effect<(), E, crate::service::Cons<crate::time::Clock, ()>> {
     /// `Effect.sleep` in Effect 4: park until the ambient clock's deadline
     /// passes, or until an interrupt arrives outside a masked region.
@@ -1356,12 +1321,10 @@ impl<E: Send + 'static> Effect<(), E, crate::service::Cons<crate::time::Clock, (
 /// harmless: the first answer is the one the effect keeps, which is Effect 4's
 /// `resume` contract. A completion that arrives after the fiber was interrupted
 /// is ignored, because the effect already answered.
-#[cfg(feature = "tokio")]
 pub struct Resume<A: Send + 'static, E: Send + 'static> {
     slot: Arc<(std::sync::Mutex<Option<Exit<A, E>>>, std::sync::Condvar)>,
 }
 
-#[cfg(feature = "tokio")]
 impl<A: Send + 'static, E: Send + 'static> Clone for Resume<A, E> {
     fn clone(&self) -> Self {
         Self {
@@ -1370,7 +1333,6 @@ impl<A: Send + 'static, E: Send + 'static> Clone for Resume<A, E> {
     }
 }
 
-#[cfg(feature = "tokio")]
 impl<A: Send + 'static, E: Send + 'static> Resume<A, E> {
     /// Answer the callback with a whole exit: success or failure.
     pub fn complete(&self, exit: Exit<A, E>) {
@@ -1424,13 +1386,11 @@ where
 /// same turn of the loop. Either way the interpreter's own boundary turns a
 /// success that lands after an interrupt into the interrupt exit, so the fleet
 /// outcomes are the ones the row asserts.
-#[cfg(feature = "tokio")]
 struct Callback<A: Send + 'static, E: Send + 'static, F> {
     register: F,
     marker: PhantomData<fn() -> (A, E)>,
 }
 
-#[cfg(feature = "tokio")]
 impl<A, E, F> ErasedStep<A, E> for Callback<A, E, F>
 where
     A: Send + 'static,
@@ -1483,7 +1443,6 @@ where
 
 /// `Effect.callback` lives on a concrete `Self`: like `sleep`, it is a
 /// constructor, not a transformation of an existing effect.
-#[cfg(feature = "tokio")]
 impl<A: Send + 'static, E: Send + 'static> Effect<A, E, ()> {
     /// `Effect.callback` in Effect 4: hand the registration a [`Resume`] and
     /// park until it answers or the fiber is interrupted.
@@ -1702,7 +1661,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// one closes as soon as the body's steps return the interrupt as a
     /// cause. A fiber interrupted while its effect is in flight reaches
     /// [`Ctx::add_finalizer`](crate::Ctx::add_finalizer) instead.
-    #[cfg(feature = "tokio")]
     pub fn scoped<Rest>(self) -> Effect<A, E, Rest>
     where
         R: Provide<crate::scope::ScopeTag, Rest>,
@@ -1731,7 +1689,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// [`Runtime::spawn_effect`](crate::Runtime::spawn_effect)) do too. Only a
     /// direct `run_sync` has none, and asking there is a defect rather than a
     /// silent stand-in. Nested `with_fiber` sees the same fiber.
-    #[cfg(feature = "tokio")]
     pub fn with_fiber<F>(f: F) -> Self
     where
         F: FnOnce(&crate::fiber::Fiber) -> Effect<A, E, R> + Send + 'static,
@@ -1748,7 +1705,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
 
     /// Like [`with_fiber`](Self::with_fiber), but runs the callback with
     /// `None` outside a fiber instead of failing.
-    #[cfg(feature = "tokio")]
     pub(crate) fn with_optional_fiber<F>(f: F) -> Self
     where
         F: FnOnce(Option<&crate::fiber::Fiber>) -> Effect<A, E, R> + Send + 'static,
@@ -1770,7 +1726,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// the parent's own completion). It dies with the parent.
     ///
     /// Outside a fiber there is nothing to fork from, so asking is a defect.
-    #[cfg(feature = "tokio")]
     pub fn fork_child(self) -> Effect<crate::fiber::FiberHandle<A, E>, E, R> {
         self.fork_with(true, ForkScopes::None, crate::ForkOpts::deferred())
     }
@@ -1779,7 +1734,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// to run before the parent's next yield, which is what lets an interrupt
     /// the parent receives find the child already running (and run its
     /// finalizers).
-    #[cfg(feature = "tokio")]
     pub fn fork_child_immediate(self) -> Effect<crate::fiber::FiberHandle<A, E>, E, R> {
         self.fork_with(true, ForkScopes::None, crate::ForkOpts::immediate())
     }
@@ -1787,14 +1741,12 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// `Effect.forkDetach` in Effect 4: a daemon child. It starts at once, it
     /// does not die with this fiber, and this fiber's completion does not wait
     /// for it.
-    #[cfg(feature = "tokio")]
     pub fn fork_detach(self) -> Effect<crate::fiber::FiberHandle<A, E>, E, R> {
         self.fork_with(false, ForkScopes::None, crate::ForkOpts::immediate())
     }
 
     /// `Effect.forkIn(scope)` in Effect 4: a child bound to `scope`, so closing
     /// the scope interrupts it and runs its finalizers.
-    #[cfg(feature = "tokio")]
     pub fn fork_in(
         self,
         scope: std::sync::Arc<crate::Scope>,
@@ -1808,7 +1760,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// installs [`ScopeTag`](crate::scope::ScopeTag); Effect 4's `Scope.provide`
     /// is that wrap here, since this crate has no ambient service layer to
     /// provide a scope into.
-    #[cfg(feature = "tokio")]
     pub fn fork_scoped(
         self,
     ) -> Effect<crate::fiber::FiberHandle<A, E>, E, crate::service::Cons<crate::scope::ScopeTag, R>>
@@ -1828,7 +1779,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
 
     /// The shared body of the four `fork*` constructors: only the parent
     /// link, the bound scopes and the start mode differ.
-    #[cfg(feature = "tokio")]
     fn fork_with(
         self,
         parented: bool,
@@ -1855,7 +1805,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// The wait is interruptible: an interrupt ends it at once and the fiber
     /// exits interrupted, except inside an uninterruptible region, which waits
     /// the children out and then exits interrupted.
-    #[cfg(feature = "tokio")]
     pub fn await_all_children(self) -> Self {
         Effect {
             step: Step::Suspend(Box::new(AwaitAllChildren {
@@ -1871,7 +1820,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// interruptibility depth raised by one. A single combinator, no region
     /// callback: Effect 4's `uninterruptibleMask(restore => ...)` needs a
     /// `restore` this crate has no `interruptible` counterpart for yet.
-    #[cfg(feature = "tokio")]
     pub fn uninterruptible(self) -> Self {
         Effect {
             step: Step::Suspend(Box::new(Uninterruptible {
@@ -1889,7 +1837,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// The first failure interrupts the other leg and wins, which is the
     /// difference from the sequential `zip` shape: a leg that never ends
     /// cannot keep a failed sibling from settling the run.
-    #[cfg(feature = "tokio")]
     pub fn zip_concurrent<B, R2>(self, other: Effect<B, E, R2>) -> Effect<(A, B), E, R>
     where
         B: Send + 'static,
@@ -1920,7 +1867,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// one child at a time, `Bounded(n)` keeps at most `n` alive, and
     /// `Unbounded` starts every child at once. Child failures are not merged
     /// into the winner's cause; only its own cleanup defects are.
-    #[cfg(feature = "tokio")]
     pub fn all(
         effects: Vec<Effect<A, E, R>>,
         concurrency: crate::concurrency::Concurrency,
@@ -1939,7 +1885,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
 
     /// `Effect.all(..., { discard: true })` in Effect 4: the same fan-out with
     /// every result dropped. A failure still fails the run.
-    #[cfg(feature = "tokio")]
     pub fn all_discard(
         effects: Vec<Effect<A, E, R>>,
         concurrency: crate::concurrency::Concurrency,
@@ -1951,7 +1896,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// first SUCCESS. A failure does not beat a later success; when both fail,
     /// their reasons are concatenated in that order. The loser is interrupted
     /// and released before this returns.
-    #[cfg(feature = "tokio")]
     pub fn race(self, other: Effect<A, E, R>) -> Self {
         let env = std::sync::Arc::clone(&self.services);
         Effect::suspend_op(
@@ -1968,7 +1912,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
 
     /// `Effect.raceFirst` in Effect 4: the first settlement wins, success or
     /// failure, and the other side is interrupted and released.
-    #[cfg(feature = "tokio")]
     pub fn race_first(self, other: Effect<A, E, R>) -> Self {
         let env = std::sync::Arc::clone(&self.services);
         Effect::suspend_op(
@@ -1987,7 +1930,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// service's deadline. `Some(value)` when it finishes first, `None` when
     /// the deadline wins (the body is interrupted and released before this
     /// returns).
-    #[cfg(feature = "tokio")]
     pub fn timeout_option(
         self,
         duration: crate::Duration,
@@ -2011,7 +1953,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// still be interrupted.
     ///
     /// The fallback shares this effect's `R`, so it reads the same services.
-    #[cfg(feature = "tokio")]
     pub fn timeout_or_else(
         self,
         duration: crate::Duration,
@@ -2059,7 +2000,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// Effect 4's callback shape is kept because it is the only way to express
     /// "masked except here": a plain `uninterruptible` around a plain
     /// `interruptible` cannot name the single region.
-    #[cfg(feature = "tokio")]
     pub fn uninterruptible_mask<F>(f: F) -> Self
     where
         F: FnOnce(Restore) -> Self + Send + 'static,
@@ -2071,7 +2011,6 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// uninterruptible region. The depth drops by one for the wrapped effect
     /// and comes back afterwards, so an interrupt requested while masked is
     /// delivered as soon as the region is entered.
-    #[cfg(feature = "tokio")]
     pub fn interruptible(self) -> Self {
         Effect {
             step: Step::Suspend(Box::new(Interruptible {
@@ -2809,7 +2748,6 @@ fn ambient_fiber(scope: &crate::service::Services) -> Option<crate::fiber::Fiber
 }
 
 /// The scope `Effect::scoped` installed for this run, if any.
-#[cfg(feature = "tokio")]
 fn ambient_scope(scope: &crate::service::Services) -> Option<std::sync::Arc<crate::Scope>> {
     let any = scope.get_tag(<crate::scope::ScopeTag as crate::ServiceTag>::ID)?;
     any.downcast_ref::<std::sync::Arc<crate::Scope>>().cloned()
@@ -2931,7 +2869,6 @@ mod tests {
         assert_eq!(m.load(Ordering::SeqCst), 0);
     }
 
-    #[cfg(feature = "tokio")]
     #[test]
     fn with_fiber_outside_a_fiber_is_a_defect() {
         // The public edge now always runs on a fiber, but the interpreter can

@@ -221,10 +221,13 @@ impl Scope {
         }
     }
 
+    /// The caller-chosen (or runtime-minted) label for this scope.
     pub fn id(&self) -> u64 {
         self.id
     }
 
+    /// True once the close has been claimed, even if finalizers are still
+    /// running on another thread.
     pub fn is_closed(&self) -> bool {
         self.closed.load(Ordering::SeqCst)
     }

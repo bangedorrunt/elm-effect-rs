@@ -1,7 +1,6 @@
 //! Process keep-alive: the process stays alive until the effect completes.
 //! `run_main` exits the process, so the completion case runs in a re-executed
 //! child: the parent asserts the exit code and the elapsed floor.
-#![cfg(feature = "tokio")]
 
 use elm_effect::{ClockImpl, Duration, Effect, Runtime, SleepOutcome, TestClock};
 use std::sync::Arc;
