@@ -261,6 +261,36 @@ fn install_finalizer_then(
         })
 }
 
+/// Scope.test.ts:128 `a sole throwing finalizer keeps the scoped effect's
+/// failure`: the body's typed failure and the finalizer's defect both ride the
+/// exit, body reason first, so a failed release never erases why the body
+/// failed.
+#[test]
+fn a_throwing_finalizer_keeps_the_body_failure() {
+    let program = Effect::scoped(
+        elm_effect::use_service::<ScopeTag>()
+            .map(|scope| scope.add_finalizer(|| panic!("release")))
+            .map_err(|never| match never {})
+            .flat_map(|()| Effect::<(), String, ScopeTag>::fail("error".to_string())),
+    );
+    let exit = Runtime::run(program);
+    let Exit::Failure(cause) = exit else {
+        panic!("the body failed, so the run must fail: {exit:?}")
+    };
+    assert_eq!(
+        cause.failure(),
+        Some(&"error".to_string()),
+        "the body's own reason survives the release"
+    );
+    let defects = cause.defects();
+    assert_eq!(defects.len(), 1, "the throwing finalizer rides as one defect");
+    assert!(
+        defects[0].message.contains("release"),
+        "the defect names the panic: {:?}",
+        defects[0].message
+    );
+}
+
 #[test]
 fn scoped_closes_its_scope_when_interrupted_after_installing_it() {
     // Effect.test.ts:79. A finalizer installed inside `scoped` runs exactly

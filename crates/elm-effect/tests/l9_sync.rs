@@ -97,15 +97,14 @@ fn queue_is_bounded() {
 fn semaphore_permits_match() {
     let sem = Semaphore::new(2);
     assert_eq!(sem.available(), 2);
-    assert!(sem.try_acquire());
-    assert!(sem.try_acquire());
+    assert!(sem.take_if_available(1));
+    assert!(sem.take_if_available(1));
     assert_eq!(sem.available(), 0);
-    assert!(!sem.try_acquire());
-    sem.release();
+    assert!(!sem.take_if_available(1));
+    assert_eq!(sem.release(1), 1);
     assert_eq!(sem.available(), 1);
-    assert!(sem.try_acquire());
-    sem.release();
-    sem.release();
+    assert!(sem.take_if_available(1));
+    assert_eq!(sem.release(2), 2, "both loaned permits come back");
     assert_eq!(sem.available(), 2);
 }
 

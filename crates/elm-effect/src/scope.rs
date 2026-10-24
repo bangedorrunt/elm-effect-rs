@@ -36,6 +36,21 @@ where
     }
 }
 
+/// Render a panicking finalizer as a [`Defect`]. A finalizer that unwinds must
+/// not skip the rest of the stack: one bad release is a defect on the exit, and
+/// the other releases still run (Scope.test.ts:107).
+fn defect_from_panic(payload: Box<dyn std::any::Any + Send>) -> Defect {
+    let message = payload
+        .downcast_ref::<&str>()
+        .map(|text| (*text).to_string())
+        .or_else(|| payload.downcast_ref::<String>().cloned())
+        .unwrap_or_else(|| "non-string panic payload".to_string());
+    Defect {
+        message: format!("finalizer panicked: {message}"),
+        backtrace: Backtrace::capture().to_string(),
+    }
+}
+
 /// Render one failed finalizer cause as a [`Defect`].
 fn render_once<E>(cause: Cause<E>) -> Defect
 where
@@ -232,10 +247,18 @@ impl Scope {
         let mut spills = Vec::new();
         for fin in finalizers.into_iter().rev() {
             match fin {
-                Finalizer::Sync(run) => run(),
+                Finalizer::Sync(run) => {
+                    if let Err(payload) =
+                        std::panic::catch_unwind(std::panic::AssertUnwindSafe(run))
+                    {
+                        spills.push(defect_from_panic(payload));
+                    }
+                }
                 Finalizer::Effect(run) => {
-                    if let Some(defect) = run() {
-                        spills.push(defect);
+                    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(run)) {
+                        Ok(None) => {}
+                        Ok(Some(defect)) => spills.push(defect),
+                        Err(payload) => spills.push(defect_from_panic(payload)),
                     }
                 }
             }
@@ -283,6 +306,28 @@ mod tests {
         let spills = scope.close();
         assert_eq!(spills.len(), 1);
         assert!(spills[0].message.contains("rel"));
+    }
+
+    #[test]
+    fn a_throwing_finalizer_does_not_skip_the_rest() {
+        let scope = Scope::new(9);
+        let ran = Arc::new(Mutex::new(Vec::new()));
+        let remaining = Arc::clone(&ran);
+        scope.add_finalizer(move || remaining.lock().unwrap().push("remaining"));
+        scope.add_finalizer(|| panic!("release"));
+
+        let spills = scope.close();
+        assert_eq!(
+            *ran.lock().unwrap(),
+            vec!["remaining"],
+            "a throwing finalizer must not skip the one registered before it"
+        );
+        assert_eq!(spills.len(), 1);
+        assert!(
+            spills[0].message.contains("release"),
+            "the panic rides the close as a defect: {:?}",
+            spills[0].message
+        );
     }
 
     #[test]

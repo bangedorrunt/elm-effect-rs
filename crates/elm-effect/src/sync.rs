@@ -1255,9 +1255,22 @@ impl<A: Send> Queue<A> {
     }
 }
 
-/// A counting semaphore: at most `permits` holders at once.
+/// A counting semaphore (`Semaphore.ts` at the pin): one pool of `permits`
+/// permits, `taken` of them out on loan, and takes that are all-or-nothing.
+///
+/// A take larger than the pool waits forever, which is the pin's `never`
+/// (row 115): there is no partial grant on this type. The partitioned
+/// semaphore next door is where a wait accumulates permits in stages.
+/// Releasing returns the count actually restored, so a caller cannot
+/// invent permits by releasing more than it took.
+struct SemState {
+    permits: usize,
+    taken: usize,
+}
+
+/// A counting semaphore: at most `permits` permits loaned at once.
 pub struct Semaphore {
-    inner: Mutex<usize>,
+    inner: Mutex<SemState>,
     changed: Condvar,
 }
 
@@ -1265,39 +1278,132 @@ impl Semaphore {
     /// A semaphore with `permits` permits.
     pub fn new(permits: usize) -> Self {
         Self {
-            inner: Mutex::new(permits),
+            inner: Mutex::new(SemState { permits, taken: 0 }),
             changed: Condvar::new(),
         }
     }
 
-    /// Take a permit, blocking until one is free.
-    pub fn acquire(&self) {
-        let mut guard = self.inner.lock().unwrap();
-        while *guard == 0 {
-            guard = self.changed.wait(guard).unwrap();
+    /// `Semaphore.take(n)`: block until `n` permits are free, then take all
+    /// of them. A take of zero returns at once, and a take above the pool
+    /// never returns.
+    pub fn take(&self, permits: usize) -> usize {
+        let mut state = self.inner.lock().unwrap();
+        while state.permits - state.taken < permits {
+            state = self.changed.wait(state).unwrap();
         }
-        *guard -= 1;
+        state.taken += permits;
+        permits
     }
 
-    /// Take a permit without blocking. False when none is free.
-    pub fn try_acquire(&self) -> bool {
-        let mut guard = self.inner.lock().unwrap();
-        if *guard == 0 {
+    /// `Semaphore.takeIfAvailable(n)`: take `n` when they are free, else
+    /// report false without waiting or taking a part.
+    pub fn take_if_available(&self, permits: usize) -> bool {
+        let mut state = self.inner.lock().unwrap();
+        if state.permits - state.taken < permits {
             return false;
         }
-        *guard -= 1;
+        state.taken += permits;
         true
     }
 
-    /// Return a permit.
-    pub fn release(&self) {
-        *self.inner.lock().unwrap() += 1;
-        self.changed.notify_one();
+    /// `Semaphore.release(n)`: restore up to `n` permits and answer how many
+    /// were actually out on loan, which is the pin's count.
+    pub fn release(&self, permits: usize) -> usize {
+        let mut state = self.inner.lock().unwrap();
+        let restored = permits.min(state.taken);
+        state.taken -= restored;
+        drop(state);
+        self.changed.notify_all();
+        restored
+    }
+
+    /// `Semaphore.releaseAll`: restore every loaned permit and answer the
+    /// count.
+    pub fn release_all(&self) -> usize {
+        let mut state = self.inner.lock().unwrap();
+        let restored = state.taken;
+        state.taken = 0;
+        drop(state);
+        self.changed.notify_all();
+        restored
+    }
+
+    /// `Semaphore.resize(n)`: change the pool size. Shrinking below what is
+    /// loaned leaves `available` at zero until the loans come back.
+    pub fn resize(&self, permits: usize) {
+        self.inner.lock().unwrap().permits = permits;
+        self.changed.notify_all();
     }
 
     /// Permits currently free.
     pub fn available(&self) -> usize {
-        *self.inner.lock().unwrap()
+        let state = self.inner.lock().unwrap();
+        state.permits.saturating_sub(state.taken)
+    }
+
+    /// The pool size (`Semaphore.size`).
+    pub fn size(&self) -> usize {
+        self.inner.lock().unwrap().permits
+    }
+
+    /// Run `f` while holding `permits`.
+    pub fn with_permits<R>(&self, permits: usize, f: impl FnOnce() -> R) -> R {
+        self.take(permits);
+        let out = f();
+        self.release(permits);
+        out
+    }
+
+    /// Run `f` while holding `permits`, or answer `None` without running it
+    /// when they are not free (`withPermitsIfAvailable`).
+    pub fn with_permits_if_available<R>(&self, permits: usize, f: impl FnOnce() -> R) -> Option<R> {
+        if !self.take_if_available(permits) {
+            return None;
+        }
+        let out = f();
+        self.release(permits);
+        Some(out)
+    }
+
+    /// A take that observes an external interruption: waits on the changed
+    /// latch in a 1ms quantum and gives up holding nothing once
+    /// `interrupted` turns true. This is the portable stand-in for a fiber
+    /// interrupt landing on a parked `take`.
+    pub fn take_interruptible(
+        &self,
+        permits: usize,
+        interrupted: &dyn Fn() -> bool,
+    ) -> Option<usize> {
+        let mut state = self.inner.lock().unwrap();
+        loop {
+            if state.permits - state.taken >= permits {
+                state.taken += permits;
+                return Some(permits);
+            }
+            if interrupted() {
+                return None;
+            }
+            let (next, _) = self
+                .changed
+                .wait_timeout(state, std::time::Duration::from_millis(1))
+                .unwrap();
+            state = next;
+        }
+    }
+
+    /// The interruption-aware `withPermits`: an interrupted wait takes
+    /// nothing and does not run `f`, so no permit leaks out of a take that
+    /// never finished.
+    pub fn with_permits_interruptible<R>(
+        &self,
+        permits: usize,
+        interrupted: &dyn Fn() -> bool,
+        f: impl FnOnce() -> R,
+    ) -> Option<R> {
+        self.take_interruptible(permits, interrupted)?;
+        let out = f();
+        self.release(permits);
+        Some(out)
     }
 }
 

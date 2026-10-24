@@ -844,7 +844,7 @@ tests = ["packages/effect/test/schema/SchemaTransformation.test.ts"]
 [[module]]
 path = "packages/effect/src/Scope.ts"
 class = "port"
-status = "excused"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Scope.test.ts"]
@@ -868,7 +868,7 @@ tests = ["packages/effect/test/ScopedRef.test.ts"]
 [[module]]
 path = "packages/effect/src/Semaphore.ts"
 class = "port"
-status = "excused"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Semaphore.test.ts"]
