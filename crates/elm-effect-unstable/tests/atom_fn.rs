@@ -234,3 +234,25 @@ fn without_accumulation_each_pull_replaces_the_chunk() {
         other => panic!("expected the newest chunk, got {other:?}"),
     }
 }
+
+#[test]
+fn a_fn_atom_write_inside_a_batch_notifies_once_at_commit() {
+    // Atom.test.ts :1277 — a call and its resolution inside one batch reach a
+    // listener once, with the committed result.
+    let calls = fn_atom(|value: i64| Effect::<i64, String>::succeed(value));
+    let registry = inline();
+    let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let log = Arc::clone(&seen);
+    let _sub = registry.subscribe(calls.atom(), move |value: AsyncResult<i64, String>| {
+        log.lock().unwrap().push(value);
+    });
+
+    registry.batch(|| {
+        let call = calls.call(&registry, 4);
+        calls.resolve(&registry, call.id, elm_effect::Exit::Success(9));
+    });
+
+    let seen = seen.lock().unwrap();
+    assert_eq!(seen.len(), 1, "one notification for the batch");
+    assert_eq!(seen[0].value(), Some(&9), "and it holds the committed value");
+}

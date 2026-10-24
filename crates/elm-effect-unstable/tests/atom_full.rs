@@ -488,3 +488,33 @@ fn registries_do_not_share_derived_values() {
     assert_eq!(first.get(&derived), 11);
     assert_eq!(second.get(&derived), 2);
 }
+
+#[test]
+fn an_initial_value_is_silent_without_a_listener() {
+    // Atom.test.ts :1265 — seeding a node with `initialValue` notifies
+    // nobody; a listener added afterwards hears only real changes.
+    let atom = elm_effect_unstable::reactivity::Atom::make(0i64).initial_value(9);
+    let registry = Registry::make();
+    assert_eq!(registry.get(&atom), 9);
+
+    let seen = Arc::new(AtomicUsize::new(0));
+    let counter = seen.clone();
+    let _sub = registry.subscribe(&atom, move |_| {
+        counter.fetch_add(1, Ordering::SeqCst);
+    });
+    assert_eq!(seen.load(Ordering::SeqCst), 0, "the seed is not a change");
+    registry.set(&atom, 10);
+    assert_eq!(seen.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn a_mapped_atom_reads_the_initial_value_and_rerenders_on_change() {
+    // Atom.test.ts :1306 — a derived atom over an `initialValue` atom reads
+    // the seeded value, and still rebuilds when the source changes.
+    let source = elm_effect_unstable::reactivity::Atom::make(1i64).initial_value(10);
+    let derived = map(&source, |n: &i64| n * 2);
+    let registry = Registry::make();
+    assert_eq!(registry.get(&derived), 20, "the seed flows through the map");
+    registry.set(&source, 3);
+    assert_eq!(registry.get(&derived), 6);
+}
