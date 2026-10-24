@@ -256,3 +256,27 @@ fn a_fn_atom_write_inside_a_batch_notifies_once_at_commit() {
     assert_eq!(seen.len(), 1, "one notification for the batch");
     assert_eq!(seen[0].value(), Some(&9), "and it holds the committed value");
 }
+
+#[test]
+fn a_fn_sync_atom_reads_none_until_called() {
+    // Atom.test.ts :1085 — `Atom.fnSync` starts empty and computes on call.
+    let double = elm_effect_unstable::reactivity::fn_sync(|value: i64| value * 2);
+    let registry = inline();
+    assert_eq!(registry.get(double.atom()), None);
+
+    double.call(&registry, 21);
+    assert_eq!(registry.get(double.atom()), Some(42));
+
+    double.call(&registry, 2);
+    assert_eq!(registry.get(double.atom()), Some(4), "each call recomputes");
+}
+
+#[test]
+fn a_fn_sync_reset_returns_to_none() {
+    // The `Reset` control on a synchronous callable atom.
+    let double = elm_effect_unstable::reactivity::fn_sync(|value: i64| value * 2);
+    let registry = inline();
+    double.call(&registry, 5);
+    double.reset(&registry);
+    assert_eq!(registry.get(double.atom()), None);
+}

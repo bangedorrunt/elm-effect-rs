@@ -1126,6 +1126,56 @@ where
     }
 }
 
+/// `Atom.fnSync`: a synchronously callable atom. Before any call the value is
+/// `None`; each call recomputes from its argument.
+pub struct FnSyncAtom<Arg, A> {
+    atom: Atom<Option<A>>,
+    run: Arc<dyn Fn(Arg) -> A + Send + Sync>,
+}
+
+impl<Arg, A> Clone for FnSyncAtom<Arg, A> {
+    fn clone(&self) -> Self {
+        Self {
+            atom: self.atom.clone(),
+            run: Arc::clone(&self.run),
+        }
+    }
+}
+
+impl<Arg, A> FnSyncAtom<Arg, A>
+where
+    Arg: Send + Sync + 'static,
+    A: Clone + Send + Sync + 'static,
+{
+    /// The atom whose value is the last call's answer.
+    pub fn atom(&self) -> &Atom<Option<A>> {
+        &self.atom
+    }
+
+    /// Call with `arg`: compute now and write the result.
+    pub fn call(&self, registry: &Arc<Registry>, arg: Arg) {
+        registry.set(&self.atom, Some((self.run)(arg)));
+    }
+
+    /// `Atom.Reset`: back to `None`.
+    pub fn reset(&self, registry: &Arc<Registry>) {
+        registry.set(&self.atom, None);
+    }
+}
+
+/// Build a synchronous callable atom.
+pub fn fn_sync<Arg, A, F>(run: F) -> FnSyncAtom<Arg, A>
+where
+    Arg: Send + Sync + 'static,
+    A: Clone + Send + Sync + 'static,
+    F: Fn(Arg) -> A + Send + Sync + 'static,
+{
+    FnSyncAtom {
+        atom: Atom::<Option<A>>::make(None),
+        run: Arc::new(run),
+    }
+}
+
 /// One pulled chunk: the accumulated items so far and whether the source is
 /// spent. `items` is empty only alongside `done`.
 #[derive(Clone, Debug, PartialEq)]
