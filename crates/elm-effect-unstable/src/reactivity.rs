@@ -245,6 +245,60 @@ fn write_of(id: u64) -> Option<Arc<WriteFn>> {
         .and_then(|writes| writes.get(&id).map(Arc::clone))
 }
 
+/// The context a read runs with: the pin's `AtomContext`. A readable atom
+/// reads its sources through this rather than through a single fixed source.
+pub struct ReadContext {
+    registry: Arc<Registry>,
+}
+
+impl ReadContext {
+    /// Another atom's current value, tracked as a dependency by the caller's
+    /// own refresh.
+    pub fn get<T: Clone + Send + Sync + 'static>(&self, atom: &Atom<T>) -> T {
+        self.registry.get(atom)
+    }
+
+    /// Refresh another atom (`get.refresh`).
+    pub fn refresh<T: Clone + Send + Sync + 'static>(&self, atom: &Atom<T>) {
+        self.registry.refresh(atom);
+    }
+}
+
+/// `Atom.readable`: a node whose value comes from a read function that can
+/// read several atoms.
+///
+/// Ceiling: this carrier tracks no dependency edges from a readable node to
+/// the atoms it reads, so a source change does not stale it. Refresh it
+/// explicitly (the pin's `get.refresh`) until the read context records
+/// dependencies.
+pub fn readable<T, F>(read: F) -> Atom<T>
+where
+    T: Clone + Send + Sync + 'static,
+    F: Fn(&ReadContext) -> T + Send + Sync + 'static,
+{
+    let spec = Arc::new(AtomSpec {
+        id: NEXT_ATOM_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
+        kind: AtomKind::Readable {
+            read: Box::new(move |context: &ReadContext| {
+                Arc::new(read(context)) as AnyValue
+            }),
+        },
+        // A readable node holds whatever its read acquired, so it survives a
+        // disposal pass like the pin's `keepAlive` runtime reads.
+        keep_alive: std::sync::atomic::AtomicBool::new(true),
+        equality: std::sync::Mutex::new(None),
+        lazy: std::sync::atomic::AtomicBool::new(true),
+        label: std::sync::Mutex::new(None),
+        idle_ttl: std::sync::Mutex::new(None),
+        initial_override: std::sync::Mutex::new(None),
+    });
+    register_spec(&spec);
+    Atom {
+        spec,
+        marker: std::marker::PhantomData,
+    }
+}
+
 /// The context a write runs with: the pin's `WriteContext`.
 pub struct WriteContext {
     registry: Arc<Registry>,
@@ -292,6 +346,11 @@ enum AtomKind {
         derive: Box<dyn Fn(&dyn std::any::Any) -> AnyValue + Send + Sync>,
     },
     Async(AsyncSpec),
+    /// `Atom.readable(read)`: a node that reads other atoms through a
+    /// context, so a derived value can depend on more than one source.
+    Readable {
+        read: Box<dyn Fn(&ReadContext) -> AnyValue + Send + Sync>,
+    },
 }
 
 /// The two halves of an asynchronous atom: how to run the work, and how to
@@ -1779,7 +1838,7 @@ impl Registry {
                 self.start_async(&atom.spec);
                 self.notify(atom.spec.id);
             }
-            AtomKind::Map { .. } => {
+            AtomKind::Map { .. } | AtomKind::Readable { .. } => {
                 if let Some(node) = self.nodes.lock().unwrap().get_mut(&atom.spec.id) {
                     node.dirty = true;
                 }
@@ -2175,6 +2234,9 @@ impl Registry {
                 // `Arc<dyn Any + Send + Sync>`, whose type is the wrapper.
                 derive(&*source_value)
             }
+            AtomKind::Readable { read } => read(&ReadContext {
+                registry: Arc::clone(self),
+            }),
         }
     }
 
