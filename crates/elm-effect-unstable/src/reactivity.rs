@@ -250,14 +250,29 @@ enum AtomKind {
 /// rebuild the typed [`AsyncResult`] from erased pieces (the node stores one
 /// `AnyValue`, so the type is known only at construction).
 struct AsyncSpec {
-    fetch: Box<dyn Fn() -> Result<AnyValue, AnyValue> + Send + Sync>,
+    /// `None` means the node has no work to do yet (a callable atom before
+    /// its first call); the node keeps its current value.
+    fetch: Box<dyn Fn() -> Option<FetchResult> + Send + Sync>,
     ops: Arc<dyn AsyncOps>,
+    /// The state a fresh node starts in: waiting for `async_atom`, plain
+    /// initial for a callable that has not been called.
+    start_waiting: bool,
+}
+
+/// What a fetch produced: a value, a typed error, or a non-typed failure
+/// (a defect or an interruption, which has no `E` to carry).
+enum FetchResult {
+    Success(AnyValue),
+    Failure(AnyValue),
+    Defect(String),
 }
 
 trait AsyncOps: Send + Sync {
     fn initial(&self) -> AnyValue;
+    fn initial_plain(&self) -> AnyValue;
     fn success(&self, value: AnyValue, previous: Option<AnyValue>) -> AnyValue;
     fn failure(&self, error: AnyValue, previous: Option<AnyValue>) -> AnyValue;
+    fn defect(&self, message: String, previous: Option<AnyValue>) -> AnyValue;
     fn waiting(&self, current: &AnyValue) -> AnyValue;
     fn previous(&self, current: &AnyValue) -> Option<AnyValue>;
     fn needs_fetch(&self, current: &AnyValue) -> bool;
@@ -280,12 +295,25 @@ where
         Arc::new(AsyncResult::<T, E>::initial_waiting())
     }
 
+    fn initial_plain(&self) -> AnyValue {
+        Arc::new(AsyncResult::<T, E>::initial())
+    }
+
     fn success(&self, value: AnyValue, _previous: Option<AnyValue>) -> AnyValue {
         Arc::new(AsyncResult::<T, E>::success((*typed::<T>(value)).clone()))
     }
 
     fn failure(&self, error: AnyValue, previous: Option<AnyValue>) -> AnyValue {
         let cause = <elm_effect::cause::Cause<E>>::fail((*typed::<E>(error)).clone());
+        let carried = previous.map(|value| {
+            AsyncResult::<T, E>::success_state((*typed::<T>(value)).clone())
+        });
+        Arc::new(AsyncResult::<T, E>::failure_with(cause, carried))
+    }
+
+    fn defect(&self, message: String, previous: Option<AnyValue>) -> AnyValue {
+        let cause =
+            <elm_effect::cause::Cause<E>>::die(elm_effect::cause::Defect::new(message));
         let carried = previous.map(|value| {
             AsyncResult::<T, E>::success_state((*typed::<T>(value)).clone())
         });
@@ -854,11 +882,13 @@ where
         id: NEXT_ATOM_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
         kind: AtomKind::Async(AsyncSpec {
             fetch: Box::new(move || {
-                fetch()
-                    .map(|value| Arc::new(value) as AnyValue)
-                    .map_err(|error| Arc::new(error) as AnyValue)
+                Some(match fetch() {
+                    Ok(value) => FetchResult::Success(Arc::new(value) as AnyValue),
+                    Err(error) => FetchResult::Failure(Arc::new(error) as AnyValue),
+                })
             }),
             ops: Arc::new(TypedOps::<T, E>(std::marker::PhantomData)),
+            start_waiting: true,
         }),
         keep_alive: std::sync::atomic::AtomicBool::new(false),
         equality: std::sync::Mutex::new(None),
@@ -927,6 +957,231 @@ where
         let atom = (self.make)(key);
         cache.insert(key.clone(), atom.clone());
         atom
+    }
+}
+
+/// Name a cause that carries no typed error: its first defect's message, or
+/// the shape of the failure when there is none.
+fn describe_cause<E>(cause: &elm_effect::Cause<E>) -> String {
+    match cause.defects().first() {
+        Some(defect) => defect.message.clone(),
+        None => "the effect failed without a typed error".to_string(),
+    }
+}
+/// `Atom.fn(effect)`: a callable atom. Calling it hands back the effect to
+/// interpret and puts the atom in `waiting`; resolving the call writes the
+/// [`AsyncResult`]. A later call supersedes an earlier one, so an older
+/// answer cannot land.
+///
+/// The atom never interprets: the application's runtime edge runs the effect
+/// and hands the [`Exit`](elm_effect::Exit) to [`FnAtom::resolve`].
+pub struct FnAtom<Arg, A: Send + 'static, E: Send + 'static> {
+    atom: Atom<AsyncResult<A, E>>,
+    make: Arc<dyn Fn(Arg) -> elm_effect::effect::Effect<A, E> + Send + Sync>,
+    latest: Arc<std::sync::atomic::AtomicU64>,
+}
+
+/// One call in flight: the effect to interpret and the id its answer must
+/// carry back.
+pub struct FnCall<A: Send + 'static, E: Send + 'static> {
+    pub id: u64,
+    pub effect: elm_effect::effect::Effect<A, E>,
+}
+
+impl<Arg, A: Send + 'static, E: Send + 'static> FnAtom<Arg, A, E>
+where
+    Arg: Clone + Send + Sync + 'static,
+    A: Clone + Send + Sync + 'static,
+    E: Clone + Send + Sync + 'static,
+{
+    /// The atom whose value is the current call's result.
+    pub fn atom(&self) -> &Atom<AsyncResult<A, E>> {
+        &self.atom
+    }
+
+    /// Start a call: the atom goes waiting and the effect comes back for the
+    /// caller's runtime to interpret.
+    pub fn call(&self, registry: &Arc<Registry>, arg: Arg) -> FnCall<A, E> {
+        let id = self
+            .latest
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            + 1;
+        let current = registry.get(&self.atom);
+        registry.set(&self.atom, current.mark_waiting());
+        FnCall {
+            id,
+            effect: (self.make)(arg),
+        }
+    }
+
+    /// Commit a call's outcome. An answer from a superseded call is dropped,
+    /// which is the pin's interruption of earlier runs.
+    pub fn resolve(&self, registry: &Arc<Registry>, call_id: u64, exit: elm_effect::Exit<A, E>) {
+        if call_id != self.latest.load(std::sync::atomic::Ordering::SeqCst) {
+            return;
+        }
+        match exit {
+            elm_effect::Exit::Success(value) => {
+                registry.set(&self.atom, AsyncResult::success(value));
+            }
+            elm_effect::Exit::Failure(cause) => {
+                let previous = registry.get(&self.atom).previous_value();
+                registry.set(
+                    &self.atom,
+                    AsyncResult::failure_with(cause, previous.map(AsyncResult::success_state)),
+                );
+            }
+        }
+    }
+
+    /// `Atom.Reset`: drop the argument and return to the initial state.
+    pub fn reset(&self, registry: &Arc<Registry>) {
+        self.latest
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        registry.set(&self.atom, AsyncResult::initial());
+    }
+
+    /// `Atom.Interrupt`: cancel the run and expose an interruption failure.
+    pub fn interrupt(&self, registry: &Arc<Registry>) {
+        self.latest
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        registry.set(
+            &self.atom,
+            AsyncResult::failure(elm_effect::cause::Cause::interrupt(None)),
+        );
+    }
+}
+
+impl<Arg, A: Send + 'static, E: Send + 'static> Clone for FnAtom<Arg, A, E> {
+    fn clone(&self) -> Self {
+        Self {
+            atom: self.atom.clone(),
+            make: Arc::clone(&self.make),
+            latest: Arc::clone(&self.latest),
+        }
+    }
+}
+
+/// Build a callable atom from an effect function. The effect is only built,
+/// never run here: [`FnAtom::call`] returns it.
+pub fn fn_atom<Arg, A, E, F>(f: F) -> FnAtom<Arg, A, E>
+where
+    Arg: Clone + Send + Sync + 'static,
+    A: Clone + Send + Sync + 'static,
+    E: Clone + Send + Sync + 'static,
+    F: Fn(Arg) -> elm_effect::effect::Effect<A, E> + Send + Sync + 'static,
+{
+    FnAtom {
+        atom: Atom::make(AsyncResult::<A, E>::initial()),
+        make: Arc::new(f),
+        latest: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+    }
+}
+
+/// One pulled chunk: the accumulated items so far and whether the source is
+/// spent. `items` is empty only alongside `done`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PullChunk<A> {
+    pub done: bool,
+    pub items: Vec<A>,
+}
+
+/// `Atom.pull`: an atom that takes one chunk from a [`Pull`](elm_effect::pull::Pull)
+/// source per refresh, accumulating items unless told not to.
+///
+/// Ceiling: the pin reports `NoSuchElementError` when a stream ends without
+/// items; this carrier reports `done` with an empty batch inside the success.
+pub struct PullAtom<A, E> {
+    atom: Atom<AsyncResult<PullChunk<A>, E>>,
+    done: Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl<A, E> PullAtom<A, E>
+where
+    A: Clone + Send + Sync + 'static,
+    E: Clone + Send + Sync + 'static,
+{
+    /// The atom holding the pulled chunk.
+    pub fn atom(&self) -> &Atom<AsyncResult<PullChunk<A>, E>> {
+        &self.atom
+    }
+
+    /// `pull`: take the next chunk.
+    pub fn pull(&self, registry: &Arc<Registry>) {
+        registry.refresh(&self.atom);
+    }
+
+    /// `true` once the source has answered `End`.
+    pub fn is_done(&self) -> bool {
+        self.done.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+/// Build a pull atom from a [`Pull`](elm_effect::pull::Pull) source. Each pull
+/// takes one `Take`; `Take::Items` accumulates, `Take::End` marks the result
+/// done.
+pub fn pull_atom<A, E>(source: elm_effect::pull::Pull<A, E>, accumulate: bool) -> PullAtom<A, E>
+where
+    A: Clone + Send + Sync + 'static,
+    E: Clone + Send + Sync + 'static,
+{
+    let source = Arc::new(Mutex::new(source));
+    let accumulated: Arc<Mutex<Vec<A>>> = Arc::new(Mutex::new(Vec::new()));
+    let done = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let (source_slot, acc_slot, done_slot) = (
+        Arc::clone(&source),
+        Arc::clone(&accumulated),
+        Arc::clone(&done),
+    );
+    let spec = Arc::new(AtomSpec {
+        id: NEXT_ATOM_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
+        kind: AtomKind::Async(AsyncSpec {
+            fetch: Box::new(move || {
+                let take = source_slot.lock().unwrap().pull();
+                let (items, is_end) = match take {
+                    elm_effect::take::Take::Items(items) => (items, false),
+                    elm_effect::take::Take::End => (Vec::new(), true),
+                    elm_effect::take::Take::Fail(cause) => match cause.find_error() {
+                        Some(error) => {
+                            return Some(FetchResult::Failure(Arc::new(error.clone()) as AnyValue))
+                        }
+                        None => return Some(FetchResult::Defect(describe_cause(&cause))),
+                    },
+                };
+                if is_end {
+                    done_slot.store(true, std::sync::atomic::Ordering::SeqCst);
+                }
+                let mut acc = acc_slot.lock().unwrap();
+                if accumulate {
+                    acc.extend(items.iter().cloned());
+                    Some(FetchResult::Success(Arc::new(PullChunk {
+                        done: is_end,
+                        items: acc.clone(),
+                    }) as AnyValue))
+                } else {
+                    Some(FetchResult::Success(Arc::new(PullChunk {
+                        done: is_end,
+                        items,
+                    }) as AnyValue))
+                }
+            }),
+            ops: Arc::new(TypedOps::<PullChunk<A>, E>(std::marker::PhantomData)),
+            start_waiting: true,
+        }),
+        keep_alive: std::sync::atomic::AtomicBool::new(true),
+        equality: std::sync::Mutex::new(None),
+        lazy: std::sync::atomic::AtomicBool::new(true),
+        label: std::sync::Mutex::new(None),
+        idle_ttl: std::sync::Mutex::new(None),
+        initial_override: std::sync::Mutex::new(None),
+    });
+    register_spec(&spec);
+    PullAtom {
+        atom: Atom {
+            spec,
+            marker: std::marker::PhantomData,
+        },
+        done,
     }
 }
 
@@ -1098,6 +1353,8 @@ impl Registry {
     /// `registry.refresh`: re-run an asynchronous atom, or rebuild a derived
     /// one even though its source did not change.
     pub fn refresh<T: Clone + Send + Sync + 'static>(self: &Arc<Self>, atom: &Atom<T>) {
+        // A refresh mounts the node: the pin's `refresh` reads it first.
+        self.ensure_node(&atom.spec);
         match &atom.spec.kind {
             AtomKind::Async(async_spec) => {
                 {
@@ -1275,7 +1532,7 @@ impl Registry {
         self: &Arc<Self>,
         spec: &Arc<AtomSpec>,
         generation: u64,
-        result: Result<AnyValue, AnyValue>,
+        result: Option<FetchResult>,
     ) {
         let AtomKind::Async(async_spec) = &spec.kind else {
             return;
@@ -1288,10 +1545,15 @@ impl Registry {
             return;
         }
         node.in_flight = false;
+        let Some(result) = result else {
+            // Nothing to do yet: the node keeps its value untouched.
+            return;
+        };
         let previous = async_spec.ops.previous(&node.value);
         node.value = match result {
-            Ok(value) => async_spec.ops.success(value, previous),
-            Err(error) => async_spec.ops.failure(error, previous),
+            FetchResult::Success(value) => async_spec.ops.success(value, previous),
+            FetchResult::Failure(error) => async_spec.ops.failure(error, previous),
+            FetchResult::Defect(message) => async_spec.ops.defect(message, previous),
         };
         node.dirty = false;
         node.last_used = std::time::Instant::now();
@@ -1401,13 +1663,21 @@ impl Registry {
     /// the way. A read keeps the node present, which is the mount. The build
     /// happens outside the lock: a derived atom's build reads the registry
     /// (its source), and this mutex is not reentrant.
-    fn node_value(self: &Arc<Self>, spec: &Arc<AtomSpec>) -> AnyValue {
-        let present = self.nodes.lock().unwrap().contains_key(&spec.id);
-        if !present {
-            let value = self.initial_value(spec);
-            let mut nodes = self.nodes.lock().unwrap();
-            nodes.entry(spec.id).or_insert(AtomNodeState::new(value));
+    /// Mount the node with its initial value when it is absent.
+    fn ensure_node(self: &Arc<Self>, spec: &Arc<AtomSpec>) {
+        if self.nodes.lock().unwrap().contains_key(&spec.id) {
+            return;
         }
+        let value = self.initial_value(spec);
+        self.nodes
+            .lock()
+            .unwrap()
+            .entry(spec.id)
+            .or_insert(AtomNodeState::new(value));
+    }
+
+    fn node_value(self: &Arc<Self>, spec: &Arc<AtomSpec>) -> AnyValue {
+        self.ensure_node(spec);
         let (dirty, start_async) = {
             let mut nodes = self.nodes.lock().unwrap();
             let node = nodes.get_mut(&spec.id).expect("present");
@@ -1461,7 +1731,13 @@ impl Registry {
                 .unwrap()
                 .as_ref()
                 .map_or_else(|| Arc::clone(initial), Arc::clone),
-            AtomKind::Async(async_spec) => async_spec.ops.initial(),
+            AtomKind::Async(async_spec) => {
+                if async_spec.start_waiting {
+                    async_spec.ops.initial()
+                } else {
+                    async_spec.ops.initial_plain()
+                }
+            }
             AtomKind::Map { source, derive } => {
                 let source_value = self.source_value(*source);
                 // `&*source_value` hands the derive the INNER value: a
