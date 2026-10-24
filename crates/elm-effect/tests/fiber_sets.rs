@@ -45,6 +45,57 @@ fn wait_until(cond: impl Fn() -> bool, what: &str) {
 
 // --- FiberSet ---
 
+/// Fiber.test.ts:70 `awaits fibers passed as a one-shot iterable`. The observable
+/// is that interrupting a collection waits for each fiber's cleanup; `clear`
+/// interrupts and then joins, so a member whose cleanup parks on a latch
+/// opened later must have finished by the time `clear` returns.
+#[test]
+fn clear_waits_for_the_cleanup_of_interrupted_members() {
+    let mut set: FiberSet<(), String> = FiberSet::new(Runtime::new());
+    let cleaned = flag();
+    let release = flag();
+    let started = flag();
+
+    set.run({
+        let cleaned = cleaned.clone();
+        let release = release.clone();
+        let started = started.clone();
+        move |ctx| {
+            started.store(true, Ordering::SeqCst);
+            while !ctx.is_interrupted() {
+                std::thread::park_timeout(Duration::from_millis(1));
+            }
+            // The cleanup the interrupt has to wait for: it does not finish
+            // until the releaser below fires, so a clear that returned early
+            // would leave `cleaned` false.
+            while !release.load(Ordering::SeqCst) {
+                std::thread::park_timeout(Duration::from_millis(1));
+            }
+            cleaned.store(true, Ordering::SeqCst);
+            Exit::Failure(Cause::interrupt(None))
+        }
+    });
+
+    wait_until(
+        || started.load(Ordering::SeqCst),
+        "the member enters its body",
+    );
+    let releaser = {
+        let release = release.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(30));
+            release.store(true, Ordering::SeqCst);
+        })
+    };
+
+    set.clear();
+    assert!(
+        cleaned.load(Ordering::SeqCst),
+        "clear returned before the interrupted member cleaned up"
+    );
+    releaser.join().expect("releaser");
+}
+
 #[test]
 fn set_runs_and_joins() {
     let mut set = FiberSet::new(Runtime::new());

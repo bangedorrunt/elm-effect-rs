@@ -2337,6 +2337,47 @@ fn on_exit_reports_a_thrown_finalizer_on_success() {
     assert_eq!(cause.defects()[0].message, "finalizer defect");
 }
 
+/// Fiber.test.ts:205 `runs an async interrupt finalizer exactly once, in
+/// order`. A self-interrupt ends the run at the next boundary: the finalizer
+/// runs once, the code after it never runs, and an awaiter only resumes once
+/// the run has settled. The pin's finalizer yields between its start and end;
+/// this port's finalizer is synchronous, so both halves are one callback.
+#[test]
+fn an_interrupt_finalizer_runs_once_before_the_awaiter_resumes() {
+    let events = Arc::new(Mutex::new(Vec::<&'static str>::new()));
+    let body_events = Arc::clone(&events);
+    let finalizer_events = Arc::clone(&events);
+    let tail_events = Arc::clone(&events);
+
+    let effect: Effect<(), String> = Effect::with_fiber(move |fiber| {
+        let fiber = fiber.clone();
+        Effect::<(), String>::sync(move || {
+            fiber.interrupt();
+            body_events.lock().unwrap().push("acquired");
+        })
+        .on_interrupt(move || finalizer_events.lock().unwrap().push("finalizer"))
+        .flat_map(move |_| {
+            tail_events.lock().unwrap().push("unreachable");
+            Effect::succeed(())
+        })
+    });
+
+    let (rt, target) = spawn_effect_any(effect);
+    let exit = target.join();
+    events.lock().unwrap().push("awaited");
+
+    assert!(
+        matches!(&exit, Exit::Failure(cause) if cause.has_interrupts()),
+        "a self-interrupted run ends interrupted: {exit:?}"
+    );
+    assert_eq!(
+        *events.lock().unwrap(),
+        vec!["acquired", "finalizer", "awaited"],
+        "the finalizer runs once, before the awaiter, and the tail never runs"
+    );
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
 /// :2742 `an outer onInterrupt still sees the interruption after an inner
 /// finalizer throws`. The reasons are `[Interrupt, Die]`, in that order, and
 /// the outer finalizer runs even though the inner one panicked.
