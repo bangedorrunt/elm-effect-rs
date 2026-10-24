@@ -1,15 +1,12 @@
 //! OTel exporter fence (feature `otel`): span name/attributes land in the
-//! SDK with no collector. The stable recorder loads via `#[path]` (it is
-//! test-wired, not facade-wired); only name/attribute strings cross the
-//! adapter boundary.
+//! SDK with no collector. The recorder is the facade's own
+//! `elm_effect::observability::SpanRecorder`; only name/attribute strings
+//! cross the adapter boundary.
 
 #![cfg(feature = "otel")]
 
-#[path = "../../elm-effect/src/observability.rs"]
-mod observability;
-
+use elm_effect::observability::SpanRecorder;
 use elm_effect_unstable::otel::{ExportSpan, OtelExporter, attribute};
-use observability::SpanRecorder;
 
 #[test]
 fn exporter_records_span_name_and_attributes() {

@@ -2,7 +2,10 @@
 //!
 //! Derives encryption + signing material from an identity's root secret via
 //! SHA-256 over a domain-separated, versioned label. Memoized per identity
-//! instance.
+//! value through [`GetIdentityRootSecretMaterial`].
+
+use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
 
 use ed25519_dalek::SigningKey;
 use sha2::{Digest, Sha256};
@@ -53,4 +56,48 @@ pub fn derive_identity_root_secret_material(root_secret: &[u8]) -> IdentityRootS
         signing_public_key,
         signing_private_key,
     }
+}
+
+/// `makeGetIdentityRootSecretMaterial`: the derivation memoized across calls.
+///
+/// The pin caches on the identity object with a `WeakMap`; an identity here is
+/// a value, so the cache keys on its two fields. One instance asked twice gets
+/// the same `Arc`, and a second instance with the same secret gets the same
+/// answer, because the derivation is a pure function of the secret.
+pub struct GetIdentityRootSecretMaterial {
+    cache: Mutex<BTreeMap<(String, Vec<u8>), Arc<IdentityRootSecretMaterial>>>,
+}
+
+impl GetIdentityRootSecretMaterial {
+    /// An empty cache.
+    pub fn new() -> Self {
+        Self {
+            cache: Mutex::new(BTreeMap::new()),
+        }
+    }
+
+    /// The material for `identity`, derived once and reused after that.
+    pub fn call(&self, identity: &Identity) -> Arc<IdentityRootSecretMaterial> {
+        let key = (identity.public_key.clone(), identity.root_secret.clone());
+        if let Some(cached) = self.cache.lock().unwrap().get(&key) {
+            return Arc::clone(cached);
+        }
+        let derived = Arc::new(derive_identity_root_secret_material(&identity.root_secret));
+        self.cache
+            .lock()
+            .unwrap()
+            .insert(key, Arc::clone(&derived));
+        derived
+    }
+}
+
+impl Default for GetIdentityRootSecretMaterial {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// A fresh memoizing derivation, the pin's factory.
+pub fn make_get_identity_root_secret_material() -> GetIdentityRootSecretMaterial {
+    GetIdentityRootSecretMaterial::new()
 }
