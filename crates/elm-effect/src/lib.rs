@@ -39,8 +39,6 @@ pub mod channel;
 pub mod console;
 // `ChannelSchema` only exists for a schema-encoded boundary, so the feature that
 // brings the schema crate in is the one that carries it.
-#[cfg(feature = "schema")]
-pub mod channel_schema;
 #[cfg(feature = "tokio")]
 mod concurrency;
 // `Config` is the startup read: a descriptor plus `load` against a provider,
@@ -77,7 +75,6 @@ pub mod graph;
 mod json;
 pub mod json_patch;
 mod json_pointer;
-mod json_schema;
 #[cfg(feature = "tokio")]
 mod layer;
 mod metric;
@@ -100,32 +97,6 @@ pub mod pull;
 mod runtime;
 mod schedule;
 pub mod scheduler;
-#[cfg(feature = "schema")]
-mod schema_adapter;
-#[cfg(feature = "schema")]
-mod schema_cause;
-#[cfg(feature = "schema")]
-mod schema_chunk;
-#[cfg(feature = "schema")]
-mod schema_data;
-#[cfg(feature = "schema")]
-mod schema_datetime;
-#[cfg(feature = "schema")]
-mod schema_declarations;
-#[cfg(feature = "schema")]
-mod schema_defect;
-#[cfg(feature = "schema")]
-mod schema_graph;
-#[cfg(feature = "schema")]
-mod schema_duration;
-#[cfg(feature = "schema")]
-mod schema_exit;
-#[cfg(feature = "schema")]
-mod schema_file;
-#[cfg(feature = "schema")]
-mod schema_parser;
-#[cfg(feature = "schema")]
-mod schema_regexp;
 #[cfg(feature = "tokio")]
 mod scope;
 mod service;
@@ -168,8 +139,6 @@ pub use effect::{Effect, Requirement};
 pub use graph::{Graph, Kind};
 #[cfg(feature = "tokio")]
 pub use effect::{Resume, Restore};
-#[cfg(feature = "schema")]
-pub use elm_effect_schema::{Schema, SchemaError, StructValue, Unknown};
 #[cfg(feature = "tokio")]
 pub use executor::{BoxFuture, Executor, TokioExecutor};
 pub use exit::Exit;
@@ -208,50 +177,6 @@ pub use schedule::{
     Decision, LoopOptions, LoopPredicate, Meta, Metadata, Random, RandomError, RandomTag, Schedule,
     Stepper, UpTo, repeat, repeat_with, retry, retry_with,
 };
-#[cfg(feature = "schema")]
-pub use schema_adapter::{
-    AdapterFailure, AdapterRefusal, OPTION_MESSAGE, PROMISE_MESSAGE, RESULT_MESSAGE, SYNC_MESSAGE,
-};
-#[cfg(feature = "schema")]
-pub use schema_cause::{
-    CauseReasonSchema, CauseSchema, cause_reason_schema, cause_schema,
-};
-#[cfg(feature = "schema")]
-pub use schema_data::{
-    bigdecimal, bigdecimal_from_string, byte_size, byte_size_from_number, byte_size_from_string,
-    is_between_bigdecimal, is_greater_than_bigdecimal, is_greater_than_or_equal_to_bigdecimal,
-    is_less_than_bigdecimal, is_less_than_or_equal_to_bigdecimal,
-};
-#[cfg(feature = "schema")]
-pub use schema_chunk::chunk;
-#[cfg(feature = "schema")]
-pub use schema_datetime::date;
-#[cfg(feature = "schema")]
-pub use schema_declarations::declaration_revivers;
-#[cfg(feature = "schema")]
-pub use schema_defect::defect_schema;
-#[cfg(feature = "schema")]
-pub use schema_duration::{duration_from_millis, duration_from_string};
-#[cfg(feature = "schema")]
-pub use schema_exit::{ExitSchema, exit_schema};
-#[cfg(feature = "schema")]
-pub use schema_file::file;
-#[cfg(feature = "schema")]
-pub use schema_graph::graph;
-#[cfg(feature = "schema")]
-pub use schema_parser::{
-    ASYNC_DEFECT, ASSERTION_MESSAGE, GUARD_MESSAGE, SYNC_ISSUE_MESSAGE, asserts,
-    decode_unknown_effect, decode_unknown_effect_with,
-    decode_unknown_exit, decode_unknown_exit_with, decode_unknown_option,
-    decode_unknown_option_with, decode_unknown_result, decode_unknown_result_with,
-    decode_unknown_sync, decode_unknown_sync_with, encode_unknown_effect,
-    encode_unknown_effect_with, encode_unknown_exit, encode_unknown_exit_with,
-    encode_unknown_option, encode_unknown_option_with, encode_unknown_result,
-    encode_unknown_result_with, encode_unknown_sync, encode_unknown_sync_with, make, make_effect,
-    make_effect_with, make_option, make_option_with, make_with, type_guard,
-};
-#[cfg(feature = "schema")]
-pub use schema_regexp::regexp;
 pub use regexp::RegExp;
 #[cfg(feature = "tokio")]
 pub use scope::{Scope, ScopeTag};

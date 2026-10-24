@@ -8,9 +8,7 @@ publish = false
 [features]
 default = ["tokio"]
 tokio = ["dep:tokio"]
-schema = ["dep:elm-effect-schema"]
 stm = []
-full = ["schema", "stm"]
 
 # STM tests need the stm feature (no longer default: default is tokio only).
 [[test]]
@@ -20,70 +18,6 @@ required-features = ["stm"]
 [[test]]
 name = "tx_deferred"
 required-features = ["stm"]
-
-# The schema surface is re-exported from this crate, so its fence lives here.
-[[test]]
-name = "schema_facade"
-required-features = ["schema"]
-
-[[test]]
-name = "schema_adapters"
-required-features = ["schema"]
-
-# The sync adapters are their own surface: they refuse a schema whose steps
-# need an Effect runtime, and this fence is where that refusal is proved.
-[[test]]
-name = "schema_parser"
-required-features = ["schema"]
-
-# `Config.schema` reads provider text through a schema's wire shape, so its
-# fence needs the schema feature.
-[[test]]
-name = "config_schema"
-required-features = ["schema"]
-
-# ChannelSchema adapts this crate's Channel to the schema crate's encoded form,
-# so its fence needs the schema feature.
-[[test]]
-name = "channel_schema"
-required-features = ["schema"]
-
-# The Duration schemas adapt this crate's own `Duration`, so their fence needs
-# the feature that brings the schema crate in.
-[[test]]
-name = "schema_duration"
-required-features = ["schema"]
-
-[[test]]
-name = "schema_cause"
-required-features = ["schema"]
-
-[[test]]
-name = "schema_exit"
-required-features = ["schema"]
-
-# ByteSize and BigDecimal schemas: same gate, same reason.
-[[test]]
-name = "schema_data"
-required-features = ["schema"]
-
-# The declaration revivers for those adapters: a revived document speaks the
-# schema crate's representation, so the same feature gates the fence.
-[[test]]
-name = "schema_declarations"
-required-features = ["schema"]
-
-# The value formatters for the same adapters: `toFormatter` renders what the
-# schema writes out, so these fences need the schema feature too.
-[[test]]
-name = "schema_formatters"
-required-features = ["schema"]
-
-# The time-zone schemas adapt the parked `datetime` types, which arrive through
-# a `cron` include, so their fence needs the schema feature too.
-[[test]]
-name = "schema_datetime"
-required-features = ["schema"]
 
 # TxHashSet's set algebra is behind the stm feature, so its integration test
 # is too: without the gate cargo tries to build it feature-off, where
@@ -103,15 +37,13 @@ name = "tx_reentrant_lock"
 required-features = ["stm"]
 
 [dependencies]
-elm-effect-schema = { path = "../elm-effect-schema", optional = true }
 thiserror = "1"
 tokio = { version = "1", optional = true, features = ["rt", "rt-multi-thread", "sync", "time"] }
-# `bigdecimal` is part of the lib now (its schema is in `schema_data`), so the
-# bignum pair it needs cannot stay dev-only.
+# `bigdecimal` is part of the lib, so the bignum pair it needs cannot stay
+# dev-only. (Port cut candidates; see docs/learnings/minimalism-audit.md.)
 num-bigint = "0.4"
 num-traits = "0.2"
-# `Schema.Date` speaks for this crate's `DateTime`, which is a `jiff::Zoned`,
-# so the parse/format pair cannot stay dev-only.
+# `datetime` is a `jiff::Zoned`, so the parse/format pair cannot stay dev-only.
 jiff = "0.2"
 
 # Used only by test targets, which compile parts of the source tree through

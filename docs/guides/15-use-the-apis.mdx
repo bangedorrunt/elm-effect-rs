@@ -148,32 +148,6 @@ let exit = stream.map(|n| n + 1).take(10).run_collect();
 
 `run_fold` consumes the stream. `map_effect` runs an effect per chunk. The `bound` argument is the maximum number of chunks in flight. `cancel` stops the pull.
 
-## A schema
-
-Enable the `schema` feature.
-
-```rust
-use elm_effect::Schema;
-
-let schema = Schema::<String>::string();
-let text = schema.decode_json("\"hello\"")?;
-let json = schema.encode_json(&text)?;
-```
-
-`decode` takes `Unknown`. `encode` returns `Unknown`. A bad shape is `SchemaError::TypeMismatch`. Bad bytes are `SchemaError::InvalidJson`. `catch_tag` matches a `TaggedError` on its tag.
-
-The parser adapters are in `elm_effect` too. `make(&schema, input)` is the construction path: a constructor default fills a missing field, and a default that died answers `elm_effect_schema::AdapterError::Die` with the adapter's message and the defect. `make_option` answers `None` only for a schema issue, never for a defect. `decode_unknown_sync` and `encode_unknown_sync` answer `Result` where the pin throws. `decode_unknown_effect` answers an `Effect` that is already settled for a sync schema and fails with the schema issue. `type_guard` is the pin's `SchemaParser.is`, spelled out because `is` is a Rust keyword: `true` for a value the schema takes, `false` for a bare issue, and a refusal for a cause that is more than one. `asserts` answers `Ok(())` or hands the schema issue back.
-
-Every adapter has a `_with` twin taking `elm_effect_schema::transform::ParseOptions`: `errors`, `onExcessProperty`, `disableChecks`, `reportInput`, and `concurrency`, scoped to that call. `Decoder`/`Encoder` (from `schema.decoder(options)` and `schema.encoder(options)`) are the creation-time spelling.
-
-A schema can carry an Effect step: `Schema::effect_codec(from, decode, encode)` takes two functions answering `StepFuture`, and `decode_unknown_effect` / `encode_unknown_effect` resolve those steps first, over structs, tuples, arrays, and records. The step is carried rather than resolved by the caller, which is what lets a product whose fields yield run at all. A step that answers on its first poll also runs in `decode_unknown_exit` / `decode_unknown_sync`; one that has to wait is the `ASYNC_DEFECT` die there, which is the pin's `Effect.runSyncExit` rule. `transformEffect`, whose caller already ran the effect, has no step to run and still answers `ASYNC_DEFECT` on the sync adapters.
-
-`ParseOptions.concurrency` schedules those steps: `Concurrency::Bounded(n)` keeps `n` children of a product open and starts the next as a slot frees, `Unbounded` starts them all, and the default `Sequential` runs them in declaration order. The limit is read per product, so nested products each get their own. Under `errors: "first"` the first failure to complete wins and the siblings still open are dropped; under `"all"` the issues accumulate in completion order.
-
-A union is the exception: it tries its members one at a time in declaration order, so the second never starts while the first is pending and never starts at all once one has answered, whatever `concurrency` says. A member whose step refuses hands the turn to the next one; when no member takes the input, the parse reports that refusal rather than decoding the input as if the step had answered.
-
-A constructor default that answers a `StepFuture` (`with_constructor_default_effect`) is scheduled by `make_effect`, under the same limit: absent keys are filled concurrently before the synchronous builder runs. `make_effect` on a schema with no such default is an already-settled `Effect`. A union member or a constructor default outside that walk is not resolved, and the parse reports that node's synchronous refusal instead of a wrong value.
-
 ## A metric
 
 `Metrics` is in the default build. A `Counter`, `Gauge`, `Frequency`, `Histogram`, or `Summary` describes the series; the registry holds the state.
