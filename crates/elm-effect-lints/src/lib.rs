@@ -6,7 +6,7 @@
 //! default build stays quiet, and why this crate is optional rather than a
 //! dependency.
 //!
-//! Three rules, one per law the loop and the effect edge already claim:
+//! Four rules, one per law the loop and the effect edge already claim:
 //!
 //! 1. **The run edge, reached outside `main` and tests.** Interpreting a
 //!    description happens in `main`, in a test, or in `examples/`. Library
@@ -18,6 +18,9 @@
 //! 3. **`tokio::time::sleep` inside an effect module.** Sleeping is a
 //!    description, [`Clock::sleep`](crate) or the effect's own sleep, never
 //!    a direct runtime call inside a module. ADR-0002 L4.
+//! 4. **An ambient capability inside `fn update`.** Time, environment, and
+//!    ambient randomness enter the fold as messages, never as reads inside
+//!    the update body. ADR-0002 L15.
 
 use std::path::Path;
 
@@ -43,6 +46,9 @@ pub enum Rule {
     HashMapInAModel,
     /// `tokio::time::sleep` in a source file.
     SleepInsideAnEffectModule,
+    /// An ambient capability (wall clock, environment, ambient RNG) inside
+    /// `fn update`.
+    AmbientWorldInAFold,
 }
 
 impl Rule {
@@ -52,6 +58,7 @@ impl Rule {
             Self::RunOutsideTheEdge => "run-outside-the-edge",
             Self::HashMapInAModel => "hashmap-in-a-model",
             Self::SleepInsideAnEffectModule => "sleep-inside-an-effect-module",
+            Self::AmbientWorldInAFold => "ambient-world-in-a-fold",
         }
     }
 }
@@ -342,12 +349,45 @@ pub fn sleep_inside_an_effect_module(path: impl AsRef<Path>, src: &str) -> Vec<F
     out
 }
 
+/// Tokens no fold may touch: wall clocks, process environment, ambient RNG.
+const AMBIENT_TOKENS: &[&str] = &["SystemTime", "std::env", "rand::thread_rng"];
+
+/// Rule 4: the fold is pure. Time, environment, and ambient randomness enter
+/// `fn update` as messages or as service values, never as a direct read.
+pub fn ambient_world_in_a_fold(path: impl AsRef<Path>, src: &str) -> Vec<Finding> {
+    let path = path.as_ref().to_string_lossy().replace('\\', "/");
+    if path.contains("/fixtures/") {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    for (start, end) in fn_bodies(src, "update") {
+        let body = &src[start..end];
+        let mut from = 0usize;
+        for token in AMBIENT_TOKENS {
+            while let Some(rel) = body[from..].find(token) {
+                let at = from + rel;
+                out.push(finding(
+                    &path,
+                    src,
+                    start + at,
+                    &format!("update uses ambient capability: {token}"),
+                    Rule::AmbientWorldInAFold,
+                ));
+                from = at + token.len();
+            }
+            from = 0usize;
+        }
+    }
+    out
+}
+
 /// Run every rule over one file.
 pub fn check(path: impl AsRef<Path>, src: &str) -> Vec<Finding> {
     let path = path.as_ref();
     let mut out = run_outside_the_edge(path, src);
     out.extend(hashmap_in_a_model(path, src));
     out.extend(sleep_inside_an_effect_module(path, src));
+    out.extend(ambient_world_in_a_fold(path, src));
     out
 }
 

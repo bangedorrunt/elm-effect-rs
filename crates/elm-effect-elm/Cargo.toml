@@ -18,3 +18,5 @@ thiserror = "1"
 # default feature set.
 [dev-dependencies]
 elm-effect = { path = "../elm-effect", features = ["schema"] }
+# The fold lint rules live in one crate; the tests here call them.
+elm-effect-lints = { path = "../elm-effect-lints" }
