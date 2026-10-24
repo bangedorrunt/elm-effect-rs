@@ -1185,6 +1185,230 @@ where
     }
 }
 
+// ---------------------------------------------------------------------------
+// Runtime atoms: a layer built into a scoped context (`Atom.context`).
+// ---------------------------------------------------------------------------
+
+/// Which memo map a runtime shares. The registry-scoped form is the pin's
+/// default: each registry builds the layer once and keeps the instance.
+#[derive(Clone)]
+pub enum MemoSource {
+    /// One map per registry, held by an atom (the pin's `memoMap` atom).
+    Registry(Atom<elm_effect::LayerMemo>),
+    /// One map shared by every registry handed this value.
+    Shared(elm_effect::LayerMemo),
+}
+
+/// One build in flight: the effect to interpret and the scope its layers
+/// acquire into. The caller interprets, then hands the build back to
+/// [`RuntimeAtom::resolve`] together with the outcome.
+pub struct RuntimeBuild<E: Send + 'static> {
+    pub id: u64,
+    pub effect: elm_effect::effect::Effect<elm_effect::BuiltServices, E>,
+    scope: Arc<elm_effect::Scope>,
+}
+
+/// The pin's `AtomRuntime`: an atom whose value is the built layer, plus the
+/// build scope that owns whatever the layer acquired. Releasing the node (or
+/// calling [`dispose`](RuntimeAtom::dispose)) closes that scope, so a layer's
+/// finalizers run exactly once.
+pub struct RuntimeAtom<T: elm_effect::ServiceTag, E> {
+    atom: Atom<AsyncResult<Arc<T::Service>, E>>,
+    layer: elm_effect::Layer<T, E, ()>,
+    memo: MemoSource,
+    live_scope: Arc<Mutex<Option<Arc<elm_effect::Scope>>>>,
+    latest: Arc<std::sync::atomic::AtomicU64>,
+    hooked: Arc<std::sync::atomic::AtomicBool>,
+}
+
+/// A runtime whose memo map is scoped to each registry.
+pub fn runtime_atom<T, E>(layer: elm_effect::Layer<T, E, ()>) -> RuntimeAtom<T, E>
+where
+    T: elm_effect::ServiceTag,
+    T::Service: Clone + Send + Sync + 'static,
+    E: Clone + Send + Sync + 'static,
+{
+    let memo = Atom::make(elm_effect::LayerMemo::new()).keep_alive();
+    RuntimeAtom::with_memo(layer, MemoSource::Registry(memo))
+}
+
+/// A runtime sharing one memo map across every registry.
+pub fn shared_runtime_atom<T, E>(
+    layer: elm_effect::Layer<T, E, ()>,
+    memo: elm_effect::LayerMemo,
+) -> RuntimeAtom<T, E>
+where
+    T: elm_effect::ServiceTag,
+    T::Service: Clone + Send + Sync + 'static,
+    E: Clone + Send + Sync + 'static,
+{
+    RuntimeAtom::with_memo(layer, MemoSource::Shared(memo))
+}
+
+impl<T, E> RuntimeAtom<T, E>
+where
+    T: elm_effect::ServiceTag,
+    T::Service: Clone + Send + Sync + 'static,
+    E: Clone + Send + Sync + 'static,
+{
+    /// Build a runtime over an explicit memo source.
+    pub fn with_memo(
+        layer: elm_effect::Layer<T, E, ()>,
+        memo: MemoSource,
+    ) -> Self {
+        Self {
+            atom: Atom::make(AsyncResult::initial()),
+            layer,
+            memo,
+            live_scope: Arc::new(Mutex::new(None)),
+            latest: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            hooked: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        }
+    }
+
+    /// The atom whose value is the built layer's service.
+    pub fn atom(&self) -> &Atom<AsyncResult<Arc<T::Service>, E>> {
+        &self.atom
+    }
+
+    /// The memo map atom, when the runtime is registry-scoped.
+    pub fn memo_map_atom(&self) -> Option<&Atom<elm_effect::LayerMemo>> {
+        match &self.memo {
+            MemoSource::Registry(memo) => Some(memo),
+            MemoSource::Shared(_) => None,
+        }
+    }
+
+    /// The cleanup that closes the live scope when the node is released.
+    fn install_hook(&self, registry: &Arc<Registry>) {
+        if self.hooked.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            return;
+        }
+        let live = Arc::clone(&self.live_scope);
+        registry.on_dispose(self.atom.spec.id, move || {
+            if let Some(scope) = live.lock().unwrap().take() {
+                scope.close();
+            }
+        });
+    }
+
+    /// Build the layer synchronously into the runtime's own scope. This is
+    /// the closed-layer path: no interpreter is needed because the layer
+    /// carries no requirements.
+    pub fn build_sync(&self, registry: &Arc<Registry>) -> AsyncResult<Arc<T::Service>, E> {
+        self.install_hook(registry);
+        let scope = Arc::new(elm_effect::Scope::new(
+            NEXT_ATOM_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
+        ));
+        if let Some(previous) = self.live_scope.lock().unwrap().replace(Arc::clone(&scope)) {
+            previous.close();
+        }
+        self.latest
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let outcome = match self.layer.build(&scope) {
+            Ok(services) => match services.get::<T>() {
+                Some(service) => AsyncResult::success(Arc::new(service)),
+                None => {
+                    scope.close();
+                    AsyncResult::failure(elm_effect::cause::Cause::die(
+                        elm_effect::cause::Defect::new(format!(
+                            "the layer built without providing {}",
+                            T::ID
+                        )),
+                    ))
+                }
+            },
+            Err(cause) => {
+                scope.close();
+                AsyncResult::failure(cause)
+            }
+        };
+        registry.set(&self.atom, outcome.clone());
+        outcome
+    }
+
+    /// Start a build: close the previous scope, mark the atom waiting, and
+    /// hand back the effect for the caller's runtime.
+    pub fn build(self: &Arc<Self>, registry: &Arc<Registry>) -> RuntimeBuild<E> {
+        self.install_hook(registry);
+        let memo = match &self.memo {
+            MemoSource::Registry(atom) => registry.get(atom),
+            MemoSource::Shared(memo) => memo.clone(),
+        };
+        let scope = Arc::new(elm_effect::Scope::new(
+            NEXT_ATOM_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
+        ));
+        if let Some(previous) = self.live_scope.lock().unwrap().replace(Arc::clone(&scope)) {
+            previous.close();
+        }
+        let id = self
+            .latest
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            + 1;
+        let current = registry.get(&self.atom);
+        registry.set(&self.atom, current.mark_waiting());
+        RuntimeBuild {
+            id,
+            effect: self.layer.build_with_memo(&memo, &scope),
+            scope,
+        }
+    }
+
+    /// Commit a build. A superseded build's scope is closed and its answer
+    /// dropped; a successful build keeps its scope alive until disposal.
+    pub fn resolve(
+        self: &Arc<Self>,
+        registry: &Arc<Registry>,
+        build: RuntimeBuild<E>,
+        exit: elm_effect::Exit<elm_effect::BuiltServices, E>,
+    ) {
+        if build.id != self.latest.load(std::sync::atomic::Ordering::SeqCst) {
+            build.scope.close();
+            return;
+        }
+        match exit {
+            elm_effect::Exit::Success(services) => match services.get::<T>() {
+                Some(service) => {
+                    registry.set(&self.atom, AsyncResult::success(Arc::new(service)));
+                }
+                None => {
+                    build.scope.close();
+                    registry.set(
+                        &self.atom,
+                        AsyncResult::failure(elm_effect::cause::Cause::die(
+                            elm_effect::cause::Defect::new(format!(
+                                "the layer built without providing {}",
+                                T::ID
+                            )),
+                        )),
+                    );
+                }
+            },
+            elm_effect::Exit::Failure(cause) => {
+                build.scope.close();
+                let previous = registry.get(&self.atom).previous_value();
+                registry.set(
+                    &self.atom,
+                    AsyncResult::failure_with(
+                        cause,
+                        previous.map(AsyncResult::success_state),
+                    ),
+                );
+            }
+        }
+    }
+
+    /// Release the built layer now: close its scope and return to initial.
+    pub fn dispose(&self, registry: &Arc<Registry>) {
+        self.latest
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        if let Some(scope) = self.live_scope.lock().unwrap().take() {
+            scope.close();
+        }
+        registry.set(&self.atom, AsyncResult::initial());
+    }
+}
+
 /// `Atom.family`: build a family from a key to atom function.
 pub fn family<K, T, F>(make: F) -> Family<K, T>
 where
@@ -1237,6 +1461,10 @@ pub struct Registry {
     next_listener: std::sync::atomic::AtomicU64,
     scheduler: Arc<dyn TaskScheduler>,
     batch: Mutex<BatchState>,
+    /// Cleanup owned by a node, run when the disposal pass releases it
+    /// (the pin's `onNodeRemoved`). A scoped runtime closes its build scope
+    /// through this, so a released runtime atom releases its layers.
+    dispose_hooks: Mutex<std::collections::HashMap<u64, Vec<Box<dyn Fn() + Send + Sync>>>>,
 }
 
 /// A subscription handle: `cancel` releases its listener, after which the
@@ -1269,7 +1497,19 @@ impl Registry {
             next_listener: std::sync::atomic::AtomicU64::new(1),
             scheduler,
             batch: Mutex::new(BatchState::default()),
+            dispose_hooks: Mutex::new(std::collections::HashMap::new()),
         })
+    }
+
+    /// Register cleanup for a node. It runs once, when the disposal pass
+    /// releases the node.
+    pub fn on_dispose(&self, atom_id: u64, hook: impl Fn() + Send + Sync + 'static) {
+        self.dispose_hooks
+            .lock()
+            .unwrap()
+            .entry(atom_id)
+            .or_default()
+            .push(Box::new(hook));
     }
 
     /// `Atom.batch`: listeners hear nothing until the outermost batch ends,
@@ -1647,8 +1887,20 @@ impl Registry {
             })
             .map(|(id, _)| *id)
             .collect();
-        for id in releasable {
-            nodes.remove(&id);
+        for id in &releasable {
+            nodes.remove(id);
+        }
+        drop(nodes);
+        let hooks: Vec<Box<dyn Fn() + Send + Sync>> = {
+            let mut registered = self.dispose_hooks.lock().unwrap();
+            releasable
+                .iter()
+                .filter_map(|id| registered.remove(id))
+                .flatten()
+                .collect()
+        };
+        for hook in hooks {
+            hook();
         }
     }
 
