@@ -169,6 +169,52 @@ fn tagged_errors_act_like_errors() {
     );
 }
 
+/// `Data.test.ts:240` — a tagged error can be caught by its tag.
+#[derive(Clone, Debug, PartialEq)]
+struct NotFound {
+    resource: String,
+}
+
+impl std::fmt::Display for NotFound {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "NotFound: {}", self.resource)
+    }
+}
+
+impl std::error::Error for NotFound {}
+
+impl elm_effect::TaggedError for NotFound {
+    fn tag(&self) -> &'static str {
+        "NotFound"
+    }
+}
+
+#[test]
+fn tagged_error_is_caught_by_tag() {
+    let missing = NotFound {
+        resource: "/test".to_string(),
+    };
+    let caught: elm_effect::Effect<String, NotFound> = elm_effect::Effect::fail(missing)
+        .catch_tag("NotFound", |error| {
+            elm_effect::Effect::succeed(format!("caught: {}", error.resource))
+        });
+    assert_eq!(
+        elm_effect::Runtime::run(caught),
+        elm_effect::Exit::Success("caught: /test".to_string())
+    );
+
+    // Another tag is not this arm's business: the failure passes through.
+    let other: elm_effect::Effect<String, NotFound> =
+        elm_effect::Effect::fail(NotFound {
+            resource: "/x".to_string(),
+        })
+        .catch_tag("Other", |_| elm_effect::Effect::succeed("nope".to_string()));
+    assert!(matches!(
+        elm_effect::Runtime::run(other),
+        elm_effect::Exit::Failure(_)
+    ));
+}
+
 #[test]
 fn shape_area_matches_by_tag() {
     use data::{Field, Variant};

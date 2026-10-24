@@ -123,10 +123,16 @@ Eleven were adapters that only needed the facade, and they are witnessed in
 report a mixed constructor cause, the sync adapter refuses an issue, the effect
 adapter fails with the issue and is eager for a sync schema, and a `Suspend`
 factory stays lazy, memoized, mutually recursive, and retried after a failure.
-The other 45 are excused by one of ten named mechanisms. The effectful engine
-itself is a ceiling, not a missing file: `Schema<T>` carries an already
-resolved closure, so a parser has no step graph to schedule. Clearing the 45
-means `Schema<T>` carries the effect, which is a schema redesign.
+The effectful engine exists now: `Schema::effect_codec` carries both
+directions of a step, `resolve` walks the step graph under the parse's
+concurrency limit, and the effect adapter reports the whole cause. A second
+pass read the eleven mixed-cause rows individually, and all eleven are ported in
+`crates/elm-effect/tests/schema_parser_mixed_causes.rs`: the sync, promise,
+option, result, guard and assertion refusals, plus the union rule that a
+candidate which died is not one that refused. The guard and assertion adapters
+are `type_guard` (the pin's `SchemaParser.is`, spelled out because `is` is a
+Rust keyword) and `asserts`. The rest of the file's rows are excused by their
+own named mechanism (prototype chain, missing sentinel, lazy compilation).
 
 ## Next step
 
@@ -135,9 +141,8 @@ No cheap cluster is left. `Config.schema` is **done** (the bridge in
 codec's wire shape, `has_schema_input` decides absence versus refusal; 166 of
 its 169 rows are ported and the last three are terminal: module copies, an
 ambient provider service, and a `Result` arm on `Value`). `Schedule` is done
-too. What remains: the 45 `SchemaParser` rows need an effect-carrying `Schema`,
-and `Atom`/`MCP`/`HTTP` need runtime or transport work. Pick one substrate and
-build it end to end.
+too. What remains: `Atom`/`MCP`/`HTTP` need runtime or transport work. Pick
+one substrate and build it end to end.
 
 A claim-absent API that resolves is usually a name collision, not a stale
 excuse: `Channel.forever` resolves to an effect combinator, `MutableList.Empty`

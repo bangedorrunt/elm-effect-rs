@@ -240,7 +240,7 @@ pub struct Schema<T> {
     /// since its default is an Effect that may suspend before it answers. The
     /// sync maker cannot wait for one, so `make` refuses such a field and the
     /// effect parser's `makeEffect` schedules it under the concurrency knob.
-    effect_constructor_default: Option<std::sync::Arc<dyn Fn() -> StepFuture + Send + Sync>>,
+    effect_constructor_default: Option<std::sync::Arc<dyn Fn() -> DefaultFuture + Send + Sync>>,
     /// A decoding default (`withDecodingDefault`/`withDecodingDefaultType`):
     /// what an absent input means. A missing key at a struct occurrence, and a
     /// standalone null, decode to this instead of failing.
@@ -348,9 +348,90 @@ pub struct Schema<T> {
     declaration: Option<DeclarationInfo>,
 }
 
+/// What an effect step refused with: the pin's `Cause<SchemaIssue>`, in the
+/// shape this crate can name.
+///
+/// A step can fail with an issue, die with a defect, or do both at once, and
+/// which one it did decides what each adapter reports: a bare issue is the
+/// schema's own refusal, while a die makes the sync, option, result, and
+/// promise adapters refuse with their contract message and carry the cause.
+/// The effect runtime's `Defect` lives in the crate above this one, so a defect
+/// travels here as its message and the parser restores it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StepCause {
+    /// The schema issue, when the step failed rather than only died.
+    pub issue: Option<SchemaError>,
+    /// The defects, by message, when the step died.
+    pub defects: Vec<String>,
+}
+
+impl StepCause {
+    /// A step that failed with one issue.
+    pub fn issue(issue: SchemaError) -> Self {
+        Self {
+            issue: Some(issue),
+            defects: Vec::new(),
+        }
+    }
+
+    /// A step that died with one defect.
+    pub fn defect(message: impl Into<String>) -> Self {
+        Self {
+            issue: None,
+            defects: vec![message.into()],
+        }
+    }
+
+    /// A step that failed and died at once: what `Effect.failCause` with a
+    /// cause holding both produces.
+    pub fn mixed(issue: SchemaError, message: impl Into<String>) -> Self {
+        Self {
+            issue: Some(issue),
+            defects: vec![message.into()],
+        }
+    }
+
+    /// The issue when this cause holds exactly one and no defect, which is what
+    /// a carrier that can only report an issue accepts.
+    pub fn bare_issue(&self) -> Option<&SchemaError> {
+        match (&self.issue, self.defects.is_empty()) {
+            (Some(issue), true) => Some(issue),
+            _ => None,
+        }
+    }
+
+    /// Whether the step died, whatever else it did.
+    pub fn has_defect(&self) -> bool {
+        !self.defects.is_empty()
+    }
+
+    /// Attach `path` to the issue, leaving the defects as they are: a defect
+    /// has no schema path in the pin, and only the issue grows one.
+    pub fn at(mut self, path: &str) -> Self {
+        self.issue = self.issue.map(|issue| issue.at(path));
+        self
+    }
+}
+
+impl From<SchemaError> for StepCause {
+    fn from(issue: SchemaError) -> Self {
+        Self::issue(issue)
+    }
+}
+
 /// A future a schema step answers with: the pin's getter returning an Effect,
 /// in a form this crate can name without depending on the effect runtime.
+///
+/// A step that dies beside its issue answers a [`StepCause`] holding both, which
+/// is what lets the effect adapter report the whole cause and the issue-only
+/// carriers refuse it.
 pub type StepFuture =
+    std::pin::Pin<Box<dyn std::future::Future<Output = Result<Unknown, StepCause>> + Send>>;
+
+/// A future a constructor default answers with. A default fills a field and
+/// cannot die beside an issue, so it keeps the narrower error the sync builder
+/// reports as a construction issue.
+pub type DefaultFuture =
     std::pin::Pin<Box<dyn std::future::Future<Output = Result<Unknown, SchemaError>> + Send>>;
 
 /// One direction of an Effect-carrying codec.
@@ -2893,7 +2974,7 @@ impl<T> Schema<T> {
     /// default already on the schema: a schema fills a key one way.
     pub fn with_constructor_default_effect(
         mut self,
-        default: impl Fn() -> StepFuture + Send + Sync + 'static,
+        default: impl Fn() -> DefaultFuture + Send + Sync + 'static,
     ) -> Self {
         self.effect_constructor_default = Some(std::sync::Arc::new(default));
         self
@@ -2902,7 +2983,7 @@ impl<T> Schema<T> {
     /// The Effect-carrying constructor default this schema carries, if any.
     pub fn effect_constructor_default(
         &self,
-    ) -> Option<&std::sync::Arc<dyn Fn() -> StepFuture + Send + Sync>> {
+    ) -> Option<&std::sync::Arc<dyn Fn() -> DefaultFuture + Send + Sync>> {
         self.effect_constructor_default.as_ref()
     }
 

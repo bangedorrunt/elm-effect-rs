@@ -566,6 +566,16 @@ fn format_full_zoned() {
 }
 
 #[test]
+fn format_long_with_offset() {
+    // DateTime.test.ts:251 — `dateStyle: long`, `timeStyle: short`, fixed
+    // +10h, no zone name. The pin passes millis; this port takes minutes.
+    set_test_now_millis(0);
+    let now = DateTime::now().set_zone_offset(10 * 60);
+    clear_test_now_millis();
+    assert_eq!(now.format_long(), "January 1, 1970 at 10:00 AM");
+}
+
+#[test]
 fn format_full_utc_of_zoned() {
     set_test_now_millis(0);
     let now = with_current_zone(

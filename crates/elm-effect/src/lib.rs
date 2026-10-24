@@ -240,14 +240,15 @@ pub use schema_file::file;
 pub use schema_graph::graph;
 #[cfg(feature = "schema")]
 pub use schema_parser::{
-    ASYNC_DEFECT, SYNC_ISSUE_MESSAGE, decode_unknown_effect, decode_unknown_effect_with,
+    ASYNC_DEFECT, ASSERTION_MESSAGE, GUARD_MESSAGE, SYNC_ISSUE_MESSAGE, asserts,
+    decode_unknown_effect, decode_unknown_effect_with,
     decode_unknown_exit, decode_unknown_exit_with, decode_unknown_option,
     decode_unknown_option_with, decode_unknown_result, decode_unknown_result_with,
     decode_unknown_sync, decode_unknown_sync_with, encode_unknown_effect,
     encode_unknown_effect_with, encode_unknown_exit, encode_unknown_exit_with,
     encode_unknown_option, encode_unknown_option_with, encode_unknown_result,
     encode_unknown_result_with, encode_unknown_sync, encode_unknown_sync_with, make, make_effect,
-    make_effect_with, make_option, make_option_with, make_with,
+    make_effect_with, make_option, make_option_with, make_with, type_guard,
 };
 #[cfg(feature = "schema")]
 pub use schema_regexp::regexp;

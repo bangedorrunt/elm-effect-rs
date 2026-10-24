@@ -191,6 +191,26 @@ fn map_pick_touches_the_named_field() {
     );
 }
 
+/// `Struct.test.ts:140` `mapPick` with numeric property names: a JavaScript
+/// object key is a string, and a field here is named by one, so `"1"` is the
+/// pick and `"2"` is not.
+#[test]
+fn map_pick_picks_a_numeric_field_name() {
+    let schema = struct_of(vec![
+        Field::required("1", str_schema()),
+        Field::required("2", number_schema()),
+    ])
+    .map_fields(field_map_pick(vec!["1"], |field| field.make_optional_key()));
+
+    assert_eq!(
+        fields_of(&schema),
+        vec![
+            pair("1", Optionality::OptionalKey, "Schema.String"),
+            pair("2", Optionality::Required, "Schema.Number"),
+        ]
+    );
+}
+
 /// Schema.test.ts:8867 `mapOmit`: every field except the named ones is touched.
 #[test]
 fn map_omit_skips_the_named_field() {

@@ -15,8 +15,9 @@
 //! `Schema::effect_codec` lets a node carry an Effect step instead of a
 //! resolved closure. [`Effect`]'s adapter resolves those steps first
 //! ([`resolve`]) and decodes the answers second, so a product whose children
-//! yield gets every step's answer without a sync adapter ever pretending to run
-//! one.
+//! yield gets every step's answer without a sync adapter waiting for one. A
+//! sync adapter runs the steps that settle on their first poll and answers a
+//! defect for the rest, which is the pin's `Effect.runSyncExit` rule.
 //!
 //! # Scheduling
 //!
@@ -45,15 +46,17 @@
 //! `transformEffect` spelling, whose caller
 //! already ran the effect, still dies with [`ASYNC_DEFECT`].
 //!
-//! The mixed-decode-cause rows (a `Cause` holding an issue and a defect) are
-//! excused on this port's decode having a single error channel, not on steps.
+//! A step can fail with an issue, die with a defect, or do both at once: the
+//! cause travels as [`StepCause`](elm_effect_schema::StepCause), and a carrier
+//! that can only report an issue refuses it under its own message while keeping
+//! the whole cause (see `schema_adapter`).
 
 use elm_effect_schema::transform::{Errors, ParseOptions};
 use elm_effect_schema::{
-    AdapterError, CONSTRUCTOR_DIE, EffectStep, IntoUnknown, Schema, SchemaError, Unknown,
+    AdapterError, CONSTRUCTOR_DIE, EffectStep, IntoUnknown, Schema, SchemaError, StepCause, Unknown,
 };
 
-use crate::cause::Defect;
+use crate::cause::{Cause, Defect};
 use crate::effect::Effect;
 use crate::exit::Exit;
 use crate::schema_adapter::{AdapterFailure, AdapterRefusal};
@@ -68,6 +71,12 @@ pub const ASYNC_DEFECT: &str = "Sync adapter cannot run an async schema";
 /// wording its own file asserts, so [`Exit::into_value`] keeps the
 /// `Schema.test.ts` text and this function takes the parser's.
 pub const SYNC_ISSUE_MESSAGE: &str = "Sync adapter can only throw schema issues";
+
+/// The type guard adapter's message (`SchemaParser.test.ts:650`).
+pub const GUARD_MESSAGE: &str = "Type guard adapter can only return false for schema issues";
+
+/// The assertion adapter's message (`SchemaParser.test.ts:700`).
+pub const ASSERTION_MESSAGE: &str = "Assertion adapter can only throw schema issues";
 
 /// The effect adapter's `decode`.
 ///
@@ -108,10 +117,12 @@ where
             options,
         ));
         let outcome = match resolved {
-            Ok(input) => schema.decode_after_steps(input, &options),
-            Err(error) => Err(error),
+            Ok(input) => schema
+                .decode_after_steps(input, &options)
+                .map_err(Cause::fail),
+            Err(cause) => Err(cause_from_step(cause)),
         };
-        Effect::from_result(outcome)
+        into_effect(outcome)
     })
 }
 
@@ -153,8 +164,35 @@ where
             Direction::Encode,
             options,
         ));
-        Effect::from_result(resolved)
+        into_effect(resolved.map_err(cause_from_step))
     })
+}
+
+/// A settled result as an Effect: a typed failure keeps its place in the cause,
+/// and a cause that also holds defects arrives whole, which is what lets the
+/// effect adapter report a step that died beside its issue.
+fn into_effect<T>(outcome: Result<T, Cause<SchemaError>>) -> Effect<T, SchemaError>
+where
+    T: Send + 'static,
+{
+    match outcome {
+        Ok(value) => Effect::succeed(value),
+        Err(cause) => Effect::fail_cause(cause),
+    }
+}
+
+/// The cause a refused step reports: a bare issue is the schema's own refusal,
+/// and every defect rides beside it so each adapter can see that the run died.
+fn cause_from_step(cause: StepCause) -> Cause<SchemaError> {
+    let defects: Vec<Defect> = cause.defects.into_iter().map(Defect::new).collect();
+    match cause.issue {
+        Some(issue) => {
+            let mut out = Cause::fail(issue);
+            out.append_defects(defects);
+            out
+        }
+        None => Cause::from_defects(defects),
+    }
 }
 
 /// Which of a node's two codecs the walk runs.
@@ -173,9 +211,9 @@ impl Direction {
     }
 }
 
-/// One node's resolved value, or the issue that stopped it.
+/// One node's resolved value, or the cause that stopped it.
 type ResolveFuture = std::pin::Pin<
-    Box<dyn std::future::Future<Output = Result<Unknown, SchemaError>> + Send + 'static>,
+    Box<dyn std::future::Future<Output = Result<Unknown, StepCause>> + Send + 'static>,
 >;
 
 /// Resolve every Effect step under `schema`, replacing each node's input with
@@ -202,7 +240,7 @@ where
         // step's own business.
         if let Some(step) = direction.step(&schema) {
             let future = step.run(input);
-            return future.await.map_err(|error| error.at(&path));
+            return future.await.map_err(|cause| cause.at(&path));
         }
         // A node with no step below it is left exactly as it arrived, so the
         // ordinary decoder does all of its own work.
@@ -241,9 +279,15 @@ where
                 .await
                 {
                     Ok(resolved) => resolved,
-                    Err(error) => {
+                    Err(cause) => {
+                        // A member that died is not a member that refused: the
+                        // pin preserves the mixed cause instead of handing the
+                        // input to the next candidate (`SchemaParser.test.ts:1176`).
+                        if cause.has_defect() {
+                            return Err(cause);
+                        }
                         if stepped {
-                            stepped_failure.get_or_insert(error);
+                            stepped_failure.get_or_insert(cause);
                         }
                         continue;
                     }
@@ -254,9 +298,9 @@ where
                 };
                 match accepted {
                     Ok(_) => return Ok(resolved),
-                    Err(error) => {
+                    Err(issue) => {
                         if stepped {
-                            stepped_failure.get_or_insert(error);
+                            stepped_failure.get_or_insert(StepCause::issue(issue));
                         }
                     }
                 }
@@ -288,7 +332,7 @@ fn resolve_object<T>(
     path: String,
     direction: Direction,
     options: ParseOptions,
-) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Unknown, SchemaError>> + Send + '_>>
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Unknown, StepCause>> + Send + '_>>
 where
     T: Clone + Send + Sync + 'static,
 {
@@ -370,7 +414,7 @@ fn resolve_array<T>(
     path: String,
     direction: Direction,
     options: ParseOptions,
-) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Unknown, SchemaError>> + Send + '_>>
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Unknown, StepCause>> + Send + '_>>
 where
     T: Clone + Send + Sync + 'static,
 {
@@ -418,7 +462,7 @@ where
 struct FanOut {
     pending: std::collections::VecDeque<(usize, ResolveFuture)>,
     active: Vec<(usize, ResolveFuture)>,
-    completed: Vec<(usize, Result<Unknown, SchemaError>)>,
+    completed: Vec<(usize, Result<Unknown, StepCause>)>,
     limit: usize,
     fail_fast: bool,
 }
@@ -436,7 +480,7 @@ impl FanOut {
 }
 
 impl std::future::Future for FanOut {
-    type Output = Result<Vec<(usize, Unknown)>, SchemaError>;
+    type Output = Result<Vec<(usize, Unknown)>, StepCause>;
 
     fn poll(
         self: std::pin::Pin<&mut Self>,
@@ -452,17 +496,17 @@ impl std::future::Future for FanOut {
             }
             if this.active.is_empty() {
                 let mut values = Vec::new();
-                let mut issues = Vec::new();
+                let mut causes = Vec::new();
                 for (index, result) in this.completed.drain(..) {
                     match result {
                         Ok(value) => values.push((index, value)),
-                        Err(error) => issues.push(error),
+                        Err(cause) => causes.push(cause),
                     }
                 }
-                return std::task::Poll::Ready(if issues.is_empty() {
+                return std::task::Poll::Ready(if causes.is_empty() {
                     Ok(values)
                 } else {
-                    Err(combined_issues(issues))
+                    Err(combined_causes(causes))
                 });
             }
             let mut progressed = false;
@@ -497,13 +541,27 @@ impl std::future::Future for FanOut {
     }
 }
 
-/// One issue is that issue; more than one is the composite the exit adapter
-/// already reports.
-fn combined_issues(mut issues: Vec<SchemaError>) -> SchemaError {
-    if issues.len() == 1 {
-        issues.pop().expect("one issue")
-    } else {
-        SchemaError::Composite { issues }
+/// One child's cause is that cause; several are merged into the composite the
+/// exit adapter already reports. Defects concatenate, so a product whose
+/// children died reports every die, and a product where one child failed and
+/// another died reports both kinds in one cause (`SchemaParser.test.ts:531`).
+fn combined_causes(causes: Vec<StepCause>) -> StepCause {
+    if causes.len() == 1 {
+        return causes.into_iter().next().expect("one cause");
+    }
+    let mut issues = Vec::new();
+    let mut defects = Vec::new();
+    for cause in causes {
+        issues.extend(cause.issue);
+        defects.extend(cause.defects);
+    }
+    StepCause {
+        issue: match issues.len() {
+            0 => None,
+            1 => issues.pop(),
+            _ => Some(SchemaError::Composite { issues }),
+        },
+        defects,
     }
 }
 
@@ -538,12 +596,41 @@ where
     }
 }
 
+/// Run a resolver future only as far as it settles without waiting.
+///
+/// The pin's `asExit` is `Effect.runSyncExit` (`SchemaParser.ts:1011`), which
+/// runs an effect that can answer on its own and answers a die for one that has
+/// to wait (`Effect.ts:9272`). One poll with a waker that drops its wake is
+/// that rule: a step ready now is synchronous work, and a step that parks is
+/// async work a sync adapter cannot do.
+fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
+    use std::sync::Arc;
+    use std::task::{Context, Poll, Wake, Waker};
+
+    struct Noop;
+
+    impl Wake for Noop {
+        fn wake(self: Arc<Self>) {}
+    }
+
+    let waker = Waker::from(Arc::new(Noop));
+    let mut context = Context::from_waker(&waker);
+    let mut future = std::pin::pin!(future);
+    match future.as_mut().poll(&mut context) {
+        Poll::Ready(answer) => Some(answer),
+        Poll::Pending => None,
+    }
+}
+
 /// `SchemaParser.decodeUnknownExit(schema)(input)`: success, a typed failure,
 /// or a defect for a schema this adapter cannot run.
 pub fn decode_unknown_exit<T>(
     schema: &Schema<T>,
     input: Unknown,
-) -> Exit<T, SchemaError, Defect> {
+) -> Exit<T, SchemaError, Defect>
+where
+    T: Clone + Send + Sync + 'static,
+{
     decode_unknown_exit_with(schema, input, ParseOptions::default())
 }
 
@@ -552,7 +639,31 @@ pub fn decode_unknown_exit_with<T>(
     schema: &Schema<T>,
     input: Unknown,
     options: ParseOptions,
-) -> Exit<T, SchemaError, Defect> {
+) -> Exit<T, SchemaError, Defect>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    // A step that answers without waiting runs here, so a mixed cause reaches
+    // this carrier whole: the pin's `Cause.findError` still finds the issue
+    // beside the defect (`SchemaParser.test.ts:1176`).
+    if schema.has_effect_steps() {
+        let Some(resolved) = poll_once(resolve(
+            schema.clone(),
+            input,
+            "$".to_string(),
+            Direction::Decode,
+            options,
+        )) else {
+            return Exit::die(Defect::new(ASYNC_DEFECT));
+        };
+        return match resolved {
+            Ok(resolved) => match schema.decode_after_steps(resolved, &options) {
+                Ok(value) => Exit::succeed(value),
+                Err(issue) => Exit::fail(issue),
+            },
+            Err(cause) => Exit::Failure(cause_from_step(cause)),
+        };
+    }
     if schema.requires_effect() {
         return Exit::die(Defect::new(ASYNC_DEFECT));
     }
@@ -567,7 +678,10 @@ pub fn decode_unknown_exit_with<T>(
 pub fn encode_unknown_exit<T>(
     schema: &Schema<T>,
     value: &T,
-) -> Exit<Unknown, SchemaError, Defect> {
+) -> Exit<Unknown, SchemaError, Defect>
+where
+    T: Clone + IntoUnknown + Send + Sync + 'static,
+{
     encode_unknown_exit_with(schema, value, ParseOptions::default())
 }
 
@@ -576,7 +690,25 @@ pub fn encode_unknown_exit_with<T>(
     schema: &Schema<T>,
     value: &T,
     options: ParseOptions,
-) -> Exit<Unknown, SchemaError, Defect> {
+) -> Exit<Unknown, SchemaError, Defect>
+where
+    T: Clone + IntoUnknown + Send + Sync + 'static,
+{
+    if schema.has_effect_steps() {
+        let Some(resolved) = poll_once(resolve(
+            schema.clone(),
+            value.clone().into_unknown(),
+            "$".to_string(),
+            Direction::Encode,
+            options,
+        )) else {
+            return Exit::die(Defect::new(ASYNC_DEFECT));
+        };
+        return match resolved {
+            Ok(encoded) => Exit::succeed(encoded),
+            Err(cause) => Exit::Failure(cause_from_step(cause)),
+        };
+    }
     if schema.requires_effect() {
         return Exit::die(Defect::new(ASYNC_DEFECT));
     }
@@ -592,7 +724,10 @@ pub fn encode_unknown_exit_with<T>(
 pub fn decode_unknown_result<T>(
     schema: &Schema<T>,
     input: Unknown,
-) -> Result<Result<T, SchemaError>, AdapterRefusal<SchemaError>> {
+) -> Result<Result<T, SchemaError>, AdapterRefusal<SchemaError>>
+where
+    T: Clone + Send + Sync + 'static,
+{
     decode_unknown_result_with(schema, input, ParseOptions::default())
 }
 
@@ -601,7 +736,10 @@ pub fn decode_unknown_result_with<T>(
     schema: &Schema<T>,
     input: Unknown,
     options: ParseOptions,
-) -> Result<Result<T, SchemaError>, AdapterRefusal<SchemaError>> {
+) -> Result<Result<T, SchemaError>, AdapterRefusal<SchemaError>>
+where
+    T: Clone + Send + Sync + 'static,
+{
     decode_unknown_exit_with(schema, input, options).into_result()
 }
 
@@ -609,7 +747,10 @@ pub fn decode_unknown_result_with<T>(
 pub fn encode_unknown_result<T>(
     schema: &Schema<T>,
     value: &T,
-) -> Result<Result<Unknown, SchemaError>, AdapterRefusal<SchemaError>> {
+) -> Result<Result<Unknown, SchemaError>, AdapterRefusal<SchemaError>>
+where
+    T: Clone + IntoUnknown + Send + Sync + 'static,
+{
     encode_unknown_result_with(schema, value, ParseOptions::default())
 }
 
@@ -618,7 +759,10 @@ pub fn encode_unknown_result_with<T>(
     schema: &Schema<T>,
     value: &T,
     options: ParseOptions,
-) -> Result<Result<Unknown, SchemaError>, AdapterRefusal<SchemaError>> {
+) -> Result<Result<Unknown, SchemaError>, AdapterRefusal<SchemaError>>
+where
+    T: Clone + IntoUnknown + Send + Sync + 'static,
+{
     encode_unknown_exit_with(schema, value, options).into_result()
 }
 
@@ -627,7 +771,10 @@ pub fn encode_unknown_result_with<T>(
 pub fn decode_unknown_option<T>(
     schema: &Schema<T>,
     input: Unknown,
-) -> Result<Option<T>, AdapterRefusal<SchemaError>> {
+) -> Result<Option<T>, AdapterRefusal<SchemaError>>
+where
+    T: Clone + Send + Sync + 'static,
+{
     decode_unknown_option_with(schema, input, ParseOptions::default())
 }
 
@@ -636,7 +783,10 @@ pub fn decode_unknown_option_with<T>(
     schema: &Schema<T>,
     input: Unknown,
     options: ParseOptions,
-) -> Result<Option<T>, AdapterRefusal<SchemaError>> {
+) -> Result<Option<T>, AdapterRefusal<SchemaError>>
+where
+    T: Clone + Send + Sync + 'static,
+{
     decode_unknown_exit_with(schema, input, options).into_option()
 }
 
@@ -644,7 +794,10 @@ pub fn decode_unknown_option_with<T>(
 pub fn encode_unknown_option<T>(
     schema: &Schema<T>,
     value: &T,
-) -> Result<Option<Unknown>, AdapterRefusal<SchemaError>> {
+) -> Result<Option<Unknown>, AdapterRefusal<SchemaError>>
+where
+    T: Clone + IntoUnknown + Send + Sync + 'static,
+{
     encode_unknown_option_with(schema, value, ParseOptions::default())
 }
 
@@ -653,7 +806,10 @@ pub fn encode_unknown_option_with<T>(
     schema: &Schema<T>,
     value: &T,
     options: ParseOptions,
-) -> Result<Option<Unknown>, AdapterRefusal<SchemaError>> {
+) -> Result<Option<Unknown>, AdapterRefusal<SchemaError>>
+where
+    T: Clone + IntoUnknown + Send + Sync + 'static,
+{
     encode_unknown_exit_with(schema, value, options).into_option()
 }
 
@@ -663,7 +819,10 @@ pub fn encode_unknown_option_with<T>(
 pub fn decode_unknown_sync<T>(
     schema: &Schema<T>,
     input: Unknown,
-) -> Result<T, AdapterFailure<SchemaError>> {
+) -> Result<T, AdapterFailure<SchemaError>>
+where
+    T: Clone + Send + Sync + 'static,
+{
     decode_unknown_sync_with(schema, input, ParseOptions::default())
 }
 
@@ -672,7 +831,10 @@ pub fn decode_unknown_sync_with<T>(
     schema: &Schema<T>,
     input: Unknown,
     options: ParseOptions,
-) -> Result<T, AdapterFailure<SchemaError>> {
+) -> Result<T, AdapterFailure<SchemaError>>
+where
+    T: Clone + Send + Sync + 'static,
+{
     decode_unknown_exit_with(schema, input, options).into_value_with(SYNC_ISSUE_MESSAGE)
 }
 
@@ -680,7 +842,10 @@ pub fn decode_unknown_sync_with<T>(
 pub fn encode_unknown_sync<T>(
     schema: &Schema<T>,
     value: &T,
-) -> Result<Unknown, AdapterFailure<SchemaError>> {
+) -> Result<Unknown, AdapterFailure<SchemaError>>
+where
+    T: Clone + IntoUnknown + Send + Sync + 'static,
+{
     encode_unknown_sync_with(schema, value, ParseOptions::default())
 }
 
@@ -689,8 +854,56 @@ pub fn encode_unknown_sync_with<T>(
     schema: &Schema<T>,
     value: &T,
     options: ParseOptions,
-) -> Result<Unknown, AdapterFailure<SchemaError>> {
+) -> Result<Unknown, AdapterFailure<SchemaError>>
+where
+    T: Clone + IntoUnknown + Send + Sync + 'static,
+{
     encode_unknown_exit_with(schema, value, options).into_value_with(SYNC_ISSUE_MESSAGE)
+}
+
+/// `SchemaParser.is(schema)(input)`: the pin's type guard, spelled out because
+/// `is` is a Rust keyword.
+///
+/// A success is `true` and a bare schema issue is `false`. Any other cause (a
+/// defect, a mixed cause, an interruption) is not a value that failed
+/// validation, so it is refused under the adapter's message and the whole
+/// cause rides on the refusal.
+pub fn type_guard<T>(
+    schema: &Schema<T>,
+    input: Unknown,
+) -> Result<bool, AdapterRefusal<SchemaError>>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    match decode_unknown_exit(schema, input) {
+        Exit::Success(_) => Ok(true),
+        Exit::Failure(cause) => match cause.into_single_error() {
+            Ok(_) => Ok(false),
+            Err(cause) => Err(AdapterRefusal::new(GUARD_MESSAGE, cause)),
+        },
+    }
+}
+
+/// `SchemaParser.asserts(schema, input)`: `Ok(())` when the input is the
+/// schema's type, and the schema issue as data when it is not.
+///
+/// The pin throws `new Error("Schema validation failed", { cause })` for a bare
+/// issue; this carrier hands the issue back instead. A cause that is more than
+/// a bare issue is refused under the assertion adapter's message.
+pub fn asserts<T>(schema: &Schema<T>, input: Unknown) -> Result<(), AdapterFailure<SchemaError>>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    match decode_unknown_exit(schema, input) {
+        Exit::Success(_) => Ok(()),
+        Exit::Failure(cause) => match cause.into_single_error() {
+            Ok(issue) => Err(AdapterFailure::Issue(issue)),
+            Err(cause) => Err(AdapterFailure::Refusal(AdapterRefusal::new(
+                ASSERTION_MESSAGE,
+                cause,
+            ))),
+        },
+    }
 }
 
 /// `SchemaParser.make(schema)(input)`: construction, not decode. A present
@@ -811,20 +1024,30 @@ where
                     .collect();
                 let limit = options.concurrency.slots();
                 let mut names = Vec::new();
-                let mut tasks = Vec::new();
+                let mut tasks: Vec<ResolveFuture> = Vec::new();
                 for (name, field) in &nested {
                     if object.contains_key(name) {
                         continue;
                     }
-                    let Some(default) = field.effect_constructor_default() else {
+                    let Some(default) = field.effect_constructor_default().cloned() else {
                         continue;
                     };
                     names.push(name.clone());
-                    tasks.push(default());
+                    // A default answers one value or one issue, so it cannot
+                    // die; `StepCause` is only what the shared fan-out takes.
+                    tasks.push(Box::pin(async move {
+                        default().await.map_err(StepCause::issue)
+                    }));
                 }
-                let done = FanOut::new(tasks, limit, true)
-                    .await
-                    .map_err(AdapterError::Issue)?;
+                let done = match FanOut::new(tasks, limit, true).await {
+                    Ok(done) => done,
+                    Err(cause) => {
+                        let issue = cause
+                            .issue
+                            .expect("a constructor default answers an issue, never a defect");
+                        return Err(AdapterError::Issue(issue));
+                    }
+                };
                 for (index, value) in done {
                     object.insert(names[index].clone(), value);
                 }

@@ -2,8 +2,8 @@
 //! lazy `Suspend` factory.
 //!
 //! The effect-driven rows are not here: the ones that schedule siblings live in
-//! `schema_parser_concurrency.rs`, and the mixed decode causes stay excused in
-//! the ledger on this port's decode having a single error channel.
+//! `schema_parser_concurrency.rs`, and the mixed decode causes in
+//! `schema_parser_mixed_causes.rs`.
 
 #![cfg(all(feature = "schema", feature = "tokio"))]
 

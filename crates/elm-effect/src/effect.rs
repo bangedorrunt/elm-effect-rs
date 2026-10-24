@@ -1326,6 +1326,15 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
+    /// `Effect.failSync`: build the typed error when the effect runs, not when
+    /// it is described. A failure is still a failure, so `catch` sees it.
+    pub fn fail_sync<F>(build: F) -> Self
+    where
+        F: FnOnce() -> E + Send + 'static,
+    {
+        Effect::suspend(move || Effect::fail(build()))
+    }
+
     /// An effect that dies immediately with a defect. Never a typed error.
     pub fn die(defect: Defect) -> Self {
         Self {
@@ -2025,6 +2034,76 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
             } else {
                 or_else(e)
             }
+        })
+    }
+
+    /// `Effect.catchTag`: recover a clean typed failure whose tag is `tag`.
+    ///
+    /// The tag is read from the value, not the type: one enum may carry several
+    /// tags. A failure with another tag, a defect, or an interruption passes
+    /// through untouched, because this is [`catch_if`](Effect::catch_if) with
+    /// the predicate spelled as a tag.
+    pub fn catch_tag<F>(self, tag: &'static str, handler: F) -> Self
+    where
+        E: crate::tagged::TaggedError,
+        F: FnOnce(E) -> Self + Send + 'static,
+    {
+        self.catch_if(
+            move |error| crate::tagged::TaggedError::tag(error) == tag,
+            handler,
+        )
+    }
+
+    /// `Effect.orElseSucceed`: recover any clean typed failure with a value
+    /// built when the handler runs. A defect or an interruption still passes
+    /// through, because this is [`catch`](Effect::catch) with a success
+    /// handler.
+    pub fn or_else_succeed<F>(self, value: F) -> Self
+    where
+        F: FnOnce() -> A + Send + 'static,
+    {
+        self.catch(move |_| Effect::succeed(value()))
+    }
+
+    /// `Effect.catchTags`: one handler per tag, and `or_else` for the rest.
+    ///
+    /// The handler for the failure's tag runs; a tag with no handler hands the
+    /// failure to `or_else`, so the combinator never swallows a failure it did
+    /// not name. The pin's two forms are this one call: one handler listed
+    /// under several tags is its array form, distinct handlers its record form.
+    pub fn catch_tags<G>(
+        self,
+        handlers: Vec<(&'static str, Box<dyn FnOnce(E) -> Self + Send>)>,
+        or_else: G,
+    ) -> Self
+    where
+        E: crate::tagged::TaggedError,
+        G: FnOnce(E) -> Self + Send + 'static,
+    {
+        self.catch(move |error| {
+            let mut handlers = handlers;
+            let tag = crate::tagged::TaggedError::tag(&error);
+            match handlers.iter().position(|(name, _)| *name == tag) {
+                Some(index) => (handlers.swap_remove(index).1)(error),
+                None => or_else(error),
+            }
+        })
+    }
+
+    /// `Effect.tapErrorTag`: run `tap` on a failure whose tag is `tag`, then
+    /// re-raise that same failure.
+    ///
+    /// The failure is not recovered: the exit is the one the original effect
+    /// produced, which is what makes this a tap and not a handler.
+    pub fn tap_error_tag<F, B>(self, tag: &'static str, tap: F) -> Self
+    where
+        E: crate::tagged::TaggedError + Clone,
+        F: FnOnce(&E) -> Effect<B, E, R> + Send + 'static,
+        B: Send + 'static,
+    {
+        self.catch_tag(tag, move |error: E| {
+            let again = error.clone();
+            tap(&error).flat_map(move |_| Effect::fail(again))
         })
     }
 

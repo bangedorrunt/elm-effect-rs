@@ -20,7 +20,7 @@ use elm_effect::{
     decode_unknown_sync, encode_unknown_effect_with,
 };
 use elm_effect_schema::transform::{Errors, ParseOptions};
-use elm_effect_schema::{Field, Schema, SchemaError, StepFuture, Unknown};
+use elm_effect_schema::{Field, Schema, SchemaError, StepCause, StepFuture, Unknown};
 
 fn text(value: &str) -> Unknown {
     Unknown::Text(value.to_string())
@@ -58,7 +58,7 @@ impl YieldingStep {
 }
 
 impl Future for YieldingStep {
-    type Output = Result<Unknown, SchemaError>;
+    type Output = Result<Unknown, StepCause>;
 
     fn poll(self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
@@ -130,11 +130,11 @@ fn failing_text() -> Schema<Unknown> {
         Schema::as_unknown(Schema::string()),
         |_input| {
             Box::pin(async move {
-                Err(SchemaError::TypeMismatch {
+                Err(StepCause::issue(SchemaError::TypeMismatch {
                     path: "$".to_string(),
                     expected: "a value the step accepts",
                     got: "string",
-                })
+                }))
             }) as StepFuture
         },
         |input| Box::pin(std::future::ready(Ok(input))) as StepFuture,
@@ -254,11 +254,11 @@ fn a_failing_step_reports_at_its_occurrence() {
                 };
                 decode_calls.lock().unwrap().push(value.clone());
                 let answer = if value == fails {
-                    Err(SchemaError::TypeMismatch {
+                    Err(StepCause::issue(SchemaError::TypeMismatch {
                         path: "$".to_string(),
                         expected: "the accepted value",
                         got: "string",
-                    })
+                    }))
                 } else {
                     Ok(input)
                 };
@@ -322,25 +322,44 @@ fn effect_descriptions_run_no_step_until_interpreted() {
 
 /// A sync adapter refuses a schema whose *child* carries a step, not only one
 /// whose root does: the step is below the node the caller named.
+///
+/// The pin's `asExit` is `Effect.runSyncExit`, so the step starts and the parse
+/// dies when it has to wait (`Effect.ts:9272`). "Did not wait" is the claim: the
+/// step's start is logged, its end is not.
 #[test]
 fn a_nested_step_makes_the_sync_adapter_die() {
-    let calls = Arc::new(Mutex::new(Vec::new()));
-    let schema = Schema::struct_shape(vec![Field::required(
+    let exit_calls = Arc::new(Mutex::new(Vec::new()));
+    let exit_schema = Schema::struct_shape(vec![Field::required(
         "a",
-        Schema::as_unknown(yielding_text(Arc::clone(&calls))),
+        Schema::as_unknown(yielding_text(Arc::clone(&exit_calls))),
+    )]);
+    match decode_unknown_exit(&exit_schema, object(&[("a", text("a"))])) {
+        Exit::Failure(cause) => assert!(
+            cause.has_dies(),
+            "the exit adapter dies rather than waiting for a step: {cause:?}"
+        ),
+        Exit::Success(value) => panic!("the exit adapter waited for a step: {value:?}"),
+    }
+    assert_eq!(
+        exit_calls.lock().unwrap().as_slice(),
+        ["start a"],
+        "the step started, and the parse did not wait for its end"
+    );
+
+    let sync_calls = Arc::new(Mutex::new(Vec::new()));
+    let sync_schema = Schema::struct_shape(vec![Field::required(
+        "a",
+        Schema::as_unknown(yielding_text(Arc::clone(&sync_calls))),
     )]);
     assert!(
-        matches!(
-            decode_unknown_exit(&schema, object(&[("a", text("a"))])),
-            Exit::Failure(_)
-        ),
-        "the exit adapter dies rather than running a step synchronously"
-    );
-    assert!(
-        decode_unknown_sync(&schema, object(&[("a", text("a"))])).is_err(),
+        decode_unknown_sync(&sync_schema, object(&[("a", text("a"))])).is_err(),
         "the sync adapter refuses the same schema"
     );
-    assert!(calls.lock().unwrap().is_empty(), "no step ran");
+    assert_eq!(
+        sync_calls.lock().unwrap().as_slice(),
+        ["start a"],
+        "the sync adapter did not wait for the step either"
+    );
 }
 
 /// A step is not run twice: the second phase decodes the answer the first phase

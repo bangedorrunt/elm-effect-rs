@@ -21,7 +21,7 @@ use elm_effect::{
     Exit, Runtime, decode_unknown_effect_with, encode_unknown_effect_with, make_effect_with,
 };
 use elm_effect_schema::transform::{Concurrency, Errors, ParseOptions};
-use elm_effect_schema::{Field, Schema, SchemaError, StepFuture, Unknown};
+use elm_effect_schema::{DefaultFuture, Field, Schema, SchemaError, StepCause, StepFuture, Unknown};
 
 fn text(value: &str) -> Unknown {
     Unknown::Text(value.to_string())
@@ -261,7 +261,7 @@ struct Never {
 }
 
 impl Future for Never {
-    type Output = Result<Unknown, SchemaError>;
+    type Output = Result<Unknown, StepCause>;
 
     fn poll(self: Pin<&mut Self>, _context: &mut Context<'_>) -> Poll<Self::Output> {
         self.started.open();
@@ -300,11 +300,11 @@ fn the_first_failure_interrupts_the_pending_child() {
             let started = started.clone();
             Box::pin(async move {
                 started.wait().await;
-                Err(SchemaError::TypeMismatch {
+                Err(StepCause::issue(SchemaError::TypeMismatch {
                     path: "$".to_string(),
                     expected: "the second child",
                     got: "string",
-                })
+                }))
             }) as StepFuture
         }
     });
@@ -347,11 +347,11 @@ fn all_errors_accumulate_in_completion_order() {
                 if let Some(signal) = signal {
                     signal.open();
                 }
-                Err(SchemaError::TypeMismatch {
+                Err(StepCause::issue(SchemaError::TypeMismatch {
                     path: "$".to_string(),
                     expected: "a valid value",
                     got: "string",
-                })
+                }))
             }) as StepFuture
         })
     };
@@ -460,7 +460,7 @@ fn constructor_defaults_are_scheduled_under_the_limit() {
                 started.open();
                 release.wait().await;
                 Ok(text(value))
-            }) as StepFuture
+            }) as DefaultFuture
         }))
     };
     let schema = Schema::struct_shape(vec![

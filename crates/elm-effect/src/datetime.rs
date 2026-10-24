@@ -854,6 +854,12 @@ impl DateTime {
         )
     }
 
+    /// en-US long date with a short time (`Intl` `dateStyle: long`,
+    /// `timeStyle: short`): `January 1, 1970 at 10:00 AM`, no zone name.
+    pub fn format_long(&self) -> String {
+        en_long(&self.zoned.datetime(), self.hour12())
+    }
+
     /// en-US full date+time rendered in UTC (`formatUtc` with styles).
     pub fn format_full_utc(&self) -> String {
         let utc = self.set_zone(&Zone::Utc);
@@ -964,30 +970,32 @@ fn is_leap(year: i16) -> bool {
     (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 
+const WEEKDAYS: [&str; 7] = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+];
+
+const MONTHS: [&str; 12] = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+];
+
 fn en_full(civil: &Civil, zone_name: &str, hour12: (i8, &str)) -> String {
-    const WEEKDAYS: [&str; 7] = [
-        "Sunday",
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-    ];
-    const MONTHS: [&str; 12] = [
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December",
-    ];
     let wd = WEEKDAYS[civil.weekday().to_sunday_zero_offset() as usize];
     format!(
         "{}, {} {}, {} at {}:{:02}:{:02} {} {}",
@@ -1000,6 +1008,18 @@ fn en_full(civil: &Civil, zone_name: &str, hour12: (i8, &str)) -> String {
         civil.second(),
         hour12.1,
         zone_name
+    )
+}
+
+fn en_long(civil: &Civil, hour12: (i8, &str)) -> String {
+    format!(
+        "{} {}, {} at {}:{:02} {}",
+        MONTHS[civil.month() as usize - 1],
+        civil.day(),
+        civil.year(),
+        hour12.0,
+        civil.minute(),
+        hour12.1
     )
 }
 

@@ -28,8 +28,6 @@ vague-reason	packages/effect/test/Context.test.ts	152	the row asserts on the tag
 vague-reason	packages/effect/test/Context.test.ts	181	the row asserts on the tag's internal Context representation (impl._flat, mapUnsafe, hasSameCache, fiberCached service keys, Redactable fallbacks); this port's Context is built from Tag and ContextReference with no such representation, so the assertion has nothing to read
 vague-reason	packages/effect/test/Context.test.ts	195	the row asserts on the tag's internal Context representation (impl._flat, mapUnsafe, hasSameCache, fiberCached service keys, Redactable fallbacks); this port's Context is built from Tag and ContextReference with no such representation, so the assertion has nothing to read
 vague-reason	packages/effect/test/Context.test.ts	241	the row asserts on the tag's internal Context representation (impl._flat, mapUnsafe, hasSameCache, fiberCached service keys, Redactable fallbacks); this port's Context is built from Tag and ContextReference with no such representation, so the assertion has nothing to read
-vague-reason	packages/effect/test/Data.test.ts	240	the row catches a Data error by tag inside a program; this port's Effect has no catch_tag, so there is no tag-keyed recovery arm to run
-vague-reason	packages/effect/test/DateTime.test.ts	251	the row formats with Intl dateStyle long and timeStyle short; this port renders iso, isoOffset, utc, full and fullUtc and has no long/short locale style to select
 vague-reason	packages/effect/test/Deferred.test.ts	34	the tag's completeWith completes the deferred with the deferred itself as the effect's dependency, so neither body runs until await; this port's Deferred stores a plain Exit, so there is no effect-to-effect wiring to defer
 vague-reason	packages/effect/test/Deferred.test.ts	76	the tag's completeWith completes the deferred with the deferred itself as the effect's dependency, so neither body runs until await; this port's Deferred stores a plain Exit, so there is no effect-to-effect wiring to defer
 vague-reason	packages/effect/test/Deferred.test.ts	102	the row interrupts a suspended waiter and then completes, so the fiber model decides which waiter survives; this port's Deferred wakes every Condvar waiter and has no fiber to interrupt
@@ -509,7 +507,6 @@ vague-reason	packages/effect/test/String.test.ts	652	regex/unicode-backed string
 vague-reason	packages/effect/test/String.test.ts	656	regex/unicode-backed string API absent in crates/elm-effect/src/data/string.rs (Wave-6 residual, no regex engine/normalize)
 vague-reason	packages/effect/test/String.test.ts	660	regex/unicode-backed string API absent in crates/elm-effect/src/data/string.rs (Wave-6 residual, no regex engine/normalize)
 vague-reason	packages/effect/test/String.test.ts	664	regex/unicode-backed string API absent in crates/elm-effect/src/data/string.rs (Wave-6 residual, no regex engine/normalize)
-vague-reason	packages/effect/test/Struct.test.ts	140	Struct mapPick numeric-property behavior is not represented by the Rust Struct helpers beyond existing mappings.
 vague-reason	packages/effect/test/Symbol.test.ts	7	N/A: JS symbols have no Rust analog
 vague-reason	packages/effect/test/Symbol.test.ts	11	N/A: JS symbols have no Rust analog
 vague-reason	packages/effect/test/Symbol.test.ts	15	N/A: JS symbols have no Rust analog
