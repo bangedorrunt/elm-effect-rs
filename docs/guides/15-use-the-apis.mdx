@@ -4,7 +4,7 @@ import { Flow } from "./components/Flow.jsx"
 
 This page is the call catalog. Each section names the crate, the function, and the value you pass. The other guides explain one topic. This page shows the call.
 
-`elm-effect` is the facade. `elm-effect-elm` is the fold. `elm-effect-journal` is the log and the plans. `elm-effect-schema` is decode and encode.
+`elm-effect` is the facade. `elm-effect-elm` is the fold. `elm-effect-journal` is the log and the plans.
 
 <Flow
   label="Guide crates"
@@ -12,12 +12,10 @@ This page is the call catalog. Each section names the crate, the function, and t
     { id: "elm", label: "elm-effect-elm" },
     { id: "journal", label: "elm-effect-journal" },
     { id: "facade", label: "elm-effect" },
-    { id: "schema", label: "elm-effect-schema" },
   ]}
   edges={[
     ["elm", "facade"],
     ["journal", "facade"],
-    ["facade", "schema"],
   ]}
 />
 
@@ -195,7 +193,7 @@ let port = Config::integer(Some("PORT".to_string()))
     .load(&provider)?;
 ```
 
-The constructors are `string`, `non_empty_string`, `number`, `finite`, `integer`, `boolean`, `literal`, `literals`, `secret`, `redacted`, `duration_ms`, `duration`, `date`, `byte_size`, `url`, `port`, `log_level`, `array`, `all`, `record`, `schema`, `succeed`, and `fail`. The combinators are `map`, `flat_map`, `map_effect`, `validate`, `or_else`, `or_else_with`, `option`, `with_default`, and `nested`.
+The constructors are `string`, `non_empty_string`, `number`, `finite`, `integer`, `boolean`, `literal`, `literals`, `secret`, `redacted`, `duration_ms`, `duration`, `date`, `byte_size`, `url`, `port`, `log_level`, `array`, `all`, `record`, `succeed`, and `fail`. The combinators are `map`, `flat_map`, `map_effect`, `validate`, `or_else`, `or_else_with`, `option`, `with_default`, and `nested`.
 
 `load` answers `Result<Value, Vec<ConfigError>>`: one value, or every error the group found. The kinds are `Missing`, `Invalid`, `Source`, and `Defect`. A failed read (`Source`) and a provider that died (`Defect`) are not absence: neither `with_default` nor `option` recovers them, and only `catch_defect` answers a defect. `load_effect` moves the same load into an effect, so a provider defect arrives as the effect's defect.
 

@@ -11,14 +11,14 @@ Look up `conformance/modules.toml` by the file path.
 | Ledger class | Crate | Public path |
 | --- | --- | --- |
 | `port` | `crates/elm-effect` | `elm_effect::<Module>` |
-| `unstable-port` | `crates/elm-effect-unstable`, feature = the directory name (`http`, `sql`, `workflow`, `ai`, `cli`, …). A top-level file with an unstable tag uses feature `unstable` | `elm_effect::unstable::<module>` |
-| `experimental-port` | same unstable crate. A patch may break it | same |
+| `unstable-port` | nowhere: the minimal core carries no unstable crate (see `docs/learnings/minimalism-audit.md`) | nowhere |
+| `experimental-port` | nowhere: same cut | nowhere |
 | `native` | nowhere | say the Rust feature in the row's reason, and stop |
 | `platform-foreign` | nowhere for the host adapter | the service trait, if the module is the trait, follows the class of that trait's file |
 
 No row, and the file exists at the pin: run `conformance/inventory.sh` on a checkout of the pin and commit the regenerated `modules.toml`. Do not type a row by hand.
 
-No file at the pin: this is an extension, not a port. Put it in `elm-effect-unstable` under feature `ext`. Do not add a ledger row. Do not mark a fictional Effect path `matched`.
+No file at the pin: this is an extension, not a port. Build it in an application crate on top of `elm-effect`. Do not add a ledger row. Do not mark a fictional Effect path `matched`.
 
 ## Gate
 

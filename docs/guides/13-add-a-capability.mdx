@@ -38,6 +38,6 @@ A pure function stays a function. Lift it with `Effect::sync` or `Effect::from_r
 
 ## When you must change this repository
 
-Change `elm-effect` when the fiber steps must change. Add a witness test for that law. Put an Effect internal we will not carry behind `elm-effect-unstable` feature `ext`, and mark its ledger row `not-applicable` with a reason. Do not mark a fictional Effect path as `ported`.
+Change `elm-effect` when the fiber steps must change. Add a witness test for that law. Mark an Effect internal we will not carry as `not-applicable` with a reason. Do not mark a fictional Effect path as `ported`.
 
 An application crate depends on `elm-effect`. The dependency does not go the other way.

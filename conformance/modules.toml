@@ -4,65 +4,65 @@
 [[module]]
 path = "packages/effect/src/Arbitrary.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/arbitrary/Arbitrary.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Array.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Array.test.ts"]
 
 [[module]]
 path = "packages/effect/src/BigDecimal.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/BigDecimal.test.ts"]
 
 [[module]]
 path = "packages/effect/src/BigInt.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/BigInt.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Boolean.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Boolean.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Brand.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Brand.test.ts"]
 
 [[module]]
 path = "packages/effect/src/ByteSize.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/ByteSize.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Cache.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Cache.test.ts"]
 
 [[module]]
@@ -92,9 +92,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/Chunk.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Chunk.test.ts"]
 
 [[module]]
@@ -108,17 +108,17 @@ tests = ["packages/effect/test/Clock.test.ts"]
 [[module]]
 path = "packages/effect/src/Combiner.ts"
 class = "port"
-status = "matched"
+status = "unmatched"
 tag = "none"
-reason = ""
+reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Combiner.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Config.ts"
 class = "port"
-status = "matched"
+status = "unmatched"
 tag = "none"
-reason = ""
+reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Config.test.ts"]
 
 [[module]]
@@ -148,9 +148,9 @@ tests = ["packages/effect/test/Context.test.ts"]
 [[module]]
 path = "packages/effect/src/Cron.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Cron.test.ts"]
 
 [[module]]
@@ -164,17 +164,17 @@ tests = ["packages/effect/test/Crypto.test.ts"]
 [[module]]
 path = "packages/effect/src/Data.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Data.test.ts"]
 
 [[module]]
 path = "packages/effect/src/DateTime.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/DateTime.test.ts"]
 
 [[module]]
@@ -196,9 +196,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/Duration.ts"
 class = "port"
-status = "matched"
+status = "unmatched"
 tag = "none"
-reason = ""
+reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Duration.test.ts"]
 
 [[module]]
@@ -220,17 +220,17 @@ tests = ["packages/effect/test/Effectable.test.ts"]
 [[module]]
 path = "packages/effect/src/Equal.ts"
 class = "port"
-status = "matched"
+status = "unmatched"
 tag = "none"
-reason = ""
+reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Equal.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Equivalence.ts"
 class = "port"
-status = "matched"
+status = "unmatched"
 tag = "none"
-reason = ""
+reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Equivalence.test.ts"]
 
 [[module]]
@@ -308,25 +308,25 @@ tests = []
 [[module]]
 path = "packages/effect/src/Formatter.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Formatter.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Function.ts"
 class = "port"
-status = "matched"
+status = "unmatched"
 tag = "none"
-reason = ""
+reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Function.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Graph.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Graph.test.ts"]
 
 [[module]]
@@ -340,33 +340,33 @@ tests = []
 [[module]]
 path = "packages/effect/src/Hash.ts"
 class = "port"
-status = "matched"
+status = "unmatched"
 tag = "none"
-reason = ""
+reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Hash.test.ts"]
 
 [[module]]
 path = "packages/effect/src/HashMap.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/HashMap.test.ts"]
 
 [[module]]
 path = "packages/effect/src/HashRing.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/HashRing.test.ts"]
 
 [[module]]
 path = "packages/effect/src/HashSet.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/HashSet.test.ts"]
 
 [[module]]
@@ -380,41 +380,41 @@ tests = []
 [[module]]
 path = "packages/effect/src/Iterable.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Iterable.test.ts"]
 
 [[module]]
 path = "packages/effect/src/JsonPatch.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/JsonPatch.test.ts"]
 
 [[module]]
 path = "packages/effect/src/JsonPointer.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/JsonPointer.test.ts"]
 
 [[module]]
 path = "packages/effect/src/JsonSchema.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/JsonSchema.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Latch.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Latch.test.ts"]
 
 [[module]]
@@ -428,9 +428,9 @@ tests = ["packages/effect/test/Layer.test.ts"]
 [[module]]
 path = "packages/effect/src/LayerMap.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/LayerMap.test.ts"]
 
 [[module]]
@@ -468,9 +468,9 @@ tests = ["packages/effect/test/ManagedRuntime.test.ts"]
 [[module]]
 path = "packages/effect/src/Match.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Match.test.ts"]
 
 [[module]]
@@ -484,25 +484,25 @@ tests = ["packages/effect/test/Metric.test.ts"]
 [[module]]
 path = "packages/effect/src/MutableHashMap.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/MutableHashMap.test.ts"]
 
 [[module]]
 path = "packages/effect/src/MutableHashSet.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/MutableHashSet.test.ts"]
 
 [[module]]
 path = "packages/effect/src/MutableList.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/MutableList.test.ts"]
 
 [[module]]
@@ -532,41 +532,41 @@ tests = []
 [[module]]
 path = "packages/effect/src/Number.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Number.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Optic.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Optic.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Option.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Option.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Order.ts"
 class = "port"
-status = "matched"
+status = "unmatched"
 tag = "none"
-reason = ""
+reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Order.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Ordering.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Ordering.test.ts"]
 
 [[module]]
@@ -604,17 +604,17 @@ tests = []
 [[module]]
 path = "packages/effect/src/Pool.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Pool.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Predicate.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Predicate.test.ts"]
 
 [[module]]
@@ -660,9 +660,9 @@ tests = ["packages/effect/test/Random.test.ts"]
 [[module]]
 path = "packages/effect/src/RcMap.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/RcMap.test.ts"]
 
 [[module]]
@@ -676,9 +676,9 @@ tests = ["packages/effect/test/RcRef.test.ts"]
 [[module]]
 path = "packages/effect/src/Record.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Record.test.ts"]
 
 [[module]]
@@ -700,9 +700,9 @@ tests = ["packages/effect/test/Redacted.test.ts"]
 [[module]]
 path = "packages/effect/src/Reducer.ts"
 class = "port"
-status = "matched"
+status = "unmatched"
 tag = "none"
-reason = ""
+reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Reducer.test.ts"]
 
 [[module]]
@@ -732,9 +732,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/Request.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Request.test.ts"]
 
 [[module]]
@@ -748,17 +748,17 @@ tests = []
 [[module]]
 path = "packages/effect/src/Resource.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Resource.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Result.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Result.test.ts"]
 
 [[module]]
@@ -788,9 +788,9 @@ tests = ["packages/effect/test/Scheduler.test.ts"]
 [[module]]
 path = "packages/effect/src/Schema.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/schema/Schema.test.ts"]
 
 [[module]]
@@ -804,9 +804,9 @@ tests = ["packages/effect/test/schema/SchemaAST.test.ts"]
 [[module]]
 path = "packages/effect/src/SchemaGetter.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/schema/SchemaGetter.test.ts"]
 
 [[module]]
@@ -820,9 +820,9 @@ tests = ["packages/effect/test/schema/SchemaIssue.test.ts"]
 [[module]]
 path = "packages/effect/src/SchemaParser.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/schema/SchemaParser.test.ts"]
 
 [[module]]
@@ -836,9 +836,9 @@ tests = ["packages/effect/test/http/SchemaRepresentation.test.ts"]
 [[module]]
 path = "packages/effect/src/SchemaTransformation.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/schema/SchemaTransformation.test.ts"]
 
 [[module]]
@@ -852,9 +852,9 @@ tests = ["packages/effect/test/Scope.test.ts"]
 [[module]]
 path = "packages/effect/src/ScopedCache.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/ScopedCache.test.ts"]
 
 [[module]]
@@ -892,9 +892,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/Stdio.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Stdio.test.ts"]
 
 [[module]]
@@ -916,9 +916,9 @@ tests = ["packages/effect/test/String.test.ts"]
 [[module]]
 path = "packages/effect/src/Struct.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Struct.test.ts"]
 
 [[module]]
@@ -972,17 +972,17 @@ tests = ["packages/effect/test/Tracer.test.ts"]
 [[module]]
 path = "packages/effect/src/Trie.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Trie.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Tuple.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/Tuple.test.ts"]
 
 [[module]]
@@ -1084,9 +1084,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/UndefinedOr.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/UndefinedOr.test.ts"]
 
 [[module]]
@@ -1108,25 +1108,25 @@ tests = []
 [[module]]
 path = "packages/effect/src/ai/AiError.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/ai/AiError.test.ts"]
 
 [[module]]
 path = "packages/effect/src/ai/AnthropicStructuredOutput.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/ai/AnthropicStructuredOutput.test.ts"]
 
 [[module]]
 path = "packages/effect/src/ai/Chat.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/ai/Chat.test.ts"]
 
 [[module]]
@@ -1140,17 +1140,17 @@ tests = []
 [[module]]
 path = "packages/effect/src/ai/DecisionModel.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/ai/DecisionModel.test.ts"]
 
 [[module]]
 path = "packages/effect/src/ai/EmbeddingModel.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/ai/EmbeddingModel.test.ts"]
 
 [[module]]
@@ -1164,33 +1164,33 @@ tests = []
 [[module]]
 path = "packages/effect/src/ai/LanguageModel.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/ai/LanguageModel.test.ts"]
 
 [[module]]
 path = "packages/effect/src/ai/McpProtocol.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/ai/McpServer/McpProtocol.test.ts"]
 
 [[module]]
 path = "packages/effect/src/ai/McpSchema.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/ai/McpSchema.test.ts"]
 
 [[module]]
 path = "packages/effect/src/ai/McpServer.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/ai/McpServer/McpServer.test.ts", "packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts", "packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts", "packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts", "packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts", "packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts", "packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts", "packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts", "packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts"]
 
 [[module]]
@@ -1204,33 +1204,33 @@ tests = ["packages/effect/test/ai/Model.test.ts"]
 [[module]]
 path = "packages/effect/src/ai/OpenAiStructuredOutput.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/ai/OpenAiStructuredOutput.test.ts"]
 
 [[module]]
 path = "packages/effect/src/ai/Prompt.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/ai/Prompt.test.ts"]
 
 [[module]]
 path = "packages/effect/src/ai/Response.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/ai/Response.test.ts"]
 
 [[module]]
 path = "packages/effect/src/ai/ResponseIdTracker.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/ai/ResponseIdTracker.test.ts"]
 
 [[module]]
@@ -1252,9 +1252,9 @@ tests = ["packages/effect/test/ai/Tokenizer.test.ts"]
 [[module]]
 path = "packages/effect/src/ai/Tool.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/ai/Tool.test.ts"]
 
 [[module]]
@@ -1308,9 +1308,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/cli/Command.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/cli/Command.test.ts"]
 
 [[module]]
@@ -1348,25 +1348,25 @@ tests = []
 [[module]]
 path = "packages/effect/src/cli/Param.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/cli/Param.test.ts"]
 
 [[module]]
 path = "packages/effect/src/cli/Primitive.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/cli/Primitive.test.ts"]
 
 [[module]]
 path = "packages/effect/src/cli/Prompt.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/cli/Prompt.test.ts"]
 
 [[module]]
@@ -1428,9 +1428,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/cluster/Entity.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/cluster/Entity.test.ts"]
 
 [[module]]
@@ -1532,9 +1532,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/cluster/MessageStorage.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/cluster/MessageStorage.test.ts"]
 
 [[module]]
@@ -1572,25 +1572,25 @@ tests = []
 [[module]]
 path = "packages/effect/src/cluster/RunnerServer.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/cluster/RunnerServer.test.ts"]
 
 [[module]]
 path = "packages/effect/src/cluster/RunnerStorage.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/cluster/RunnerStorage.test.ts"]
 
 [[module]]
 path = "packages/effect/src/cluster/Runners.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/cluster/Runners.test.ts"]
 
 [[module]]
@@ -1604,17 +1604,17 @@ tests = []
 [[module]]
 path = "packages/effect/src/cluster/Sharding.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/cluster/Sharding.test.ts"]
 
 [[module]]
 path = "packages/effect/src/cluster/ShardingConfig.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/cluster/ShardingConfig.test.ts"]
 
 [[module]]
@@ -1708,9 +1708,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/devtools/DevToolsClient.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/devtools/DevToolsClient.test.ts"]
 
 [[module]]
@@ -1740,81 +1740,81 @@ tests = []
 [[module]]
 path = "packages/effect/src/encoding/Base64.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/encoding/Base64.test.ts"]
 
 [[module]]
 path = "packages/effect/src/encoding/Base64Url.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/encoding/Base64Url.test.ts"]
 
 [[module]]
 path = "packages/effect/src/encoding/EncodingError.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/encoding/EncodingError.test.ts"]
 
 [[module]]
 path = "packages/effect/src/encoding/Hex.ts"
 class = "port"
-status = "matched"
+status = "excused"
 tag = "none"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/encoding/Hex.test.ts"]
 
 [[module]]
 path = "packages/effect/src/encoding/Ini.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/encoding/Ini.test.ts"]
 
 [[module]]
 path = "packages/effect/src/encoding/Ndjson.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/encoding/Ndjson.test.ts"]
 
 [[module]]
 path = "packages/effect/src/encoding/SchemaBinary.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/encoding/SchemaBinary.test.ts"]
 
 [[module]]
 path = "packages/effect/src/encoding/Sse.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/encoding/Sse.test.ts"]
 
 [[module]]
 path = "packages/effect/src/encoding/Toml.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/encoding/Toml.test.ts"]
 
 [[module]]
 path = "packages/effect/src/encoding/Yaml.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/encoding/Yaml.test.ts"]
 
 [[module]]
@@ -1844,17 +1844,17 @@ tests = []
 [[module]]
 path = "packages/effect/src/eventlog/EventJournal.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/eventlog/EventJournal.test.ts"]
 
 [[module]]
 path = "packages/effect/src/eventlog/EventLog.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/eventlog/EventLog.test.ts"]
 
 [[module]]
@@ -1868,9 +1868,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/eventlog/EventLogMessage.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/eventlog/EventLogMessage.test.ts"]
 
 [[module]]
@@ -1900,17 +1900,17 @@ tests = []
 [[module]]
 path = "packages/effect/src/eventlog/EventLogServerUnencrypted.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/eventlog/EventLogServerUnencrypted.test.ts"]
 
 [[module]]
 path = "packages/effect/src/eventlog/EventLogSessionAuth.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/eventlog/EventLogSessionAuth.test.ts"]
 
 [[module]]
@@ -1948,33 +1948,33 @@ tests = []
 [[module]]
 path = "packages/effect/src/http-api/HttpApi.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/httpapi/HttpApi.test.ts"]
 
 [[module]]
 path = "packages/effect/src/http-api/HttpApiBuilder.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/httpapi/HttpApiBuilder.test.ts"]
 
 [[module]]
 path = "packages/effect/src/http-api/HttpApiClient.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/httpapi/HttpApiClient.test.ts"]
 
 [[module]]
 path = "packages/effect/src/http-api/HttpApiEndpoint.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/httpapi/HttpApiEndpoint.test.ts"]
 
 [[module]]
@@ -2012,17 +2012,17 @@ tests = []
 [[module]]
 path = "packages/effect/src/http-api/HttpApiSchema.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/httpapi/HttpApiSchema.test.ts"]
 
 [[module]]
 path = "packages/effect/src/http-api/HttpApiSecurity.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/httpapi/HttpApiSecurity.test.ts"]
 
 [[module]]
@@ -2044,9 +2044,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/http-api/OpenApi.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/httpapi/OpenApi.test.ts"]
 
 [[module]]
@@ -2060,9 +2060,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/http/Cookies.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/Cookies.test.ts"]
 
 [[module]]
@@ -2092,9 +2092,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/http/Headers.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/Headers.test.ts"]
 
 [[module]]
@@ -2108,9 +2108,9 @@ tests = ["packages/effect/test/http/HttpBody.test.ts"]
 [[module]]
 path = "packages/effect/src/http/HttpClient.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/HttpClient.test.ts"]
 
 [[module]]
@@ -2124,9 +2124,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/http/HttpClientRequest.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/HttpClientRequest.test.ts"]
 
 [[module]]
@@ -2140,9 +2140,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/http/HttpEffect.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/HttpEffect.test.ts"]
 
 [[module]]
@@ -2164,65 +2164,65 @@ tests = []
 [[module]]
 path = "packages/effect/src/http/HttpMiddleware.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/HttpMiddleware.test.ts"]
 
 [[module]]
 path = "packages/effect/src/http/HttpPlatform.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/HttpPlatform.test.ts"]
 
 [[module]]
 path = "packages/effect/src/http/HttpRouter.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/HttpRouter.test.ts"]
 
 [[module]]
 path = "packages/effect/src/http/HttpServer.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/HttpServer.test.ts"]
 
 [[module]]
 path = "packages/effect/src/http/HttpServerError.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/HttpServerError.test.ts"]
 
 [[module]]
 path = "packages/effect/src/http/HttpServerRequest.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/HttpServerRequest.test.ts"]
 
 [[module]]
 path = "packages/effect/src/http/HttpServerRespondable.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/HttpServerRespondable.test.ts"]
 
 [[module]]
 path = "packages/effect/src/http/HttpServerResponse.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/HttpServerResponse.test.ts"]
 
 [[module]]
@@ -2236,9 +2236,9 @@ tests = ["packages/effect/test/http/HttpStaticServer.test.ts"]
 [[module]]
 path = "packages/effect/src/http/HttpStatus.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/HttpStatus.test.ts"]
 
 [[module]]
@@ -2252,17 +2252,17 @@ tests = []
 [[module]]
 path = "packages/effect/src/http/Mime.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/Mime.test.ts"]
 
 [[module]]
 path = "packages/effect/src/http/Multipart.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/Multipart.test.ts"]
 
 [[module]]
@@ -2300,17 +2300,17 @@ tests = ["packages/effect/test/http/Template.test.ts"]
 [[module]]
 path = "packages/effect/src/http/Url.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/Url.test.ts"]
 
 [[module]]
 path = "packages/effect/src/http/UrlParams.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/http/UrlParams.test.ts"]
 
 [[module]]
@@ -2332,25 +2332,25 @@ tests = []
 [[module]]
 path = "packages/effect/src/net/IpInterface.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/net/IpInterface.test.ts"]
 
 [[module]]
 path = "packages/effect/src/net/IpNetwork.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/net/IpNetwork.test.ts"]
 
 [[module]]
 path = "packages/effect/src/net/NetAddress.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/net/NetAddress.test.ts"]
 
 [[module]]
@@ -2396,17 +2396,17 @@ tests = ["packages/effect/test/observability/OtlpMetrics.test.ts"]
 [[module]]
 path = "packages/effect/src/observability/OtlpResource.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/observability/OtlpResource.test.ts"]
 
 [[module]]
 path = "packages/effect/src/observability/OtlpSerialization.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/observability/OtlpSerialization.test.ts"]
 
 [[module]]
@@ -2420,9 +2420,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/observability/PrometheusMetrics.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/observability/PrometheusMetrics.test.ts"]
 
 [[module]]
@@ -2436,9 +2436,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/persistence/KeyValueStore.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/persistence/KeyValueStore.test.ts", "packages/effect/test/persistence/KeyValueStoreTest.ts"]
 
 [[module]]
@@ -2460,9 +2460,9 @@ tests = ["packages/effect/test/persistence/PersistedCache.test.ts", "packages/ef
 [[module]]
 path = "packages/effect/src/persistence/PersistedQueue.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/persistence/PersistedQueue.test.ts", "packages/effect/test/persistence/PersistedQueueTest.ts"]
 
 [[module]]
@@ -2476,17 +2476,17 @@ tests = []
 [[module]]
 path = "packages/effect/src/persistence/RateLimiter.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/persistence/RateLimiter.test.ts", "packages/effect/test/persistence/RateLimiterTest.ts"]
 
 [[module]]
 path = "packages/effect/src/persistence/Redis.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/persistence/Redis.test.ts"]
 
 [[module]]
@@ -2500,17 +2500,17 @@ tests = []
 [[module]]
 path = "packages/effect/src/process/ChildProcess.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/process/ChildProcess.test.ts"]
 
 [[module]]
 path = "packages/effect/src/process/ChildProcessSpawner.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/process/ChildProcessSpawnerTest.ts"]
 
 [[module]]
@@ -2532,9 +2532,9 @@ tests = ["packages/effect/test/reactivity/AsyncResult.test.ts"]
 [[module]]
 path = "packages/effect/src/reactivity/Atom.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/reactivity/Atom.test.ts"]
 
 [[module]]
@@ -2596,17 +2596,17 @@ tests = []
 [[module]]
 path = "packages/effect/src/rpc/Rpc.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/rpc/Rpc.test.ts"]
 
 [[module]]
 path = "packages/effect/src/rpc/RpcClient.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/rpc/RpcClient.test.ts"]
 
 [[module]]
@@ -2652,17 +2652,17 @@ tests = []
 [[module]]
 path = "packages/effect/src/rpc/RpcSerialization.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/rpc/RpcSerialization.test.ts"]
 
 [[module]]
 path = "packages/effect/src/rpc/RpcServer.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/rpc/RpcServer.test.ts"]
 
 [[module]]
@@ -2740,9 +2740,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/schema/SchemaJITCompiler.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/schema/SchemaJITCompiler.test.ts"]
 
 [[module]]
@@ -2756,9 +2756,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/schema/VariantSchema.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/schema/VariantSchema.test.ts"]
 
 [[module]]
@@ -2772,9 +2772,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/socket/Socket.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/socket/Socket.test.ts"]
 
 [[module]]
@@ -2804,9 +2804,9 @@ tests = ["packages/effect/test/Migrator.test.ts"]
 [[module]]
 path = "packages/effect/src/sql/SqlClient.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/sql/SqlClient.test.ts"]
 
 [[module]]
@@ -2820,9 +2820,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/sql/SqlError.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/sql/SqlError.test.ts"]
 
 [[module]]
@@ -2836,17 +2836,17 @@ tests = []
 [[module]]
 path = "packages/effect/src/sql/SqlResolver.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = "no surface yet"
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/sql/SqlResolver.test.ts"]
 
 [[module]]
 path = "packages/effect/src/sql/SqlSchema.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = "no surface yet"
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/sql/SqlSchema.test.ts"]
 
 [[module]]
@@ -2860,9 +2860,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/sql/Statement.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = "no prepared-statement surface yet"
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/sql/Statement.test.ts"]
 
 [[module]]
@@ -2916,17 +2916,17 @@ tests = []
 [[module]]
 path = "packages/effect/src/workers/Worker.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/workers/Worker.test.ts"]
 
 [[module]]
 path = "packages/effect/src/workers/WorkerError.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/workers/WorkerError.test.ts"]
 
 [[module]]
@@ -2972,9 +2972,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/workflow/DurableQueue.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/workflow/DurableQueue.test.ts"]
 
 [[module]]
@@ -2988,9 +2988,9 @@ tests = ["packages/effect/test/workflow/Workflow.test.ts"]
 [[module]]
 path = "packages/effect/src/workflow/WorkflowEngine.ts"
 class = "unstable-port"
-status = "matched"
+status = "excused"
 tag = "unstable"
-reason = ""
+reason = "every linked behavior row is excused after the 2026-10-24 minimalism cut"
 tests = ["packages/effect/test/workflow/WorkflowEngine.test.ts"]
 
 [[module]]
