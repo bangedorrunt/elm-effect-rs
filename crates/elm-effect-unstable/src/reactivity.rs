@@ -1906,6 +1906,101 @@ where
     )
 }
 
+/// `Atom.swr` options: how long an answer counts as fresh, and whether the
+/// first read revalidates.
+pub struct SwrOptions {
+    /// `staleTime`: after this long, an answer is stale and a read refetches.
+    pub stale_time: std::time::Duration,
+    /// `revalidateOnMount`: whether the first read refetches a stale answer.
+    pub revalidate_on_mount: bool,
+}
+
+impl SwrOptions {
+    /// The pin's defaults: the answer is stale immediately after it arrives,
+    /// and the first read revalidates.
+    pub fn new(stale_time: std::time::Duration) -> Self {
+        Self {
+            stale_time,
+            revalidate_on_mount: true,
+        }
+    }
+
+    /// `revalidateOnMount: false`: serve what is there, never refetch on the
+    /// first read.
+    pub fn without_revalidate_on_mount(mut self) -> Self {
+        self.revalidate_on_mount = false;
+        self
+    }
+}
+
+/// The timestamp a stale check reads: a success's own time, or the carried
+/// success's time when the current answer is a failure.
+fn swr_timestamp<T, E>(result: &AsyncResult<T, E>) -> Option<u64> {
+    match result {
+        AsyncResult::Success { timestamp, .. } => Some(*timestamp),
+        AsyncResult::Failure {
+            previous_success, ..
+        } => previous_success.as_ref().map(|success| success.timestamp),
+        AsyncResult::Initial { .. } => None,
+    }
+}
+
+fn should_revalidate_swr<T, E>(
+    result: &AsyncResult<T, E>,
+    stale_time: std::time::Duration,
+) -> bool {
+    match swr_timestamp(result) {
+        None => true,
+        Some(timestamp) => now_millis().saturating_sub(timestamp) >= stale_time.as_millis() as u64,
+    }
+}
+
+/// `Atom.swr`: stale-while-revalidate over an asynchronous atom. Reads
+/// forward the base's value, and a read of a stale answer refreshes the base.
+/// The refreshed answer arrives through the subscription, so a read still
+/// serves the stale value first when the fetch is deferred.
+///
+/// Ceiling: the pin's `revalidateOnFocus` and `focusSignal` are not carried
+/// here; they need a focus atom to subscribe to, which this module has no
+/// source for, and the pin's deferred revalidation runs inline here.
+pub fn swr<T, E>(
+    base: &Atom<AsyncResult<T, E>>,
+    options: SwrOptions,
+) -> Atom<AsyncResult<T, E>>
+where
+    T: Clone + Send + Sync + 'static,
+    E: Clone + Send + Sync + 'static,
+{
+    let base = base.clone();
+    let wired = Arc::new(Mutex::new(false));
+    readable(move |context: &ReadContext| {
+        let current = context.get(&base);
+        let first_read = context.self_value::<AsyncResult<T, E>>().is_none();
+        // Only the subscription is once; the stale check runs on every build,
+        // which is what makes a refresh of this node revalidate.
+        {
+            let mut wired = wired.lock().unwrap();
+            if !*wired {
+                *wired = true;
+                let sink = context.clone();
+                context.subscribe(&base, move |value: AsyncResult<T, E>| {
+                    sink.set_self(value)
+                });
+            }
+        }
+        if first_read && !options.revalidate_on_mount {
+            return current;
+        }
+        if should_revalidate_swr(&current, options.stale_time) {
+            context.refresh(&base);
+            // Deferred: the refresh is in flight, so this is still the stale
+            // value. Inline: it is already the fresh one.
+            return context.get(&base);
+        }
+        current
+    })
+}
+
 /// The registry's per-atom state.
 struct AtomNodeState {
     value: AnyValue,
