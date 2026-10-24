@@ -365,11 +365,7 @@ where
 /// Fail-fast rides on the result channel, not on join order: a failing body
 /// that finishes early interrupts the siblings that are still running, even
 /// while an earlier body has not answered yet.
-pub fn all_in<A, E>(
-    ctx: &Ctx,
-    bodies: Vec<Body<A, E>>,
-    concurrency: Concurrency,
-) -> Exit<Vec<A>, E>
+pub fn all_in<A, E>(ctx: &Ctx, bodies: Vec<Body<A, E>>, concurrency: Concurrency) -> Exit<Vec<A>, E>
 where
     A: Send + 'static,
     E: Send + 'static,
@@ -430,56 +426,52 @@ where
     let mut launched = 0usize;
     let mut failure: Option<Cause<E>> = None;
 
-    let launch_one = |queue: &mut std::collections::VecDeque<(usize, Body<A, E>)>,
-                          live: &mut std::collections::HashMap<
-        usize,
-        FiberHandle<(), std::convert::Infallible>,
-    >| -> bool {
-        let Some((index, body)) = queue.pop_front() else {
-            return false;
+    let launch_one =
+        |queue: &mut std::collections::VecDeque<(usize, Body<A, E>)>,
+         live: &mut std::collections::HashMap<usize, FiberHandle<(), std::convert::Infallible>>|
+         -> bool {
+            let Some((index, body)) = queue.pop_front() else {
+                return false;
+            };
+            let tx = tx.clone();
+            let handle = ctx.fork_child(
+                move |c: &Ctx| {
+                    let exit = body(c);
+                    let _ = tx.send(match exit {
+                        Exit::Success(a) => Done::Ok(index, a),
+                        Exit::Failure(cause) => Done::Failed(index, cause),
+                    });
+                    Exit::<(), std::convert::Infallible>::succeed(())
+                },
+                ForkOpts::immediate(),
+            );
+            live.insert(index, handle);
+            true
         };
-        let tx = tx.clone();
-        let handle = ctx.fork_child(
-            move |c: &Ctx| {
-                let exit = body(c);
-                let _ = tx.send(match exit {
-                    Exit::Success(a) => Done::Ok(index, a),
-                    Exit::Failure(cause) => Done::Failed(index, cause),
-                });
-                Exit::<(), std::convert::Infallible>::succeed(())
-            },
-            ForkOpts::immediate(),
-        );
-        live.insert(index, handle);
-        true
-    };
 
     // Stop the batch on `cause`: interrupt the workers still running, join
     // them so their cleanups finish, and fold both the cleanup defects and any
     // interrupt that landed meanwhile into the same cause.
-    let stop_batch = |live: &mut std::collections::HashMap<
-        usize,
-        FiberHandle<(), std::convert::Infallible>,
-    >,
-                      cause: &mut Cause<E>,
-                      finished: &mut usize,
-                      launched: usize| {
-        for handle in live.values() {
-            handle.interrupt_unsafe();
-        }
-        let mut defects = Vec::new();
-        for (_, handle) in live.drain() {
-            if let Exit::Failure(sibling) = handle.join() {
-                defects.extend(sibling.defects().into_iter().cloned());
+    let stop_batch =
+        |live: &mut std::collections::HashMap<usize, FiberHandle<(), std::convert::Infallible>>,
+         cause: &mut Cause<E>,
+         finished: &mut usize,
+         launched: usize| {
+            for handle in live.values() {
+                handle.interrupt_unsafe();
             }
-        }
-        cause.append_defects(defects);
-        if ctx.is_interrupted() && !cause.is_interrupted() {
-            cause.reasons.push(Reason::Interrupt { fiber_id: None });
-        }
-        *finished = launched;
-    };
-
+            let mut defects = Vec::new();
+            for (_, handle) in live.drain() {
+                if let Exit::Failure(sibling) = handle.join() {
+                    defects.extend(sibling.defects().into_iter().cloned());
+                }
+            }
+            cause.append_defects(defects);
+            if ctx.is_interrupted() && !cause.is_interrupted() {
+                cause.reasons.push(Reason::Interrupt { fiber_id: None });
+            }
+            *finished = launched;
+        };
 
     while live.len() < bound && launch_one(&mut queue, &mut live) {
         launched += 1;
@@ -652,9 +644,7 @@ where
                 break;
             }
             let f = Arc::clone(&f);
-            launched.push_back(
-                ctx.fork_child(move |c: &Ctx| f(item, c), ForkOpts::immediate()),
-            );
+            launched.push_back(ctx.fork_child(move |c: &Ctx| f(item, c), ForkOpts::immediate()));
         }
         if ctx.is_interrupted() && !interrupted {
             interrupted = true;

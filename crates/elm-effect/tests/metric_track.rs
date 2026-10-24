@@ -27,7 +27,11 @@ fn count(metrics: &Metrics, counter: &Counter) -> f64 {
 
 /// `Effect.track(counter)` with one occurrence per exit: the shape every row
 /// below starts from. The counter is cloned because the hook outlives the call.
-fn tracked<A, E, R>(effect: Effect<A, E, R>, metrics: &Metrics, counter: &Counter) -> Effect<A, E, R>
+fn tracked<A, E, R>(
+    effect: Effect<A, E, R>,
+    metrics: &Metrics,
+    counter: &Counter,
+) -> Effect<A, E, R>
 where
     A: Send + 'static,
     E: Send + 'static,
@@ -94,13 +98,15 @@ fn track_maps_exits_while_preserving_the_result() {
     let counted = counter("track-preserves");
     let record = counted.clone();
 
-    let exit = run(Effect::<i32, i32, ()>::succeed(1).track(&metrics, move |exit, registry| {
-        let amount = match exit {
-            Exit::Success(value) => *value as f64,
-            Exit::Failure(_) => 0.0,
-        };
-        registry.update(&record, amount)
-    }));
+    let exit = run(
+        Effect::<i32, i32, ()>::succeed(1).track(&metrics, move |exit, registry| {
+            let amount = match exit {
+                Exit::Success(value) => *value as f64,
+                Exit::Failure(_) => 0.0,
+            };
+            registry.update(&record, amount)
+        }),
+    );
 
     assert_eq!(exit, Exit::Success(1));
     assert_eq!(count(&metrics, &counted), 1.0);
@@ -360,7 +366,11 @@ fn tracking_equal_descriptions_shares_one_series() {
     let counter3 = counter("referential").with_attributes(attributes([("z", "c"), ("y", "b")]));
 
     for counter in [&counter1, &counter2, &counter3] {
-        run(tracked(Effect::<(), i32, ()>::succeed(()), &metrics, counter));
+        run(tracked(
+            Effect::<(), i32, ()>::succeed(()),
+            &metrics,
+            counter,
+        ));
     }
 
     assert_eq!(count(&metrics, &counter1), 2.0);

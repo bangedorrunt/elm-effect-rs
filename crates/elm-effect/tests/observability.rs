@@ -194,8 +194,8 @@ fn log_level_gates_and_info_effect() {
         elm_effect::Exit::Success(2)
     ));
     let tracer = observability::SpanRecorder::new();
-    let use_tracer =
-        elm_effect::use_service::<observability::SpanRecorderTag>().map(|tracer| tracer.spans().len());
+    let use_tracer = elm_effect::use_service::<observability::SpanRecorderTag>()
+        .map(|tracer| tracer.spans().len());
     let trace_effect = use_tracer.provide::<observability::SpanRecorderTag, ()>(tracer);
     assert!(matches!(
         elm_effect::Runtime::run(trace_effect),
@@ -701,7 +701,9 @@ fn a_sandboxed_failure_captures_the_span_as_its_stack_frame() {
 
     let cause = match Runtime::run(captured) {
         Exit::Success(cause) => cause,
-        Exit::Failure(cause) => panic!("flip turned the sandboxed cause back into a failure: {cause:?}"),
+        Exit::Failure(cause) => {
+            panic!("flip turned the sandboxed cause back into a failure: {cause:?}")
+        }
     };
     assert!(
         matches!(cause.reasons.first(), Some(elm_effect::Reason::Die(_))),

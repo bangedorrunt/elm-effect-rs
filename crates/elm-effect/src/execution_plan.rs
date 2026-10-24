@@ -75,11 +75,14 @@ impl ExecutionPlan {
                     };
                 }
                 Err(e) => {
-                    if attempts >= self.max_attempts || interrupted() {
+                    // Probe once: a side-effecting probe would otherwise be
+                    // able to answer differently on the two calls.
+                    let stopped = interrupted();
+                    if attempts >= self.max_attempts || stopped {
                         return Planned {
                             outcome: Err(e),
                             attempts,
-                            interrupted: interrupted(),
+                            interrupted: stopped,
                         };
                     }
                 }

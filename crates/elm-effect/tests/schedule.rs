@@ -461,7 +461,6 @@ fn tap_modify_and_add_delay_see_full_metadata() {
     ));
 }
 
-
 #[test]
 fn duration_recurs_once_after_its_delay() {
     // :369 — one delayed recurrence, then completion.
@@ -542,11 +541,8 @@ fn fixed_delays_with_action(action_ms: u64) -> Vec<u64> {
         .tap(move |meta| sink.lock().unwrap().push(meta.duration.as_millis()));
     let mut stepper = schedule.to_step();
     let mut now = action_ms as f64;
-    loop {
-        match stepper.step_with_metadata(now, &()) {
-            Some(metadata) => now += metadata.duration.as_millis() as f64 + action_ms as f64,
-            None => break,
-        }
+    while let Some(metadata) = stepper.step_with_metadata(now, &()) {
+        now += metadata.duration.as_millis() as f64 + action_ms as f64;
     }
     let mut delays = seen.lock().unwrap().clone();
     // The pin's driver pushes a zero once the schedule completes.

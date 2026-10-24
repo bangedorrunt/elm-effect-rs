@@ -7,12 +7,16 @@
 //! yield bounded chunks; an unbounded source stays a pull loop, never a
 //! materialized `Vec`.
 
+#[allow(dead_code, clippy::type_complexity)]
 #[path = "../src/channel.rs"]
 mod channel;
+#[allow(dead_code, clippy::type_complexity)]
 #[path = "../src/pull.rs"]
 mod pull;
+#[allow(dead_code, clippy::type_complexity)]
 #[path = "../src/sink.rs"]
 mod sink;
+#[allow(dead_code, clippy::type_complexity)]
 #[path = "../src/take.rs"]
 mod take;
 

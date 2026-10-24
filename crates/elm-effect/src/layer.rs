@@ -441,8 +441,8 @@ enum EntryState {
 /// A memoized build: the services, the scope that owns them, and how many
 /// caller scopes still observe them.
 struct Entry {
-    state: Mutex<EntryState>,
-    ready: Condvar,
+    state: Arc<Mutex<EntryState>>,
+    ready: Arc<Condvar>,
     scope: Arc<Scope>,
     observers: AtomicUsize,
     owner: std::sync::Weak<Mutex<EntryMap>>,
@@ -450,6 +450,32 @@ struct Entry {
 }
 
 type EntryMap = HashMap<u64, Arc<Entry>>;
+
+/// Publishes a failed entry if its build unwinds. Without this, a panicking
+/// constructor leaves the entry `Building`, and every waiter parks on a build
+/// that can never finish.
+struct UnwindGuard<'a> {
+    entry: &'a Arc<Entry>,
+    scope: &'a Arc<Scope>,
+    armed: bool,
+}
+
+impl Drop for UnwindGuard<'_> {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        *self.entry.state.lock().unwrap() = EntryState::Failed {
+            interrupted: false,
+            cause: None,
+        };
+        self.entry.ready.notify_all();
+        if let Some(map) = self.entry.owner.upgrade() {
+            map.lock().unwrap().remove(&self.entry.id);
+        }
+        self.scope.close();
+    }
+}
 
 /// The fiber a build runs on, when it has one. Constructors see it in their
 /// ambient services and the stage loop polls it, which is what lets an
@@ -507,11 +533,26 @@ impl Entry {
                     if let Some(cause) = interrupted::<E>(ctx) {
                         return Err(cause);
                     }
-                    let (state, _) = self
-                        .ready
-                        .wait_timeout(state, std::time::Duration::from_millis(20))
-                        .unwrap();
-                    drop(state);
+                    // The builder's `finish` notifies `ready`; an interrupt
+                    // request notifies it through this hook. The timeout is
+                    // only the fallback for a thread outside a fiber.
+                    let state_lock = Arc::clone(&self.state);
+                    let ready = Arc::clone(&self.ready);
+                    let hook = crate::fiber::subscribe_current_interrupt(move || {
+                        // Lock the state first: the waiter holds it between the
+                        // check and the wait, so this cannot be a lost wakeup.
+                        let _guard = state_lock.lock().unwrap();
+                        ready.notify_all();
+                    });
+                    let next = if hook.is_some() {
+                        self.ready.wait(state).unwrap()
+                    } else {
+                        self.ready
+                            .wait_timeout(state, std::time::Duration::from_millis(20))
+                            .unwrap()
+                            .0
+                    };
+                    drop(next);
                 }
             }
         }
@@ -584,16 +625,28 @@ impl LayerMemo {
         let id = layer.node.id;
         let (_, entry) = self.find(id)?;
         let scope = Arc::clone(scope);
-        Some(Effect::suspend(move || {
-            match entry.wait_done::<E>(Ctx::none()) {
-                Ok(services) => {
-                    if !scope.is_closed() {
-                        observe_entry(&entry, &scope);
+        // Read the ambient fiber so a waiter can observe its own interrupt
+        // while the shared build is still running; on a plain thread there is
+        // none, and the wait is the same block it always was.
+        Some(Effect::with_optional_fiber(move |fiber| {
+            let entry = Arc::clone(&entry);
+            let scope = Arc::clone(&scope);
+            let fiber = fiber.cloned();
+            Effect::suspend(move || {
+                let ctx = match fiber.as_ref() {
+                    Some(fiber) => Ctx::of(fiber),
+                    None => Ctx::none(),
+                };
+                match entry.wait_done::<E>(ctx) {
+                    Ok(services) => {
+                        if !scope.is_closed() {
+                            observe_entry(&entry, &scope);
+                        }
+                        Effect::<BuiltServices, E, ()>::succeed(BuiltServices { values: services })
                     }
-                    Effect::<BuiltServices, E, ()>::succeed(BuiltServices { values: services })
+                    Err(cause) => Effect::<BuiltServices, E, ()>::fail_with(cause),
                 }
-                Err(cause) => Effect::<BuiltServices, E, ()>::fail_with(cause),
-            }
+            })
         }))
     }
 
@@ -608,8 +661,8 @@ impl LayerMemo {
     /// see the build in flight and wait on it.
     fn open(&self, id: u64, entry_scope: Arc<Scope>) -> Arc<Entry> {
         let entry = Arc::new(Entry {
-            state: Mutex::new(EntryState::Building),
-            ready: Condvar::new(),
+            state: Arc::new(Mutex::new(EntryState::Building)),
+            ready: Arc::new(Condvar::new()),
             scope: entry_scope,
             observers: AtomicUsize::new(1),
             owner: Arc::downgrade(&self.map),
@@ -1096,9 +1149,9 @@ impl<O: RequirementIds, E: Clone + Send + 'static> Layer<O, E, ()> {
                         let fiber = fiber.clone();
                         let parked = Arc::clone(&parked);
                         Effect::<std::convert::Infallible, E, ()>::suspend(move || {
-                            while !fiber.is_interrupted() {
-                                std::thread::park_timeout(std::time::Duration::from_millis(1));
-                            }
+                            // Woken by the interrupt request itself; there is
+                            // no quantum between the request and this close.
+                            fiber.wait_interrupted();
                             parked.close();
                             Effect::<std::convert::Infallible, E, ()>::interrupt()
                         })
@@ -1473,13 +1526,20 @@ fn build_node<E: Clone + Send + 'static>(
     }
     let entry_scope = Arc::new(Scope::new(crate::fiber::next_id().0));
     let entry = memo.open(node.id, Arc::clone(&entry_scope));
+    let mut published = UnwindGuard {
+        entry: &entry,
+        scope: &entry_scope,
+        armed: true,
+    };
     match run_kind(node, memo, &entry_scope, base, ctx) {
         Ok(services) => {
+            published.armed = false;
             memo.finish(&entry, Arc::clone(&services));
             register_observer(&entry, scope);
             Ok(services)
         }
         Err(cause) => {
+            published.armed = false;
             let was_interrupted = cause.is_interrupted();
             // Publish before waking: a waiter that wakes on `Failed` must
             // find the cause already there, or it reports the bare shape.

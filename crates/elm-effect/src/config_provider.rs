@@ -235,10 +235,7 @@ impl Provider {
 
     /// [`record`](Self::record) under a base path: `base` is path segments and
     /// each key stays one literal segment under it.
-    pub fn record_at(
-        base: Vec<String>,
-        pairs: impl IntoIterator<Item = (String, String)>,
-    ) -> Self {
+    pub fn record_at(base: Vec<String>, pairs: impl IntoIterator<Item = (String, String)>) -> Self {
         Self {
             preserve_empty: false,
             nodes: BTreeMap::new(),

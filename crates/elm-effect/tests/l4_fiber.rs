@@ -2,12 +2,12 @@
 //! interrupt back-pressure. Bodies cooperate via [`Ctx`](elm_effect::Ctx).
 #![cfg(feature = "tokio")]
 
+use elm_effect::Duration as EffectDuration;
 use elm_effect::{
     Body, Cause, Clock as ClockTag, ClockImpl, Concurrency, Ctx, Defect, Deferred, Effect, Exit,
     FiberHandle, FiberId, ForkOpts, Runtime, SleepOutcome, SystemClock, TestClock, all_in,
     for_each_in,
 };
-use elm_effect::Duration as EffectDuration;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
 use std::time::{Duration, Instant};
@@ -1106,22 +1106,17 @@ fn for_each_unbounded_interrupt_records_nothing() {
     let body_done = done.clone();
     let fiber = rt.fork_detach_with(
         move |ctx| -> Exit<Vec<u8>, String> {
-            for_each_in(
-                ctx,
-                vec![1u8, 2, 3],
-                Concurrency::Unbounded,
-                move |i, c| {
-                    let clock = Arc::clone(&body_clock);
-                    let done = Arc::clone(&body_done);
-                    match clock.sleep(EffectDuration::from_millis(150), &|| c.is_interrupted()) {
-                        SleepOutcome::Elapsed => {
-                            done.lock().unwrap().push(i);
-                            Exit::Success(i)
-                        }
-                        SleepOutcome::Interrupted => Exit::Failure(Cause::interrupt(None)),
+            for_each_in(ctx, vec![1u8, 2, 3], Concurrency::Unbounded, move |i, c| {
+                let clock = Arc::clone(&body_clock);
+                let done = Arc::clone(&body_done);
+                match clock.sleep(EffectDuration::from_millis(150), &|| c.is_interrupted()) {
+                    SleepOutcome::Elapsed => {
+                        done.lock().unwrap().push(i);
+                        Exit::Success(i)
                     }
-                },
-            )
+                    SleepOutcome::Interrupted => Exit::Failure(Cause::interrupt(None)),
+                }
+            })
         },
         ForkOpts::immediate(),
     );
@@ -1192,11 +1187,7 @@ fn for_each_bounded_interrupt_stops_the_window() {
     // row pins that only the first window's items finish.
     let mut recorded = done.lock().unwrap().clone();
     recorded.sort_unstable();
-    assert_eq!(
-        recorded,
-        vec![1u8, 2],
-        "only the first window may finish"
-    );
+    assert_eq!(recorded, vec![1u8, 2], "only the first window may finish");
     assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
 
@@ -1282,10 +1273,9 @@ fn an_interrupt_preserves_a_child_cleanup_defect() {
         Box::new(move |ctx: &Ctx| {
             // A held resource whose release dies: the cleanup runs when the
             // interrupt closes the scope.
-            let held = ctx.acquire_release(
-                Effect::<(), String>::succeed(()),
-                |_: ()| Effect::<(), String>::die(Defect::new("cleanup defect")),
-            );
+            let held = ctx.acquire_release(Effect::<(), String>::succeed(()), |_: ()| {
+                Effect::<(), String>::die(Defect::new("cleanup defect"))
+            });
             // The fiber's own scope is open here, so the release is registered
             // rather than run inline; an `Err` would mean it was dropped.
             assert!(held.is_ok(), "the release was not registered: {held:?}");
@@ -1429,10 +1419,9 @@ fn a_mapper_defect_keeps_a_sibling_cleanup_defect() {
 
     let bodies: Vec<Body<(), String>> = vec![
         Box::new(move |ctx: &Ctx| {
-            let _held = ctx.acquire_release(
-                Effect::<(), String>::succeed(()),
-                |_: ()| Effect::<(), String>::die(Defect::new("cleanup defect")),
-            );
+            let _held = ctx.acquire_release(Effect::<(), String>::succeed(()), |_: ()| {
+                Effect::<(), String>::die(Defect::new("cleanup defect"))
+            });
             while !ctx.is_interrupted() {
                 std::thread::sleep(Duration::from_millis(1));
             }
@@ -1458,7 +1447,11 @@ fn a_mapper_defect_keeps_a_sibling_cleanup_defect() {
         .iter()
         .map(|defect| defect.message.clone())
         .collect();
-    assert_eq!(messages.len(), 2, "both defects are in the cause: {messages:?}");
+    assert_eq!(
+        messages.len(),
+        2,
+        "both defects are in the cause: {messages:?}"
+    );
     assert_eq!(messages[0], "mapper defect", "the mapper's defect leads");
     // A scope finalizer renders its own failure with a prefix, so the cleanup
     // defect is carried inside that rendering rather than bare.
@@ -1745,7 +1738,10 @@ fn a_late_source_does_not_win_after_the_timeout() {
         !is_set(&source_finished),
         "the source lost the race, so its value is discarded"
     );
-    assert!(is_set(&interrupted), "the source was interrupted, not resumed");
+    assert!(
+        is_set(&interrupted),
+        "the source was interrupted, not resumed"
+    );
     assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
 
@@ -1773,11 +1769,10 @@ fn a_repeat_of_void_is_interruptible_by_its_deadline() {
 #[test]
 fn a_timeout_still_ends_an_uninterruptible_repeat() {
     let clock = Arc::new(TestClock::new());
-    let effect = Effect::<(), String>::forever(|| {
-        Effect::<(), String>::succeed(()).uninterruptible()
-    })
-    .timeout_option(EffectDuration::from_millis(10))
-    .provide::<ClockTag, ()>(clock.clone() as Arc<dyn ClockImpl>);
+    let effect =
+        Effect::<(), String>::forever(|| Effect::<(), String>::succeed(()).uninterruptible())
+            .timeout_option(EffectDuration::from_millis(10))
+            .provide::<ClockTag, ()>(clock.clone() as Arc<dyn ClockImpl>);
 
     let (rt, fiber) = spawn_effect_any(effect);
     // Let the deadline be taken from the virtual clock before it moves.
@@ -1907,23 +1902,23 @@ fn alternating_interruptibility_runs_each_observed_window() {
     })
     .flat_map(|_| Effect::<(), String>::never())
     .interruptible()
-        .exit()
-        .flat_map(move |_| {
-            let seen = first_seen.clone();
-            Effect::<(), std::convert::Infallible>::sync(move || {
-                seen.lock().unwrap().push("first");
-            })
+    .exit()
+    .flat_map(move |_| {
+        let seen = first_seen.clone();
+        Effect::<(), std::convert::Infallible>::sync(move || {
+            seen.lock().unwrap().push("first");
         })
-        .uninterruptible()
-        .interruptible()
-        .exit()
-        .flat_map(move |_| {
-            let seen = second_seen.clone();
-            Effect::<(), std::convert::Infallible>::sync(move || {
-                seen.lock().unwrap().push("second");
-            })
+    })
+    .uninterruptible()
+    .interruptible()
+    .exit()
+    .flat_map(move |_| {
+        let seen = second_seen.clone();
+        Effect::<(), std::convert::Infallible>::sync(move || {
+            seen.lock().unwrap().push("second");
         })
-        .uninterruptible();
+    })
+    .uninterruptible();
 
     let (rt, target) = spawn_effect_any(effect);
     assert!(
@@ -1959,17 +1954,17 @@ fn restore_delivers_a_pending_interrupt_before_the_restored_effect_runs() {
         Effect::<(), String>::sync(move || {
             body_masked.complete(());
         })
-            .flat_map(move |_| {
-                let resume = body_resume.clone();
-                Effect::<(), String>::sync(move || resume.wait())
-            })
-            .flat_map(move |_| {
-                let events = inner_events.clone();
-                restore.apply(Effect::<(), String>::suspend(move || {
-                    events.lock().unwrap().push("restored");
-                    Effect::<(), String>::never()
-                }))
-            })
+        .flat_map(move |_| {
+            let resume = body_resume.clone();
+            Effect::<(), String>::sync(move || resume.wait())
+        })
+        .flat_map(move |_| {
+            let events = inner_events.clone();
+            restore.apply(Effect::<(), String>::suspend(move || {
+                events.lock().unwrap().push("restored");
+                Effect::<(), String>::never()
+            }))
+        })
     });
 
     let (rt, target) = spawn_effect_any(effect);
@@ -2106,7 +2101,10 @@ fn fork_child_immediate_dies_with_its_parent() {
     outer.interrupt();
     let _ = outer.join();
 
-    assert!(is_set(&child), "the forked child must be interrupted with its parent");
+    assert!(
+        is_set(&child),
+        "the forked child must be interrupted with its parent"
+    );
     assert!(is_set(&parent), "the parent's own onInterrupt must run");
     assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
@@ -2307,10 +2305,7 @@ fn callback_cleanup_runs_on_interrupt() {
         matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
         "the interrupted callback must end interrupted: {exit:?}"
     );
-    assert!(
-        is_set(&cleaned_up),
-        "the cleanup must run on the interrupt"
-    );
+    assert!(is_set(&cleaned_up), "the cleanup must run on the interrupt");
     assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
 
@@ -2503,16 +2498,16 @@ fn a_masked_region_defers_a_pending_interrupt_until_it_completes() {
         Effect::<(), String>::sync(move || {
             body_masked.complete(());
         })
-            .flat_map(move |_| {
-                let resume = body_resume.clone();
-                Effect::<(), String>::sync(move || resume.wait())
+        .flat_map(move |_| {
+            let resume = body_resume.clone();
+            Effect::<(), String>::sync(move || resume.wait())
+        })
+        .flat_map(move |_| {
+            let events = completed_events.clone();
+            Effect::<(), String>::sync(move || {
+                events.lock().unwrap().push("masked region completed")
             })
-            .flat_map(move |_| {
-                let events = completed_events.clone();
-                Effect::<(), String>::sync(move || {
-                    events.lock().unwrap().push("masked region completed")
-                })
-            })
+        })
     });
 
     let (rt, target) = spawn_effect_any(effect);
@@ -2536,7 +2531,12 @@ fn a_masked_region_defers_a_pending_interrupt_until_it_completes() {
     let exit = target.join();
     assert_eq!(
         *events.lock().unwrap(),
-        vec!["masked", "interrupted", "resumed", "masked region completed"],
+        vec![
+            "masked",
+            "interrupted",
+            "resumed",
+            "masked region completed"
+        ],
         "the region's work runs after the interrupt was requested"
     );
     assert!(
@@ -2558,18 +2558,17 @@ fn a_masked_sleep_runs_to_its_deadline_before_the_interrupt_lands() {
     let body_recorded = recorded.clone();
 
     type NeedsClock = elm_effect::Cons<ClockTag, ()>;
-    let effect = Effect::<(), String, NeedsClock>::sync(move || {
-        body_started.store(true, Ordering::SeqCst)
-    })
-    .flat_map(|_| Effect::sleep(EffectDuration::from_millis(40)))
-    .flat_map(move |_| {
-        let recorded = body_recorded.clone();
-        Effect::<(), String, NeedsClock>::sync(move || {
-            recorded.store(true, Ordering::SeqCst)
-        })
-    })
-    .uninterruptible()
-        .provide::<ClockTag, ()>(Arc::new(SystemClock) as Arc<dyn ClockImpl>);
+    let effect =
+        Effect::<(), String, NeedsClock>::sync(move || body_started.store(true, Ordering::SeqCst))
+            .flat_map(|_| Effect::sleep(EffectDuration::from_millis(40)))
+            .flat_map(move |_| {
+                let recorded = body_recorded.clone();
+                Effect::<(), String, NeedsClock>::sync(move || {
+                    recorded.store(true, Ordering::SeqCst)
+                })
+            })
+            .uninterruptible()
+            .provide::<ClockTag, ()>(Arc::new(SystemClock) as Arc<dyn ClockImpl>);
 
     let (rt, target) = spawn_effect_any(effect);
     let deadline = Instant::now() + Duration::from_secs(5);
@@ -2610,13 +2609,12 @@ fn a_masked_region_closes_its_scope_before_the_interrupt_returns() {
     let cleanup_closed = closed.clone();
 
     type NeedsClock = elm_effect::Cons<ClockTag, ()>;
-    let effect = Effect::<(), String, NeedsClock>::sync(move || {
-        body_sleeping.store(true, Ordering::SeqCst)
-    })
-    .flat_map(|_| Effect::sleep(EffectDuration::from_millis(40)))
-    .ensuring(move || cleanup_closed.store(true, Ordering::SeqCst))
-    .uninterruptible()
-        .provide::<ClockTag, ()>(Arc::new(SystemClock) as Arc<dyn ClockImpl>);
+    let effect =
+        Effect::<(), String, NeedsClock>::sync(move || body_sleeping.store(true, Ordering::SeqCst))
+            .flat_map(|_| Effect::sleep(EffectDuration::from_millis(40)))
+            .ensuring(move || cleanup_closed.store(true, Ordering::SeqCst))
+            .uninterruptible()
+            .provide::<ClockTag, ()>(Arc::new(SystemClock) as Arc<dyn ClockImpl>);
 
     let (rt, target) = spawn_effect_any(effect);
     let deadline = Instant::now() + Duration::from_secs(5);
@@ -2773,10 +2771,7 @@ fn a_timeout_fallback_runs_after_cleanup_and_again_on_the_next_run() {
     assert!(rt_first.shutdown().is_empty(), "a fiber outlived the run");
     assert!(rt_second.shutdown().is_empty(), "a fiber outlived the run");
     assert!(first_stopped, "the source's finalizer ran on the first run");
-    assert!(
-        stopped.load(Ordering::SeqCst),
-        "and again on the second"
-    );
+    assert!(stopped.load(Ordering::SeqCst), "and again on the second");
     assert_eq!(
         (
             factories.load(Ordering::SeqCst),
@@ -2809,7 +2804,7 @@ fn a_flat_map_chain_threads_every_do_notation_binding() {
     let slot = seen.clone();
 
     let effect = Effect::<i32, String>::succeed(1)
-        .flat_map(|a| Effect::<i32, String>::succeed(a))
+        .flat_map(Effect::<i32, String>::succeed)
         .flat_map(|a| {
             let next = a + 1;
             Effect::<i32, String>::succeed(next).map(move |b| (a, b))
@@ -2938,18 +2933,19 @@ fn acquire_use_release_releases_on_success_and_on_a_failing_use() {
         ),
     );
     assert_eq!(exit, Exit::Failure(Cause::fail("no resource".to_string())));
-    assert!(!is_set(&released), "a failed acquire has nothing to release");
+    assert!(
+        !is_set(&released),
+        "a failed acquire has nothing to release"
+    );
 }
 
 /// Both halves can fail, and the pin keeps both (`Cause.combine`).
 #[test]
 fn acquire_use_release_combines_use_and_release_failures() {
-    let exit = Runtime::run(
-        Effect::<u32, String>::succeed(1).acquire_use_release(
-            |_| Effect::<u32, String>::fail("use failed".to_string()),
-            |_, _| Effect::<(), String>::fail("release failed".to_string()),
-        ),
-    );
+    let exit = Runtime::run(Effect::<u32, String>::succeed(1).acquire_use_release(
+        |_| Effect::<u32, String>::fail("use failed".to_string()),
+        |_, _| Effect::<(), String>::fail("release failed".to_string()),
+    ));
     let Exit::Failure(cause) = exit else {
         panic!("both halves failing is a failure: {exit:?}")
     };
@@ -2961,12 +2957,10 @@ fn acquire_use_release_combines_use_and_release_failures() {
 /// an otherwise successful use is the fiber's failure, and nothing erases it.
 #[test]
 fn acquire_use_release_surfaces_a_failing_release() {
-    let exit = Runtime::run(
-        Effect::<u32, String>::succeed(1).acquire_use_release(
-            |_| Effect::<u32, String>::succeed(2),
-            |_, _| Effect::<(), String>::die(Defect::new("release boom")),
-        ),
-    );
+    let exit = Runtime::run(Effect::<u32, String>::succeed(1).acquire_use_release(
+        |_| Effect::<u32, String>::succeed(2),
+        |_, _| Effect::<(), String>::die(Defect::new("release boom")),
+    ));
     let Exit::Failure(cause) = exit else {
         panic!("a dying release must fail the fiber: {exit:?}")
     };
@@ -2983,26 +2977,24 @@ fn acquire_use_release_releases_after_a_panicking_use() {
     let release_count = releases.clone();
     let release_saw_defect = flag();
     let saw_defect = release_saw_defect.clone();
-    let exit = Runtime::run(
-        Effect::<u32, String>::succeed(1).acquire_use_release(
-            |_| -> Effect<u32, String> { panic!("use blew up") },
-            move |resource, use_exit| {
-                let release_count = release_count.clone();
-                let saw_defect = saw_defect.clone();
-                // Read the exit here: the effect it builds must be 'static, so
-                // it cannot carry the borrow.
-                let carried_defect =
-                    matches!(use_exit, Exit::Failure(cause) if !cause.defects().is_empty());
-                Effect::<(), String>::sync(move || {
-                    assert_eq!(resource, 1, "the release sees the resource");
-                    release_count.fetch_add(1, Ordering::SeqCst);
-                    if carried_defect {
-                        saw_defect.store(true, Ordering::SeqCst);
-                    }
-                })
-            },
-        ),
-    );
+    let exit = Runtime::run(Effect::<u32, String>::succeed(1).acquire_use_release(
+        |_| -> Effect<u32, String> { panic!("use blew up") },
+        move |resource, use_exit| {
+            let release_count = release_count.clone();
+            let saw_defect = saw_defect.clone();
+            // Read the exit here: the effect it builds must be 'static, so
+            // it cannot carry the borrow.
+            let carried_defect =
+                matches!(use_exit, Exit::Failure(cause) if !cause.defects().is_empty());
+            Effect::<(), String>::sync(move || {
+                assert_eq!(resource, 1, "the release sees the resource");
+                release_count.fetch_add(1, Ordering::SeqCst);
+                if carried_defect {
+                    saw_defect.store(true, Ordering::SeqCst);
+                }
+            })
+        },
+    ));
     assert_eq!(releases.load(Ordering::SeqCst), 1, "release runs once");
     assert!(is_set(&release_saw_defect), "the release sees the defect");
     assert!(
@@ -3048,8 +3040,7 @@ fn acquire_use_release_skips_the_use_when_the_acquire_was_interrupted() {
         move |resource, use_exit| {
             let released = release_flag.clone();
             let saw_interrupt = release_interrupt.clone();
-            let interrupted =
-                matches!(use_exit, Exit::Failure(cause) if cause.is_interrupted());
+            let interrupted = matches!(use_exit, Exit::Failure(cause) if cause.is_interrupted());
             Effect::<(), String>::sync(move || {
                 assert_eq!(resource, 123, "the release sees the resource");
                 if interrupted {
@@ -3074,7 +3065,10 @@ fn acquire_use_release_skips_the_use_when_the_acquire_was_interrupted() {
     assert!(is_set(&acquired), "the masked acquire completes");
     assert!(!is_set(&used), "the use is skipped after the interrupt");
     assert!(is_set(&released), "the release still runs");
-    assert!(is_set(&release_saw_interrupt), "the release sees the interrupt");
+    assert!(
+        is_set(&release_saw_interrupt),
+        "the release sees the interrupt"
+    );
     assert!(
         matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
         "the fiber ends interrupted: {exit:?}"
@@ -3097,8 +3091,7 @@ fn acquire_use_release_releases_when_the_use_is_interrupted() {
         move |resource, use_exit| {
             let released = release_flag.clone();
             let saw_interrupt = release_interrupt.clone();
-            let interrupted =
-                matches!(use_exit, Exit::Failure(cause) if cause.is_interrupted());
+            let interrupted = matches!(use_exit, Exit::Failure(cause) if cause.is_interrupted());
             Effect::<(), String>::sync(move || {
                 assert_eq!(resource, 123);
                 if interrupted {
@@ -3114,7 +3107,10 @@ fn acquire_use_release_releases_when_the_use_is_interrupted() {
     let exit = target.join();
 
     assert!(is_set(&released), "release runs after an interrupted use");
-    assert!(is_set(&release_saw_interrupt), "the release sees the interrupt");
+    assert!(
+        is_set(&release_saw_interrupt),
+        "the release sees the interrupt"
+    );
     assert!(
         matches!(&exit, Exit::Failure(cause) if cause.is_interrupted()),
         "the fiber ends interrupted: {exit:?}"

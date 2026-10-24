@@ -1,8 +1,13 @@
-//! The supervisor: the one legal `catch_unwind` in the workspace.
+//! The supervisor: the fiber body's panic boundary.
 //!
 //! A panic in a fiber body becomes [`Reason::Die`] at the fiber boundary. It
 //! is never a typed error `E`, never crosses into a sibling fiber, and never
-//! takes the process down. Nothing else in this workspace catches.
+//! takes the process down.
+//!
+//! This is not the workspace's only `catch_unwind`: scope finalizers and the
+//! acquire-use-release release catch too, because a panicking cleanup must
+//! become a defect rather than skip the remaining cleanups. All of them
+//! render to [`Defect`]; ordinary library code never catches.
 //!
 //! (Boundary check, run by hand at each wave-1 close:
 //! `grep -rn catch_unwind crates/ --include='*.rs'`.)

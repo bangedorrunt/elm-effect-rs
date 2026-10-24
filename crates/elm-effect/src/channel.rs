@@ -64,15 +64,17 @@ where
     pub fn run(self, source: Pull<A, E>) -> Pull<B, E> {
         let mut source = source;
         let mut step = self.step;
-        let mut pending: Vec<Take<B, E>> = Vec::new();
+        // A queue, not a Vec: a channel that yields many takes per pull is
+        // otherwise quadratic in `remove(0)` shifts.
+        let mut pending: std::collections::VecDeque<Take<B, E>> = std::collections::VecDeque::new();
         Pull::from_fn(move || {
             loop {
-                if !pending.is_empty() {
-                    return pending.remove(0);
+                if let Some(take) = pending.pop_front() {
+                    return take;
                 }
                 let take = source.pull();
                 let terminal = !matches!(take, Take::Items(_));
-                pending = step(take);
+                pending = step(take).into();
                 if terminal && pending.is_empty() {
                     return Take::End;
                 }
@@ -129,8 +131,7 @@ where
         // Only a cause that is nothing but typed failures may be recovered:
         // a defect or an interrupt is not the caller's `E`.
         Take::Fail(cause)
-            if cause.is_typed_failure()
-                && cause.failure().is_some_and(&mut predicate) =>
+            if cause.is_typed_failure() && cause.failure().is_some_and(&mut predicate) =>
         {
             vec![Take::End]
         }
@@ -436,6 +437,12 @@ where
         Left(Take<A, E>),
         Right(Take<A, E>),
     }
+    // Keep the sides' own wake hooks: the consumer that stops early calls
+    // them, so a producer blocked inside its pull can leave. Do not attach
+    // them to the sides as halt hooks: a side's normal completion would then
+    // drop the pull, fire the hook, and halt the other side mid-stream.
+    let left_hooks = left.halt_hooks();
+    let right_hooks = right.halt_hooks();
     let (tx, rx) = std::sync::mpsc::channel::<Side<A, E>>();
     let halted = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     for (pull, is_left) in [
@@ -468,7 +475,8 @@ where
     let mut ended = false;
     let mut left_open = true;
     let mut right_open = true;
-    Pull::from_fn(move || {
+    let consumer_halt = std::sync::Arc::clone(&halted);
+    let mut out = Pull::from_fn(move || {
         if ended {
             return Take::End;
         }
@@ -512,6 +520,12 @@ where
                 }
             }
         }
+    });
+    for hook in left_hooks.into_iter().chain(right_hooks) {
+        out = out.on_halt(move || hook());
+    }
+    out.on_halt(move || {
+        consumer_halt.store(true, std::sync::atomic::Ordering::SeqCst);
     })
 }
 
@@ -534,6 +548,12 @@ where
         Left(Take<A, E>),
         Right(Take<A, E>),
     }
+    // Keep the sides' own wake hooks: the consumer that stops early calls
+    // them, so a producer blocked inside its pull can leave. Do not attach
+    // them to the sides as halt hooks: a side's normal completion would then
+    // drop the pull, fire the hook, and halt the other side mid-stream.
+    let left_hooks = left.halt_hooks();
+    let right_hooks = right.halt_hooks();
     let (tx, rx) = std::sync::mpsc::channel::<Side<A, E>>();
     let halted = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     for (pull, is_left) in [
@@ -567,7 +587,8 @@ where
     let mut left_open = true;
     let mut right_open = true;
     let mut on_timeout = Some(on_timeout);
-    Pull::from_fn(move || {
+    let consumer_halt = std::sync::Arc::clone(&halted);
+    let mut out = Pull::from_fn(move || {
         if ended {
             return Take::End;
         }
@@ -617,6 +638,12 @@ where
                 }
             }
         }
+    });
+    for hook in left_hooks.into_iter().chain(right_hooks) {
+        out = out.on_halt(move || hook());
+    }
+    out.on_halt(move || {
+        consumer_halt.store(true, std::sync::atomic::Ordering::SeqCst);
     })
 }
 

@@ -204,7 +204,7 @@ fn ensuring_does_not_change_the_cause() {
         });
     match run(effect) {
         Exit::Failure(cause) => {
-            assert!(cause.is_interrupted() == false);
+            assert!(!cause.is_interrupted());
             assert_eq!(cause.defects().len(), 1);
         }
         Exit::Success(_) => panic!("expected the defect"),
@@ -297,10 +297,10 @@ fn on_result_runs_the_cleanup_when_the_effect_dies() {
     let mark = StdArc::clone(&cleaned);
     let effect: Effect<&str, String, ()> =
         Effect::<&str, String>::die(elm_effect::Defect::new("boom")).on_exit(move |exit| {
-            if let Exit::Failure(cause) = exit {
-                if !cause.defects().is_empty() {
-                    *mark.lock().unwrap() = true;
-                }
+            if let Exit::Failure(cause) = exit
+                && !cause.defects().is_empty()
+            {
+                *mark.lock().unwrap() = true;
             }
         });
     let _ = run(effect);

@@ -290,12 +290,7 @@ impl AnySpan {
     }
 
     /// Record an event on a managed span (a noop or external span drops it).
-    pub fn event(
-        &self,
-        name: &str,
-        start_time: i64,
-        attributes: Vec<(String, AttributeValue)>,
-    ) {
+    pub fn event(&self, name: &str, start_time: i64, attributes: Vec<(String, AttributeValue)>) {
         if let AnySpan::Span(span) = self {
             span.event(name, start_time, attributes);
         }
@@ -378,12 +373,7 @@ pub trait Span: Send + Sync + fmt::Debug {
     /// The events recorded so far.
     fn events(&self) -> Vec<SpanEvent>;
     /// Record one event.
-    fn event(
-        &self,
-        name: &str,
-        start_time: i64,
-        attributes: Vec<(String, AttributeValue)>,
-    );
+    fn event(&self, name: &str, start_time: i64, attributes: Vec<(String, AttributeValue)>);
     /// The links recorded so far.
     fn links(&self) -> Vec<SpanLink>;
     /// Append links.
@@ -806,7 +796,10 @@ where
 }
 
 /// Override the sampling threshold for `effect`.
-pub fn with_minimum_trace_level<A, E, R>(level: LogLevel, effect: Effect<A, E, R>) -> Effect<A, E, R>
+pub fn with_minimum_trace_level<A, E, R>(
+    level: LogLevel,
+    effect: Effect<A, E, R>,
+) -> Effect<A, E, R>
 where
     A: Send + 'static,
     E: Send + 'static,

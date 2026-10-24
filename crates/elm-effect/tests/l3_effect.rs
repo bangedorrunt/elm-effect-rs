@@ -85,7 +85,7 @@ fn catch_cause_first_argument_as_success() {
 /// survives the continuation and is what the whole effect returns.
 #[test]
 fn gen_yields_the_value_and_returns_it() {
-    let effect = Effect::<i32, Infallible>::succeed(1).flat_map(|bound| Effect::succeed(bound));
+    let effect = Effect::<i32, Infallible>::succeed(1).flat_map(Effect::succeed);
     assert_eq!(Runtime::run(effect), Exit::Success(1));
 }
 

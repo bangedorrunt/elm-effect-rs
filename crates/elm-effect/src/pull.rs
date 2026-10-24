@@ -4,12 +4,18 @@
 //! `End` forever. An unbounded source stays a pull loop — never materialize
 //! it; consumers stop pulling when they have enough.
 
+use std::sync::Arc;
+
 use super::Defect;
 use super::take::Take;
 
 /// A repeatable pull source.
 pub struct Pull<A, E> {
     next: Box<dyn FnMut() -> Take<A, E> + Send>,
+    /// Ways to wake a pull blocked inside `next`. A source that waits on a
+    /// condition variable registers one so a consumer that stops early can
+    /// unblock it; a pure closure has none and stays blocked (the ceiling).
+    halts: Vec<Arc<dyn Fn() + Send + Sync>>,
 }
 
 impl<A, E> Pull<A, E>
@@ -21,14 +27,26 @@ where
     pub fn from_fn(next: impl FnMut() -> Take<A, E> + Send + 'static) -> Self {
         Self {
             next: Box::new(next),
+            halts: Vec::new(),
         }
     }
 
+    /// Register a wake for a pull blocked inside its own closure. Dropping
+    /// the pull calls every registered hook, so a consumer that stops early
+    /// can free the producer instead of stranding it.
+    pub fn on_halt(mut self, halt: impl Fn() + Send + Sync + 'static) -> Self {
+        self.halts.push(Arc::new(halt));
+        self
+    }
+
+    /// The registered wake hooks, cloned so a wrapper can keep calling them
+    /// after it moves the pull elsewhere.
+    pub(crate) fn halt_hooks(&self) -> Vec<Arc<dyn Fn() + Send + Sync>> {
+        self.halts.clone()
+    }
+
     /// One item vector, then `End` forever.
-    pub fn of(items: Vec<A>) -> Self
-    where
-        A: Clone,
-    {
+    pub fn of(items: Vec<A>) -> Self {
         let mut iter = items.into_iter();
         let mut done = false;
         Self::from_fn(move || {
@@ -188,5 +206,13 @@ where
     /// Pull once.
     pub fn pull(&mut self) -> Take<A, E> {
         (self.next)()
+    }
+}
+
+impl<A, E> Drop for Pull<A, E> {
+    fn drop(&mut self) {
+        for hook in &self.halts {
+            hook();
+        }
     }
 }

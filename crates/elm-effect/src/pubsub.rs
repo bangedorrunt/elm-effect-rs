@@ -147,9 +147,20 @@ impl<A> Subscription<A> {
     }
 
     /// Detach from the hub; pending takes resolve [`None`].
+    ///
+    /// Also wakes publishers parked on the hub's `space` latch: a bounded
+    /// publisher waiting for this queue to drain must re-check when the
+    /// queue leaves, or it stays parked forever with no full subscriber.
     pub fn unsubscribe(&self) {
         *self.live.lock().unwrap() = false;
         self.wake.notify_all();
+        self.wake_publishers();
+    }
+
+    fn wake_publishers(&self) {
+        if let Some(parent) = self.parent.upgrade() {
+            parent.space.notify_all();
+        }
     }
 
     fn parent_shut(&self) -> bool {
@@ -160,6 +171,16 @@ impl<A> Subscription<A> {
         if let Some(p) = self.parent.upgrade() {
             p.wake_all();
         }
+    }
+}
+
+impl<A> Drop for Subscription<A> {
+    fn drop(&mut self) {
+        // Dropping a subscription is an unsubscribe: a publisher parked on
+        // `space` must be woken, or the dead queue looks live forever.
+        *self.live.lock().unwrap() = false;
+        self.wake.notify_all();
+        self.wake_publishers();
     }
 }
 
@@ -298,18 +319,25 @@ impl<A: Clone> PubSub<A> {
         if self.is_shutdown() {
             return false;
         }
+        // Hold the subscription lock across the space check and the push:
+        // two publishers that each pass the check on their own would
+        // overfill a bounded queue.
+        let mut guard = self.inner.subs.lock().unwrap();
         if self.inner.strategy == Strategy::Bounded {
-            let mut guard = self.inner.subs.lock().unwrap();
             loop {
                 if self.is_shutdown() {
                     return false;
                 }
                 let mut full = false;
                 for weak in guard.iter() {
-                    if let Some(sub) = weak.upgrade()
-                        && *sub.live.lock().unwrap()
-                        && sub.queue.lock().unwrap().len() >= self.inner.capacity
-                    {
+                    let Some(sub) = weak.upgrade() else {
+                        continue;
+                    };
+                    // Bind the liveness guard before the queue lock: holding
+                    // it across `queue` in a let-chain is the lock-order
+                    // hazard the review named.
+                    let live = *sub.live.lock().unwrap();
+                    if live && sub.queue.lock().unwrap().len() >= self.inner.capacity {
                         full = true;
                         break;
                     }
@@ -320,8 +348,15 @@ impl<A: Clone> PubSub<A> {
                 guard = self.inner.space.wait(guard).unwrap();
             }
         }
-        let subs = self.inner.live_subs();
-        for sub in &subs {
+        let mut kept = Vec::with_capacity(guard.len());
+        for weak in guard.drain(..) {
+            let Some(sub) = weak.upgrade() else {
+                continue;
+            };
+            let live = *sub.live.lock().unwrap();
+            if !live {
+                continue;
+            }
             let mut q = sub.queue.lock().unwrap();
             match self.inner.strategy {
                 Strategy::Bounded | Strategy::Unbounded => {
@@ -339,8 +374,12 @@ impl<A: Clone> PubSub<A> {
                     q.push_back(value.clone());
                 }
             }
+            drop(q);
             sub.wake.notify_all();
+            kept.push(weak);
         }
+        *guard = kept;
+        drop(guard);
         if self.inner.replay > 0 {
             let mut hist = self.inner.history.lock().unwrap();
             hist.push_back(value);

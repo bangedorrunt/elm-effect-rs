@@ -2,18 +2,21 @@
 //! Modules load via `#[path]` includes: no facade touch. The service
 //! trait keeps tests deterministic; the OS backend is exercised once.
 
+#[allow(dead_code, clippy::type_complexity)]
 #[path = "../src/config.rs"]
 mod config;
+#[allow(dead_code, clippy::type_complexity)]
 #[path = "../src/config_provider.rs"]
 mod config_provider;
 // The path-included config modules name `crate::Defect`, so the host has to
 // provide that name; the library's own root re-exports the same type.
 pub use elm_effect::Defect;
+#[allow(clippy::type_complexity)]
 #[path = "../src/crypto.rs"]
 mod crypto;
 
 use config::{Config, ConfigError, Value};
-use config_provider::{EnvProvider, Lookup, Provider};
+use config_provider::{EnvProvider, Lookup, Provider, ProviderError};
 use crypto::{Crypto, DigestAlgorithm, SystemCrypto, TestCrypto};
 
 fn provider(pairs: &[(&str, &str)]) -> Provider {
@@ -307,6 +310,208 @@ fn config_duration_date_bytes_url_port_level() {
         Config::log_level(named("level"))
             .load(&provider(&[("level", "Verbose")]))
             .is_err()
+    );
+}
+
+/// A provider with values plus one path that fails the read itself. The
+/// failure is a typed `SourceError`, which `orElse` may recover but a
+/// default or an option may not answer for.
+struct SourceFailingProvider {
+    inner: Provider,
+    failing: Vec<String>,
+    message: String,
+}
+
+impl SourceFailingProvider {
+    fn new(pairs: &[(&str, &str)], failing: &[&str], message: &str) -> Self {
+        Self {
+            inner: provider(pairs),
+            failing: failing.iter().map(|s| s.to_string()).collect(),
+            message: message.to_string(),
+        }
+    }
+}
+
+impl Lookup for SourceFailingProvider {
+    fn get(&self, path: &[String]) -> Option<String> {
+        self.inner.get(path)
+    }
+
+    fn has_children(&self, path: &[String]) -> bool {
+        self.inner.has_children(path)
+    }
+
+    fn child_keys(&self, path: &[String]) -> Vec<String> {
+        self.inner.child_keys(path)
+    }
+
+    fn node(&self, path: &[String]) -> Option<config_provider::Node> {
+        self.inner.node(path)
+    }
+
+    fn try_get(&self, path: &[String]) -> Result<Option<String>, ProviderError> {
+        if path == self.failing.as_slice() {
+            Err(ProviderError::source(self.message.clone()))
+        } else {
+            self.inner.try_get(path)
+        }
+    }
+}
+
+#[test]
+fn config_or_else_propagates_the_fallback_source_error() {
+    // Config.test.ts:1154 - the primary is invalid, so orElse takes the
+    // fallback; the fallback's read failure is reported, not swallowed as
+    // absence.
+    let p = SourceFailingProvider::new(
+        &[("primary", "not-an-int")],
+        &["fallback"],
+        "fallback source is down",
+    );
+    let errors = Config::integer(named("primary"))
+        .or_else(Config::string(named("fallback")))
+        .load(&p)
+        .expect_err("the fallback's source failure must surface");
+    assert_eq!(errors.len(), 1);
+    match &errors[0] {
+        ConfigError::Source { path, message } => {
+            assert_eq!(path, &vec!["fallback".to_string()]);
+            assert_eq!(message, "fallback source is down");
+        }
+        other => panic!("expected the fallback's source error, got {other:?}"),
+    }
+}
+
+#[test]
+fn config_propagates_provider_failures() {
+    // Config.test.ts:1308 - a failed read is neither absence nor invalid
+    // input, so a default and an option leave it alone.
+    let p = SourceFailingProvider::new(&[], &["value"], "read failed");
+    for config in [
+        Config::string(named("value")),
+        Config::string(named("value")).with_default(Value::Str("d".into())),
+        Config::string(named("value")).option(),
+    ] {
+        let errors = config.load(&p).expect_err("a source error is not absence");
+        assert!(matches!(errors[0], ConfigError::Source { .. }));
+    }
+}
+
+/// The shared tail of the three `:1193`-`:1245` rows: the `orElse` branch
+/// recovers its source failure, the sibling is absent, and the group reports
+/// only that absence (which `option` then turns into `None`).
+fn assert_absent_sibling_survives_or_else(recovered: Config, failing: &[&str]) {
+    let p = SourceFailingProvider::new(&[], failing, "descendant read failed");
+    let group = Config::record(vec![
+        ("recovered".to_string(), recovered),
+        ("required".to_string(), Config::string(named("required"))),
+    ]);
+    let errors = group
+        .clone()
+        .load(&p)
+        .expect_err("the absent sibling still fails the group");
+    assert_eq!(
+        errors.len(),
+        1,
+        "the recovered source error is gone: {errors:?}"
+    );
+    match &errors[0] {
+        ConfigError::Missing { path } => assert_eq!(path, &vec!["required".to_string()]),
+        other => panic!("expected the absent sibling, got {other:?}"),
+    }
+    assert_eq!(group.option().load(&p), Ok(Value::None));
+}
+
+#[test]
+fn config_or_else_recovers_a_descendant_source_failure_then_the_sibling_is_absent() {
+    // Config.test.ts:1193 - the failure is inside a descendant path.
+    let recovered = Config::string(named("value"))
+        .nested("settings")
+        .or_else(Config::succeed(Value::Str("fallback".into())));
+    assert_absent_sibling_survives_or_else(recovered, &["settings", "value"]);
+}
+
+#[test]
+fn config_or_else_recovers_a_nested_group_source_failure_then_the_sibling_is_absent() {
+    // Config.test.ts:1218 - the failure belongs to a nested group, not a leaf.
+    let group = Config::record(vec![("value".to_string(), Config::string(named("value")))])
+        .nested("settings");
+    let recovered = group.or_else(Config::succeed(Value::Map(vec![(
+        "value".to_string(),
+        Value::Str("fallback".into()),
+    )])));
+    assert_absent_sibling_survives_or_else(recovered, &["settings", "value"]);
+}
+
+#[test]
+fn config_or_else_recovers_an_initial_source_failure_then_the_sibling_is_absent() {
+    // Config.test.ts:1245 - the failure is at the orElse branch's own path.
+    let recovered =
+        Config::string(named("value")).or_else(Config::succeed(Value::Str("fallback".into())));
+    assert_absent_sibling_survives_or_else(recovered, &["value"]);
+}
+
+#[test]
+fn config_duration_decodes_pin_spellings_including_infinities() {
+    // Config.test.ts:1577 - the Duration spellings, including both sentinels.
+    let p = provider(&[
+        ("max", "Infinity"),
+        ("min", "-Infinity"),
+        ("ttl", "1.5 hours"),
+        ("seconds", "2 seconds"),
+        ("zero", "0 millis"),
+    ]);
+    assert_eq!(
+        Config::duration(named("max")).load(&p),
+        Ok(Value::Millis(f64::INFINITY))
+    );
+    assert_eq!(
+        Config::duration(named("min")).load(&p),
+        Ok(Value::Millis(f64::NEG_INFINITY))
+    );
+    assert_eq!(
+        Config::duration(named("ttl")).load(&p),
+        Ok(Value::Millis(5_400_000.0))
+    );
+    assert_eq!(
+        Config::duration(named("seconds")).load(&p),
+        Ok(Value::Millis(2_000.0))
+    );
+    assert_eq!(
+        Config::duration(named("zero")).load(&p),
+        Ok(Value::Millis(0.0))
+    );
+    assert!(
+        Config::duration(named("ttl"))
+            .load(&provider(&[("ttl", "1.5")]))
+            .is_err(),
+        "a bare count is not a Duration string"
+    );
+}
+
+#[test]
+fn config_options_work_with_and_without_a_path() {
+    // Config.test.ts:1911 - option wraps a leaf (which has a path) and a
+    // whole group (which has none).
+    let absent = provider(&[]);
+    let present = provider(&[("port", "80"), ("host", "localhost")]);
+
+    let leaf = Config::integer(named("port")).option();
+    assert_eq!(leaf.load(&absent), Ok(Value::None));
+    assert_eq!(leaf.load(&present), Ok(Value::Int(80)));
+
+    let group = Config::record(vec![
+        ("port".to_string(), Config::integer(named("port"))),
+        ("host".to_string(), Config::string(named("host"))),
+    ])
+    .option();
+    assert_eq!(group.load(&absent), Ok(Value::None));
+    assert_eq!(
+        group.load(&present),
+        Ok(Value::Map(vec![
+            ("port".to_string(), Value::Int(80)),
+            ("host".to_string(), Value::Str("localhost".into())),
+        ]))
     );
 }
 

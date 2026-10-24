@@ -5,6 +5,7 @@
 //! one whole row: the source under test, the requested path, and the value that
 //! must come back.
 
+#[allow(dead_code, clippy::type_complexity)]
 #[path = "../src/config_provider.rs"]
 mod config_provider;
 

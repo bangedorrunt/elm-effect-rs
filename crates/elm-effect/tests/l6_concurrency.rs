@@ -7,6 +7,7 @@
 
 #![cfg(feature = "tokio")]
 
+#[allow(clippy::type_complexity)]
 #[path = "../src/concurrency.rs"]
 mod concurrency;
 

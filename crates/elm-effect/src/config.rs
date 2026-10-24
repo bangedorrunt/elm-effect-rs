@@ -52,9 +52,8 @@ pub enum ConfigError {
         message: String,
     },
     /// The provider died. Not a typed failure: no default, option, or
-    /// `or_else` recovers it (`Config.test.ts:65`), and [`Config::load_effect`]
-    /// reifies it as the effect's defect so `catch_defect` sees the provider's
-    /// own value.
+    /// `or_else` recovers it (`Config.test.ts:65`); [`Config::load`] returns
+    /// it rather than pretending the path was absent.
     Defect {
         /// The provider's defect.
         defect: Defect,
@@ -180,9 +179,7 @@ impl Config {
                     Err(ProviderError::Source(message)) => {
                         Err(vec![ConfigError::Source { path, message }])
                     }
-                    Err(ProviderError::Defect(defect)) => {
-                        Err(vec![ConfigError::Defect { defect }])
-                    }
+                    Err(ProviderError::Defect(defect)) => Err(vec![ConfigError::Defect { defect }]),
                 }
             }),
         }
@@ -524,10 +521,6 @@ impl Config {
         }
     }
 
-
-
-
-
     /// Always-failing config.
     pub fn fail(message: &str) -> Self {
         let message = message.to_string();
@@ -850,45 +843,6 @@ fn parse_bytes(s: &str) -> Option<i64> {
 // ---------------------------------------------------------------------------
 // `Config.schema`: the Schema bridge.
 // ---------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /// Log verbosity with `All`/`None` sentinels.
 ///

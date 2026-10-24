@@ -20,6 +20,12 @@ use std::sync::{
 use crate::fiber::FiberControl;
 use crate::{Cause, Defect, Effect, Reason};
 
+/// How long a close waits for interrupted members to finish their releases
+/// before running the scope's own finalizers. A member may use a resource
+/// this scope releases, so the order matters; the bound keeps `Drop` from
+/// hanging on a body that ignores interruption.
+const CLOSE_JOIN_BUDGET: std::time::Duration = std::time::Duration::from_secs(5);
+
 enum Finalizer {
     Sync(Box<dyn FnOnce() + Send>),
     Effect(Box<dyn FnOnce() -> Option<Defect> + Send>),
@@ -238,13 +244,42 @@ impl Scope {
 
     fn close_inner(&self) -> Vec<Defect> {
         let members = std::mem::take(&mut *self.members.lock().unwrap());
+        let closing = FiberControl::current_id();
+        let mut live = Vec::new();
         for weak in members {
             if let Some(fiber) = weak.upgrade() {
+                // A deferred member only observes the interrupt after its
+                // start latch fires; waiting without this would burn the
+                // whole budget on a fiber that never began.
+                fiber.start.fire();
                 fiber.request_interrupt();
+                // A member may close the scope it belongs to; waiting for it
+                // would wait for the close to return.
+                if Some(fiber.id) != closing {
+                    live.push(fiber);
+                }
+            }
+        }
+        // Wait for the interrupted members before releasing the scope's own
+        // resources: a member's release may still need them. The pin waits
+        // without a bound; the bound here is the price of a blocking Drop.
+        let deadline = std::time::Instant::now() + CLOSE_JOIN_BUDGET;
+        let mut stragglers = Vec::new();
+        for fiber in live {
+            if !fiber.wait_done_until(deadline) {
+                stragglers.push(fiber.id);
             }
         }
         let finalizers = std::mem::take(&mut *self.finalizers.lock().unwrap());
         let mut spills = Vec::new();
+        // A member still running at the deadline means the release order was
+        // not guaranteed; report it instead of pretending the close ordered it.
+        for id in stragglers {
+            spills.push(Defect {
+                message: format!("scope close timed out waiting for member fiber {id:?}"),
+                backtrace: Backtrace::capture().to_string(),
+            });
+        }
         for fin in finalizers.into_iter().rev() {
             match fin {
                 Finalizer::Sync(run) => {

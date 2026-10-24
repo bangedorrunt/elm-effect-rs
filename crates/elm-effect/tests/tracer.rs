@@ -21,10 +21,7 @@ use elm_effect::{
 
 /// A lowercase hex string of exactly `len` characters.
 fn is_hex_id(text: &str, len: usize) -> bool {
-    text.len() == len
-        && text
-            .chars()
-            .all(|c| matches!(c, '0'..='9' | 'a'..='f'))
+    text.len() == len && text.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f'))
 }
 
 fn unwrap_success<A, E: std::fmt::Debug>(exit: Exit<A, E>) -> A {
@@ -56,11 +53,27 @@ fn native_span_identifiers_are_hex_and_share_the_trace() {
     ));
     let (root, child) = unwrap_success(exit);
 
-    assert!(is_hex_id(&root.trace_id(), 32), "trace id: {}", root.trace_id());
-    assert!(is_hex_id(&root.span_id(), 16), "span id: {}", root.span_id());
+    assert!(
+        is_hex_id(&root.trace_id(), 32),
+        "trace id: {}",
+        root.trace_id()
+    );
+    assert!(
+        is_hex_id(&root.span_id(), 16),
+        "span id: {}",
+        root.span_id()
+    );
     assert_eq!(child.trace_id(), root.trace_id(), "a child joins the trace");
-    assert!(is_hex_id(&child.span_id(), 16), "child span id: {}", child.span_id());
-    assert_ne!(child.span_id(), root.span_id(), "siblings never share an id");
+    assert!(
+        is_hex_id(&child.span_id(), 16),
+        "child span id: {}",
+        child.span_id()
+    );
+    assert_ne!(
+        child.span_id(),
+        root.span_id(),
+        "siblings never share an id"
+    );
 }
 
 #[test]
@@ -237,15 +250,14 @@ fn use_span_ends_the_span_when_the_body_dies() {
 
     let seen: Arc<Mutex<Option<Arc<dyn Span>>>> = Arc::new(Mutex::new(None));
     let capture = Arc::clone(&seen);
-    let exit = Runtime::run(use_span(
-        "A",
-        SpanOptions::default(),
-        move |span| {
-            *capture.lock().expect("capture") = Some(span);
-            Effect::<(), String>::die(Defect::new("boom"))
-        },
-    ));
-    assert!(matches!(exit, Exit::Failure(_)), "the defect escapes the span");
+    let exit = Runtime::run(use_span("A", SpanOptions::default(), move |span| {
+        *capture.lock().expect("capture") = Some(span);
+        Effect::<(), String>::die(Defect::new("boom"))
+    }));
+    assert!(
+        matches!(exit, Exit::Failure(_)),
+        "the defect escapes the span"
+    );
 
     let span = seen.lock().expect("capture").clone().expect("span A");
     match span.status() {
@@ -344,7 +356,10 @@ fn timings_are_zero_when_disabled() {
     let handle: Arc<dyn ClockImpl> = clock.clone();
     let exit = Runtime::run(with_trace_clock(
         handle,
-        with_tracer_timing(false, with_span("A", SpanOptions::default(), current_span())),
+        with_tracer_timing(
+            false,
+            with_span("A", SpanOptions::default(), current_span()),
+        ),
     ));
     let span = unwrap_success(exit).expect("span A");
 
@@ -391,14 +406,8 @@ fn timing_disabled_zeroes_start_and_end_for_both_constructors() {
 fn link_spans_links_two_spans() {
     // Tracer.test.ts:454 — a link from creation and one added by `linkSpans`
     // both end up on the span.
-    let child_a = unwrap_success(Runtime::run(make_span(
-        "childA",
-        SpanOptions::default(),
-    )));
-    let child_b = unwrap_success(Runtime::run(make_span(
-        "childB",
-        SpanOptions::default(),
-    )));
+    let child_a = unwrap_success(Runtime::run(make_span("childA", SpanOptions::default())));
+    let child_b = unwrap_success(Runtime::run(make_span("childB", SpanOptions::default())));
 
     let exit = Runtime::run(with_span(
         "A",
@@ -413,7 +422,11 @@ fn link_spans_links_two_spans() {
     ));
     let span = unwrap_success(exit).expect("span A");
 
-    let ids: Vec<String> = span.links().iter().map(|link| link.span.span_id()).collect();
+    let ids: Vec<String> = span
+        .links()
+        .iter()
+        .map(|link| link.span.span_id())
+        .collect();
     assert_eq!(
         ids,
         vec![child_b.span_id(), child_a.span_id()],
@@ -537,18 +550,16 @@ fn log_appends_a_span_event() {
     let handle: Arc<dyn ClockImpl> = clock.clone();
     let logger = Logger::new(|_, _, _| {});
 
-    let exit = Runtime::run(
-        with_trace_clock(
-            handle,
-            with_span(
-                "A",
-                SpanOptions::default(),
-                observability::log("event")
-                    .provide::<LoggerTag, ()>(logger)
-                    .flat_map(|()| current_span()),
-            ),
+    let exit = Runtime::run(with_trace_clock(
+        handle,
+        with_span(
+            "A",
+            SpanOptions::default(),
+            observability::log("event")
+                .provide::<LoggerTag, ()>(logger)
+                .flat_map(|()| current_span()),
         ),
-    );
+    ));
     let span = unwrap_success(exit).expect("span A");
 
     assert_eq!(span.name(), "A");
@@ -556,7 +567,10 @@ fn log_appends_a_span_event() {
     let events = span.events();
     assert_eq!(events.len(), 1, "one log call, one event");
     assert_eq!(events[0].name, "event");
-    assert_eq!(events[0].start_time, 10_000_000, "the trace clock timestamp");
+    assert_eq!(
+        events[0].start_time, 10_000_000,
+        "the trace clock timestamp"
+    );
     assert_eq!(
         events[0].attributes,
         vec![(
@@ -573,15 +587,13 @@ fn log_records_the_running_fiber_id_on_the_span_event() {
     // `effect.fiberId`, the fiber that ran the log call.
     let runtime = Runtime::new();
     let logger = Logger::new(|_, _, _| {});
-    let handle = runtime.spawn_effect(
-        with_span(
-            "A",
-            SpanOptions::default(),
-            observability::log("event")
-                .provide::<LoggerTag, ()>(logger)
-                .flat_map(|()| current_span()),
-        ),
-    );
+    let handle = runtime.spawn_effect(with_span(
+        "A",
+        SpanOptions::default(),
+        observability::log("event")
+            .provide::<LoggerTag, ()>(logger)
+            .flat_map(|()| current_span()),
+    ));
     let fiber_id = handle.id();
     let span = unwrap_success(handle.join()).expect("span A");
 
@@ -631,7 +643,10 @@ fn layer_span_creates_the_parent_and_ends_it_when_the_scope_closes() {
     let on_end = {
         let ended = Arc::clone(&ended);
         Arc::new(move |span: Arc<dyn Span>, exit: Exit<(), String>| {
-            ended.lock().expect("onEnd").push((span.name().to_owned(), exit));
+            ended
+                .lock()
+                .expect("onEnd")
+                .push((span.name().to_owned(), exit));
         })
     };
     let layer = Layer::span(

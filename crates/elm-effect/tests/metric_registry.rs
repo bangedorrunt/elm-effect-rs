@@ -3,10 +3,13 @@
 
 use elm_effect::{Attributes, Counter, Gauge, MetricRegistry, SeriesState};
 
+/// One stdout series row: attributes (`null` when absent) and its count.
+type Series = (Option<Vec<(String, String)>>, f64);
+
 /// TS `series`: `(attributes ?? null, count)`, ordered the way the pin's own
 /// `JSON.stringify` sort orders them (`null` sorts before any object).
-fn series(registry: &MetricRegistry) -> Vec<(Option<Vec<(String, String)>>, f64)> {
-    let mut rows: Vec<(Option<Vec<(String, String)>>, f64)> = registry
+fn series(registry: &MetricRegistry) -> Vec<Series> {
+    let mut rows: Vec<Series> = registry
         .snapshot()
         .into_iter()
         .filter_map(|s| match s.state {
@@ -14,7 +17,7 @@ fn series(registry: &MetricRegistry) -> Vec<(Option<Vec<(String, String)>>, f64)
             _ => None,
         })
         .collect();
-    rows.sort_by(|a, b| sort_key(&a.0).cmp(&sort_key(&b.0)));
+    rows.sort_by_key(|row| sort_key(&row.0));
     rows
 }
 

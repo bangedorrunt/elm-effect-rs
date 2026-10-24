@@ -22,6 +22,20 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use crate::service::{Reference, read_reference};
 use crate::{Cause, Deferred, Effect};
 
+/// Lock a state mutex even after a panic poisoned it. The guarded state is
+/// plain assignments and staged views: a panic can leave a view unpublished,
+/// never a half-written value, so recovery beats bricking every later
+/// transaction on the process.
+trait RecoverLock<T> {
+    fn recover(&self) -> MutexGuard<'_, T>;
+}
+
+impl<T> RecoverLock<T> for Mutex<T> {
+    fn recover(&self) -> MutexGuard<'_, T> {
+        self.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+}
+
 static GLOBAL: Mutex<()> = Mutex::new(());
 
 thread_local! {
@@ -35,24 +49,40 @@ static NEXT_TX_ID: AtomicU64 = AtomicU64::new(1);
 /// Ids for `TxSubscriptionRef` subscriptions, on the same terms.
 static NEXT_SUB_ID: AtomicU64 = AtomicU64::new(1);
 
+/// Clears the thread-local transaction flag on drop, including while a
+/// panic unwinds. Without this a panic leaves the thread believing it is
+/// already inside a transaction, so later calls skip `GLOBAL` and lose
+/// isolation.
+struct TxFlag;
+
+impl Drop for TxFlag {
+    fn drop(&mut self) {
+        IN_TX.with(|flag| flag.set(false));
+    }
+}
+
 /// Run `body` as one atomic, isolated transaction.
 pub fn atomically<R>(body: impl FnOnce() -> R) -> R {
     if IN_TX.with(|flag| flag.get()) {
         return body();
     }
-    let _guard: MutexGuard<'_, ()> = GLOBAL.lock().unwrap();
+    // A panic in an earlier body poisons the bare `()` lock, but carries no
+    // damaged data: recovering keeps STM alive, and the thread flag is reset
+    // before the next transaction can run.
+    let _global: MutexGuard<'_, ()> = GLOBAL
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _flag = TxFlag;
     IN_TX.with(|flag| flag.set(true));
-    let result = body();
-    IN_TX.with(|flag| flag.set(false));
-    result
+    body()
 }
 
 fn tx_cell<T>(cell: &Mutex<T>, f: impl FnOnce(&mut T)) {
-    atomically(|| f(&mut cell.lock().unwrap()));
+    atomically(|| f(&mut cell.recover()));
 }
 
 fn tx_read<T: Clone>(cell: &Mutex<T>) -> T {
-    atomically(|| cell.lock().unwrap().clone())
+    atomically(|| cell.recover().clone())
 }
 
 /// One transaction's staged view of one ref. `version` is the version
@@ -95,7 +125,6 @@ trait Touched: Send + Sync {
 }
 
 struct RefHandle<T> {
-    id: u64,
     state: Mutex<RefState<T>>,
 }
 
@@ -103,16 +132,16 @@ impl<T: Send + 'static> Touched for RefHandle<T> {
     /// Publish the staged write (if any), bump the version, wake every
     /// live waiter, and drop the staged view.
     fn commit_tx(&self, tx: u64) {
-        let mut state = self.state.lock().unwrap();
-        if let Some(staged) = state.staged.remove(&tx) {
-            if staged.written {
-                // shortcut: publish and bump on every write. The pin skips
-                // the bump when `Object.is` matches the old value, which
-                // only matters for a row observing the version counter,
-                // and none of these rows does.
-                state.value = staged.value;
-                state.version = state.version.wrapping_add(1);
-            }
+        let mut state = self.state.recover();
+        if let Some(staged) = state.staged.remove(&tx)
+            && staged.written
+        {
+            // shortcut: publish and bump on every write. The pin skips
+            // the bump when `Object.is` matches the old value, which
+            // only matters for a row observing the version counter,
+            // and none of these rows does.
+            state.value = staged.value;
+            state.version = state.version.wrapping_add(1);
         }
         for waiter in state.pending.drain(..) {
             if waiter.live.swap(false, Ordering::SeqCst) {
@@ -123,15 +152,14 @@ impl<T: Send + 'static> Touched for RefHandle<T> {
 
     /// Discard the staged view without publishing.
     fn clear_tx(&self, tx: u64) {
-        self.state.lock().unwrap().staged.remove(&tx);
+        self.state.recover().staged.remove(&tx);
     }
 
     /// The version this transaction's staged view recorded, if it has a
     /// view: one entry of the read set.
     fn staged_version(&self, tx: u64) -> Option<u64> {
         self.state
-            .lock()
-            .unwrap()
+            .recover()
             .staged
             .get(&tx)
             .map(|staged| staged.version)
@@ -139,12 +167,12 @@ impl<T: Send + 'static> Touched for RefHandle<T> {
 
     /// The ref's current version.
     fn current_version(&self) -> u64 {
-        self.state.lock().unwrap().version
+        self.state.recover().version
     }
 
     /// Register a wake, fired by this ref's next commit.
     fn register_waiter(&self, waiter: Waiter) {
-        self.state.lock().unwrap().pending.push(waiter);
+        self.state.recover().pending.push(waiter);
     }
 }
 
@@ -165,7 +193,6 @@ impl<T> TxRef<T> {
     pub fn new(initial: T) -> Self {
         Self {
             handle: Arc::new(RefHandle {
-                id: NEXT_TX_ID.fetch_add(1, Ordering::Relaxed),
                 state: Mutex::new(RefState {
                     version: 0,
                     value: initial,
@@ -181,17 +208,17 @@ impl<T> TxRef<T> {
     where
         T: Clone,
     {
-        atomically(|| self.handle.state.lock().unwrap().value.clone())
+        atomically(|| self.handle.state.recover().value.clone())
     }
 
     /// Replace the value.
     pub fn write(&self, value: T) {
-        atomically(|| self.handle.state.lock().unwrap().value = value);
+        atomically(|| self.handle.state.recover().value = value);
     }
 
     /// Run `f` on the value, returning its result.
     pub fn modify<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
-        atomically(|| f(&mut self.handle.state.lock().unwrap().value))
+        atomically(|| f(&mut self.handle.state.recover().value))
     }
 }
 
@@ -229,7 +256,7 @@ impl Transaction {
     /// staged entry is a no-op.
     fn touch<T: Send + 'static>(&self, handle: &Arc<RefHandle<T>>) {
         let driver: Arc<dyn Touched> = Arc::clone(handle) as Arc<dyn Touched>;
-        self.touched.lock().unwrap().push(driver);
+        self.touched.recover().push(driver);
     }
 
     /// Mark the boundary for another attempt ([`crate::Effect::tx_retry`]).
@@ -245,7 +272,7 @@ impl Transaction {
     /// True when no ref in the read set moved since this transaction
     /// read it.
     fn is_consistent(&self) -> bool {
-        let drivers = self.touched.lock().unwrap();
+        let drivers = self.touched.recover();
         drivers
             .iter()
             .all(|driver| match driver.staged_version(self.id) {
@@ -271,7 +298,7 @@ impl Transaction {
                 })
             },
         };
-        for driver in self.touched.lock().unwrap().iter() {
+        for driver in self.touched.recover().iter() {
             driver.register_waiter(Waiter {
                 live: Arc::clone(&waiter.live),
                 wake: Arc::clone(&waiter.wake),
@@ -287,7 +314,7 @@ impl Transaction {
     /// Publish every written staged value. Nothing read-only staged
     /// survives as a write.
     pub(crate) fn commit(&self) {
-        for driver in std::mem::take(&mut *self.touched.lock().unwrap()) {
+        for driver in std::mem::take(&mut *self.touched.recover()) {
             driver.commit_tx(self.id);
         }
     }
@@ -295,7 +322,7 @@ impl Transaction {
     /// Discard every staged value: the boundary failed, so nothing it
     /// staged is published.
     pub(crate) fn clear(&self) {
-        for driver in std::mem::take(&mut *self.touched.lock().unwrap()) {
+        for driver in std::mem::take(&mut *self.touched.recover()) {
             driver.clear_tx(self.id);
         }
     }
@@ -314,7 +341,7 @@ impl<T: Clone + Send + 'static> TxRef<T> {
             match current {
                 Some(tx) => Effect::sync(move || {
                     tx.touch(&handle);
-                    let mut state = handle.state.lock().unwrap();
+                    let mut state = handle.state.recover();
                     let read_version = state.version;
                     let committed = state.value.clone();
                     state
@@ -328,7 +355,7 @@ impl<T: Clone + Send + 'static> TxRef<T> {
                         .value
                         .clone()
                 }),
-                None => Effect::sync(move || handle.state.lock().unwrap().value.clone()),
+                None => Effect::sync(move || handle.state.recover().value.clone()),
             }
         })
     }
@@ -344,7 +371,7 @@ impl<T: Clone + Send + 'static> TxRef<T> {
             match current {
                 Some(tx) => Effect::sync(move || {
                     tx.touch(&handle);
-                    let mut state = handle.state.lock().unwrap();
+                    let mut state = handle.state.recover();
                     let read_version = state.version;
                     let committed = state.value.clone();
                     let staged = state.staged.entry(tx.id).or_insert_with(|| Staged {
@@ -355,7 +382,7 @@ impl<T: Clone + Send + 'static> TxRef<T> {
                     staged.value = value;
                     staged.written = true;
                 }),
-                None => Effect::sync(move || handle.state.lock().unwrap().value = value),
+                None => Effect::sync(move || handle.state.recover().value = value),
             }
         })
     }
@@ -376,7 +403,7 @@ impl<T: Clone + Send + 'static> TxRef<T> {
             match current {
                 Some(tx) => Effect::sync(move || {
                     tx.touch(&handle);
-                    let mut state = handle.state.lock().unwrap();
+                    let mut state = handle.state.recover();
                     let read_version = state.version;
                     let committed = state.value.clone();
                     let staged = state.staged.entry(tx.id).or_insert_with(|| Staged {
@@ -391,7 +418,7 @@ impl<T: Clone + Send + 'static> TxRef<T> {
                     result
                 }),
                 None => Effect::sync(move || {
-                    let mut state = handle.state.lock().unwrap();
+                    let mut state = handle.state.recover();
                     let current = state.value.clone();
                     let (result, next) = f(current);
                     state.value = next;
@@ -494,7 +521,7 @@ impl<T, E> TxDeferred<T, E> {
     }
 
     fn settle(&self, slot: Slot<T, E>) -> bool {
-        let done = atomically(|| match *self.cell.lock().unwrap() {
+        let done = atomically(|| match *self.cell.recover() {
             Some(_) => false,
             ref mut cell => {
                 *cell = Some(slot);
@@ -540,7 +567,7 @@ impl<T, E> TxDeferred<T, E> {
         T: Clone,
         E: Clone,
     {
-        let mut cell = self.cell.lock().unwrap();
+        let mut cell = self.cell.recover();
         while cell.is_none() {
             cell = self.changed.wait(cell).unwrap();
         }
@@ -655,11 +682,11 @@ impl<T> TxQueue<T> {
     /// A full back-pressure queue answers `false` because this synchronous
     /// `atomically` cannot park the transaction; the pin retries instead.
     pub fn offer(&self, value: T) -> bool {
-        if *self.closed.lock().unwrap() || *self.failed.lock().unwrap() {
+        if *self.closed.recover() || *self.failed.recover() {
             return false;
         }
         atomically(|| {
-            let mut queue = self.inner.lock().unwrap();
+            let mut queue = self.inner.recover();
             match (self.capacity, self.strategy) {
                 (Some(limit), QueueStrategy::BackPressure) if queue.len() >= limit => false,
                 // Dropping rejects the newest value, so `offer` reports the
@@ -680,12 +707,12 @@ impl<T> TxQueue<T> {
 
     /// Pop front without blocking (`None` when empty).
     pub fn take(&self) -> Option<T> {
-        atomically(|| self.inner.lock().unwrap().pop_front())
+        atomically(|| self.inner.recover().pop_front())
     }
 
     /// The current depth.
     pub fn size(&self) -> usize {
-        atomically(|| self.inner.lock().unwrap().len())
+        atomically(|| self.inner.recover().len())
     }
 
     /// True when no items wait.
@@ -701,7 +728,7 @@ impl<T> TxQueue<T> {
     /// Stop accepting offers; queued items still drain, then `take`/`poll`
     /// settle on `None`.
     pub fn close(&self) {
-        *self.closed.lock().unwrap() = true;
+        *self.closed.recover() = true;
     }
 
     /// Halt the queue with a failure. `fail` goes straight to done and
@@ -710,21 +737,21 @@ impl<T> TxQueue<T> {
     /// the first halt,
     /// false when already done.
     pub fn fail(&self) -> bool {
-        let mut failed = self.failed.lock().unwrap();
-        if *failed || *self.closed.lock().unwrap() {
+        let mut failed = self.failed.recover();
+        if *failed || *self.closed.recover() {
             return false;
         }
         *failed = true;
-        *self.closed.lock().unwrap() = true;
+        *self.closed.recover() = true;
         drop(failed);
-        atomically(|| self.inner.lock().unwrap().clear());
+        atomically(|| self.inner.recover().clear());
         true
     }
 
     /// Graceful shutdown (`end`); true when this call ends the queue,
     /// false when already done.
     pub fn end(&self) -> bool {
-        let mut closed = self.closed.lock().unwrap();
+        let mut closed = self.closed.recover();
         if *closed {
             return false;
         }
@@ -734,7 +761,7 @@ impl<T> TxQueue<T> {
 
     /// True while offers are still accepted.
     pub fn is_open(&self) -> bool {
-        !*self.closed.lock().unwrap()
+        !*self.closed.recover()
     }
 
     /// The write-only face (`TxEnqueue` interface).
@@ -750,13 +777,13 @@ impl<T> TxQueue<T> {
     /// Push every value (`offerAll`), returning the rejected tail.
     /// Closed or failed queues take none.
     pub fn offer_all(&self, values: impl IntoIterator<Item = T>) -> Vec<T> {
-        if *self.closed.lock().unwrap() || *self.failed.lock().unwrap() {
+        if *self.closed.recover() || *self.failed.recover() {
             return values.into_iter().collect();
         }
         let mut rejected = Vec::new();
         let mut taking = true;
         atomically(|| {
-            let mut queue = self.inner.lock().unwrap();
+            let mut queue = self.inner.recover();
             for value in values {
                 if !taking {
                     rejected.push(value);
@@ -783,13 +810,13 @@ impl<T> TxQueue<T> {
 
     /// Drain everything in order (`takeAll`).
     pub fn take_all(&self) -> Vec<T> {
-        atomically(|| self.inner.lock().unwrap().drain(..).collect())
+        atomically(|| self.inner.recover().drain(..).collect())
     }
 
     /// Drain up to `n` items in order (`takeN`); `take_n(0)` is empty.
     pub fn take_n(&self, n: usize) -> Vec<T> {
         atomically(|| {
-            let mut queue = self.inner.lock().unwrap();
+            let mut queue = self.inner.recover();
             let take = n.min(queue.len());
             queue.drain(..take).collect()
         })
@@ -800,7 +827,7 @@ impl<T> TxQueue<T> {
     where
         T: Clone,
     {
-        atomically(|| self.inner.lock().unwrap().front().cloned())
+        atomically(|| self.inner.recover().front().cloned())
     }
 
     /// Drain up to `max` items, but nothing when fewer than `min` wait
@@ -810,9 +837,9 @@ impl<T> TxQueue<T> {
     pub fn take_between(&self, min: usize, max: usize) -> Vec<T> {
         // Read the state before taking the queue lock: `offer` takes them in
         // this order, so the reverse would deadlock against a concurrent push.
-        let closing = *self.closed.lock().unwrap();
+        let closing = *self.closed.recover();
         atomically(|| {
-            let mut queue = self.inner.lock().unwrap();
+            let mut queue = self.inner.recover();
             if min == 0 || max == 0 || min > max || (!closing && queue.len() < min) {
                 return Vec::new();
             }
@@ -840,7 +867,7 @@ impl<T> TxQueue<T> {
     /// offers. A queue that is already halted and drained returns nothing,
     /// which is the same empty answer `takeAll` would give.
     pub fn clear(&self) -> Vec<T> {
-        atomically(|| self.inner.lock().unwrap().drain(..).collect())
+        atomically(|| self.inner.recover().drain(..).collect())
     }
 
     /// True while a halted queue still holds items to drain (`isClosing`).
@@ -864,11 +891,11 @@ impl<T> TxQueue<T> {
     /// than drained, so a later `poll` finds nothing. True when this call
     /// halts it, false when it was already halted.
     pub fn shutdown(&self) -> bool {
-        let mut closed = self.closed.lock().unwrap();
+        let mut closed = self.closed.recover();
         let first = !*closed;
         *closed = true;
         drop(closed);
-        atomically(|| self.inner.lock().unwrap().clear());
+        atomically(|| self.inner.recover().clear());
         first
     }
 
@@ -876,7 +903,7 @@ impl<T> TxQueue<T> {
     /// straight to done, a non-empty one halts and drains. True on the first
     /// call, false when already halted.
     pub fn interrupt(&self) -> bool {
-        let mut closed = self.closed.lock().unwrap();
+        let mut closed = self.closed.recover();
         if *closed {
             return false;
         }
@@ -1011,7 +1038,7 @@ impl TxSemaphore {
     /// Take one permit without blocking (`false` when empty).
     pub fn try_acquire(&self) -> bool {
         atomically(|| {
-            let mut permits = self.permits.lock().unwrap();
+            let mut permits = self.permits.recover();
             if *permits == 0 {
                 false
             } else {
@@ -1031,7 +1058,7 @@ impl TxSemaphore {
     pub fn acquire_n(&self, n: usize) -> bool {
         assert!(n > 0, "acquire_n needs a positive count");
         atomically(|| {
-            let mut permits = self.permits.lock().unwrap();
+            let mut permits = self.permits.recover();
             if *permits < n {
                 false
             } else {
@@ -1082,7 +1109,7 @@ impl TxSemaphore {
 
     /// Permits currently available.
     pub fn available(&self) -> usize {
-        atomically(|| *self.permits.lock().unwrap())
+        atomically(|| *self.permits.recover())
     }
 }
 
@@ -1122,7 +1149,7 @@ impl TxReentrantLock {
     }
 
     fn acquire_read_for(&self, me: std::thread::ThreadId) -> usize {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.recover();
         loop {
             match state.writer {
                 Some((owner, _)) if owner != me => state = self.ready.wait(state).unwrap(),
@@ -1143,7 +1170,7 @@ impl TxReentrantLock {
     }
 
     fn acquire_write_for(&self, me: std::thread::ThreadId) -> usize {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.recover();
         loop {
             let other_writes = matches!(state.writer, Some((owner, _)) if owner != me);
             let other_reads = state
@@ -1175,7 +1202,7 @@ impl TxReentrantLock {
     }
 
     fn release_read_for(&self, me: std::thread::ThreadId) -> usize {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.recover();
         let remaining = match state.readers.get_mut(&me) {
             Some(count) if *count > 0 => {
                 *count -= 1;
@@ -1198,7 +1225,7 @@ impl TxReentrantLock {
     }
 
     fn release_write_for(&self, me: std::thread::ThreadId) -> usize {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.recover();
         let remaining = match state.writer {
             Some((owner, count)) if owner == me => count - 1,
             _ => return 0,
@@ -1279,32 +1306,28 @@ impl TxReentrantLock {
 
     /// Total read depth across every thread (the pin's `readLocks`).
     pub fn read_locks(&self) -> usize {
-        self.state.lock().unwrap().readers.values().sum()
+        self.state.recover().readers.values().sum()
     }
 
     /// Write depth, 0 when unlocked.
     pub fn write_locks(&self) -> usize {
-        self.state
-            .lock()
-            .unwrap()
-            .writer
-            .map_or(0, |(_, count)| count)
+        self.state.recover().writer.map_or(0, |(_, count)| count)
     }
 
     /// True when any thread holds a read or write lock.
     pub fn locked(&self) -> bool {
-        let state = self.state.lock().unwrap();
+        let state = self.state.recover();
         !state.readers.is_empty() || state.writer.is_some()
     }
 
     /// True when any thread holds a read lock.
     pub fn read_locked(&self) -> bool {
-        !self.state.lock().unwrap().readers.is_empty()
+        !self.state.recover().readers.is_empty()
     }
 
     /// True when a thread holds the write lock.
     pub fn write_locked(&self) -> bool {
-        self.state.lock().unwrap().writer.is_some()
+        self.state.recover().writer.is_some()
     }
 }
 
@@ -1342,12 +1365,12 @@ impl<T> TxChunk<T> {
     where
         T: Clone,
     {
-        atomically(|| self.inner.lock().unwrap().get(index).cloned())
+        atomically(|| self.inner.recover().get(index).cloned())
     }
 
     /// The element count.
     pub fn len(&self) -> usize {
-        atomically(|| self.inner.lock().unwrap().len())
+        atomically(|| self.inner.recover().len())
     }
 
     /// Whether no elements are stored.
@@ -1376,14 +1399,14 @@ impl<T> TxChunk<T> {
     /// Replace the whole contents (`set`).
     pub fn set_all(&self, values: Vec<T>) {
         atomically(|| {
-            *self.inner.lock().unwrap() = values;
+            *self.inner.recover() = values;
         });
     }
 
     /// Insert at the front (`prepend`).
     pub fn prepend(&self, value: T) {
         atomically(|| {
-            self.inner.lock().unwrap().insert(0, value);
+            self.inner.recover().insert(0, value);
         });
     }
 
@@ -1401,12 +1424,12 @@ impl<T> TxChunk<T> {
 
     /// Transform in place, returning the previous length (`modify`).
     pub fn modify<R>(&self, f: impl FnOnce(&mut Vec<T>) -> R) -> R {
-        atomically(|| f(&mut self.inner.lock().unwrap()))
+        atomically(|| f(&mut self.inner.recover()))
     }
 
     /// Replace the contents with `f`'s result (`update`).
     pub fn update(&self, f: impl FnOnce(&[T]) -> Vec<T>) {
-        let next = atomically(|| f(&self.inner.lock().unwrap()));
+        let next = atomically(|| f(&self.inner.recover()));
         self.set_all(next);
     }
 }
@@ -1473,7 +1496,7 @@ impl<T: Clone> TxChunk<T> {
 
     /// A snapshot of the contents in order (`get`).
     pub fn to_vec(&self) -> Vec<T> {
-        atomically(|| self.inner.lock().unwrap().clone())
+        atomically(|| self.inner.recover().clone())
     }
 }
 
@@ -1509,12 +1532,12 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
 
     /// True when `key` maps to anything (`has`).
     pub fn contains(&self, key: &K) -> bool {
-        atomically(|| self.inner.lock().unwrap().contains_key(key))
+        atomically(|| self.inner.recover().contains_key(key))
     }
 
     /// Insert, returning the displaced value if any.
     pub fn insert(&self, key: K, value: V) -> Option<V> {
-        atomically(|| self.inner.lock().unwrap().insert(key, value))
+        atomically(|| self.inner.recover().insert(key, value))
     }
 
     /// The value for `key`, if any.
@@ -1522,17 +1545,17 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
     where
         V: Clone,
     {
-        atomically(|| self.inner.lock().unwrap().get(key).cloned())
+        atomically(|| self.inner.recover().get(key).cloned())
     }
 
     /// Remove `key`, returning its value if any.
     pub fn remove(&self, key: &K) -> Option<V> {
-        atomically(|| self.inner.lock().unwrap().remove(key))
+        atomically(|| self.inner.recover().remove(key))
     }
 
     /// The entry count.
     pub fn len(&self) -> usize {
-        atomically(|| self.inner.lock().unwrap().len())
+        atomically(|| self.inner.recover().len())
     }
 
     /// Whether no entries are stored.
@@ -1542,7 +1565,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
 
     /// Drop every entry.
     pub fn clear(&self) {
-        atomically(|| self.inner.lock().unwrap().clear())
+        atomically(|| self.inner.recover().clear())
     }
 
     /// Replace the value at `key` with what `update` returns, handing back the
@@ -1554,7 +1577,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
         V: Clone,
     {
         atomically(|| {
-            let mut inner = self.inner.lock().unwrap();
+            let mut inner = self.inner.recover();
             let current = inner.get(key)?.clone();
             let next = update(&current);
             inner.insert(key.clone(), next)
@@ -1570,7 +1593,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
         V: Clone,
     {
         atomically(|| {
-            let mut inner = self.inner.lock().unwrap();
+            let mut inner = self.inner.recover();
             let current = inner.get(&key).cloned();
             match update(current.as_ref()) {
                 Some(value) => {
@@ -1591,7 +1614,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
         V: Clone,
     {
         atomically(|| {
-            let mut inner = self.inner.lock().unwrap();
+            let mut inner = self.inner.recover();
             for (key, value) in other {
                 inner.insert(key.clone(), value.clone());
             }
@@ -1604,7 +1627,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
         K: Eq + Hash,
     {
         atomically(|| {
-            let mut inner = self.inner.lock().unwrap();
+            let mut inner = self.inner.recover();
             for key in keys {
                 inner.remove(&key);
             }
@@ -1614,7 +1637,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
     /// Insert every pair, a later pair winning for a shared key (`setMany`).
     pub fn set_many(&self, entries: impl IntoIterator<Item = (K, V)>) {
         atomically(|| {
-            let mut inner = self.inner.lock().unwrap();
+            let mut inner = self.inner.recover();
             for (key, value) in entries {
                 inner.insert(key, value);
             }
@@ -1628,7 +1651,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
         K: Clone,
         V: Clone,
     {
-        atomically(|| self.inner.lock().unwrap().clone())
+        atomically(|| self.inner.recover().clone())
     }
 
     /// Every key (`keys`). Order is the map's own, so a caller that needs a
@@ -1637,7 +1660,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
     where
         K: Clone,
     {
-        atomically(|| self.inner.lock().unwrap().keys().cloned().collect())
+        atomically(|| self.inner.recover().keys().cloned().collect())
     }
 
     /// Every value (`values`).
@@ -1645,7 +1668,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
     where
         V: Clone,
     {
-        atomically(|| self.inner.lock().unwrap().values().cloned().collect())
+        atomically(|| self.inner.recover().values().cloned().collect())
     }
 
     /// Every pair (`entries`).
@@ -1656,8 +1679,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
     {
         atomically(|| {
             self.inner
-                .lock()
-                .unwrap()
+                .recover()
                 .iter()
                 .map(|(key, value)| (key.clone(), value.clone()))
                 .collect()
@@ -1689,8 +1711,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
     {
         atomically(|| {
             self.inner
-                .lock()
-                .unwrap()
+                .recover()
                 .iter()
                 .map(|(key, value)| (key.clone(), transform(value, key)))
                 .collect()
@@ -1706,8 +1727,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
         let mut predicate = predicate;
         atomically(|| {
             self.inner
-                .lock()
-                .unwrap()
+                .recover()
                 .iter()
                 .filter(|(key, value)| predicate(value, key))
                 .map(|(key, value)| (key.clone(), value.clone()))
@@ -1721,7 +1741,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
         K: Clone,
     {
         atomically(|| {
-            let inner = self.inner.lock().unwrap();
+            let inner = self.inner.recover();
             let mut acc = initial;
             for (key, value) in inner.iter() {
                 acc = fold(acc, value, key);
@@ -1737,8 +1757,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
     {
         atomically(|| {
             self.inner
-                .lock()
-                .unwrap()
+                .recover()
                 .iter()
                 .filter_map(|(key, value)| transform(value, key).map(|next| (key.clone(), next)))
                 .collect()
@@ -1749,8 +1768,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
     pub fn has_by(&self, predicate: impl Fn(&V, &K) -> bool) -> bool {
         atomically(|| {
             self.inner
-                .lock()
-                .unwrap()
+                .recover()
                 .iter()
                 .any(|(key, value)| predicate(value, key))
         })
@@ -1760,8 +1778,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
     pub fn every(&self, predicate: impl Fn(&V, &K) -> bool) -> bool {
         atomically(|| {
             self.inner
-                .lock()
-                .unwrap()
+                .recover()
                 .iter()
                 .all(|(key, value)| predicate(value, key))
         })
@@ -1781,8 +1798,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
     {
         atomically(|| {
             self.inner
-                .lock()
-                .unwrap()
+                .recover()
                 .iter()
                 .find(|(key, value)| predicate(value, key))
                 .map(|(key, value)| (key.clone(), value.clone()))
@@ -1792,7 +1808,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
     /// Run `visit` once per entry (`forEach`).
     pub fn for_each(&self, mut visit: impl FnMut(&V, &K)) {
         atomically(|| {
-            for (key, value) in self.inner.lock().unwrap().iter() {
+            for (key, value) in self.inner.recover().iter() {
                 visit(value, key);
             }
         })
@@ -1808,14 +1824,14 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
         K2: Eq + Hash,
         W: Clone,
     {
-        let mut out = TxHashMap::new();
+        let out = TxHashMap::new();
         atomically(|| {
             let mut visit = |key: &K, value: &V| {
                 for (other_key, other_value) in transform(value, key) {
                     out.insert(other_key, other_value);
                 }
             };
-            for (key, value) in self.inner.lock().unwrap().iter() {
+            for (key, value) in self.inner.recover().iter() {
                 visit(key, value);
             }
         });
@@ -1832,8 +1848,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
     {
         atomically(|| {
             self.inner
-                .lock()
-                .unwrap()
+                .recover()
                 .iter()
                 .filter_map(|(key, value)| value.clone().into().map(|inner| (key.clone(), inner)))
                 .collect()
@@ -1873,27 +1888,27 @@ impl<T: Eq + Hash> TxHashSet<T> {
 
     /// Insert; `false` when already present.
     pub fn insert(&self, value: T) -> bool {
-        atomically(|| self.inner.lock().unwrap().insert(value))
+        atomically(|| self.inner.recover().insert(value))
     }
 
     /// Remove; `true` when present.
     pub fn remove(&self, value: &T) -> bool {
-        atomically(|| self.inner.lock().unwrap().remove(value))
+        atomically(|| self.inner.recover().remove(value))
     }
 
     /// Drop every element.
     pub fn clear(&self) {
-        atomically(|| self.inner.lock().unwrap().clear())
+        atomically(|| self.inner.recover().clear())
     }
 
     /// Whether `value` is present.
     pub fn contains(&self, value: &T) -> bool {
-        atomically(|| self.inner.lock().unwrap().contains(value))
+        atomically(|| self.inner.recover().contains(value))
     }
 
     /// The element count.
     pub fn len(&self) -> usize {
-        atomically(|| self.inner.lock().unwrap().len())
+        atomically(|| self.inner.recover().len())
     }
 
     /// Whether no elements are stored.
@@ -1908,7 +1923,7 @@ impl<T: Eq + Hash> TxHashSet<T> {
 impl<T: Eq + Hash + Clone> TxHashSet<T> {
     /// An immutable snapshot of the current contents (`toHashSet`).
     pub fn to_hash_set(&self) -> HashSet<T> {
-        atomically(|| HashSet::from_iter(self.inner.lock().unwrap().iter().cloned()))
+        atomically(|| HashSet::from_iter(self.inner.recover().iter().cloned()))
     }
 
     /// Every element in `self` or `other` (`union`). Neither side is
@@ -1920,7 +1935,7 @@ impl<T: Eq + Hash + Clone> TxHashSet<T> {
     {
         atomically(|| {
             let mut merged: HashSet<T> = self.to_snapshot();
-            let theirs = other.inner.lock().unwrap();
+            let theirs = other.inner.recover();
             for value in theirs.iter() {
                 merged.insert(value.clone());
             }
@@ -1937,10 +1952,10 @@ impl<T: Eq + Hash + Clone> TxHashSet<T> {
     {
         atomically(|| {
             let theirs: HashSet<T> = {
-                let guard = other.inner.lock().unwrap();
+                let guard = other.inner.recover();
                 guard.iter().cloned().collect()
             };
-            let mine = self.inner.lock().unwrap();
+            let mine = self.inner.recover();
             let kept: HashSet<T> = mine
                 .iter()
                 .filter(|v| theirs.contains(*v))
@@ -1959,10 +1974,10 @@ impl<T: Eq + Hash + Clone> TxHashSet<T> {
     {
         atomically(|| {
             let theirs: HashSet<T> = {
-                let guard = other.inner.lock().unwrap();
+                let guard = other.inner.recover();
                 guard.iter().cloned().collect()
             };
-            let mine = self.inner.lock().unwrap();
+            let mine = self.inner.recover();
             let kept: HashSet<T> = mine
                 .iter()
                 .filter(|v| !theirs.contains(*v))
@@ -1980,22 +1995,22 @@ impl<T: Eq + Hash + Clone> TxHashSet<T> {
     pub fn is_subset(&self, other: &Self) -> bool {
         atomically(|| {
             let theirs: HashSet<T> = {
-                let guard = other.inner.lock().unwrap();
+                let guard = other.inner.recover();
                 guard.iter().cloned().collect()
             };
-            let mine = self.inner.lock().unwrap();
+            let mine = self.inner.recover();
             mine.iter().all(|v| theirs.contains(v))
         })
     }
 
     /// Whether any element satisfies `f` (`some`).
     pub fn some(&self, f: impl Fn(&T) -> bool) -> bool {
-        atomically(|| self.inner.lock().unwrap().iter().any(|v| f(v)))
+        atomically(|| self.inner.recover().iter().any(&f))
     }
 
     /// Whether every element satisfies `f` (`every`).
     pub fn every(&self, f: impl Fn(&T) -> bool) -> bool {
-        atomically(|| self.inner.lock().unwrap().iter().all(|v| f(v)))
+        atomically(|| self.inner.recover().iter().all(&f))
     }
 
     /// `f` applied to each element, collapsing duplicates (`map`).
@@ -2004,15 +2019,14 @@ impl<T: Eq + Hash + Clone> TxHashSet<T> {
         U: Eq + Hash,
         T: 'static,
     {
-        atomically(|| self.inner.lock().unwrap().iter().map(f).collect())
+        atomically(|| self.inner.recover().iter().map(f).collect())
     }
 
     /// Only the elements `f` keeps (`filter`).
     pub fn filter(&self, f: impl Fn(&T) -> bool) -> Self {
         atomically(|| {
             self.inner
-                .lock()
-                .unwrap()
+                .recover()
                 .iter()
                 .filter(|v| f(v))
                 .cloned()
@@ -2027,20 +2041,14 @@ impl<T: Eq + Hash + Clone> TxHashSet<T> {
         T: Clone,
     {
         atomically(|| {
-            let guard = self.inner.lock().unwrap();
+            let guard = self.inner.recover();
             guard.iter().cloned().collect()
         })
     }
 
     /// Fold the elements into one value (`reduce`).
     pub fn reduce<R>(&self, init: R, f: impl Fn(R, &T) -> R) -> R {
-        atomically(|| {
-            self.inner
-                .lock()
-                .unwrap()
-                .iter()
-                .fold(init, |acc, v| f(acc, v))
-        })
+        atomically(|| self.inner.recover().iter().fold(init, f))
     }
 }
 
@@ -2158,7 +2166,7 @@ impl<T: Send + 'static> TxPriorityQueue<T> {
 
     /// The element count.
     pub fn size(&self) -> usize {
-        self.inner.lock().unwrap().len()
+        self.inner.recover().len()
     }
 
     /// Whether no elements are stored.
@@ -2173,7 +2181,7 @@ impl<T: Send + 'static> TxPriorityQueue<T> {
 
     /// Insert one element in sorted position.
     pub fn offer(&self, value: T) {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.recover();
         let arr = std::mem::take(&mut *guard);
         *guard = merge_sorted(arr, vec![value], &self.ord);
         drop(guard);
@@ -2184,7 +2192,7 @@ impl<T: Send + 'static> TxPriorityQueue<T> {
     pub fn offer_all(&self, values: Vec<T>) {
         let mut sorted = values;
         sorted.sort_by(|a, b| self.ord.compare(a, b));
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.recover();
         let arr = std::mem::take(&mut *guard);
         *guard = merge_sorted(arr, sorted, &self.ord);
         drop(guard);
@@ -2194,7 +2202,7 @@ impl<T: Send + 'static> TxPriorityQueue<T> {
     /// Take the smallest element, waiting while the queue is empty (the pin's
     /// `take`, which retries the transaction).
     pub fn take(&self) -> T {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.recover();
         while guard.is_empty() {
             guard = self.ready.wait(guard).unwrap();
         }
@@ -2203,7 +2211,7 @@ impl<T: Send + 'static> TxPriorityQueue<T> {
 
     /// Take the smallest element without waiting (`takeOption`).
     pub fn take_option(&self) -> Option<T> {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.recover();
         if guard.is_empty() {
             return None;
         }
@@ -2212,24 +2220,24 @@ impl<T: Send + 'static> TxPriorityQueue<T> {
 
     /// Take every element in priority order (`takeAll`).
     pub fn take_all(&self) -> Vec<T> {
-        std::mem::take(&mut *self.inner.lock().unwrap())
+        std::mem::take(&mut *self.inner.recover())
     }
 
     /// Take up to `n` elements in priority order (`takeUpTo`).
     pub fn take_up_to(&self, n: usize) -> Vec<T> {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.recover();
         let take = n.min(guard.len());
         guard.drain(..take).collect()
     }
 
     /// Drop every element the predicate matches (`removeIf`).
     pub fn remove_if(&self, predicate: impl Fn(&T) -> bool) {
-        self.inner.lock().unwrap().retain(|value| !predicate(value));
+        self.inner.recover().retain(|value| !predicate(value));
     }
 
     /// Keep only the elements the predicate matches (`retainIf`).
     pub fn retain_if(&self, predicate: impl Fn(&T) -> bool) {
-        self.inner.lock().unwrap().retain(|value| predicate(value));
+        self.inner.recover().retain(|value| predicate(value));
     }
 }
 
@@ -2238,7 +2246,7 @@ impl<T: Send + 'static + Clone> TxPriorityQueue<T> {
     /// Observe the smallest element without removing it, waiting while the
     /// queue is empty (the pin's `peek`, which retries the transaction).
     pub fn peek(&self) -> T {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.recover();
         while guard.is_empty() {
             guard = self.ready.wait(guard).unwrap();
         }
@@ -2247,12 +2255,12 @@ impl<T: Send + 'static + Clone> TxPriorityQueue<T> {
 
     /// Observe the smallest element without removing it, `None` when empty.
     pub fn peek_option(&self) -> Option<T> {
-        self.inner.lock().unwrap().first().cloned()
+        self.inner.recover().first().cloned()
     }
 
     /// Every element in priority order, without removing any.
     pub fn to_array(&self) -> Vec<T> {
-        self.inner.lock().unwrap().clone()
+        self.inner.recover().clone()
     }
 }
 
@@ -2318,13 +2326,13 @@ impl<T> TxPubSub<T> {
     /// Publish one value, applying the overflow strategy past capacity.
     pub fn publish(&self, value: T) {
         tx_cell(&self.inner, |buffer| {
-            if let Some(cap) = self.capacity {
-                if buffer.len() >= cap {
-                    if self.dropping {
-                        return;
-                    }
-                    buffer.pop_front();
+            if let Some(cap) = self.capacity
+                && buffer.len() >= cap
+            {
+                if self.dropping {
+                    return;
                 }
+                buffer.pop_front();
             }
             buffer.push_back(value);
         });
@@ -2332,7 +2340,7 @@ impl<T> TxPubSub<T> {
 
     /// Take every retained value in order.
     pub fn drain(&self) -> Vec<T> {
-        atomically(|| self.inner.lock().unwrap().drain(..).collect())
+        atomically(|| self.inner.recover().drain(..).collect())
     }
 }
 
@@ -2369,10 +2377,7 @@ impl<T> TxChangeSubscription<T> {
     }
 
     fn detach(&self) {
-        self.registry
-            .lock()
-            .unwrap()
-            .retain(|(id, _)| *id != self.id);
+        self.registry.recover().retain(|(id, _)| *id != self.id);
     }
 }
 
@@ -2414,14 +2419,14 @@ impl<T: Clone> TxSubscriptionRef<T> {
     /// Assign and publish to every live subscriber.
     pub fn set(&self, value: T) {
         atomically(|| {
-            *self.current.lock().unwrap() = value.clone();
+            *self.current.recover() = value.clone();
             self.publish(value);
         });
     }
 
     /// Offer `value` to every live subscription.
     fn publish(&self, value: T) {
-        for (_, queue) in self.subscribers.lock().unwrap().iter() {
+        for (_, queue) in self.subscribers.recover().iter() {
             queue.offer(value.clone());
         }
     }
@@ -2437,11 +2442,8 @@ impl<T: Clone> TxSubscriptionRef<T> {
         let id = NEXT_SUB_ID.fetch_add(1, Ordering::SeqCst);
         let queue = Arc::new(TxQueue::unbounded());
         atomically(|| {
-            queue.offer(self.current.lock().unwrap().clone());
-            self.subscribers
-                .lock()
-                .unwrap()
-                .push((id, Arc::clone(&queue)));
+            queue.offer(self.current.recover().clone());
+            self.subscribers.recover().push((id, Arc::clone(&queue)));
         });
         TxChangeSubscription {
             id,
@@ -2452,7 +2454,7 @@ impl<T: Clone> TxSubscriptionRef<T> {
 
     /// Live subscriptions; a released or dropped one is already gone.
     pub fn subscriber_count(&self) -> usize {
-        self.subscribers.lock().unwrap().len()
+        self.subscribers.recover().len()
     }
 
     /// `TxSubscriptionRef.modify`: derive a result AND a successor value in

@@ -262,10 +262,10 @@ pub fn may_claim(
     if expected_generation != current_generation {
         return false;
     }
-    match (current_owner, current_deadline) {
-        (Some(current), Some(deadline)) if current != owner && deadline > now_ms => false,
-        _ => true,
-    }
+    !matches!(
+        (current_owner, current_deadline),
+        (Some(current), Some(deadline)) if current != owner && deadline > now_ms
+    )
 }
 
 /// Replay guard: a digest mismatch is a typed error and mints no second

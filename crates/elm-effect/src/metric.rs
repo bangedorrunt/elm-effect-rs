@@ -701,7 +701,12 @@ impl MetricRegistry {
                 )
             });
         let mapped = frequency.mapped_input(value);
-        match entry.0.occurrences.iter_mut().find(|(key, _)| key == &mapped) {
+        match entry
+            .0
+            .occurrences
+            .iter_mut()
+            .find(|(key, _)| key == &mapped)
+        {
             Some((_, count)) => *count += 1,
             None => entry.0.occurrences.push((mapped, 1)),
         }
@@ -786,12 +791,7 @@ impl MetricRegistry {
     }
 
     /// `observe_summary` under TS `Metric.CurrentMetricAttributes`.
-    pub fn observe_summary_with(
-        &mut self,
-        summary: &Summary,
-        value: f64,
-        contextual: &Attributes,
-    ) {
+    pub fn observe_summary_with(&mut self, summary: &Summary, value: f64, contextual: &Attributes) {
         let entry = self
             .summaries
             .entry(summary.identity().key(MetricKind::Summary, contextual))
@@ -825,11 +825,7 @@ impl MetricRegistry {
     }
 
     /// `summary_value` under TS `Metric.CurrentMetricAttributes`.
-    pub fn summary_value_with(
-        &self,
-        summary: &Summary,
-        contextual: &Attributes,
-    ) -> SummaryState {
+    pub fn summary_value_with(&self, summary: &Summary, contextual: &Attributes) -> SummaryState {
         self.summaries
             .get(&summary.identity().key(MetricKind::Summary, contextual))
             .map(|(state, _, _)| state.clone())
@@ -919,9 +915,9 @@ impl MetricRegistry {
             .unwrap_or(0)
             + 2;
         series.sort_by(|a, b| {
-            a.id
-                .cmp(&b.id)
-                .then_with(|| attributes_text(a.attributes.as_ref()).cmp(&attributes_text(b.attributes.as_ref())))
+            a.id.cmp(&b.id).then_with(|| {
+                attributes_text(a.attributes.as_ref()).cmp(&attributes_text(b.attributes.as_ref()))
+            })
         });
         series
             .into_iter()
@@ -930,10 +926,16 @@ impl MetricRegistry {
                 line.push_str("name=");
                 line.push_str(&pad(&series.id, name_pad));
                 line.push_str("description=");
-                line.push_str(&pad(series.description.as_deref().unwrap_or(""), description_pad));
+                line.push_str(&pad(
+                    series.description.as_deref().unwrap_or(""),
+                    description_pad,
+                ));
                 line.push_str("type=");
                 line.push_str(&pad(state_type(&series.state), type_pad));
-                line.push_str(&pad(&attributes_text(series.attributes.as_ref()), attributes_pad));
+                line.push_str(&pad(
+                    &attributes_text(series.attributes.as_ref()),
+                    attributes_pad,
+                ));
                 line.push_str(&state_text(&series.state));
                 line
             })
@@ -1187,7 +1189,12 @@ fn state_text(state: &SeriesState) -> String {
         ),
         SeriesState::Histogram(state) => format!(
             "state=[buckets: [{}], count: [{}], min: [{}], max: [{}], sum: [{}]]",
-            key_values(state.buckets.iter().map(|(key, value)| (*key, *value as f64))),
+            key_values(
+                state
+                    .buckets
+                    .iter()
+                    .map(|(key, value)| (*key, *value as f64))
+            ),
             state.count,
             number_text(state.min),
             number_text(state.max),

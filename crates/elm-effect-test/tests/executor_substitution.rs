@@ -33,9 +33,8 @@ fn fanout_uses_the_injected_executor() {
     });
     let bodies: Vec<elm_effect::Body<u32, String>> = (0..3)
         .map(|i| {
-            let step: Box<dyn FnOnce(&elm_effect::Ctx) -> Exit<u32, String> + Send> =
-                Box::new(move |_| Exit::Success(i));
-            step as elm_effect::Body<u32, String>
+            let step: elm_effect::Body<u32, String> = Box::new(move |_| Exit::Success(i));
+            step
         })
         .collect();
     match elm_effect::all(&rt, bodies, Concurrency::Unbounded) {

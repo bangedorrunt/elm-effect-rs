@@ -8,6 +8,11 @@ informed: agents implementing this repository and agents later adopting it insid
 
 # Port Effect 4.0.0 into a Rust carrier with an Elm loop
 
+> **Amended 2026-10-24 (minimalism audit).** `Schema`, the `schema` feature,
+> and the `elm-effect-unstable` crate were removed from the workspace. The
+> references to them below are history, not current requirements. The laws,
+> the carrier shape, and the ledger remain in force.
+
 ## How to read this
 
 The decision, in one page, is the next section. Everything after it is the specification an agent implements. The constitution (the laws) is the part that has to stay true if the TypeScript library, the executor, or the sibling codebases change. The crate map and the phases say where code goes and in what order.

@@ -103,13 +103,13 @@ fn test_clock_sleep_handles_multiple_sleeps() {
     let worker1_clock = clock.clone();
     let worker1_message = message.clone();
     let t1 = std::thread::spawn(move || {
-        let _ = worker1_clock.sleep(Duration::from_millis(3 * 3_600_000), &|| false);
+        let _ = worker1_clock.sleep(Duration::from_millis(10_800_000), &|| false);
         worker1_message.lock().unwrap().push_str("World!");
     });
     let worker2_clock = clock.clone();
     let worker2_message = message.clone();
     let t2 = std::thread::spawn(move || {
-        let _ = worker2_clock.sleep(Duration::from_millis(1 * 3_600_000), &|| false);
+        let _ = worker2_clock.sleep(Duration::from_millis(3_600_000), &|| false);
         worker2_message.lock().unwrap().push_str("Hello, ");
     });
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
@@ -122,7 +122,7 @@ fn test_clock_sleep_handles_multiple_sleeps() {
         );
         std::thread::park_timeout(std::time::Duration::from_millis(1));
     }
-    clock.adjust(Duration::from_millis(1 * 3_600_000));
+    clock.adjust(Duration::from_millis(3_600_000));
     let settle = std::time::Instant::now() + std::time::Duration::from_millis(500);
     while std::time::Instant::now() < settle {
         std::thread::park_timeout(std::time::Duration::from_millis(1));

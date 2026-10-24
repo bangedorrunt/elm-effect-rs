@@ -4,6 +4,7 @@
 //! Modules load via `#[path]` like fiber_sets.rs: no facade touch.
 #![cfg(feature = "tokio")]
 
+#[allow(clippy::type_complexity)]
 #[path = "../src/fiber_set.rs"]
 mod fiber_set;
 

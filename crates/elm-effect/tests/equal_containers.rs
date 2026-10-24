@@ -53,7 +53,9 @@ fn equal_maps_reject_different_sizes() {
 fn equal_maps_compare_nested_maps_all_the_way_down() {
     // Equal.test.ts:754 — the value is itself a map.
     let nested = |inner: i32| -> BTreeMap<String, BTreeMap<String, i32>> {
-        [("nested".to_string(), map(&[("x", inner)]))].into_iter().collect()
+        [("nested".to_string(), map(&[("x", inner)]))]
+            .into_iter()
+            .collect()
     };
     assert!(nested(1).equal(&nested(1)));
     assert!(!nested(1).equal(&nested(2)));

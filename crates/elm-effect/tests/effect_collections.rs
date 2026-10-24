@@ -21,7 +21,7 @@ fn items(values: &[u32]) -> Vec<u32> {
 }
 
 fn even_fails(n: u32) -> Exit<u32, u32> {
-    if n % 2 == 0 {
+    if n.is_multiple_of(2) {
         Exit::fail(n)
     } else {
         Exit::succeed(n)
@@ -287,7 +287,7 @@ fn find_first_filter_returns_none_when_filter_never_succeeds() {
 fn reduce_evaluates_its_zero_lazily_for_each_run() {
     let evaluations = Arc::new(Mutex::new(0usize));
     let counter = evaluations.clone();
-    let mut run = || {
+    let run = || {
         let counter = counter.clone();
         reduce(
             &Runtime::new(),

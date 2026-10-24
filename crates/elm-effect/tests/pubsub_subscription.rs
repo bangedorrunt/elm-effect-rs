@@ -4,8 +4,10 @@
 //! in for fibers; Effect-scope/interruption rows stay `unported` with
 //! reasons in the close report.
 
+#[allow(clippy::type_complexity)]
 #[path = "../src/pubsub.rs"]
 mod pubsub;
+#[allow(dead_code, clippy::type_complexity)]
 #[path = "../src/subscription_ref.rs"]
 mod subscription_ref;
 
@@ -200,6 +202,33 @@ fn pubsub_dropping_sliding_concurrent_complete() {
 }
 
 #[test]
+fn a_leaving_subscriber_releases_a_parked_bounded_publisher() {
+    // Regression: `publish` parked on the hub's `space` latch while a full
+    // subscription existed; unsubscribe woke only that subscription's own
+    // condvar, so the publisher could wait forever.
+    let hub = PubSub::bounded(1);
+    let only = hub.subscribe();
+    assert!(hub.publish(1), "fills the only queue");
+    let publisher = {
+        let hub = hub.clone();
+        std::thread::spawn(move || hub.publish(2))
+    };
+    // Give the publisher time to reach the parked branch.
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    only.unsubscribe();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    while !publisher.is_finished() && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    assert!(
+        publisher.is_finished(),
+        "the publisher stayed parked after the full subscriber left"
+    );
+    assert!(publisher.join().unwrap(), "publish still reports its value");
+    assert_eq!(hub.size(), 0, "the value went to no live subscriber");
+}
+
+#[test]
 fn pubsub_unsubscribe_then_publish() {
     let hub = PubSub::bounded(4);
     let gone = hub.subscribe();
@@ -309,6 +338,22 @@ fn subscription_ref_streams_changes() {
 }
 
 #[test]
+fn a_panicking_update_does_not_brick_the_cell() {
+    // The update closure runs under the hub lock. A panic leaves the current
+    // value untouched, so a poisoned lock must not brick every later call.
+    let cell = SubscriptionRef::new(0u32);
+    let stream = cell.subscribe();
+    assert_eq!(stream.next(), Some(0));
+    let boom = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        cell.update(|_| panic!("boom"));
+    }));
+    assert!(boom.is_err(), "the update panic must propagate");
+    assert_eq!(cell.get(), 0, "the value was not half-written");
+    cell.set(2);
+    assert_eq!(stream.next(), Some(2), "the stream still delivers");
+}
+
+#[test]
 fn subscription_ref_unsubscribe_stops() {
     let cell = SubscriptionRef::new(0);
     let s = cell.subscribe();
@@ -341,6 +386,31 @@ fn subscription_ref_concurrent_use() {
     }
     assert_eq!(cell.get(), 50 * (1 + 2 + 3));
     s.unsubscribe();
+}
+
+/// Regression: `subscribe` used to read the current value and register the
+/// stream under two separate acquisitions, so a `set` in between was neither
+/// in the snapshot nor queued: the new stream skipped it.
+#[test]
+fn subscription_ref_subscribe_never_skips_a_concurrent_set() {
+    const LAST: u64 = 200;
+    for _ in 0..50 {
+        let cell = SubscriptionRef::new(0u64);
+        let writer = cell.clone();
+        let t = std::thread::spawn(move || {
+            for value in 1..=LAST {
+                writer.set(value);
+            }
+        });
+        let stream = cell.subscribe();
+        let mut seen = stream.next().expect("a stream opens on the current value");
+        while seen < LAST {
+            let next = stream.next().expect("the stream stays live");
+            assert_eq!(next, seen + 1, "an update was skipped");
+            seen = next;
+        }
+        t.join().expect("writer");
+    }
 }
 
 // ---------------------------------------------------- PartitionedSemaphore ---

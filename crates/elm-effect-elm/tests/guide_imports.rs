@@ -15,11 +15,11 @@
 #![allow(unused_imports)]
 
 // Every line in `PUBLISHED`, in the same order.
-use elm_effect::{effect, retry, use_service, Effect, Exit, Runtime, Schedule, ServiceTag};
-use elm_effect::{apply, compose, const_unit, flow, identity, pipe, sk};
-use elm_effect::{Config, ConfigError};
 use elm_effect::config::Value;
 use elm_effect::config_provider::Provider;
+use elm_effect::{Config, ConfigError};
+use elm_effect::{Effect, Exit, Runtime, Schedule, ServiceTag, effect, retry, use_service};
+use elm_effect::{apply, compose, const_unit, flow, identity, pipe, sk};
 use elm_effect_elm::{Boot, Program, Update};
 
 use std::fs;

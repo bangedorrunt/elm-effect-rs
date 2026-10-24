@@ -26,3 +26,18 @@ fn complete_runs_its_body_exactly_once() {
     assert_eq!(runs.get(), 1, "waiting does not re-run the body");
     assert!(deferred.is_done());
 }
+
+#[test]
+fn a_panicking_body_leaves_the_deferred_usable() {
+    // The body runs under the cell lock; a panic used to poison it, so every
+    // later poll/wait panicked. The slot is untouched on a panic, so recovery
+    // is the right answer.
+    let deferred: Deferred<u32, String> = Deferred::new();
+    let boom = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        deferred.complete_with(|| panic!("boom"));
+    }));
+    assert!(boom.is_err(), "the body panic must propagate");
+    assert!(!deferred.is_done(), "nothing was recorded");
+    assert!(deferred.complete(7));
+    assert_eq!(deferred.wait(), 7);
+}

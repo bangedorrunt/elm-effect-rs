@@ -108,17 +108,17 @@ tests = ["packages/effect/test/Clock.test.ts"]
 [[module]]
 path = "packages/effect/src/Combiner.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
-reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
+reason = ""
 tests = ["packages/effect/test/Combiner.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Config.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
-reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
+reason = ""
 tests = ["packages/effect/test/Config.test.ts"]
 
 [[module]]
@@ -196,9 +196,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/Duration.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
-reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
+reason = ""
 tests = ["packages/effect/test/Duration.test.ts"]
 
 [[module]]
@@ -220,17 +220,17 @@ tests = ["packages/effect/test/Effectable.test.ts"]
 [[module]]
 path = "packages/effect/src/Equal.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
-reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
+reason = ""
 tests = ["packages/effect/test/Equal.test.ts"]
 
 [[module]]
 path = "packages/effect/src/Equivalence.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
-reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
+reason = ""
 tests = ["packages/effect/test/Equivalence.test.ts"]
 
 [[module]]
@@ -316,9 +316,9 @@ tests = ["packages/effect/test/Formatter.test.ts"]
 [[module]]
 path = "packages/effect/src/Function.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
-reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
+reason = ""
 tests = ["packages/effect/test/Function.test.ts"]
 
 [[module]]
@@ -340,9 +340,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/Hash.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
-reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
+reason = ""
 tests = ["packages/effect/test/Hash.test.ts"]
 
 [[module]]
@@ -556,9 +556,9 @@ tests = ["packages/effect/test/Option.test.ts"]
 [[module]]
 path = "packages/effect/src/Order.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
-reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
+reason = ""
 tests = ["packages/effect/test/Order.test.ts"]
 
 [[module]]
@@ -700,9 +700,9 @@ tests = ["packages/effect/test/Redacted.test.ts"]
 [[module]]
 path = "packages/effect/src/Reducer.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
-reason = "behavior rows left unported after the 2026-10-24 minimalism cut"
+reason = ""
 tests = ["packages/effect/test/Reducer.test.ts"]
 
 [[module]]

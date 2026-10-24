@@ -100,7 +100,11 @@ fn metric_histogram_observations() {
     // :765 — the reported boundaries keep their exact values.
     let precise = Histogram::new("precision", vec![0.005, 0.01, 0.025, 0.05, 0.075, 0.1]);
     let state = registry.histogram_value(&precise);
-    let reported: Vec<f64> = state.buckets.iter().map(|(boundary, _)| *boundary).collect();
+    let reported: Vec<f64> = state
+        .buckets
+        .iter()
+        .map(|(boundary, _)| *boundary)
+        .collect();
     assert_eq!(reported, vec![0.005, 0.01, 0.025, 0.05, 0.075, 0.1]);
 }
 
@@ -131,9 +135,13 @@ fn metric_summary_observations() {
     );
 
     // :817 — a constant input places every sample at 1.
-    let constant =
-        Summary::new("summary-constant", Duration::from_secs(60), 10, vec![0.0, 0.1, 0.9])
-            .with_constant_input(1.0);
+    let constant = Summary::new(
+        "summary-constant",
+        Duration::from_secs(60),
+        10,
+        vec![0.0, 0.1, 0.9],
+    )
+    .with_constant_input(1.0);
     registry.observe_summary(&constant, 1.0);
     registry.observe_summary(&constant, 3.0);
     let state = registry.summary_value(&constant);

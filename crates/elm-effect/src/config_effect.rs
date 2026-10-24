@@ -18,9 +18,9 @@
 //!   to, because the load can only report it as [`ConfigError::Defect`]
 //!   (`Config.test.ts:65`).
 
+use crate::Effect;
 use crate::config::{ConfigEffect, ConfigError, Value};
 use crate::config_provider::Lookup;
-use crate::Effect;
 
 impl crate::config::Config {
     /// `Config.parse` as an effect: the load's typed failures are the effect's
@@ -63,4 +63,3 @@ impl ConfigEffect for Effect<Value, ConfigError, ()> {
         }
     }
 }
-

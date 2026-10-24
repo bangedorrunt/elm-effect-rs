@@ -331,6 +331,35 @@ where
     }
 }
 
+/// Like [`WithFiber`], but passes `None` outside a fiber instead of dying:
+/// internal waits that are interruptible when they can be and still valid
+/// when they run on a plain thread.
+#[cfg(feature = "tokio")]
+struct WithOptionalFiber<A: Send + 'static, E: Send + 'static, R: Requirement, F> {
+    f: F,
+    marker: PhantomData<fn() -> (A, E, R)>,
+}
+
+#[cfg(feature = "tokio")]
+impl<A, E, R, F> ErasedStep<A, E> for WithOptionalFiber<A, E, R, F>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+    F: FnOnce(Option<&crate::fiber::Fiber>) -> Effect<A, E, R> + Send + 'static,
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
+        let Self { f, .. } = *self;
+        // Clone the fiber out of the owned tag value: a reference into `any`
+        // cannot outlive the match arm.
+        let fiber = match scope.get_tag(<crate::fiber::FiberTag as crate::ServiceTag>::ID) {
+            Some(any) => any.downcast_ref::<crate::fiber::Fiber>().cloned(),
+            None => None,
+        };
+        f(fiber.as_ref()).run_sync_with(scope)
+    }
+}
+
 /// `Effect.forkChild` at the pin: fork the wrapped effect on a child of the
 /// fiber running this one and hand its handle back without waiting. The
 /// child inherits the parent's resolved services; its deferred start is the
@@ -339,8 +368,14 @@ where
 #[cfg(feature = "tokio")]
 /// `Effect.acquireUseRelease` as a step.
 #[cfg(feature = "tokio")]
-struct AcquireUseRelease<A: Send + 'static, B: Send + 'static, E: Send + 'static, R: Requirement, U, Rel>
-{
+struct AcquireUseRelease<
+    A: Send + 'static,
+    B: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+    U,
+    Rel,
+> {
     acquire: Effect<A, E, R>,
     use_fn: U,
     release_fn: Rel,
@@ -405,9 +440,9 @@ where
         // Release: masked at the pin, so it runs to completion after an
         // interrupt and is the last thing the region does.
         let released = match &fiber {
-            Some(fiber) => fiber.with_masked(|| {
-                release_fn(resource, &use_exit).run_sync_with(&services)
-            }),
+            Some(fiber) => {
+                fiber.with_masked(|| release_fn(resource, &use_exit).run_sync_with(&services))
+            }
             None => release_fn(resource, &use_exit).run_sync_with(&services),
         };
         match (use_exit, released) {
@@ -532,9 +567,15 @@ where
             if !waiting || (fiber.is_interrupted() && !fiber.is_masked()) {
                 return out;
             }
-            // ponytail: 1ms poll; a condvar notified by mark_done would
-            // remove it, but that touches FiberControl's done pair.
-            std::thread::park_timeout(std::time::Duration::from_millis(1));
+            // The parent's signal is notified by a child's `mark_done` and by
+            // an interrupt request, so this parks until something changed.
+            fiber.wait_change(&|| {
+                !fiber
+                    .children_snapshot()
+                    .iter()
+                    .any(|c| !before.contains(&c.id.0) && !c.is_done())
+                    || (fiber.is_interrupted() && !fiber.is_masked())
+            });
         }
     }
 }
@@ -595,10 +636,7 @@ where
 {
     fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<(A, B), Cause<E>> {
         let Self {
-            left,
-            right,
-            env,
-            ..
+            left, right, env, ..
         } = *self;
         let services = crate::service::merged_services(scope, &env);
         let Some(fiber) = ambient_fiber(&services) else {
@@ -789,9 +827,11 @@ where
                 stop_legs(&mut left_handle, &mut right_handle);
                 return Err(Cause::interrupt(Some(fiber.id())));
             }
-            // ponytail: 1ms poll; a condvar signalled on child completion would
-            // remove it, but that touches the driver.
-            std::thread::park_timeout(std::time::Duration::from_millis(1));
+            fiber.wait_change(&|| {
+                left_handle.as_ref().is_some_and(|handle| handle.is_done())
+                    || right_handle.as_ref().is_some_and(|handle| handle.is_done())
+                    || (fiber.is_interrupted() && !fiber.is_masked())
+            });
         }
     }
 }
@@ -802,7 +842,9 @@ where
 /// Not gated on `tokio`: the tracer reads span timestamps from it, and a
 /// span exists with or without the runtime feature. Only the tag ID is
 /// consulted; `provide` is the one way a test clock arrives here.
-pub(crate) fn ambient_clock(scope: &crate::service::Services) -> std::sync::Arc<dyn crate::ClockImpl> {
+pub(crate) fn ambient_clock(
+    scope: &crate::service::Services,
+) -> std::sync::Arc<dyn crate::ClockImpl> {
     use crate::ServiceTag;
     scope
         .get_tag(<crate::time::Clock as ServiceTag>::ID)
@@ -810,7 +852,9 @@ pub(crate) fn ambient_clock(scope: &crate::service::Services) -> std::sync::Arc<
             any.downcast_ref::<std::sync::Arc<dyn crate::ClockImpl>>()
                 .cloned()
         })
-        .unwrap_or_else(|| std::sync::Arc::new(crate::time::SystemClock) as std::sync::Arc<dyn crate::ClockImpl>)
+        .unwrap_or_else(|| {
+            std::sync::Arc::new(crate::time::SystemClock) as std::sync::Arc<dyn crate::ClockImpl>
+        })
 }
 
 /// Race an effect against the clock's deadline. `Ok(Some(value))` when the
@@ -842,9 +886,7 @@ where
         )));
     };
     let clock = ambient_clock(services);
-    let deadline = clock
-        .now_millis()
-        .saturating_add(duration.as_millis());
+    let deadline = clock.now_millis().saturating_add(duration.as_millis());
     let child = fiber.fork_child(
         move |c| {
             let ambient = c.services_with_fiber();
@@ -876,8 +918,16 @@ where
             let _ = child.join();
             return Err(Cause::interrupt(Some(fiber.id())));
         }
-        // ponytail: 1ms poll; the clock has no notification channel to wait on.
-        std::thread::park_timeout(std::time::Duration::from_millis(1));
+        // Child completion and interruption wake the signal at once; the
+        // timeout is only the clock deadline's tick, because `ClockImpl` has
+        // no notification channel of its own.
+        let remaining = deadline.saturating_sub(clock.now_millis());
+        let tick = std::time::Duration::from_millis(
+            remaining.min(crate::COOPERATIVE_QUANTUM.as_millis() as u64),
+        );
+        fiber.wait_change_timeout(tick, &|| {
+            child.is_done() || (fiber.is_interrupted() && !fiber.is_masked())
+        });
     }
 }
 
@@ -897,7 +947,10 @@ where
     E: Send + 'static,
     R: Requirement,
 {
-    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<Option<A>, Cause<E>> {
+    fn run_erased(
+        self: Box<Self>,
+        scope: &crate::service::Services,
+    ) -> Result<Option<A>, Cause<E>> {
         let Self {
             inner,
             duration,
@@ -968,9 +1021,9 @@ where
                         let _ = child.join();
                         return Err(Cause::interrupt(Some(fiber.id())));
                     }
-                    // ponytail: 1ms poll; a condvar notified on child completion
-                    // would remove it, but that touches the driver.
-                    std::thread::park_timeout(std::time::Duration::from_millis(1));
+                    fiber.wait_change(&|| {
+                        child.is_done() || (fiber.is_interrupted() && !fiber.is_masked())
+                    });
                 }
             }
             Err(cause) => Err(cause),
@@ -996,9 +1049,7 @@ where
     F: FnMut() -> Effect<A, E, R> + Send + 'static,
 {
     fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
-        let Self {
-            mut build, env, ..
-        } = *self;
+        let Self { mut build, env, .. } = *self;
         let services = crate::service::merged_services(scope, &env);
         loop {
             if let Some(fiber) = ambient_fiber(&services)
@@ -1255,6 +1306,17 @@ where
         register(Resume {
             slot: Arc::clone(&slot),
         });
+        // An interrupt request notifies this latch directly, so the wait does
+        // not need a poll. Outside a fiber there is nothing to subscribe to,
+        // and the bounded wait keeps that standalone case alive.
+        let hook = crate::fiber::subscribe_current_interrupt({
+            let slot = Arc::clone(&slot);
+            move || {
+                let (lock, cvar) = &*slot;
+                let _guard = lock.lock().unwrap();
+                cvar.notify_all();
+            }
+        });
         let (lock, cvar) = &*slot;
         let mut parked = lock.lock().unwrap();
         loop {
@@ -1270,13 +1332,13 @@ where
                     Exit::Failure(cause) => Err(cause),
                 };
             }
-            // ponytail: 1ms cap on the wait; a wake-up on interrupt would need
-            // request_interrupt to notify this condvar. 1ms keeps the latency
-            // bounded without touching FiberControl.
-            let (guard, _) = cvar
-                .wait_timeout(parked, std::time::Duration::from_millis(1))
-                .unwrap();
-            parked = guard;
+            parked = if hook.is_some() {
+                cvar.wait(parked).unwrap()
+            } else {
+                cvar.wait_timeout(parked, crate::COOPERATIVE_QUANTUM)
+                    .unwrap()
+                    .0
+            };
         }
     }
 }
@@ -1546,6 +1608,23 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
+    /// Like [`with_fiber`](Self::with_fiber), but runs the callback with
+    /// `None` outside a fiber instead of failing.
+    #[cfg(feature = "tokio")]
+    pub(crate) fn with_optional_fiber<F>(f: F) -> Self
+    where
+        F: FnOnce(Option<&crate::fiber::Fiber>) -> Effect<A, E, R> + Send + 'static,
+    {
+        Effect {
+            step: Step::Suspend(Box::new(WithOptionalFiber {
+                f,
+                marker: PhantomData,
+            })),
+            services: crate::service::empty_services(),
+            marker: PhantomData,
+        }
+    }
+
     /// `Effect.forkChild` at the pin: run this effect on a child fiber of the
     /// one executing the current effect, and hand back its handle at once.
     /// The child is deferred, as the pin's default is: it starts when the
@@ -1594,11 +1673,8 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     #[cfg(feature = "tokio")]
     pub fn fork_scoped(
         self,
-    ) -> Effect<
-        crate::fiber::FiberHandle<A, E>,
-        E,
-        crate::service::Cons<crate::scope::ScopeTag, R>,
-    > {
+    ) -> Effect<crate::fiber::FiberHandle<A, E>, E, crate::service::Cons<crate::scope::ScopeTag, R>>
+    {
         Effect {
             step: Step::Suspend(Box::new(ForkChild {
                 inner: self,
@@ -2611,9 +2687,7 @@ where
 /// An infallible description satisfies any error channel vacuously: the
 /// step cannot fail, so the target `E` is a widening, not a claim. The
 /// pin gets this from variance over `never`; Rust states it.
-pub fn widen_infallible<E, A>(
-    effect: Effect<A, std::convert::Infallible, ()>,
-) -> Effect<A, E, ()>
+pub fn widen_infallible<E, A>(effect: Effect<A, std::convert::Infallible, ()>) -> Effect<A, E, ()>
 where
     A: Send + 'static,
     E: Send + 'static,

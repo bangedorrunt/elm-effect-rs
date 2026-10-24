@@ -9,7 +9,6 @@ use elm_effect::{
 };
 
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Bounded wait for a condition, the port's stand-in for the pin's
@@ -1491,4 +1490,45 @@ fn tx_queue_end_and_fail_settle() {
     assert_eq!(failed.poll(), None);
     assert_eq!(failed.size(), 0);
     assert!(failed.is_done());
+}
+
+/// Regression: a panic inside `atomically` left the global lock poisoned and
+/// the thread's `IN_TX` flag set, so later transactions either panicked or ran
+/// outside the global lock. Both the flag reset and the poison recovery are
+/// required for STM to survive one bad body.
+#[test]
+fn a_panicking_transaction_leaves_stm_usable_and_isolated() {
+    let boom = std::panic::catch_unwind(|| atomically(|| -> i32 { panic!("boom") }));
+    assert!(boom.is_err(), "the body panic must propagate");
+    assert_eq!(atomically(|| 7), 7, "a later transaction still runs");
+
+    // Isolation witness: a transaction must wait for the open one, even on
+    // the thread that panicked. Without the flag reset this thread would run
+    // unlocked, and the open transaction would observe the interleaved write.
+    let cell = TxRef::new(0);
+    let inside = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let observed = Arc::new(AtomicUsize::new(usize::MAX));
+    let writer = cell.clone();
+    let flag = inside.clone();
+    let seen = observed.clone();
+    let holder = std::thread::spawn(move || {
+        atomically(|| {
+            writer.write(1);
+            flag.store(true, Ordering::SeqCst);
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            seen.store(writer.read(), Ordering::SeqCst);
+        });
+    });
+    assert!(
+        spin_until(|| inside.load(Ordering::SeqCst)),
+        "the holder never entered its transaction"
+    );
+    cell.write(2);
+    holder.join().expect("holder");
+    assert_eq!(
+        observed.load(Ordering::SeqCst),
+        1,
+        "the open transaction was not isolated"
+    );
+    assert_eq!(cell.read(), 2);
 }

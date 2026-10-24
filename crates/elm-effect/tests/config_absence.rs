@@ -5,8 +5,10 @@
 //! warnings describe this test's coverage, not a defect in the module.
 #![allow(dead_code)]
 
+#[allow(dead_code, clippy::type_complexity)]
 #[path = "../src/config.rs"]
 mod config;
+#[allow(dead_code, clippy::type_complexity)]
 #[path = "../src/config_provider.rs"]
 mod config_provider;
 // The path-included config modules name `crate::Defect`, so the host has to
@@ -53,7 +55,10 @@ fn config_option_maps_absence_to_none() {
 fn config_option_over_a_group_requires_every_child() {
     // :826 — the group is Some only when every required child is present.
     let config = Config::record(vec![
-        ("a".to_string(), Config::non_empty_string(Some("b".to_string()))),
+        (
+            "a".to_string(),
+            Config::non_empty_string(Some("b".to_string())),
+        ),
         ("c".to_string(), Config::finite(Some("d".to_string()))),
     ])
     .option();
@@ -88,8 +93,8 @@ fn config_option_over_a_group_requires_every_child() {
 fn config_log_level_default_does_not_cover_invalid_input() {
     // :684 — a missing key takes the default; a present but invalid level
     // fails instead of falling back.
-    let config =
-        Config::log_level(Some("LOG_LEVEL".to_string())).with_default(Value::Str("Info".to_string()));
+    let config = Config::log_level(Some("LOG_LEVEL".to_string()))
+        .with_default(Value::Str("Info".to_string()));
     assert_eq!(
         config.load(&Provider::empty()),
         Ok(Value::Str("Info".to_string()))

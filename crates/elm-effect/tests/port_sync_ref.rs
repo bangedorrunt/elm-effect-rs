@@ -5,6 +5,20 @@
 
 use elm_effect::{Effect, Exit, Runtime, SynchronizedRef};
 
+#[test]
+fn a_panicking_callback_does_not_brick_the_cell() {
+    // The pure callback runs under the permit; a panic leaves the value
+    // untouched, so later reads and updates must still work.
+    let cell = SynchronizedRef::new(1u32);
+    let boom = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        cell.get_and_update_some(|_| panic!("boom"))
+    }));
+    assert!(boom.is_err(), "the callback panic must propagate");
+    assert_eq!(cell.get(), 1, "the value was not half-written");
+    assert_eq!(cell.get_and_update_some(|v| Some(v + 1)), 1);
+    assert_eq!(cell.get(), 2);
+}
+
 // Row 5: the callback form applies the update and yields its result.
 #[test]
 fn modify_some_effect_applies_update_and_yields_result() {

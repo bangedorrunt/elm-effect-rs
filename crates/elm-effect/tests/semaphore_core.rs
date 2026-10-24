@@ -559,6 +559,43 @@ fn take_if_available_takes_exactly_once() {
     assert_eq!(sem.available(), 2);
 }
 
+/// Regression: a shrink below the loaned count made `permits - taken`
+/// underflow on the next take. The free count is a saturating difference.
+#[test]
+fn shrinking_below_loans_never_underflows() {
+    let sem = Semaphore::new(2);
+    assert_eq!(sem.take(2), 2);
+    sem.resize(1);
+    assert!(
+        !sem.take_if_available(1),
+        "nothing is free after the shrink"
+    );
+    assert_eq!(sem.available(), 0, "availability floors at zero");
+    // The pool is now size 1 with 2 permits out on loan: returning one still
+    // leaves the pool fully lent, so availability stays at zero.
+    assert_eq!(sem.release(1), 1);
+    assert_eq!(sem.available(), 0);
+    assert!(!sem.take_if_available(1));
+    assert_eq!(sem.release(1), 1);
+    assert_eq!(sem.available(), 1);
+    assert!(sem.take_if_available(1));
+    sem.release(1);
+}
+
+/// Regression: a panic inside `with_permits` used to skip the release and
+/// leak the permits out of the pool forever.
+#[test]
+fn with_permits_restores_on_panic() {
+    let sem = Semaphore::new(1);
+    let panicked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        sem.with_permits(1, || panic!("guarded body"));
+    }));
+    assert!(panicked.is_err(), "the panic must still propagate");
+    assert_eq!(sem.available(), 1, "the guard must release on unwind");
+    assert!(sem.take_if_available(1));
+    sem.release(1);
+}
+
 /// :472 `takeIfAvailable returns immediately when permits are unavailable`.
 #[test]
 fn take_if_available_does_not_wait() {

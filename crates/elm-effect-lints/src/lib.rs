@@ -237,6 +237,76 @@ fn in_comment(src: &str, offset: usize) -> bool {
     line_at(src, offset).trim_start().starts_with("//")
 }
 
+/// True when `offset` falls inside a double-quoted string literal. The
+/// rules read text, so a fixture or an embedded example stored in a string
+/// is data, not a fold body the scanner should police. The scan is from the
+/// file start, not the line start: a `\`-continued literal spans lines, and
+/// the later lines carry no opening quote of their own.
+fn in_string_literal(src: &str, offset: usize) -> bool {
+    #[derive(Clone, Copy, PartialEq)]
+    enum State {
+        Code,
+        Str,
+        LineComment,
+        BlockComment(usize),
+    }
+    let bytes = src.as_bytes();
+    let end = offset.min(bytes.len());
+    let mut state = State::Code;
+    let mut i = 0usize;
+    while i < end {
+        match state {
+            State::Code => {
+                if bytes[i] == b'/' && i + 1 < end && bytes[i + 1] == b'/' {
+                    state = State::LineComment;
+                    i += 2;
+                } else if bytes[i] == b'/' && i + 1 < end && bytes[i + 1] == b'*' {
+                    state = State::BlockComment(1);
+                    i += 2;
+                } else if bytes[i] == b'"' {
+                    state = State::Str;
+                    i += 1;
+                } else {
+                    i += 1;
+                }
+            }
+            State::Str => {
+                if bytes[i] == b'\\' {
+                    // An escaped byte cannot close the literal.
+                    i += 2;
+                } else if bytes[i] == b'"' {
+                    state = State::Code;
+                    i += 1;
+                } else {
+                    i += 1;
+                }
+            }
+            State::LineComment => {
+                if bytes[i] == b'\n' {
+                    state = State::Code;
+                }
+                i += 1;
+            }
+            State::BlockComment(depth) => {
+                if bytes[i] == b'/' && i + 1 < end && bytes[i + 1] == b'*' {
+                    state = State::BlockComment(depth + 1);
+                    i += 2;
+                } else if bytes[i] == b'*' && i + 1 < end && bytes[i + 1] == b'/' {
+                    state = if depth == 1 {
+                        State::Code
+                    } else {
+                        State::BlockComment(depth - 1)
+                    };
+                    i += 2;
+                } else {
+                    i += 1;
+                }
+            }
+        }
+    }
+    state == State::Str
+}
+
 /// The run edge, as a name. Assembled from parts rather than written whole,
 /// because `crates/elm-effect/tests/l2_cause.rs` greps for the literal and
 /// forbids it outside the runtime crate, the test harness, and examples.
@@ -350,7 +420,12 @@ pub fn sleep_inside_an_effect_module(path: impl AsRef<Path>, src: &str) -> Vec<F
 }
 
 /// Tokens no fold may touch: wall clocks, process environment, ambient RNG.
-const AMBIENT_TOKENS: &[&str] = &["SystemTime", "std::env", "rand::thread_rng"];
+///
+/// The environment and RNG needles are the bare forms (`env::`,
+/// `thread_rng`) so `use std::env;` plus `env::var(..)`, and
+/// `use rand::thread_rng;` plus `thread_rng()`, cannot slip past the scan by
+/// moving the path into an import outside `fn update`.
+const AMBIENT_TOKENS: &[&str] = &["SystemTime", "env::", "thread_rng"];
 
 /// Rule 4: the fold is pure. Time, environment, and ambient randomness enter
 /// `fn update` as messages or as service values, never as a direct read.
@@ -366,13 +441,18 @@ pub fn ambient_world_in_a_fold(path: impl AsRef<Path>, src: &str) -> Vec<Finding
         for token in AMBIENT_TOKENS {
             while let Some(rel) = body[from..].find(token) {
                 let at = from + rel;
-                out.push(finding(
-                    &path,
-                    src,
-                    start + at,
-                    &format!("update uses ambient capability: {token}"),
-                    Rule::AmbientWorldInAFold,
-                ));
+                let abs = start + at;
+                // The finding text is the offending line, like every other
+                // rule: the rule name already says which law it broke.
+                if !in_comment(src, abs) && !in_string_literal(src, abs) {
+                    out.push(finding(
+                        &path,
+                        src,
+                        abs,
+                        line_at(src, abs),
+                        Rule::AmbientWorldInAFold,
+                    ));
+                }
                 from = at + token.len();
             }
             from = 0usize;

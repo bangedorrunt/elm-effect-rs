@@ -4,15 +4,12 @@
 //! was a private module. They are the proof that the surface opens: every name
 //! here is reachable by an application.
 
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
 
 use elm_effect::config::Value;
 use elm_effect::config_provider::{Lookup, Node, Provider, ProviderError};
-use elm_effect::{Config, ConfigError, Defect, Effect, Exit, Runtime};
-
-#[cfg(feature = "schema")]
-use elm_effect::Schema;
+use elm_effect::{Config, ConfigError, Defect, Effect};
 
 fn provider(pairs: &[(&str, &str)]) -> Provider {
     Provider::from_pairs(
@@ -57,10 +54,7 @@ fn mapped_effectfully_mapped_and_constant_siblings_decode_alike() {
     for arm in arms {
         let config = Config::record(vec![
             ("port".to_string(), arm),
-            (
-                "host".to_string(),
-                Config::string(Some("host".to_string())),
-            ),
+            ("host".to_string(), Config::string(Some("host".to_string()))),
         ]);
         assert_eq!(
             config
@@ -127,12 +121,10 @@ fn a_defect_in_the_transform_refuses_with_the_descriptor_path() {
     }
 }
 
-#[cfg(feature = "schema")]
 mod provider_defect {
     use super::*;
 
-    /// The row's provider: every path answers a record with one `value` key,
-    /// except one path, where the provider dies
+    /// Every path reads as absent except one, where the provider dies
     /// (`ConfigProvider.make(() => Effect.die(defect))`).
     struct DyingProvider {
         failed_path: Vec<String>,
@@ -156,32 +148,25 @@ mod provider_defect {
             if path == self.failed_path.as_slice() {
                 Err(ProviderError::defect(self.defect.clone()))
             } else {
-                // No scalar anywhere else: the record's keys live as
-                // children of the node.
                 Ok(None)
             }
         }
     }
 
-    /// Config.test.ts:65 — a provider defect is not a config error.
-    ///
-    /// The fallback must never run, the option must not turn the defect into
-    /// an absence, and `catchDefect` must receive the provider's own defect,
-    /// at the root and at a nested field alike.
+    /// Config.test.ts:65 — a provider defect is not a config error. Neither
+    /// the fallback nor the option may answer for it; the load returns the
+    /// defect itself so a caller can surface the provider's own failure.
     #[test]
-    fn a_provider_defect_reaches_catch_defect_and_no_fallback_answers_it() {
-        let paths = [
-            vec!["settings".to_string()],
-            vec!["settings".to_string(), "value".to_string()],
-        ];
-        for failed_path in paths {
-            let provider = DyingProvider {
-                failed_path: failed_path.clone(),
-                defect: Defect::new("provider defect"),
-            };
-            let schema = Schema::struct_([("value", Schema::as_unknown(Schema::string()))]);
-            let recovered = Arc::new(AtomicBool::new(false));
-            let config = Config::schema(&schema, Some("settings".to_string())).or_else_with({
+    fn a_provider_defect_survives_or_else_and_option() {
+        let failed_path = vec!["settings".to_string(), "value".to_string()];
+        let provider = DyingProvider {
+            failed_path: failed_path.clone(),
+            defect: Defect::new("provider defect"),
+        };
+        let recovered = Arc::new(AtomicBool::new(false));
+        let config = Config::string(Some("value".to_string()))
+            .nested("settings")
+            .or_else_with({
                 let recovered = Arc::clone(&recovered);
                 move |_| {
                     recovered.store(true, Ordering::SeqCst);
@@ -190,29 +175,21 @@ mod provider_defect {
             })
             .option();
 
-            let caught = Arc::new(Mutex::new(None::<Defect>));
-            let effect = config.load_effect(&provider).catch_defect({
-                let caught = Arc::clone(&caught);
-                move |defects| {
-                    *caught.lock().unwrap() = defects.into_iter().next();
-                    Effect::succeed(Value::Str("caught".into()))
+        match config.load(&provider) {
+            Err(errors) => {
+                assert_eq!(errors.len(), 1, "one defect, not a pile of errors");
+                match &errors[0] {
+                    ConfigError::Defect { defect } => {
+                        assert_eq!(defect.message, "provider defect")
+                    }
+                    other => panic!("expected the provider's defect, got {other:?}"),
                 }
-            });
-
-            assert_eq!(
-                Runtime::run(effect),
-                Exit::Success(Value::Str("caught".into())),
-                "{failed_path:?}: the defect must reach catch_defect"
-            );
-            assert_eq!(
-                caught.lock().unwrap().as_ref().map(|d| d.message.clone()),
-                Some("provider defect".to_string()),
-                "{failed_path:?}: the provider's own defect must arrive"
-            );
-            assert!(
-                !recovered.load(Ordering::SeqCst),
-                "{failed_path:?}: orElse must not answer for a defect"
-            );
+            }
+            Ok(value) => panic!("a defect must not load: {value:?}"),
         }
+        assert!(
+            !recovered.load(Ordering::SeqCst),
+            "orElse must not answer for a defect"
+        );
     }
 }

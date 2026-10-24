@@ -51,6 +51,17 @@ pub struct ForkOpts {
 }
 
 impl ForkOpts {
+    /// Resolve [`Mask::Inherit`] against the spawning fiber's mask. A spawn
+    /// with no spawning fiber passes `false`, which makes `Inherit` mean
+    /// `Off` (there is no parent state to inherit).
+    pub(crate) fn resolve_mask(&self, parent_masked: bool) -> bool {
+        match self.mask {
+            Mask::Inherit => parent_masked,
+            Mask::On => true,
+            Mask::Off => false,
+        }
+    }
+
     pub fn deferred() -> Self {
         Self {
             start: StartMode::Deferred,
@@ -93,10 +104,93 @@ impl StartLatch {
     }
 }
 
+/// A generation-counted wake-up point: `notify` bumps the generation and
+/// wakes every waiter, and a waiter re-checks its own predicate after waking.
+/// One per fiber, so an interrupt or a child's completion reaches every thread
+/// parked on that fiber without a poll.
+pub(crate) struct Signal {
+    generation: Mutex<u64>,
+    condvar: Condvar,
+}
+
+impl Signal {
+    fn new() -> Self {
+        Self {
+            generation: Mutex::new(0),
+            condvar: Condvar::new(),
+        }
+    }
+
+    pub(crate) fn notify(&self) {
+        let mut generation = self.generation.lock().unwrap();
+        *generation = generation.wrapping_add(1);
+        self.condvar.notify_all();
+    }
+
+    /// Wait until `predicate` holds or the signal fires. The predicate is
+    /// checked while the generation lock is held, so a notification that lands
+    /// before the wait cannot be missed.
+    pub(crate) fn wait(&self, predicate: &dyn Fn() -> bool) {
+        let mut generation = self.generation.lock().unwrap();
+        while !predicate() {
+            generation = self.condvar.wait(generation).unwrap();
+        }
+    }
+
+    /// Wait up to `timeout` for `predicate`; true when it holds.
+    pub(crate) fn wait_timeout(
+        &self,
+        timeout: std::time::Duration,
+        predicate: &dyn Fn() -> bool,
+    ) -> bool {
+        let deadline = std::time::Instant::now() + timeout;
+        let mut generation = self.generation.lock().unwrap();
+        loop {
+            if predicate() {
+                return true;
+            }
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            if remaining.is_zero() {
+                return predicate();
+            }
+            let (next, _) = self.condvar.wait_timeout(generation, remaining).unwrap();
+            generation = next;
+        }
+    }
+}
+
+/// An interrupt waker registered with the current fiber. Dropping it
+/// unregisters the waker, so a finished wait cannot be woken later.
+pub(crate) struct InterruptHook {
+    control: std::sync::Weak<FiberControl>,
+    id: u64,
+}
+
+impl Drop for InterruptHook {
+    fn drop(&mut self) {
+        if let Some(control) = self.control.upgrade() {
+            control
+                .wakers
+                .lock()
+                .unwrap()
+                .retain(|(id, _)| *id != self.id);
+        }
+    }
+}
+
 /// Shared fiber control block. Thread-safe; the interpreter never touches it.
 pub(crate) struct FiberControl {
     pub id: FiberId,
     interrupt: AtomicBool,
+    /// Wake point for anyone parked on this fiber: interrupt requests and
+    /// child completions notify it.
+    signal: Arc<Signal>,
+    /// The parent's wake point, so a child's completion releases a parent
+    /// waiting on it.
+    parent_signal: Option<Arc<Signal>>,
+    /// Condvar notifiers registered by interrupt-aware waits that wait on
+    /// their own lock. Fired on interrupt, so those waits need no poll.
+    wakers: Mutex<Vec<(u64, Arc<dyn Fn() + Send + Sync>)>>,
     depth: AtomicUsize,
     /// Start gate: a completing parent fires its children's gates so a
     /// deferred child that never ran still ends (preempted) instead of
@@ -117,19 +211,24 @@ type ScopeHandle = Arc<Scope>;
 impl FiberControl {
     pub(crate) fn new(
         id: FiberId,
-        parent: Option<FiberId>,
+        parent: Option<Arc<FiberControl>>,
         bound: Vec<ScopeHandle>,
         masked: bool,
         start: Arc<StartLatch>,
     ) -> Self {
+        let parent_id = parent.as_ref().map(|control| control.id);
+        let parent_signal = parent.map(|control| Arc::clone(&control.signal));
         Self {
             id,
             interrupt: AtomicBool::new(false),
+            signal: Arc::new(Signal::new()),
+            parent_signal,
+            wakers: Mutex::new(Vec::new()),
             depth: AtomicUsize::new(usize::from(masked)),
             start,
             scope: Scope::new(id.0),
             bound,
-            parent,
+            parent: parent_id,
             done: (Mutex::new(false), Condvar::new()),
             exit: Mutex::new(None),
         }
@@ -137,6 +236,58 @@ impl FiberControl {
 
     pub(crate) fn request_interrupt(&self) {
         self.interrupt.store(true, Ordering::SeqCst);
+        self.wake_interrupt_waiters();
+    }
+
+    /// Wake everyone parked on this fiber's interrupt. Called on a request,
+    /// and again when the depth returns to zero: a wait that re-checked while
+    /// masked would otherwise sleep through the delivery point.
+    fn wake_interrupt_waiters(&self) {
+        self.signal.notify();
+        let wakers: Vec<Arc<dyn Fn() + Send + Sync>> = self
+            .wakers
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(_, waker)| Arc::clone(waker))
+            .collect();
+        // Outside the lock: a waker may drop its hook, which locks `wakers`.
+        for waker in wakers {
+            waker();
+        }
+    }
+
+    /// A pending interrupt becomes deliverable when the depth reaches zero.
+    fn wake_if_deliverable(&self) {
+        if self.is_interrupted() && !self.masked_now() {
+            self.wake_interrupt_waiters();
+        }
+    }
+
+    /// Wake every thread parked on this fiber.
+    pub(crate) fn wait_change(&self, predicate: &dyn Fn() -> bool) {
+        self.signal.wait(predicate);
+    }
+
+    /// Park until an interrupt is requested. No timeout, no poll: the waiting
+    /// thread is woken by `request_interrupt` itself.
+    pub(crate) fn wait_interrupted(&self) {
+        self.signal.wait(&|| self.is_interrupted());
+    }
+
+    /// Register `waker` to run when this fiber is interrupted. The returned
+    /// hook unregisters it on drop.
+    pub(crate) fn subscribe_interrupt(
+        self: &Arc<Self>,
+        waker: Arc<dyn Fn() + Send + Sync>,
+    ) -> InterruptHook {
+        static WAKER_IDS: AtomicU64 = AtomicU64::new(1);
+        let id = WAKER_IDS.fetch_add(1, Ordering::Relaxed);
+        self.wakers.lock().unwrap().push((id, waker));
+        InterruptHook {
+            control: Arc::downgrade(self),
+            id,
+        }
     }
 
     pub fn is_interrupted(&self) -> bool {
@@ -161,6 +312,7 @@ impl FiberControl {
             .try_update(Ordering::SeqCst, Ordering::SeqCst, |depth| {
                 Some(depth.saturating_sub(1))
             });
+        self.wake_if_deliverable();
     }
 
     /// Raise the depth and hand back a guard that lowers it on drop, so a
@@ -194,6 +346,13 @@ impl FiberControl {
         CurrentGuard { prev }
     }
 
+    /// The id of the fiber running on this thread, if any. A scope close
+    /// uses it to avoid waiting for the fiber that is closing it, which
+    /// cannot finish until the close returns.
+    pub(crate) fn current_id() -> Option<FiberId> {
+        CURRENT_FIBER.with(|c| c.borrow().as_ref().map(|fiber| fiber.id))
+    }
+
     /// Run `f` masked on the current thread's fiber. `None` when this thread
     /// runs no fiber: sync finalizers already run to completion there, so
     /// there is nothing to mask.
@@ -209,15 +368,48 @@ impl FiberControl {
 
     pub(crate) fn mark_done(&self, exit: Box<dyn Any + Send>) {
         *self.exit.lock().unwrap() = Some(exit);
-        *self.done.0.lock().unwrap() = true;
+        {
+            let mut done = self.done.0.lock().unwrap();
+            *done = true;
+        }
         self.done.1.notify_all();
+        // A parent or a combinator waits on the signal, not on this fiber's
+        // own done latch. Notify after releasing `done`, so a waiter holding
+        // the signal lock cannot deadlock against it.
+        self.signal.notify();
+        if let Some(parent) = &self.parent_signal {
+            parent.notify();
+        }
     }
 
     pub(crate) fn wait_done(&self) {
+        // A fiber cannot wait for its own completion: the thread that would
+        // mark it done is the one parked here. This is reachable through
+        // `FiberHandle::interrupt` when a fiber holds its own handle, and the
+        // guard keeps that mistake from hanging instead of failing loudly.
+        if Self::current_id() == Some(self.id) {
+            return;
+        }
         let mut done = self.done.0.lock().unwrap();
         while !*done {
             done = self.done.1.wait(done).unwrap();
         }
+    }
+
+    /// Wait until done or the deadline passes; true when done. Used by a
+    /// scope close so a member's releases finish before the scope releases
+    /// the resources they use, without making `Drop` block forever.
+    pub(crate) fn wait_done_until(&self, deadline: std::time::Instant) -> bool {
+        let mut done = self.done.0.lock().unwrap();
+        while !*done {
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            if remaining.is_zero() {
+                return false;
+            }
+            let (guard, _) = self.done.1.wait_timeout(done, remaining).unwrap();
+            done = guard;
+        }
+        true
     }
 }
 
@@ -244,6 +436,7 @@ pub(crate) struct UnmaskGuard<'a> {
 impl Drop for UnmaskGuard<'_> {
     fn drop(&mut self) {
         self.control.depth.store(self.previous, Ordering::SeqCst);
+        self.control.wake_if_deliverable();
     }
 }
 
@@ -256,7 +449,6 @@ thread_local! {
     static CURRENT_FIBER: RefCell<Option<Arc<FiberControl>>> = const { RefCell::new(None) };
 }
 
-
 /// Restores the previous thread-local fiber on drop, so a panic anywhere in
 /// the task still clears the registration.
 pub(crate) struct CurrentGuard {
@@ -267,6 +459,18 @@ impl Drop for CurrentGuard {
     fn drop(&mut self) {
         CURRENT_FIBER.with(|c| *c.borrow_mut() = self.prev.take());
     }
+}
+
+/// Register `waker` on the fiber running this thread, if there is one.
+///
+/// Interrupt-aware waits use this so their own condvar is signalled by
+/// `request_interrupt`; a thread outside a fiber has no source to subscribe
+/// to and falls back to a bounded wait.
+pub(crate) fn subscribe_current_interrupt(
+    waker: impl Fn() + Send + Sync + 'static,
+) -> Option<InterruptHook> {
+    let control = CURRENT_FIBER.with(|c| c.borrow().clone())?;
+    Some(control.subscribe_interrupt(Arc::new(waker)))
 }
 /// The fiber running an effect, as [`Effect::with_fiber`] hands it over:
 /// identity plus the cooperative interrupt flag. Wider control (finalizers,
@@ -299,13 +503,14 @@ impl Fiber {
         E: Send + 'static,
         F: FnOnce(&Ctx) -> Exit<A, E> + Send + 'static,
     {
-        let mask = match opts.mask {
-            Mask::Inherit => self.control.masked_now(),
-            Mask::On => true,
-            Mask::Off => false,
-        };
-        self.driver
-            .spawn(body, Some(self.control.id), Vec::new(), opts.start, mask)
+        let mask = opts.resolve_mask(self.control.masked_now());
+        self.driver.spawn(
+            body,
+            Some(Arc::clone(&self.control)),
+            Vec::new(),
+            opts.start,
+            mask,
+        )
     }
 
     /// The one spawn entry the four `Effect.fork*` forms share: `parented`
@@ -324,11 +529,7 @@ impl Fiber {
         E: Send + 'static,
         R: crate::effect::Requirement,
     {
-        let mask = match opts.mask {
-            Mask::Inherit => self.control.depth.load(Ordering::SeqCst) > 0,
-            Mask::On => true,
-            Mask::Off => false,
-        };
+        let mask = opts.resolve_mask(self.control.masked_now());
         self.driver.spawn(
             move |ctx| {
                 let mut maps = (*ambient).clone();
@@ -339,7 +540,7 @@ impl Fiber {
                     Err(cause) => Exit::Failure(cause),
                 }
             },
-            parented.then(|| self.control.id),
+            parented.then(|| Arc::clone(&self.control)),
             scopes,
             opts.start,
             mask,
@@ -380,6 +581,28 @@ impl Fiber {
     /// [`Ctx::is_interrupted`] does.
     pub fn is_interrupted(&self) -> bool {
         self.control.is_interrupted()
+    }
+
+    /// Park until `predicate` holds or this fiber is woken by an interrupt or
+    /// a child's completion.
+    pub(crate) fn wait_change(&self, predicate: &dyn Fn() -> bool) {
+        self.control.wait_change(predicate);
+    }
+
+    /// Park until `predicate` holds, the signal fires, or `timeout` passes.
+    pub(crate) fn wait_change_timeout(
+        &self,
+        timeout: std::time::Duration,
+        predicate: &dyn Fn() -> bool,
+    ) -> bool {
+        self.control.signal.wait_timeout(timeout, predicate)
+    }
+
+    /// Park until an interrupt is requested. A fiber body uses this for the
+    /// `Effect.never` shape: the request itself wakes the thread, so there is
+    /// no poll and no latency beyond the scheduler.
+    pub fn wait_interrupted(&self) {
+        self.control.wait_interrupted();
     }
 
     /// Request interruption of this fiber. Non-blocking by construction: a
@@ -502,13 +725,14 @@ impl Ctx {
         E: Send + 'static,
         F: FnOnce(&Ctx) -> Exit<A, E> + Send + 'static,
     {
-        let mask = match opts.mask {
-            Mask::Inherit => self.control.depth.load(Ordering::SeqCst) > 0,
-            Mask::On => true,
-            Mask::Off => false,
-        };
-        self.driver
-            .spawn(body, Some(self.control.id), Vec::new(), opts.start, mask)
+        let mask = opts.resolve_mask(self.control.masked_now());
+        self.driver.spawn(
+            body,
+            Some(Arc::clone(&self.control)),
+            Vec::new(),
+            opts.start,
+            mask,
+        )
     }
 
     /// Spawn bound to a caller-supplied scope: closing the scope interrupts
@@ -526,10 +750,10 @@ impl Ctx {
     {
         self.driver.spawn(
             body,
-            Some(self.control.id),
+            Some(Arc::clone(&self.control)),
             vec![Arc::clone(scope)],
             opts.start,
-            opts.mask == Mask::On,
+            opts.resolve_mask(self.control.masked_now()),
         )
     }
 
@@ -550,8 +774,13 @@ impl Ctx {
         E: Send + 'static,
         F: FnOnce(&Ctx) -> Exit<A, E> + Send + 'static,
     {
-        self.driver
-            .spawn(body, None, Vec::new(), opts.start, opts.mask == Mask::On)
+        self.driver.spawn(
+            body,
+            None,
+            Vec::new(),
+            opts.start,
+            opts.resolve_mask(self.control.masked_now()),
+        )
     }
 
     /// Run a sync-only [`Effect`] as this fiber's child. Atomic with respect
@@ -600,10 +829,6 @@ impl<A: Send + 'static, E: Send + 'static> FiberHandle<A, E> {
             driver,
             marker: PhantomData,
         }
-    }
-
-    pub(crate) fn control_ref(&self) -> &Arc<FiberControl> {
-        &self.control
     }
 
     pub fn id(&self) -> FiberId {
@@ -674,4 +899,41 @@ pub(crate) fn children_of(registry: &Registry, parent: FiberId) -> Vec<Arc<Fiber
 /// runs its body. Needs no `A`: only the interrupt reason is recorded.
 pub(crate) fn preempted<A: Send + 'static, E: Send + 'static>() -> Exit<A, E> {
     Exit::Failure(Cause::interrupt(None))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Runtime;
+
+    /// Regression: `finish` removed the fiber's own child list but not the
+    /// fiber from its parent's list, so a long-lived parent retained every
+    /// child it ever forked. The registry is crate-private, so this witness
+    /// has to live beside it rather than in `tests/`.
+    #[test]
+    fn a_joined_child_leaves_its_parent_registry() {
+        let rt = Runtime::new();
+        let handle = rt.fork_detach_with(
+            move |ctx: &Ctx| -> Exit<(), String> {
+                for _ in 0..8 {
+                    let child =
+                        ctx.fork_child(|_| Exit::<(), String>::succeed(()), ForkOpts::immediate());
+                    assert_eq!(child.join(), Exit::Success(()));
+                }
+                // `finish` runs just after the child marks itself done, so
+                // allow a bounded beat rather than assume same-instant order.
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+                while !ctx.fiber().children_snapshot().is_empty() {
+                    assert!(
+                        std::time::Instant::now() < deadline,
+                        "a joined child stayed in its parent's registry"
+                    );
+                    std::thread::park_timeout(crate::COOPERATIVE_QUANTUM);
+                }
+                Exit::succeed(())
+            },
+            ForkOpts::immediate(),
+        );
+        assert_eq!(handle.join(), Exit::Success(()));
+    }
 }

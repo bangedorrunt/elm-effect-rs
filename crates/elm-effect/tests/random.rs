@@ -59,7 +59,10 @@ fn random_int_and_between_match_the_pin() {
     assert_eq!(negative.next_between(-1e16 - 2.0, -1e16), -1e16 - 2.0);
 
     let zero = Random::from_draws([0.75]);
-    assert_eq!(zero.next_between(-f64::from_bits(1), 0.0), -f64::from_bits(1));
+    assert_eq!(
+        zero.next_between(-f64::from_bits(1), 0.0),
+        -f64::from_bits(1)
+    );
 
     // :84, :96 — equal bounds pass through, and an infinite bound is left
     // alone rather than stepped down.
@@ -78,10 +81,7 @@ fn random_int_and_between_match_the_pin() {
     }
 
     // :117 — the bounds are not rounded.
-    assert_eq!(
-        Random::from_draws([0.75]).next_between(10.5, 20.5),
-        18.0
-    );
+    assert_eq!(Random::from_draws([0.75]).next_between(10.5, 20.5), 18.0);
 }
 
 #[test]
@@ -168,11 +168,19 @@ fn random_seeds_match_the_pin() {
     // seeds, trailing partial words, and astral characters.
     let strings = |seed: &str| {
         let random = Random::with_string_seed(seed);
-        (0..5).map(|_| random.next_unit().to_bits()).collect::<Vec<_>>()
+        (0..5)
+            .map(|_| random.next_unit().to_bits())
+            .collect::<Vec<_>>()
     };
     let empty = strings("");
-    for seed in ["a", "b", "1234a", "1234b", "1234ab", "1234ac", "😀", "😁", "🐀"] {
-        assert_ne!(strings(seed), empty, "seed {seed:?} collided with the empty seed");
+    for seed in [
+        "a", "b", "1234a", "1234b", "1234ab", "1234ac", "😀", "😁", "🐀",
+    ] {
+        assert_ne!(
+            strings(seed),
+            empty,
+            "seed {seed:?} collided with the empty seed"
+        );
     }
     assert_ne!(strings("a"), strings("b"));
     assert_ne!(strings("1234a"), strings("1234b"));

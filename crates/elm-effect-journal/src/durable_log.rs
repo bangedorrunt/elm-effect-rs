@@ -109,7 +109,7 @@ pub enum AppendError {
 }
 
 /// A durable log: atomic appends, validated reads.
-pub trait DurableLog {
+pub trait DurableLog: Send + Sync {
     /// Append one JSON envelope, returning its minted offset.
     fn append_json(&self, envelope: &str) -> Result<Offset, AppendError>;
     /// Read every message after `from`. Hand-built offsets are rejected.
@@ -249,14 +249,14 @@ impl Store {
         let (id, epoch, seq, message) = parse(envelope)?;
         // A producer that already reached a newer epoch cannot write under an
         // older one, even after a restart (L16: epoch state never expires).
-        if let Some(&current) = self.max_epoch.get(&id) {
-            if epoch < current {
-                return Err(AppendError::StaleEpoch {
-                    producer: id,
-                    sent: epoch,
-                    current,
-                });
-            }
+        if let Some(&current) = self.max_epoch.get(&id)
+            && epoch < current
+        {
+            return Err(AppendError::StaleEpoch {
+                producer: id,
+                sent: epoch,
+                current,
+            });
         }
         if let Some((recorded_offset, recorded)) = self.offsets.get(&(id.clone(), epoch, seq)) {
             if *recorded != message {

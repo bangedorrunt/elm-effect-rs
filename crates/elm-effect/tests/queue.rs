@@ -491,6 +491,61 @@ fn bounded_zero_capacity_rendezvouses() {
 }
 
 #[test]
+fn zero_capacity_take_n_rendezvouses_with_an_offer() {
+    // Regression: take_between waited on `not_empty` without claiming the
+    // rendezvous, while every offerer waited for a taker. Both sides slept.
+    let queue = Arc::new(Queue::new(0));
+    let taker = {
+        let queue = Arc::clone(&queue);
+        std::thread::spawn(move || queue.take_n(1))
+    };
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    while !queue.try_offer(7) {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "take_n(1) never claimed the rendezvous"
+        );
+        std::thread::park_timeout(Duration::from_millis(1));
+    }
+    assert_eq!(taker.join().expect("taker"), Ok(vec![7]));
+}
+
+#[test]
+fn interrupted_zero_capacity_take_releases_the_rendezvous() {
+    // Regression: an interrupted take left its claim behind, so the next
+    // offer was accepted with no taker and the queue stopped rendezvousing.
+    let queue = Arc::new(Queue::new(0));
+    let interrupted = Arc::new(AtomicBool::new(false));
+    let taker = {
+        let queue = Arc::clone(&queue);
+        let interrupted = Arc::clone(&interrupted);
+        std::thread::spawn(move || queue.take_interruptible(&|| interrupted.load(Ordering::SeqCst)))
+    };
+    park_settle();
+    interrupted.store(true, Ordering::SeqCst);
+    assert_eq!(taker.join().expect("taker"), Err(()));
+    assert!(
+        !queue.try_offer(1),
+        "an offer was accepted with no taker: the claim leaked"
+    );
+
+    // The queue still rendezvouses: a fresh taker receives the next offer.
+    let taker = {
+        let queue = Arc::clone(&queue);
+        std::thread::spawn(move || queue.take())
+    };
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    while !queue.try_offer(2) {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the fresh taker never claimed the rendezvous"
+        );
+        std::thread::park_timeout(Duration::from_millis(1));
+    }
+    assert_eq!(taker.join().expect("taker"), Ok(2));
+}
+
+#[test]
 fn take_between_drains_a_waiting_batch_on_failure() {
     // Queue.test.ts :330 — a taker parked below its minimum keeps its
     // already-buffered items when the queue fails: the batch drains, and

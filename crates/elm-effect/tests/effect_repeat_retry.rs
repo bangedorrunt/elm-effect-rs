@@ -71,7 +71,7 @@ fn decrement_then_fail(
             output.add(1);
             input.add(-1)
         })
-        .flat_map(|n| Effect::<i64, i64>::fail(n))
+        .flat_map(Effect::<i64, i64>::fail)
     }
 }
 
@@ -249,8 +249,7 @@ fn retry_until_always_evaluates_at_least_once() {
         let n = n.clone();
         move || {
             let n = n.clone();
-            Effect::<i64, i64>::sync(move || n.add(1))
-                .flat_map(|value| Effect::<i64, i64>::fail(value))
+            Effect::<i64, i64>::sync(move || n.add(1)).flat_map(Effect::<i64, i64>::fail)
         }
     };
     let exit: Exit<i64, i64> =
@@ -294,8 +293,7 @@ fn retry_while_always_evaluates_at_least_once() {
         let n = n.clone();
         move || {
             let n = n.clone();
-            Effect::<i64, i64>::sync(move || n.add(1))
-                .flat_map(|value| Effect::<i64, i64>::fail(value))
+            Effect::<i64, i64>::sync(move || n.add(1)).flat_map(Effect::<i64, i64>::fail)
         }
     };
     let exit: Exit<i64, i64> =
@@ -320,7 +318,7 @@ fn count_then_fail(n: &Counter) -> impl Fn() -> Effect<i64, RetryError> + 'stati
     move || {
         let n = n.clone();
         Effect::<RetryError, RetryError>::sync(move || RetryError::Count(n.add(1)))
-            .flat_map(|error| Effect::<i64, RetryError>::fail(error))
+            .flat_map(Effect::<i64, RetryError>::fail)
     }
 }
 

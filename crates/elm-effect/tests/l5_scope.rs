@@ -283,7 +283,11 @@ fn a_throwing_finalizer_keeps_the_body_failure() {
         "the body's own reason survives the release"
     );
     let defects = cause.defects();
-    assert_eq!(defects.len(), 1, "the throwing finalizer rides as one defect");
+    assert_eq!(
+        defects.len(),
+        1,
+        "the throwing finalizer rides as one defect"
+    );
     assert!(
         defects[0].message.contains("release"),
         "the defect names the panic: {:?}",
@@ -526,7 +530,10 @@ fn a_child_scope_closes_with_its_parent_but_not_the_reverse() {
 
     assert!(child.close().is_empty());
     assert_eq!(*log.lock().unwrap(), vec!["child"]);
-    assert!(!parent.is_closed(), "closing a child leaves the parent open");
+    assert!(
+        !parent.is_closed(),
+        "closing a child leaves the parent open"
+    );
 
     assert!(parent.close().is_empty());
     assert_eq!(*log.lock().unwrap(), vec!["child", "parent"]);
@@ -538,4 +545,51 @@ fn a_child_scope_closes_with_its_parent_but_not_the_reverse() {
     let late_log = Arc::clone(&log);
     late.add_finalizer(move || late_log.lock().unwrap().push("late"));
     assert_eq!(*log.lock().unwrap(), vec!["child", "parent", "late"]);
+}
+
+#[test]
+fn scope_close_waits_for_member_releases() {
+    // Regression: close interrupted members and immediately ran the scope's
+    // own finalizers, so a member's release could use a resource this scope
+    // had already released.
+    let rt = Runtime::new();
+    let scope = rt.create_scope();
+    let log = log();
+    let child_log = Arc::clone(&log);
+    let started = Arc::new((Mutex::new(false), Condvar::new()));
+    let child_started = Arc::clone(&started);
+    let handle = rt.fork_scoped(
+        &scope,
+        move |ctx| -> Exit<(), String> {
+            ctx.add_finalizer(move || {
+                // Make the ordering observable: without close waiting, the
+                // scope's own finalizer would win this race.
+                std::thread::sleep(Duration::from_millis(50));
+                child_log.lock().unwrap().push("child-release");
+            });
+            *child_started.0.lock().unwrap() = true;
+            child_started.1.notify_all();
+            while !ctx.is_interrupted() {
+                std::thread::park_timeout(std::time::Duration::from_millis(5));
+            }
+            Exit::succeed(())
+        },
+        ForkOpts::immediate(),
+    );
+    let (lock, changed) = &*started;
+    let mut guard = lock.lock().unwrap();
+    while !*guard {
+        guard = changed.wait(guard).unwrap();
+    }
+    drop(guard);
+
+    let scope_log = Arc::clone(&log);
+    scope.add_finalizer(move || scope_log.lock().unwrap().push("resource-release"));
+    scope.close();
+    assert_eq!(
+        *log.lock().unwrap(),
+        vec!["child-release", "resource-release"],
+        "a member release must finish before the scope releases its resources"
+    );
+    let _ = handle.join();
 }

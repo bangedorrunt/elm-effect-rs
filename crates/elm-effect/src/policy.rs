@@ -322,7 +322,10 @@ impl<A: Clone + Send + 'static, E: Send + 'static> Remote<A, E> {
             limiter.acquire();
         }
         // Bulkhead admission is outside the attempt timeout by construction:
-        // the timeout starts after this block returns.
+        // the timeout starts after this block returns. Its queue wait uses
+        // wall time (`Instant`), not the effect clock: it is a real resource
+        // wait, and no adjust notification reaches `bulk_cond`, so a virtual
+        // clock could otherwise park a test here forever.
         {
             let mut inner = self.bulk.lock().unwrap();
             let permits = self.policy.bulkhead.permits;

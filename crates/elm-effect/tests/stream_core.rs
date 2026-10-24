@@ -1233,7 +1233,11 @@ fn buffer_array_propagates_a_failure() {
 fn buffer_strategies_keep_a_failure() {
     // :1913 :1998 :2085 :2175 :2285 — every strategy, element and array: the
     // failure still decides the exit, and the values after it never appear.
-    for strategy in [Strategy::Backpressure, Strategy::Dropping, Strategy::Sliding] {
+    for strategy in [
+        Strategy::Backpressure,
+        Strategy::Dropping,
+        Strategy::Sliding,
+    ] {
         let element = from_iter(1u32..=10, 3)
             .concat(Stream::fail("boom".to_string()))
             .concat(from_iter(11u32..=20, 3))
@@ -1278,9 +1282,7 @@ fn buffer_propagates_a_defect() {
 #[test]
 fn buffer_unbounded_passes_the_stream() {
     // :2274 — `capacity: "unbounded"` is the identity for a pull source.
-    let exit: Exit<Vec<u32>, String> = from_iter(0u32..=10, 3)
-        .buffer(f64::INFINITY)
-        .run_collect();
+    let exit: Exit<Vec<u32>, String> = from_iter(0u32..=10, 3).buffer(f64::INFINITY).run_collect();
     assert_eq!(exit, Exit::Success((0u32..=10).collect::<Vec<_>>()));
 }
 
@@ -1520,11 +1522,13 @@ enum ZipFault<E> {
 /// chunk-boundary row asserts on. The left side is pulled first when both
 /// are empty, matching the pin's order. Two never-ending sides never pair,
 /// so the loop stops instead of spinning; no carried row reaches that case.
+type ZipFoldResult<A, B, C, E> = Result<(Vec<C>, Vec<A>, Vec<B>, bool), ZipFault<E>>;
+
 fn zip_fold<A: Clone, B: Clone, C, E>(
     left: ZipSide<A, E>,
     right: ZipSide<B, E>,
     f: impl Fn(A, B) -> C,
-) -> Result<(Vec<C>, Vec<A>, Vec<B>, bool), ZipFault<E>> {
+) -> ZipFoldResult<A, B, C, E> {
     let (mut l, mut r) = (left, right);
     let mut out = Vec::new();
     let mut leftovers_seen = false;
@@ -1763,7 +1767,7 @@ fn zip_with_array_pairs_point_wise_with_leftovers() {
     );
     // :3298 — mismatched array sizes within the streams: the pairing closes
     // on element positions, and the uneven boundaries leave leftovers.
-    let (pairs, left_leftover, right_leftover, leftovers_seen) = pair(
+    let (pairs, _, _, leftovers_seen) = pair(
         vec![vec![1, 2, 3], vec![4, 5]],
         vec![
             vec!["a".into(), "b".into()],
@@ -1996,8 +2000,7 @@ fn zip_with_index_pairs_each_element_with_its_position() {
     // is what stops it.
     fn indexed(
         items: Vec<&'static str>,
-    ) -> Result<(Vec<(&'static str, i64)>, Vec<&'static str>, Vec<i64>, bool), ZipFault<String>>
-    {
+    ) -> ZipFoldResult<&'static str, i64, (&'static str, i64), String> {
         let indices: Vec<i64> = (0..items.len() as i64).collect();
         zip_fold(
             ZipSide::clean(vec![items]),

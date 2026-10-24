@@ -27,6 +27,11 @@ pub trait MessageLog<Msg> {
         Msg: Clone;
     /// Total messages recorded.
     fn len(&self) -> usize;
+
+    /// True when no message has been recorded.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 /// Minimal in-crate log: a vector behind the [`MessageLog`] trait.

@@ -324,6 +324,9 @@ impl Producer {
     }
 }
 
+/// One step's still-pending commands, tagged with the step they came from.
+type StepQueue<C> = (u64, VecDeque<(usize, C)>);
+
 /// One unit of pending loop work: a message to fold, or the rest of a
 /// command list still waiting for its next window.
 enum Work<P: Program> {
@@ -959,7 +962,7 @@ where
 
         // One work item per step, so each step's pending commands keep their
         // order and their origin. Reversed: the first step sits on top.
-        let mut groups: Vec<(u64, VecDeque<(usize, P::Cmd)>)> = Vec::new();
+        let mut groups: Vec<StepQueue<P::Cmd>> = Vec::new();
         for d in pending {
             match groups.last_mut() {
                 Some((step, rest)) if *step == d.step => rest.push_back((d.index, d.cmd)),

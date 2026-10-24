@@ -84,7 +84,21 @@ impl Shared {
 
     fn finish(&self, control: &Arc<FiberControl>) {
         self.live.lock().unwrap().remove(&control.id.0);
-        self.children.lock().unwrap().remove(&control.id.0);
+        // Drop this fiber's own child list, then the completed fiber from its
+        // parent's list: otherwise a long-lived parent accumulates every
+        // child it ever forked, and `await_all_children` clones the growing
+        // vector on each poll.
+        let mut children = self.children.lock().unwrap();
+        children.remove(&control.id.0);
+        if let Some(parent) = control.parent
+            && let Some(siblings) = children.get_mut(&parent.0)
+        {
+            siblings.retain(|child| child.id != control.id);
+            if siblings.is_empty() {
+                children.remove(&parent.0);
+            }
+        }
+        drop(children);
         let mut active = self.active.0.lock().unwrap();
         *active -= 1;
         self.active.1.notify_all();
@@ -95,7 +109,7 @@ impl Shared {
     pub(crate) fn spawn<A, E, F>(
         self: &Arc<Self>,
         body: F,
-        parent: Option<FiberId>,
+        parent: Option<Arc<FiberControl>>,
         bound: Vec<Arc<Scope>>,
         start: StartMode,
         masked: bool,
@@ -106,6 +120,7 @@ impl Shared {
         F: FnOnce(&Ctx) -> Exit<A, E> + Send + 'static,
     {
         let latch = Arc::new(StartLatch::default());
+        let parent_id = parent.as_ref().map(|control| control.id);
         let control = Arc::new(FiberControl::new(
             next_id(),
             parent,
@@ -118,7 +133,7 @@ impl Shared {
         for scope in &bound {
             scope.add_member(&control);
         }
-        if let Some(pid) = parent {
+        if let Some(pid) = parent_id {
             self.children
                 .lock()
                 .unwrap()
@@ -269,16 +284,16 @@ impl Runtime {
         E: Send + 'static,
         F: FnOnce(&Ctx) -> Exit<A, E> + Send + 'static,
     {
-        let masked = opts.mask == crate::fiber::Mask::On;
-        let handle = self.shared.spawn(
+        // No spawning fiber here, so `Inherit` has nothing to inherit and
+        // resolves to unmasked, exactly as `Mask::Off` would.
+        let masked = opts.resolve_mask(false);
+        self.shared.spawn(
             body,
             None,
             vec![Arc::clone(&self.shared.root)],
             opts.start,
             masked,
-        );
-        self.shared.root.add_member(handle.control_ref());
-        handle
+        )
     }
 
     /// Create a standalone scope for `fork_scoped` / `fork_in`. Closing it
@@ -299,7 +314,7 @@ impl Runtime {
         E: Send + 'static,
         F: FnOnce(&Ctx) -> Exit<A, E> + Send + 'static,
     {
-        let masked = opts.mask == crate::fiber::Mask::On;
+        let masked = opts.resolve_mask(false);
         self.shared
             .spawn(body, None, vec![Arc::clone(scope)], opts.start, masked)
     }
@@ -939,11 +954,9 @@ impl<A: Send + 'static, E: Send + 'static> Effect<A, E, ()> {
         Effect::with_fiber(|fiber| {
             let fiber = fiber.clone();
             Effect::sync(move || {
-                // ponytail: 1ms park; a condvar notified by request_interrupt
-                // would remove the poll, but that touches FiberControl.
-                while !fiber.is_interrupted() {
-                    std::thread::park_timeout(std::time::Duration::from_millis(1));
-                }
+                // request_interrupt notifies the fiber's signal, so this park
+                // ends on the request itself rather than on a polls' tick.
+                fiber.wait_interrupted();
             })
             .flat_map(|()| Effect::<A, E, ()>::interrupt())
         })

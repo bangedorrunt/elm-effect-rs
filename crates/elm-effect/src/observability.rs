@@ -222,13 +222,21 @@ impl crate::effect::ErasedStep<(), std::convert::Infallible> for LogEvent {
 
         let span = scope
             .get_ref(crate::tracer::CURRENT_SPAN.id)
-            .and_then(|value| value.downcast_ref::<Option<crate::tracer::AnySpan>>().cloned())
+            .and_then(|value| {
+                value
+                    .downcast_ref::<Option<crate::tracer::AnySpan>>()
+                    .cloned()
+            })
             .flatten();
         if let Some(span) = span {
             let mut attributes = Vec::with_capacity(2);
             let fiber = scope
                 .get_tag(<crate::fiber::FiberTag as ServiceTag>::ID)
-                .and_then(|value| value.downcast_ref::<crate::fiber::Fiber>().map(|fiber| fiber.id()));
+                .and_then(|value| {
+                    value
+                        .downcast_ref::<crate::fiber::Fiber>()
+                        .map(|fiber| fiber.id())
+                });
             if let Some(fiber_id) = fiber {
                 attributes.push((
                     "effect.fiberId".to_owned(),

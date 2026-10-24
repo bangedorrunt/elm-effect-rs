@@ -580,7 +580,6 @@ impl<In: Send + Sync + 'static> Schedule<In, Duration> {
             }
         })
     }
-
 }
 
 impl<In: Clone + Send + Sync + 'static> Schedule<In, In> {
@@ -661,7 +660,7 @@ impl<In: Send + Sync + 'static, A: Send + 'static> Schedule<In, A> {
         self,
         f: impl Fn(A) -> B + Send + Sync + 'static,
     ) -> Schedule<In, B> {
-        Schedule::from_step(move |meta| self.step(meta.now, meta.input).map_output(|out| f(out)))
+        Schedule::from_step(move |meta| self.step(meta.now, meta.input).map_output(&f))
     }
 
     /// Observe each continuing step's full metadata (`tap`), leaving the

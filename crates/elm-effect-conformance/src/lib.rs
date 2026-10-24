@@ -1,7 +1,8 @@
 //! Reads `conformance/modules.toml`. The default tests check the ledger is
-//! well-formed. The ignored test is the phase-13 gate: every port row that the
-//! pin gives a test is matched, and every other one is named in
-//! `conformance/modules-without-rows.tsv`.
+//! well-formed. The phase-13 gate asks that every port row the pin gives a
+//! test is matched, every other one is named in
+//! `conformance/modules-without-rows.tsv`, and no behavior row is still
+//! `unported`.
 
 use std::collections::BTreeSet;
 use std::fs;

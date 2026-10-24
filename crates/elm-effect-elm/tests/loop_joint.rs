@@ -260,7 +260,13 @@ fn stale_epoch_producer_is_fenced_and_skips_the_provider() {
     log.append_json(&elm_effect_journal::laws::envelope("test", 1, 0, "null"))
         .unwrap();
     let mut app = boot_app(Arc::clone(&log), Producer::new("test"));
-    app.send(CMsg::Add(3));
+    // `send` also returns the failure it recorded in the model; here the
+    // fencing error itself is the expected outcome, not something to ignore.
+    let fenced = app.send(CMsg::Add(3));
+    assert!(
+        matches!(&fenced, Err(AppendError::StaleEpoch { .. })),
+        "the zombie's send must be fenced: {fenced:?}"
+    );
     assert_eq!(
         app.model().provider_runs,
         0,
@@ -289,7 +295,9 @@ fn stale_epoch_producer_is_fenced_and_skips_the_provider() {
         seq: 1,
     };
     let mut current = boot_app(Arc::clone(&log), producer);
-    current.send(CMsg::Add(3));
+    current
+        .send(CMsg::Add(3))
+        .expect("send journals the command");
     assert_eq!(current.model().provider_runs, 1);
     // Four rows, not two: this Loop journals fold inputs as well as intents
     // (recovery replays both), so the current incarnation writes its message,

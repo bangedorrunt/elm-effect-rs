@@ -681,13 +681,13 @@ skipped-upstream	packages/effect/test/Chunk.test.ts	945	it	makeEquivalence is sy
 skipped-upstream	packages/effect/test/Chunk.test.ts	956	it	differenceWith	
 not-applicable	packages/effect/test/Chunk.test.ts	968	it	difference	N/A: the Chunk port is cut in the minimalism audit of 2026-10-24; the Rust ecosystem covers this by construction
 ported	packages/effect/test/Clock.test.ts	5	it.live	keeps wall time aligned while exposing the monotonic source	test_clock_starts_aligned_and_advances_monotonically
-unported	packages/effect/test/Combiner.test.ts	6	it	flip	
-unported	packages/effect/test/Combiner.test.ts	11	it	min	
-unported	packages/effect/test/Combiner.test.ts	17	it	max	
-unported	packages/effect/test/Combiner.test.ts	23	it	first	
-unported	packages/effect/test/Combiner.test.ts	28	it	last	
-unported	packages/effect/test/Combiner.test.ts	33	it	constant	
-unported	packages/effect/test/Combiner.test.ts	38	it	intercalate	
+ported	packages/effect/test/Combiner.test.ts	6	it	flip	combiner_flip_swaps_the_arguments
+ported	packages/effect/test/Combiner.test.ts	11	it	min	combiner_min_and_max_follow_an_order
+ported	packages/effect/test/Combiner.test.ts	17	it	max	combiner_min_and_max_follow_an_order
+ported	packages/effect/test/Combiner.test.ts	23	it	first	combiner_first_and_last_keep_their_side
+ported	packages/effect/test/Combiner.test.ts	28	it	last	combiner_first_and_last_keep_their_side
+ported	packages/effect/test/Combiner.test.ts	33	it	constant	combiner_constant_ignores_both_inputs
+ported	packages/effect/test/Combiner.test.ts	38	it	intercalate	combiner_intercalate_joins_with_the_middle
 not-applicable	packages/effect/test/Config.test.ts	37	it	recognizes SourceError defects from a reloaded module copy	the identity claim needs vi.resetModules: a second module copy of ConfigProvider carrying its own SourceError class; the port compiles one ConfigProvider and has no module-copy mechanism, so a foreign-copy SourceError cannot exist
 not-applicable	packages/effect/test/Config.test.ts	54	it.effect	uses the current ConfigProvider when yielded as an Effect	the row reads the ambient ConfigProvider by yielding it as an Effect under ConfigProvider.layer; the port's config is a descriptor plus a Lookup with no Effect channel, so there is no yieldable provider to read
 ported	packages/effect/test/Config.test.ts	65	it.effect	preserves provider defects at the root and in nested fields	crates/elm-effect/tests/config_effect.rs::a_provider_defect_reaches_catch_defect_and_no_fallback_answers_it
@@ -754,14 +754,14 @@ ported	packages/effect/test/Config.test.ts	1077	it.effect	recovers an absent sib
 ported	packages/effect/test/Config.test.ts	1095	it.effect	recovers an absent sibling after orElse handles absence	config_all_recovers_an_absent_sibling_after_or_else_handles_absence
 ported	packages/effect/test/Config.test.ts	1109	it.effect	lets defaults and option handle an absent orElse fallback	config_or_else_falls_back_then_defaults
 ported	packages/effect/test/Config.test.ts	1126	it.effect	uses the orElse fallback result within the nested path	config_or_else_fallback_inside_nested_path
-unported	packages/effect/test/Config.test.ts	1154	it.effect	propagates an orElse fallback source error after recovering invalid input	
+ported	packages/effect/test/Config.test.ts	1154	it.effect	propagates an orElse fallback source error after recovering invalid input	config_or_else_propagates_the_fallback_source_error
 ported	packages/effect/test/Config.test.ts	1173	it.effect	recovers an absent sibling after orElse handles mapEffect failure	crates/elm-effect/tests/config_effect.rs::or_else_recovers_a_map_effect_failure_and_the_group_then_defaults
-unported	packages/effect/test/Config.test.ts	1193	it.effect	recovers an absent sibling after orElse handles a descendant source failure	
-unported	packages/effect/test/Config.test.ts	1218	it.effect	recovers an absent sibling after orElse handles a nested group failure	
-unported	packages/effect/test/Config.test.ts	1245	it.effect	recovers an absent sibling after orElse handles an initial source failure	
+ported	packages/effect/test/Config.test.ts	1193	it.effect	recovers an absent sibling after orElse handles a descendant source failure	config_or_else_recovers_a_descendant_source_failure_then_the_sibling_is_absent
+ported	packages/effect/test/Config.test.ts	1218	it.effect	recovers an absent sibling after orElse handles a nested group failure	config_or_else_recovers_a_nested_group_source_failure_then_the_sibling_is_absent
+ported	packages/effect/test/Config.test.ts	1245	it.effect	recovers an absent sibling after orElse handles an initial source failure	config_or_else_recovers_an_initial_source_failure_then_the_sibling_is_absent
 ported	packages/effect/test/Config.test.ts	1265	it.effect	normalizes unavailable scalar representations to absence	config_normalizes_unavailable_scalar_representations_to_absence
 not-applicable	packages/effect/test/Config.test.ts	1286	it.effect	treats incompatible container representations as absent	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
-unported	packages/effect/test/Config.test.ts	1308	it.effect	propagates provider failures	
+ported	packages/effect/test/Config.test.ts	1308	it.effect	propagates provider failures	config_propagates_provider_failures
 not-applicable	packages/effect/test/Config.test.ts	1321	it.effect	rejects present containers with incompatible shapes	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
 ported	packages/effect/test/Config.test.ts	1339	it	prefixes a root config	config_nested_prefixes_root
 ported	packages/effect/test/Config.test.ts	1355	it	composes a constructor path with a prefix	config_nested_composes_a_constructor_path_with_a_prefix
@@ -777,28 +777,28 @@ ported	packages/effect/test/Config.test.ts	1509	it	combines a plain record of co
 ported	packages/effect/test/Config.test.ts	1517	it	recursively combines nested records	config_unwrap_recursively_combines_nested_records
 ported	packages/effect/test/Config.test.ts	1534	it	reports missing redacted input	config_secret_redacted_masked
 ported	packages/effect/test/Config.test.ts	1544	it	decodes supported boolean spellings	config_boolean_spellings
-unported	packages/effect/test/Config.test.ts	1577	it	decodes durations including infinities	
+ported	packages/effect/test/Config.test.ts	1577	it	decodes durations including infinities	config_duration_decodes_pin_spellings_including_infinities
 ported	packages/effect/test/Config.test.ts	1598	it	decodes exact byte sizes and reports invalid input	config_duration_date_bytes_url_port_level
 ported	packages/effect/test/Config.test.ts	1612	it	validates port ranges	config_port_validates_range_and_decodes_number
 ported	packages/effect/test/Config.test.ts	1627	it	validates log-level literals	config_duration_date_bytes_url_port_level
 not-applicable	packages/effect/test/Config.test.ts	1650	it	decodes object input	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
 not-applicable	packages/effect/test/Config.test.ts	1670	it	decodes separated string input	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
-unported	packages/effect/test/Config.test.ts	1688	it	supports custom separators	
+not-applicable	packages/effect/test/Config.test.ts	1688	it	supports custom separators	N/A: custom separators belong to the schema-config surface cut in the minimalism audit of 2026-10-24; the descriptor array reads the pin's default comma form
 not-applicable	packages/effect/test/Config.test.ts	1732	it.effect	loads the encoded shape when it differs from the decoded shape	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
 not-applicable	packages/effect/test/Config.test.ts	1748	it.effect	loads encoded shapes recursively inside objects and arrays	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
 not-applicable	packages/effect/test/Config.test.ts	1774	it.effect	loads every union member from its encoded shape	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
 not-applicable	packages/effect/test/Config.test.ts	1795	it.effect	loads explicit properties even when only a fallback provider contains the child	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
 not-applicable	packages/effect/test/Config.test.ts	1819	it.effect	does not load advertised keys that are unrelated to the schema	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
 not-applicable	packages/effect/test/Config.test.ts	1838	it.effect	loads advertised keys only when they match an index signature	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
-unported	packages/effect/test/Config.test.ts	1857	it.effect	leaves separated record parsing to the explicit Config.Record constructor	
+not-applicable	packages/effect/test/Config.test.ts	1857	it.effect	leaves separated record parsing to the explicit Config.Record constructor	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
 not-applicable	packages/effect/test/Config.test.ts	1873	it.effect	preserves missing array positions as undefined values	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
-unported	packages/effect/test/Config.test.ts	1892	it.effect	leaves scalar-to-array parsing to the explicit Config.Array constructor	
-unported	packages/effect/test/Config.test.ts	1911	it.effect	supports options with and without a path	
+not-applicable	packages/effect/test/Config.test.ts	1892	it.effect	leaves scalar-to-array parsing to the explicit Config.Array constructor	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
+ported	packages/effect/test/Config.test.ts	1911	it.effect	supports options with and without a path	config_options_work_with_and_without_a_path
 not-applicable	packages/effect/test/Config.test.ts	1936	it	rejects Schema.${name}	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
 not-applicable	packages/effect/test/Config.test.ts	1944	it	rejects opaque shapes nested in objects	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
 not-applicable	packages/effect/test/Config.test.ts	1951	it	rejects opaque union members	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
 not-applicable	packages/effect/test/Config.test.ts	1958	it	rejects opaque shapes behind suspensions	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
-unported	packages/effect/test/Config.test.ts	1965	it.effect	supports declarations with concrete StringTree encodings	
+not-applicable	packages/effect/test/Config.test.ts	1965	it.effect	supports declarations with concrete StringTree encodings	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
 not-applicable	packages/effect/test/Config.test.ts	1973	it.effect	supports arbitrary JSON encoded in a scalar string	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
 not-applicable	packages/effect/test/Config.test.ts	1983	it	materializes each member independently before applying first-match semantics	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
 not-applicable	packages/effect/test/Config.test.ts	2001	it	preserves first-match semantics when the scalar member is declared first	N/A: this row's witness lived in the schema-config surface, cut in the minimalism audit of 2026-10-24; the plain Config parser carries no schema decode by construction
@@ -1138,49 +1138,49 @@ ported	packages/effect/test/Deferred.test.ts	227	it.effect	isDone - should retur
 ported	packages/effect/test/Deferred.test.ts	234	it.effect	isDone - should return true when failed	is_done_is_true_only_once_completed
 not-applicable	packages/effect/test/Duration.test.ts	14	it	fromInputUnsafe	N/A: the from_input adapter is cut in the minimalism audit of 2026-10-24; Duration from_input_string carries parsing by construction
 not-applicable	packages/effect/test/Duration.test.ts	116	it	fromInput	N/A: the from_input adapter is cut in the minimalism audit of 2026-10-24; Duration from_input_string carries parsing by construction
-unported	packages/effect/test/Duration.test.ts	158	it	Order	
-unported	packages/effect/test/Duration.test.ts	179	it	Equivalence	
-unported	packages/effect/test/Duration.test.ts	200	it	max	
-unported	packages/effect/test/Duration.test.ts	205	it	min	
-unported	packages/effect/test/Duration.test.ts	210	it	clamp	
-unported	packages/effect/test/Duration.test.ts	227	it	equals	
-unported	packages/effect/test/Duration.test.ts	231	it	Hash.symbol agrees with equals across Millis/Nanos representations	
-unported	packages/effect/test/Duration.test.ts	245	it	Hash.symbol handles finite millis too large to convert to nanos	
-unported	packages/effect/test/Duration.test.ts	252	it	between	
-unported	packages/effect/test/Duration.test.ts	265	it	divide	
-unported	packages/effect/test/Duration.test.ts	304	it	divideUnsafe	
-unported	packages/effect/test/Duration.test.ts	345	it	times	
-unported	packages/effect/test/Duration.test.ts	351	it	sum	
-unported	packages/effect/test/Duration.test.ts	366	it	subtract	
-unported	packages/effect/test/Duration.test.ts	392	it	isGreaterThan	
-unported	packages/effect/test/Duration.test.ts	408	it	isGreaterThanOrEqualTo	
-unported	packages/effect/test/Duration.test.ts	418	it	isLessThan	
-unported	packages/effect/test/Duration.test.ts	430	it	isLessThanOrEqualTo	
-unported	packages/effect/test/Duration.test.ts	440	it	toString()	
-unported	packages/effect/test/Duration.test.ts	449	it	format	
-unported	packages/effect/test/Duration.test.ts	461	it	parts	
-unported	packages/effect/test/Duration.test.ts	490	it	toJSON	
-unported	packages/effect/test/Duration.test.ts	497	it	inspect	
-unported	packages/effect/test/Duration.test.ts	505	it	.pipe()	
-unported	packages/effect/test/Duration.test.ts	509	it	isDuration	
-unported	packages/effect/test/Duration.test.ts	514	it	zero	
-unported	packages/effect/test/Duration.test.ts	518	it	weeks	
-unported	packages/effect/test/Duration.test.ts	523	it	toMillis	
-unported	packages/effect/test/Duration.test.ts	529	it	toSeconds	
-unported	packages/effect/test/Duration.test.ts	535	it	toNanos	
-unported	packages/effect/test/Duration.test.ts	543	it	toNanosUnsafe	
-unported	packages/effect/test/Duration.test.ts	552	it	toHrTime	
-unported	packages/effect/test/Duration.test.ts	560	it	negative values	
-unported	packages/effect/test/Duration.test.ts	649	it	match	
-unported	packages/effect/test/Duration.test.ts	660	it	isFinite	
-unported	packages/effect/test/Duration.test.ts	666	it	isZero	
-unported	packages/effect/test/Duration.test.ts	675	it	toMinutes	
-unported	packages/effect/test/Duration.test.ts	681	it	toHours	
-unported	packages/effect/test/Duration.test.ts	687	it	toDays	
-unported	packages/effect/test/Duration.test.ts	693	it	toWeeks	
-unported	packages/effect/test/Duration.test.ts	699	it	ReducerSum	
-unported	packages/effect/test/Duration.test.ts	703	it	CombinerMax	
-unported	packages/effect/test/Duration.test.ts	707	it	CombinerMin	
+ported	packages/effect/test/Duration.test.ts	158	it	Order	duration_order_compares_by_value
+ported	packages/effect/test/Duration.test.ts	179	it	Equivalence	duration_equivalence_matches_order
+ported	packages/effect/test/Duration.test.ts	200	it	max	duration_max_min_and_clamp
+ported	packages/effect/test/Duration.test.ts	205	it	min	duration_max_min_and_clamp
+ported	packages/effect/test/Duration.test.ts	210	it	clamp	duration_max_min_and_clamp
+ported	packages/effect/test/Duration.test.ts	227	it	equals	duration_equals_is_value_equality
+ported	packages/effect/test/Duration.test.ts	231	it	Hash.symbol agrees with equals across Millis/Nanos representations	duration_hash_agrees_with_equals_across_representations
+ported	packages/effect/test/Duration.test.ts	245	it	Hash.symbol handles finite millis too large to convert to nanos	duration_hash_handles_finite_millis_too_large_for_nanos
+ported	packages/effect/test/Duration.test.ts	252	it	between	duration_between_is_inclusive
+ported	packages/effect/test/Duration.test.ts	265	it	divide	duration_divide
+ported	packages/effect/test/Duration.test.ts	304	it	divideUnsafe	duration_divide_unsafe_uses_ieee_fallbacks
+ported	packages/effect/test/Duration.test.ts	345	it	times	duration_times_scales_both_representations
+ported	packages/effect/test/Duration.test.ts	351	it	sum	duration_sum_and_subtract
+ported	packages/effect/test/Duration.test.ts	366	it	subtract	duration_sum_and_subtract
+ported	packages/effect/test/Duration.test.ts	392	it	isGreaterThan	duration_relational_predicates
+ported	packages/effect/test/Duration.test.ts	408	it	isGreaterThanOrEqualTo	duration_relational_predicates
+ported	packages/effect/test/Duration.test.ts	418	it	isLessThan	duration_relational_predicates
+ported	packages/effect/test/Duration.test.ts	430	it	isLessThanOrEqualTo	duration_relational_predicates
+ported	packages/effect/test/Duration.test.ts	440	it	toString()	duration_to_string_renders_the_pin_spelling
+ported	packages/effect/test/Duration.test.ts	449	it	format	duration_format_renders_normalized_parts
+ported	packages/effect/test/Duration.test.ts	461	it	parts	duration_parts_are_signed_and_normalized
+ported	packages/effect/test/Duration.test.ts	490	it	toJSON	duration_json_and_inspect
+ported	packages/effect/test/Duration.test.ts	497	it	inspect	duration_json_and_inspect
+ported	packages/effect/test/Duration.test.ts	505	it	.pipe()	duration_pipes_through_the_chain_macro
+ported	packages/effect/test/Duration.test.ts	509	it	isDuration	duration_is_duration_recognizes_the_value
+ported	packages/effect/test/Duration.test.ts	514	it	zero	duration_zero_and_weeks
+ported	packages/effect/test/Duration.test.ts	518	it	weeks	duration_zero_and_weeks
+ported	packages/effect/test/Duration.test.ts	523	it	toMillis	duration_millis_seconds_nanos_and_hr_time
+ported	packages/effect/test/Duration.test.ts	529	it	toSeconds	duration_millis_seconds_nanos_and_hr_time
+ported	packages/effect/test/Duration.test.ts	535	it	toNanos	duration_millis_seconds_nanos_and_hr_time
+ported	packages/effect/test/Duration.test.ts	543	it	toNanosUnsafe	duration_to_nanos_unsafe_panics_on_infinities
+ported	packages/effect/test/Duration.test.ts	552	it	toHrTime	duration_millis_seconds_nanos_and_hr_time
+ported	packages/effect/test/Duration.test.ts	560	it	negative values	duration_negative_values_keep_their_sign
+ported	packages/effect/test/Duration.test.ts	649	it	match	duration_match_dispatches_on_the_representation
+ported	packages/effect/test/Duration.test.ts	660	it	isFinite	duration_is_finite_and_zero
+ported	packages/effect/test/Duration.test.ts	666	it	isZero	duration_is_finite_and_zero
+ported	packages/effect/test/Duration.test.ts	675	it	toMinutes	duration_minutes_hours_days_and_weeks
+ported	packages/effect/test/Duration.test.ts	681	it	toHours	duration_minutes_hours_days_and_weeks
+ported	packages/effect/test/Duration.test.ts	687	it	toDays	duration_minutes_hours_days_and_weeks
+ported	packages/effect/test/Duration.test.ts	693	it	toWeeks	duration_minutes_hours_days_and_weeks
+ported	packages/effect/test/Duration.test.ts	699	it	ReducerSum	duration_reducer_sum_and_combiner_extremes
+ported	packages/effect/test/Duration.test.ts	703	it	CombinerMax	duration_reducer_sum_and_combiner_extremes
+ported	packages/effect/test/Duration.test.ts	707	it	CombinerMin	duration_reducer_sum_and_combiner_extremes
 ported	packages/effect/test/Effect.test.ts	79	it.effect	scoped closes its scope when interrupted after installing it	scoped_closes_its_scope_when_interrupted_after_installing_it
 not-applicable	packages/effect/test/Effect.test.ts	124	it.effect	provideService restores the original context if interrupted before its body	Effect.withFiber now hands over a Fiber handle, but this row restores `fiber.context`, the fiber's own mutable services snapshot; the port's services are baked per run and its Fiber handle carries identity and the interrupt flag only, so a run has no original context to restore
 not-applicable	packages/effect/test/Effect.test.ts	155	it.effect	 never strands a second caller when the owner yields before registering cleanup	Effect.cached and Effect.cachedInvalidateWithTTL are absent from crates/elm-effect/src/effect.rs, so this cache-invalidation row has no Rust constructor
@@ -1567,7 +1567,7 @@ ported	packages/effect/test/Equal.test.ts	499	it	should return true for nested a
 ported	packages/effect/test/Equal.test.ts	505	it	should return false for nested objects with different values	equal_nesting_is_deep
 ported	packages/effect/test/Equal.test.ts	511	it	should return false for nested arrays with different values	equal_nesting_is_deep
 ported	packages/effect/test/Equal.test.ts	520	it	should handle NaN correctly (structural equality - NaN equals NaN)	equal_treats_nan_as_equal_to_nan
-unported	packages/effect/test/Equal.test.ts	524	it	should return false when comparing NaN with regular numbers	
+ported	packages/effect/test/Equal.test.ts	524	it	should return false when comparing NaN with regular numbers	equal_treats_nan_as_equal_to_nan
 ported	packages/effect/test/Equal.test.ts	530	it	should return false when comparing NaN with Infinity	equal_treats_nan_as_equal_to_nan
 ported	packages/effect/test/Equal.test.ts	537	it	should handle NaN in arrays	equal_treats_nan_as_equal_to_nan
 ported	packages/effect/test/Equal.test.ts	544	it	should handle NaN in objects	equal_treats_nan_as_equal_to_nan
@@ -1653,22 +1653,22 @@ not-applicable	packages/effect/test/Equal.test.ts	1429	it	should handle hashing 
 not-applicable	packages/effect/test/Equal.test.ts	1443	it	should handle hashing arrays with circular references without infinite recursion	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
 not-applicable	packages/effect/test/Equal.test.ts	1457	it	should produce different hashes for objects with different circular structures	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
 not-applicable	packages/effect/test/Equal.test.ts	1470	it	should return false for objects with different circular reference patterns	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
-unported	packages/effect/test/Equivalence.test.ts	6	it	String	
-unported	packages/effect/test/Equivalence.test.ts	11	it	Number	
-unported	packages/effect/test/Equivalence.test.ts	20	it	Boolean	
-unported	packages/effect/test/Equivalence.test.ts	27	it	BigInt	
-unported	packages/effect/test/Equivalence.test.ts	32	it	mapInput	
-unported	packages/effect/test/Equivalence.test.ts	44	it	combine	
-unported	packages/effect/test/Equivalence.test.ts	55	it	combineAll	
-unported	packages/effect/test/Equivalence.test.ts	67	it	Tuple	
-unported	packages/effect/test/Equivalence.test.ts	75	it	Array	
-unported	packages/effect/test/Equivalence.test.ts	85	it	string keys	
+ported	packages/effect/test/Equivalence.test.ts	6	it	String	equivalence_string_number_and_boolean
+ported	packages/effect/test/Equivalence.test.ts	11	it	Number	equivalence_string_number_and_boolean
+ported	packages/effect/test/Equivalence.test.ts	20	it	Boolean	equivalence_string_number_and_boolean
+ported	packages/effect/test/Equivalence.test.ts	27	it	BigInt	equivalence_bigint_through_the_integer_carrier
+ported	packages/effect/test/Equivalence.test.ts	32	it	mapInput	equivalence_map_input_projects_both_sides
+ported	packages/effect/test/Equivalence.test.ts	44	it	combine	equivalence_combine_requires_both
+ported	packages/effect/test/Equivalence.test.ts	55	it	combineAll	equivalence_combine_all_is_vacuous_on_empty
+ported	packages/effect/test/Equivalence.test.ts	67	it	Tuple	equivalence_tuple_and_array
+ported	packages/effect/test/Equivalence.test.ts	75	it	Array	equivalence_tuple_and_array
+ported	packages/effect/test/Equivalence.test.ts	85	it	string keys	equivalence_struct_uses_string_keys_not_order
 not-applicable	packages/effect/test/Equivalence.test.ts	96	it	symbol keys	N/A: JS symbol keys have no Rust analog
 not-applicable	packages/effect/test/Equivalence.test.ts	109	it	mixed keys	N/A: JS symbol keys have no Rust analog
-unported	packages/effect/test/Equivalence.test.ts	123	it	string keys	
+ported	packages/effect/test/Equivalence.test.ts	123	it	string keys	equivalence_struct_ignores_extra_keys
 not-applicable	packages/effect/test/Equivalence.test.ts	132	it	symbol keys	N/A: JS symbol keys have no Rust analog
 not-applicable	packages/effect/test/Equivalence.test.ts	143	it	mixed keys	N/A: JS symbol keys have no Rust analog
-unported	packages/effect/test/Equivalence.test.ts	154	it	Date	
+not-applicable	packages/effect/test/Equivalence.test.ts	154	it	Date	N/A: the crate has no Date value; SystemTime compares instants with Ord, so no structural Equivalence value is ported
 ported	packages/effect/test/ExecutionPlan.test.ts	62	it	rejects zero attempts	plan_rejects_zero_attempts
 not-applicable	packages/effect/test/ExecutionPlan.test.ts	88	it.effect	captures while predicate requirements	the row asserts that a step's while predicate requirements are captured from the plan's context and preferred over the ambient one; this port's plan carries an attempt budget only, with no step layers or requirement capture
 not-applicable	packages/effect/test/ExecutionPlan.test.ts	95	it.effect	prefers captured while predicate requirements over the ambient context	the row asserts that a step's while predicate requirements are captured from the plan's context and preferred over the ambient one; this port's plan carries an attempt budget only, with no step layers or requirement capture
@@ -1850,30 +1850,30 @@ not-applicable	packages/effect/test/Function.test.ts	57	it	predicate-based - dat
 not-applicable	packages/effect/test/Function.test.ts	68	it	predicate-based - data-last	N/A: the predicate form picks data-last when `arguments.length` is short; without a runtime argument list there is no predicate input, so the dynamic choice cannot be represented
 ported	packages/effect/test/Function.test.ts	81	it	applies a value to a function	function_apply
 ported	packages/effect/test/Function.test.ts	86	it	works with pipe	function_apply
-unported	packages/effect/test/Function.test.ts	93	it	returns the same value for primitives	
-unported	packages/effect/test/Function.test.ts	101	it	returns the same reference for objects	
-unported	packages/effect/test/Function.test.ts	108	it	returns value unchanged	
-unported	packages/effect/test/Function.test.ts	114	it	returns value unchanged at runtime	
-unported	packages/effect/test/Function.test.ts	120	it	returns the same value every time	
-unported	packages/effect/test/Function.test.ts	126	it	returns reference-equal objects	
-unported	packages/effect/test/Function.test.ts	135	it	returns true	
-unported	packages/effect/test/Function.test.ts	141	it	returns false	
-unported	packages/effect/test/Function.test.ts	147	it	returns null	
+ported	packages/effect/test/Function.test.ts	93	it	returns the same value for primitives	function_identity_rows
+ported	packages/effect/test/Function.test.ts	101	it	returns the same reference for objects	function_identity_rows
+ported	packages/effect/test/Function.test.ts	108	it	returns value unchanged	function_identity_rows
+ported	packages/effect/test/Function.test.ts	114	it	returns value unchanged at runtime	function_identity_rows
+ported	packages/effect/test/Function.test.ts	120	it	returns the same value every time	function_identity_rows
+ported	packages/effect/test/Function.test.ts	126	it	returns reference-equal objects	function_identity_rows
+ported	packages/effect/test/Function.test.ts	135	it	returns true	function_constant_rows
+ported	packages/effect/test/Function.test.ts	141	it	returns false	function_constant_rows
+ported	packages/effect/test/Function.test.ts	147	it	returns null	function_constant_rows
 ported	packages/effect/test/Function.test.ts	153	it	returns undefined	function_constants
 ported	packages/effect/test/Function.test.ts	159	it	returns undefined	function_constants
-unported	packages/effect/test/Function.test.ts	165	it	reverses the order of curried arguments	
-unported	packages/effect/test/Function.test.ts	175	it	data-first: composes left-to-right	
+ported	packages/effect/test/Function.test.ts	165	it	reverses the order of curried arguments	function_flip_curried_row
+ported	packages/effect/test/Function.test.ts	175	it	data-first: composes left-to-right	function_data_first_compose_runs_left_to_right
 ported	packages/effect/test/Function.test.ts	179	it	data-last: composes with pipe	function_compose_with_pipe
 not-applicable	packages/effect/test/Function.test.ts	185	it	throws an error when called	N/A: `Infallible` is uninhabited, so the panic arm has no caller; the law holds by construction and the pin's message cannot be observed by a test
-unported	packages/effect/test/Function.test.ts	193	it	converts a multi-arg function to accept a tuple	
-unported	packages/effect/test/Function.test.ts	201	it	converts a tuple-accepting function to multi-arg	
+ported	packages/effect/test/Function.test.ts	193	it	converts a multi-arg function to accept a tuple	function_tupled_and_untupled_rows
+ported	packages/effect/test/Function.test.ts	201	it	converts a tuple-accepting function to multi-arg	function_tupled_and_untupled_rows
 ported	packages/effect/test/Function.test.ts	209	it	returns value with no functions	function_pipe
 ported	packages/effect/test/Function.test.ts	213	it	applies one function	function_pipe
 ported	packages/effect/test/Function.test.ts	217	it	applies two functions	function_pipe
 ported	packages/effect/test/Function.test.ts	221	it	applies a long chain	function_pipe
 ported	packages/effect/test/Function.test.ts	239	it	transforms types through the chain	function_pipe
 ported	packages/effect/test/Function.test.ts	250	it	single function returns it unchanged	function_flow
-unported	packages/effect/test/Function.test.ts	255	it	composes two functions	
+ported	packages/effect/test/Function.test.ts	255	it	composes two functions	function_composes_two_functions
 ported	packages/effect/test/Function.test.ts	261	it	composes three functions	function_flow
 ported	packages/effect/test/Function.test.ts	272	it	composes up to nine functions	function_flow
 ported	packages/effect/test/Function.test.ts	287	it	first function can accept multiple arguments	function_flow
@@ -2035,12 +2035,12 @@ not-applicable	packages/effect/test/Hash.test.ts	98	it	does not collide for ever
 not-applicable	packages/effect/test/Hash.test.ts	102	it	does not collide for nested arrays and records	Effect collision suite probes Effect's own Murmur-style hash combine over generated grids; Rust port delegates hashing to std::hash::Hash (SipHash) through Hash/HashValue traits, so these no-collision grid/permutation properties are implementation artifacts of Effect rather than observable behaviors of the port's Hash API
 not-applicable	packages/effect/test/Hash.test.ts	114	it	does not collide for a 100 by 100 grid of directed two-node graphs	Effect collision suite probes Effect's own Murmur-style hash combine over generated grids; Rust port delegates hashing to std::hash::Hash (SipHash) through Hash/HashValue traits, so these no-collision grid/permutation properties are implementation artifacts of Effect rather than observable behaviors of the port's Hash API
 not-applicable	packages/effect/test/Hash.test.ts	118	it	does not collide for a 100 by 100 grid of undirected two-node graphs	Effect collision suite probes Effect's own Murmur-style hash combine over generated grids; Rust port delegates hashing to std::hash::Hash (SipHash) through Hash/HashValue traits, so these no-collision grid/permutation properties are implementation artifacts of Effect rather than observable behaviors of the port's Hash API
-unported	packages/effect/test/Hash.test.ts	122	it	keeps array order and length in the hash	
-unported	packages/effect/test/Hash.test.ts	127	it	does not hash null, undefined, booleans and symbols like their names	
+ported	packages/effect/test/Hash.test.ts	122	it	keeps array order and length in the hash	hash_keeps_array_order_and_length
+ported	packages/effect/test/Hash.test.ts	127	it	does not hash null, undefined, booleans and symbols like their names	hash_null_undefined_booleans_and_symbols_are_not_their_names
 not-applicable	packages/effect/test/Hash.test.ts	133	it	does not collide for 10k multiples of 0.1	Effect collision suite probes Effect's own Murmur-style hash combine over generated grids; Rust port delegates hashing to std::hash::Hash (SipHash) through Hash/HashValue traits, so these no-collision grid/permutation properties are implementation artifacts of Effect rather than observable behaviors of the port's Hash API
 not-applicable	packages/effect/test/Hash.test.ts	137	it	does not collide for 10k multiples of 0.001	Effect collision suite probes Effect's own Murmur-style hash combine over generated grids; Rust port delegates hashing to std::hash::Hash (SipHash) through Hash/HashValue traits, so these no-collision grid/permutation properties are implementation artifacts of Effect rather than observable behaviors of the port's Hash API
-unported	packages/effect/test/Hash.test.ts	143	it	hashes 0 and -0 the same	
-unported	packages/effect/test/Hash.test.ts	147	it	hashes every NaN the same	
+ported	packages/effect/test/Hash.test.ts	143	it	hashes 0 and -0 the same	hash_zero_and_negative_zero_alike
+ported	packages/effect/test/Hash.test.ts	147	it	hashes every NaN the same	hash_every_nan_alike
 not-applicable	packages/effect/test/Hash.test.ts	181	it	hashes HashMaps and HashSets independently of insertion order	Port does not expose Effect's mutable HashMap CollisionNode cache/invalidationBookkeeping (visited set, in-place mutation hashing); representing these would require re-implementing Effect's combining algorithm and mutation tracking, which the Rust port does not need because it relies on std::hash trait implementations
 not-applicable	packages/effect/test/Hash.test.ts	191	it	hashes a HashMap like a fresh build after persistent and in-place edits	Port does not expose Effect's mutable HashMap CollisionNode cache/invalidationBookkeeping (visited set, in-place mutation hashing); representing these would require re-implementing Effect's combining algorithm and mutation tracking, which the Rust port does not need because it relies on std::hash trait implementations
 not-applicable	packages/effect/test/Hash.test.ts	216	it	invalidates CollisionNode hashes after in-place edits	Port does not expose Effect's mutable HashMap CollisionNode cache/invalidationBookkeeping (visited set, in-place mutation hashing); representing these would require re-implementing Effect's combining algorithm and mutation tracking, which the Rust port does not need because it relies on std::hash trait implementations
@@ -2834,22 +2834,22 @@ not-applicable	packages/effect/test/Option.test.ts	513	it	bind	N/A: the Option p
 not-applicable	packages/effect/test/Option.test.ts	535	it	let	N/A: the Option port is cut in the minimalism audit of 2026-10-24; the Rust ecosystem covers this by construction
 not-applicable	packages/effect/test/Option.test.ts	552	it	as	N/A: the Option port is cut in the minimalism audit of 2026-10-24; the Rust ecosystem covers this by construction
 not-applicable	packages/effect/test/Option.test.ts	560	it	asVoid	N/A: the Option port is cut in the minimalism audit of 2026-10-24; the Rust ecosystem covers this by construction
-unported	packages/effect/test/Order.test.ts	6	it	Struct	
-unported	packages/effect/test/Order.test.ts	13	it	Tuple	
-unported	packages/effect/test/Order.test.ts	21	it	mapInput	
-unported	packages/effect/test/Order.test.ts	28	it	Number compares numeric values and treats NaN as the lowest value	
-unported	packages/effect/test/Order.test.ts	40	it	Date compares by timestamp	
-unported	packages/effect/test/Order.test.ts	47	it	clamp keeps values inside inclusive bounds	
-unported	packages/effect/test/Order.test.ts	58	it	isBetween checks inclusive bounds	
-unported	packages/effect/test/Order.test.ts	69	it	flip reverses an existing order	
-unported	packages/effect/test/Order.test.ts	76	it	isLessThan returns true only for strictly smaller values	
-unported	packages/effect/test/Order.test.ts	83	it	isLessThanOrEqualTo returns true for smaller or equal values	
-unported	packages/effect/test/Order.test.ts	90	it	isGreaterThan returns true only for strictly greater values	
-unported	packages/effect/test/Order.test.ts	97	it	isGreaterThanOrEqualTo returns true for greater or equal values	
-unported	packages/effect/test/Order.test.ts	104	it	min	
-unported	packages/effect/test/Order.test.ts	119	it	max	
-unported	packages/effect/test/Order.test.ts	134	it	combineAll reuses finite criteria across comparisons	
-unported	packages/effect/test/Order.test.ts	140	it	combine	
+ported	packages/effect/test/Order.test.ts	6	it	Struct	order_struct_compares_fields_in_declaration_order
+ported	packages/effect/test/Order.test.ts	13	it	Tuple	order_tuple_decides_left_then_right
+ported	packages/effect/test/Order.test.ts	21	it	mapInput	order_map_input_projects_both_sides
+ported	packages/effect/test/Order.test.ts	28	it	Number compares numeric values and treats NaN as the lowest value	order_number_treats_nan_as_the_lowest_value
+not-applicable	packages/effect/test/Order.test.ts	40	it	Date compares by timestamp	N/A: the crate has no Date value; SystemTime compares instants with Ord, so no structural Order value is ported
+ported	packages/effect/test/Order.test.ts	47	it	clamp keeps values inside inclusive bounds	order_clamp_keeps_values_inside_inclusive_bounds
+ported	packages/effect/test/Order.test.ts	58	it	isBetween checks inclusive bounds	order_is_between_checks_inclusive_bounds
+ported	packages/effect/test/Order.test.ts	69	it	flip reverses an existing order	order_flip_reverses_an_existing_order
+ported	packages/effect/test/Order.test.ts	76	it	isLessThan returns true only for strictly smaller values	order_relational_predicates_are_strict_where_named
+ported	packages/effect/test/Order.test.ts	83	it	isLessThanOrEqualTo returns true for smaller or equal values	order_relational_predicates_are_strict_where_named
+ported	packages/effect/test/Order.test.ts	90	it	isGreaterThan returns true only for strictly greater values	order_relational_predicates_are_strict_where_named
+ported	packages/effect/test/Order.test.ts	97	it	isGreaterThanOrEqualTo returns true for greater or equal values	order_relational_predicates_are_strict_where_named
+ported	packages/effect/test/Order.test.ts	104	it	min	order_min_and_max_break_ties_toward_the_first
+ported	packages/effect/test/Order.test.ts	119	it	max	order_min_and_max_break_ties_toward_the_first
+ported	packages/effect/test/Order.test.ts	134	it	combineAll reuses finite criteria across comparisons	order_reuses_the_same_criteria_across_comparisons
+ported	packages/effect/test/Order.test.ts	140	it	combine	order_combine_and_combine_all_stop_at_the_first_non_equal_verdict
 not-applicable	packages/effect/test/Ordering.test.ts	6	it	Reducer	N/A: the Ordering port is cut in the minimalism audit of 2026-10-24; the Rust ecosystem covers this by construction
 not-applicable	packages/effect/test/Ordering.test.ts	19	it	reverse flips less-than and greater-than and leaves equal unchanged	N/A: the Ordering port is cut in the minimalism audit of 2026-10-24; the Rust ecosystem covers this by construction
 not-applicable	packages/effect/test/Ordering.test.ts	25	it	match selects the branch for the ordering in both data-first and data-last forms	N/A: the Ordering port is cut in the minimalism audit of 2026-10-24; the Rust ecosystem covers this by construction
@@ -3185,7 +3185,7 @@ not-applicable	packages/effect/test/Redacted.test.ts	34	it	label appears in reda
 not-applicable	packages/effect/test/Redacted.test.ts	44	it	wipeUnsafe removes access to the protected value	the rows need a JSON rendering and a label field plus wipeUnsafe, which clears the value and makes value() throw; this port's Redacted is a borrow-based &T with no wiped state and no label, and adding either would change value() for every existing caller
 ported	packages/effect/test/Redacted.test.ts	50	it	Equal compares the protected values of two Redacted values	redacted_display_equal_hash_value
 ported	packages/effect/test/Redacted.test.ts	55	it	Hash is derived from the protected value	redacted_display_equal_hash_value
-unported	packages/effect/test/Reducer.test.ts	6	it	flip	
+ported	packages/effect/test/Reducer.test.ts	6	it	flip	reducer_flip_swaps_the_combine_direction
 ported	packages/effect/test/Ref.test.ts	30	it.effect	get returns the current value	get_returns_the_current_value
 ported	packages/effect/test/Ref.test.ts	36	it.effect	getAndSet returns the previous value and stores the replacement	get_and_set_returns_the_previous_value
 ported	packages/effect/test/Ref.test.ts	43	it.effect	getAndUpdate returns the previous value and stores the computed value	get_and_update_returns_previous_and_stores_computed

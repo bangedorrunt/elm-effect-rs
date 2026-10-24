@@ -21,7 +21,7 @@
 #![allow(dead_code)]
 use std::cell::RefCell;
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 // Ordering
@@ -333,9 +333,7 @@ where
             return cached.clone();
         }
         let out = f(a);
-        cache
-            .borrow_mut()
-            .insert(key, (Arc::clone(a), out.clone()));
+        cache.borrow_mut().insert(key, (Arc::clone(a), out.clone()));
         out
     }
 }
@@ -719,6 +717,26 @@ impl<T> Equivalence<T> {
     {
         Equivalence::make(move |a, b| self.is_equivalent(&f(a), &f(b)))
     }
+
+    /// `Equivalence.Struct`: compare only the named fields. Extra keys are
+    /// ignored, which is the pin's record semantics; a listed key missing
+    /// from either side is not equivalent.
+    pub fn struct_(
+        fields: Vec<(String, Self)>,
+    ) -> Equivalence<std::collections::BTreeMap<String, T>>
+    where
+        T: 'static,
+    {
+        Equivalence::make(move |a: &BTreeMap<String, T>, b: &BTreeMap<String, T>| {
+            fields
+                .iter()
+                .all(|(name, equivalence)| match (a.get(name), b.get(name)) {
+                    (Some(a), Some(b)) => equivalence.is_equivalent(a, b),
+                    (None, None) => true,
+                    _ => false,
+                })
+        })
+    }
 }
 
 impl<T: PartialEq> Equivalence<T> {
@@ -785,12 +803,20 @@ impl<T> Order<T> {
         Self::make(move |a, b| self.compare(a, b).reverse())
     }
 
-    /// First non-equal verdict wins.
+    /// First non-equal verdict wins. The second criterion only runs on a tie,
+    /// so an expensive tie-breaker costs nothing when the first decides.
     pub fn combine(self, other: Self) -> Self
     where
         T: 'static,
     {
-        Self::make(move |a, b| combine_ordering(self.compare(a, b), other.compare(a, b)))
+        Self::make(move |a, b| {
+            let first = self.compare(a, b);
+            if first == Ordering::Equal {
+                other.compare(a, b)
+            } else {
+                first
+            }
+        })
     }
 
     /// Compare through a projection first.
@@ -856,6 +882,28 @@ impl<T> Order<T> {
     /// Whether the value sits inside both bounds.
     pub fn is_between(&self, value: &T, minimum: &T, maximum: &T) -> bool {
         self.is_greater_than_or_equal(value, minimum) && self.is_less_than_or_equal(value, maximum)
+    }
+
+    /// `Order.Struct`: compare the named fields in declaration order. Extra
+    /// keys are ignored; a missing field sorts below a present one.
+    pub fn struct_(fields: Vec<(String, Self)>) -> Order<std::collections::BTreeMap<String, T>>
+    where
+        T: 'static,
+    {
+        Order::make(move |a: &BTreeMap<String, T>, b: &BTreeMap<String, T>| {
+            for (name, order) in &fields {
+                let verdict = match (a.get(name), b.get(name)) {
+                    (Some(a), Some(b)) => order.compare(a, b),
+                    (None, None) => Ordering::Equal,
+                    (None, Some(_)) => Ordering::Less,
+                    (Some(_), None) => Ordering::Greater,
+                };
+                if verdict != Ordering::Equal {
+                    return verdict;
+                }
+            }
+            Ordering::Equal
+        })
     }
 
     /// Fold many criteria: first non-equal verdict wins.
@@ -1235,11 +1283,14 @@ impl<A> Combiner<A> {
     {
         Self::make(move |_: &A, _: &A| value.clone())
     }
+}
 
-    /// Join strings with a middle separator.
-    pub fn intercalate(middle: &str) -> Combiner<String> {
+impl Combiner<String> {
+    /// Join strings with a middle separator. This lives on the concrete type
+    /// so a bare `Combiner::intercalate(", ")` infers the element type.
+    pub fn intercalate(middle: &str) -> Self {
         let middle = middle.to_string();
-        Combiner::make(move |a, b| format!("{a}{middle}{b}"))
+        Self::make(move |a, b| format!("{a}{middle}{b}"))
     }
 }
 

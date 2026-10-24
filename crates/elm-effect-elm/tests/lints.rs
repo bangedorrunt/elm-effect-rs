@@ -17,12 +17,25 @@ fn ambient_world_fires_on_dirty_fixture() {
         "dirty fixture must trip all three ambient tokens: {hits:?}"
     );
     assert!(hits.iter().any(|h| h.text.contains("SystemTime")));
-    assert!(hits.iter().any(|h| h.text.contains("std::env")));
-    assert!(hits
-        .iter()
-        .any(|h| h.text.contains("rand::thread_rng")));
+    assert!(hits.iter().any(|h| h.text.contains("std::env")), "{hits:?}");
+    assert!(hits.iter().any(|h| h.text.contains("rand::thread_rng")));
     assert!(hits.iter().all(|h| h.rule == Rule::AmbientWorldInAFold));
     assert_eq!(ambient_world_in_a_fold(TARGET, CLEAN), Vec::new());
+}
+
+#[test]
+fn imported_ambient_capabilities_still_trip_the_fold_lint() {
+    // `use std::env;` outside the fold used to hide `env::var` inside it; the
+    // lint now matches the bare capability name as well as the full path.
+    let src = "use std::env;\nuse rand::thread_rng;\n\
+               fn update(model: &AppModel, msg: &str) {\n\
+                   let _ = env::var(\"HOME\");\n\
+                   let _ = thread_rng();\n\
+               }\n";
+    let hits = ambient_world_in_a_fold("src/app.rs", src);
+    assert_eq!(hits.len(), 2, "both imported names must fire: {hits:?}");
+    assert!(hits.iter().any(|h| h.text.contains("env::var")), "{hits:?}");
+    assert!(hits.iter().any(|h| h.text.contains("thread_rng")));
 }
 
 #[test]

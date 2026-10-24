@@ -6,9 +6,9 @@
 //! Conventions (ADR-0002 Phase 1):
 //! - `never` is [`std::convert::Infallible`], not `()`. A channel that cannot
 //!   fail is `E = Infallible`.
-//! - A panic becomes [`Reason::Die`] at the fiber supervisor (Phase 1
-//!   supervisor is the only `catch_unwind` in the workspace). Library code
-//!   never catches.
+//! - A panic becomes [`Reason::Die`] at one of the deliberate boundaries: the
+//!   fiber supervisor, scope finalizers, and the acquire-use-release release.
+//!   Each renders to [`Defect`]; ordinary library code never catches.
 //! - Phase 1 has zero `unsafe`.
 
 // The port's shapes are higher-order by nature: an `Effect` is a boxed
@@ -17,12 +17,18 @@
 // describe them, so the complexity lint is off for this crate.
 #![allow(clippy::type_complexity)]
 
+/// Fallback re-check for a parked wait on a thread outside a fiber, which has
+/// no interrupt notification to subscribe to. On a fiber, `request_interrupt`
+/// and child completion notify the waiter directly; the only remaining tick is
+/// `race_deadline`'s clock deadline, which has no notification channel.
+pub(crate) const COOPERATIVE_QUANTUM: std::time::Duration = std::time::Duration::from_millis(10);
+
 pub mod cause;
 pub mod channel;
 // `Logger.console*` writes through this port, so it is part of the surface.
-pub mod console;
 #[cfg(feature = "tokio")]
 mod concurrency;
+pub mod console;
 // `Config` is the startup read: a descriptor plus `load` against a provider,
 // so an application never touches the environment from domain code.
 pub mod config;
@@ -77,19 +83,18 @@ pub use cause::{
     is_exceeded_capacity_error, is_fail_reason, is_illegal_argument_error, is_interrupt_reason,
     is_no_such_element_error, is_timeout_error, is_unknown_error,
 };
-pub use config::{Config, ConfigError};
 #[cfg(feature = "tokio")]
 pub use concurrency::{
-    BOUNDED_RECV_TIMEOUT, Body, Concurrency, all, all_discard, all_result, all_result_record,
-    all_in, all_with_deadline, find_first, find_first_filter, for_each, for_each_in, head,
-    partition, partition_items,
-    partition_with_deadline, reduce, validate, validate_discard, validate_discard_items,
-    validate_items,
+    BOUNDED_RECV_TIMEOUT, Body, Concurrency, all, all_discard, all_in, all_result,
+    all_result_record, all_with_deadline, find_first, find_first_filter, for_each, for_each_in,
+    head, partition, partition_items, partition_with_deadline, reduce, validate, validate_discard,
+    validate_discard_items, validate_items,
 };
+pub use config::{Config, ConfigError};
 pub use context::{Context, ContextReference, Tag};
 pub use effect::{Effect, Requirement};
 #[cfg(feature = "tokio")]
-pub use effect::{Resume, Restore};
+pub use effect::{Restore, Resume};
 #[cfg(feature = "tokio")]
 pub use executor::{BoxFuture, Executor, TokioExecutor};
 pub use exit::Exit;

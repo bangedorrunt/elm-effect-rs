@@ -11,6 +11,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Doorbell wake drops recorded on this tracker were fixed in flywheel, not in this crate. The cumulative audit counter cannot return to zero. Restart no longer waits behind a full watch queue: flywheel `82a8f9e14df7a873f08ed03a808acb45ca0e2dee` rings death on a side bell. Earlier stops are `6cbb974a2051918e358962d7de2d7ea97f0addd7` (condemned consumer stops) and `9c1bccd2fbf36d016fb8f001ec219c129c1d361d` (quiet watches do not fsync).
 
+## [0.3.0] - 2026-10-24
+
+The conformance ledger is closed. The phase-13 gate (`port_rows_are_matched`)
+now runs un-ignored: every port-like module with a pin test is `matched`, every
+module the ledger cannot speak for is named in `modules-without-rows.tsv`, and
+no behavior row is `unported` (9,970 rows: 1,507 ported, 8,298
+not-applicable, 56 skipped-upstream). The 0.2.0 claim of behavior parity was
+not enforced by this gate; it is now.
+
+### Added
+
+- `Duration`: `max`, `min`, `clamp`, `equals`, `between`, the four relational
+  predicates, and `combiner_max`/`combiner_min`/`reducer_sum`.
+- `Equivalence::struct_` and `Order::struct_`: named-field comparisons that
+  ignore extra keys. `Order::combine` now runs its tie-breaker only when the
+  first criterion ties.
+- `Fiber::wait_interrupted`, plus a per-fiber wake signal. `request_interrupt`
+  and `mark_done` notify it, so a parked fiber is released by the event itself.
+
+### Changed
+
+- Fibers no longer poll their interrupt flag every 10 ms. The race/timeout
+  loops, await-children, callback, layer-memo waiters, queue and semaphore
+  interruptible waits, and both clocks subscribe to the fiber's notification.
+  A raw thread outside a fiber keeps the bounded wait because it has no source
+  to subscribe to. `race_deadline` keeps a 10 ms tick only for the clock
+  deadline, which exposes no notification channel.
+- Workspace crates bumped 0.2.0 → 0.3.0 (conformance stays 0.0.0).
+
+### Fixed
+
+- `Order::combine` evaluated its second criterion even when the first decided,
+  so a side-effecting tie-breaker ran on every comparison.
+
+[0.3.0]: https://github.com/bangedorrunt/elm-effect-rs/compare/v0.2.0...v0.3.0
+
 ## [0.2.0] - 2026-10-17
 
 Behavior parity with the Effect v4.0.0 test suite is complete

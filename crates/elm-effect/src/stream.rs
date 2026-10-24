@@ -1034,8 +1034,9 @@ impl<A: Send + 'static> Stream<A, String, ()> {
             let queue = Arc::clone(&queue);
             Effect::sync(move || queue.take()).flat_map(|taken| match taken {
                 Ok(item) => Effect::succeed(Some(vec![item])),
-                Err(crate::sync::QueueError::Done)
-                | Err(crate::sync::QueueError::Interrupted) => Effect::succeed(None),
+                Err(crate::sync::QueueError::Done) | Err(crate::sync::QueueError::Interrupted) => {
+                    Effect::succeed(None)
+                }
                 Err(crate::sync::QueueError::Failed(message)) => Effect::fail(message),
             })
         })

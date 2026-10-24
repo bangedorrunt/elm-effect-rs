@@ -19,6 +19,19 @@ use std::time::Duration;
 
 use crate::Effect;
 
+/// Lock a cell even after a panic poisoned it. The guarded state here is a
+/// plain value or a one-shot slot, and a panic in a user callback leaves it
+/// unchanged rather than half-written, so recovery beats bricking the cell.
+trait RecoverLock<T> {
+    fn recover(&self) -> std::sync::MutexGuard<'_, T>;
+}
+
+impl<T> RecoverLock<T> for std::sync::Mutex<T> {
+    fn recover(&self) -> std::sync::MutexGuard<'_, T> {
+        self.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+}
+
 /// An atomically updated cell. [`update`](Ref::update) snapshots outside the
 /// lock and retries on a lost race, so the closure MUST be pure: it may run
 /// more than once, and it must not log, emit, or perform I/O.
@@ -223,7 +236,7 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
 
     /// The current value.
     pub fn get(&self) -> A {
-        self.inner.lock().unwrap().clone()
+        self.inner.recover().clone()
     }
 
     /// Conditionally update with a fallback (`modifySomeEffect`): `f`
@@ -240,7 +253,7 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
     {
         let inner = std::sync::Arc::clone(&self.inner);
         Effect::<B, E, R>::sync(move || {
-            let mut guard = inner.lock().unwrap();
+            let mut guard = inner.recover();
             match f(&*guard) {
                 Some((next, out)) => {
                     *guard = next;
@@ -273,10 +286,10 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
                 std::sync::Arc::clone(&slot),
             );
             move || {
-                let guard = inner.lock().unwrap();
+                let guard = inner.recover();
                 let current = guard.clone();
-                *slot.lock().unwrap() = Some(f(&current));
-                *previous.lock().unwrap() = Some(current);
+                *slot.recover() = Some(f(&current));
+                *previous.recover() = Some(current);
             }
         });
         let (inner, previous, slot) = (
@@ -285,12 +298,12 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
             std::sync::Arc::clone(&slot),
         );
         setup.flat_map(move |_| {
-            let effect = slot.lock().unwrap().take().expect("recorded in setup");
+            let effect = slot.recover().take().expect("recorded in setup");
             effect.flat_map(move |next| {
                 if let Some(next) = next {
-                    *inner.lock().unwrap() = next;
+                    *inner.recover() = next;
                 }
-                Effect::succeed(previous.lock().unwrap().take().expect("recorded in setup"))
+                Effect::succeed(previous.recover().take().expect("recorded in setup"))
             })
         })
     }
@@ -299,7 +312,7 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
     /// apply `f` when it returns `Some`, and return the PREVIOUS value
     /// (`SynchronizedRef.ts:224`).
     pub fn get_and_update_some(&self, f: impl Fn(&A) -> Option<A>) -> A {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.recover();
         let previous = guard.clone();
         if let Some(next) = f(&guard) {
             *guard = next;
@@ -324,16 +337,16 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
         let setup = Effect::<(), E, R>::sync({
             let (inner, slot) = (std::sync::Arc::clone(&inner), std::sync::Arc::clone(&slot));
             move || {
-                let guard = inner.lock().unwrap();
-                *slot.lock().unwrap() = Some(f(&guard));
+                let guard = inner.recover();
+                *slot.recover() = Some(f(&guard));
             }
         });
         let (inner, slot) = (std::sync::Arc::clone(&inner), std::sync::Arc::clone(&slot));
         setup.flat_map(move |_| {
-            let effect = slot.lock().unwrap().take().expect("recorded in setup");
+            let effect = slot.recover().take().expect("recorded in setup");
             let inner = std::sync::Arc::clone(&inner);
             effect.map(move |new_value| {
-                *inner.lock().unwrap() = new_value.clone();
+                *inner.recover() = new_value.clone();
                 new_value
             })
         })
@@ -364,10 +377,10 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
                 std::sync::Arc::clone(&slot),
             );
             move || {
-                let mut guard = inner.lock().unwrap();
+                let mut guard = inner.recover();
                 let (next, effect) = f(&*guard);
-                *previous.lock().unwrap() = Some(std::mem::replace(&mut *guard, next));
-                *slot.lock().unwrap() = Some(effect);
+                *previous.recover() = Some(std::mem::replace(&mut *guard, next));
+                *slot.recover() = Some(effect);
             }
         });
         let (previous, slot) = (
@@ -375,15 +388,13 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
             std::sync::Arc::clone(&slot),
         );
         setup.flat_map(move |_| {
-            let effect = slot.lock().unwrap().take();
+            let effect = slot.recover().take();
             let previous = std::sync::Arc::clone(&previous);
             match effect {
                 Some(effect) => effect.flat_map(move |_| {
-                    Effect::succeed(previous.lock().unwrap().take().expect("recorded in setup"))
+                    Effect::succeed(previous.recover().take().expect("recorded in setup"))
                 }),
-                None => {
-                    Effect::succeed(previous.lock().unwrap().take().expect("recorded in setup"))
-                }
+                None => Effect::succeed(previous.recover().take().expect("recorded in setup")),
             }
         })
     }
@@ -404,10 +415,10 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
         let setup = Effect::<(), E, R>::sync({
             let slot = std::sync::Arc::clone(&slot);
             move || {
-                let mut guard = inner.lock().unwrap();
+                let mut guard = inner.recover();
                 let (next, effect) = f(&*guard);
                 *guard = next;
-                *slot.lock().unwrap() = Some(effect);
+                *slot.recover() = Some(effect);
             }
         });
         let slot = std::sync::Arc::clone(&slot);
@@ -452,7 +463,7 @@ impl<A: Clone + Send, E: Clone + Send> Deferred<A, E> {
     /// exactly once: a second call returns false without calling `f`, which is
     /// the memoization the tag's row asserts.
     pub fn complete_with(&self, f: impl FnOnce() -> A) -> bool {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.recover();
         if guard.is_some() {
             return false;
         }
@@ -463,7 +474,7 @@ impl<A: Clone + Send, E: Clone + Send> Deferred<A, E> {
 
     /// Complete with any outcome, including a failure or an interrupt.
     pub fn complete_exit(&self, outcome: Exit<A, E>) -> bool {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.recover();
         if guard.is_some() {
             return false;
         }
@@ -474,12 +485,12 @@ impl<A: Clone + Send, E: Clone + Send> Deferred<A, E> {
 
     /// The recorded outcome, or `None` while still empty.
     pub fn poll(&self) -> Option<Exit<A, E>> {
-        self.inner.lock().unwrap().clone()
+        self.inner.recover().clone()
     }
 
     /// True once any outcome has been recorded.
     pub fn is_done(&self) -> bool {
-        self.inner.lock().unwrap().is_some()
+        self.inner.recover().is_some()
     }
 
     /// Block until completed, then return the value. Panics only when the
@@ -493,7 +504,7 @@ impl<A: Clone + Send, E: Clone + Send> Deferred<A, E> {
         E: std::fmt::Debug,
         A: std::fmt::Debug,
     {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.recover();
         while guard.is_none() {
             guard = self.ready.wait(guard).unwrap();
         }
@@ -635,7 +646,9 @@ pub fn is_queue<A: Send + 'static>(value: &dyn Any) -> bool {
 /// a reservation: a taker claims the next item, an offerer may only push
 /// while one is outstanding, so a message is never enqueued twice.
 pub struct Queue<A> {
-    inner: Mutex<VecDeque<A>>,
+    // `Arc` so an interrupt hook can lock the same mutex before notifying,
+    // which is what closes the lost-wakeup gap between re-check and wait.
+    inner: Arc<Mutex<VecDeque<A>>>,
     capacity: usize,
     strategy: Strategy,
     state: Mutex<QueueState>,
@@ -643,12 +656,16 @@ pub struct Queue<A> {
     pending_close: Mutex<Option<QueueState>>,
     /// Offers currently parked on a full queue.
     in_flight: Mutex<usize>,
-    /// Outstanding taker reservations for the zero-capacity rendezvous.
-    reservations: Mutex<usize>,
+    /// Takers parked on the zero-capacity rendezvous. An offer may hand its
+    /// item over only while one of them waits, which is what makes the
+    /// handoff a rendezvous instead of a buffered push.
+    waiting_takers: Mutex<usize>,
     /// Releases scheduled by `offerUnsafe` and performed by `flushUnsafe`.
     scheduled_releases: Mutex<usize>,
-    not_full: Condvar,
-    not_empty: Condvar,
+    // Shared so an interrupt hook can notify the wait without borrowing the
+    // queue for `'static`.
+    not_full: Arc<Condvar>,
+    not_empty: Arc<Condvar>,
     finished: Condvar,
 }
 impl<A: Send> Queue<A> {
@@ -665,16 +682,16 @@ impl<A: Send> Queue<A> {
     /// A queue with the given capacity and overflow strategy.
     pub fn with_strategy(capacity: usize, strategy: Strategy) -> Self {
         Self {
-            inner: Mutex::new(VecDeque::new()),
+            inner: Arc::new(Mutex::new(VecDeque::new())),
             capacity,
             strategy,
             state: Mutex::new(QueueState::Open),
             pending_close: Mutex::new(None),
             in_flight: Mutex::new(0),
-            reservations: Mutex::new(0),
+            waiting_takers: Mutex::new(0),
             scheduled_releases: Mutex::new(0),
-            not_full: Condvar::new(),
-            not_empty: Condvar::new(),
+            not_full: Arc::new(Condvar::new()),
+            not_empty: Arc::new(Condvar::new()),
             finished: Condvar::new(),
         }
     }
@@ -781,41 +798,38 @@ impl<A: Send> Queue<A> {
         self.flush_unsafe();
     }
 
-    /// Whether an offer must wait: the buffer is at capacity and the
-    /// zero-capacity rendezvous holds no reservation for this push.
+    /// Whether an offer must wait. A capacity-0 queue has no buffer to
+    /// speak of: an offer may hand its item over only while a taker waits,
+    /// and a second offer waits until the first item is taken.
     fn is_full(&self, guard: &VecDeque<A>) -> bool {
-        if guard.len() < self.capacity {
-            return false;
+        if self.capacity == 0 {
+            return !guard.is_empty() || *self.waiting_takers.lock().unwrap() == 0;
         }
-        // Zero capacity: a reservation is a permit for exactly one item.
-        !(self.capacity == 0 && *self.reservations.lock().unwrap() > 0)
+        guard.len() >= self.capacity
     }
 
-    /// A taker claims the next zero-capacity message, waking offerers.
-    /// Returns false when another taker already holds the claim.
-    fn reserve(&self) -> bool {
-        let mut reservations = self.reservations.lock().unwrap();
-        if *reservations == 0 {
-            *reservations = 1;
-            drop(reservations);
-            self.not_full.notify_all();
-            true
-        } else {
-            false
-        }
+    /// A taker joins the rendezvous, waking offerers parked on `not_full`.
+    fn claim_rendezvous(&self) {
+        *self.waiting_takers.lock().unwrap() += 1;
+        self.not_full.notify_all();
     }
 
-    /// Give up a reservation (a rendezvous that produced nothing).
-    /// The one place an item enters the buffer: a zero-capacity push
-    /// consumes the reservation that permitted it.
+    /// A taker leaves the rendezvous, waking both sides. The offer side must
+    /// re-check whether anyone still waits; the take side must re-check the
+    /// terminal state. Without this a taker that interrupted would leave an
+    /// offerer parked forever, which is the leak the reservation pair used
+    /// to cause.
+    fn release_rendezvous(&self) {
+        let mut waiting = self.waiting_takers.lock().unwrap();
+        *waiting -= 1;
+        drop(waiting);
+        self.not_full.notify_all();
+        self.not_empty.notify_all();
+    }
+
+    /// The one place an item enters the buffer.
     fn push_item(&self, guard: &mut VecDeque<A>, value: A) {
         guard.push_back(value);
-        if self.capacity == 0 {
-            let mut reservations = self.reservations.lock().unwrap();
-            if *reservations > 0 {
-                *reservations -= 1;
-            }
-        }
         self.not_empty.notify_one();
     }
 
@@ -852,7 +866,10 @@ impl<A: Send> Queue<A> {
         &self,
         value: A,
         interrupted: &dyn Fn() -> bool,
-    ) -> Result<OfferOutcome<A>, ()> {
+    ) -> Result<OfferOutcome<A>, ()>
+    where
+        A: Send + 'static,
+    {
         let mut guard = self.inner.lock().unwrap();
         let value = value;
         let mut parked = false;
@@ -889,18 +906,41 @@ impl<A: Send> Queue<A> {
                 parked = true;
                 *self.in_flight.lock().unwrap() += 1;
             }
-            let (next, _) = self
-                .not_full
-                .wait_timeout(guard, std::time::Duration::from_millis(1))
-                .unwrap();
-            guard = next;
+            let hook = crate::fiber::subscribe_current_interrupt({
+                let inner = Arc::clone(&self.inner);
+                let not_full = Arc::clone(&self.not_full);
+                move || {
+                    let _guard = inner.lock().unwrap();
+                    not_full.notify_all();
+                }
+            });
+            // Subscribe first, then re-check: an interrupt between the check
+            // above and the subscription is caught here, and one after the
+            // subscription wakes the condvar.
+            if interrupted() {
+                if parked {
+                    self.leave();
+                }
+                return Err(());
+            }
+            guard = if hook.is_some() {
+                self.not_full.wait(guard).unwrap()
+            } else {
+                self.not_full
+                    .wait_timeout(guard, crate::COOPERATIVE_QUANTUM)
+                    .unwrap()
+                    .0
+            };
         }
     }
 
     /// Offer a batch, returning whatever was not accepted. Once the
     /// queue closes, or a full dropping queue refuses the rest, the
     /// remainder comes back untouched.
-    pub fn offer_all(&self, values: impl IntoIterator<Item = A>) -> Vec<A> {
+    pub fn offer_all(&self, values: impl IntoIterator<Item = A>) -> Vec<A>
+    where
+        A: Send + 'static,
+    {
         let mut unaccepted = Vec::new();
         for value in values {
             match self.offer_interruptible(value, &|| false) {
@@ -920,7 +960,10 @@ impl<A: Send> Queue<A> {
         &self,
         values: impl IntoIterator<Item = A>,
         interrupted: &dyn Fn() -> bool,
-    ) -> Result<Vec<A>, ()> {
+    ) -> Result<Vec<A>, ()>
+    where
+        A: Send + 'static,
+    {
         let mut remaining = Vec::new();
         for value in values {
             match self.offer_interruptible(value, interrupted) {
@@ -959,24 +1002,36 @@ impl<A: Send> Queue<A> {
     /// Pop, blocking while empty, with the terminal outcome (`Queue.take`).
     pub fn take(&self) -> Result<A, QueueError> {
         let mut guard = self.inner.lock().unwrap();
-        let mut reserved = false;
+        let mut claimed = false;
         loop {
             if let Some(value) = guard.pop_front() {
+                if claimed {
+                    self.release_rendezvous();
+                }
                 self.not_full.notify_one();
                 return Ok(value);
             }
-            match &*self.state.lock().unwrap() {
-                QueueState::Open => {}
-                QueueState::Ended => return Err(QueueError::Done),
-                QueueState::Failed(message) => {
-                    return Err(QueueError::Failed(message.clone()));
+            if let Err(error) = self.open_state() {
+                if claimed {
+                    self.release_rendezvous();
                 }
-                QueueState::Interrupted => return Err(QueueError::Interrupted),
+                return Err(error);
             }
-            if !reserved && self.capacity == 0 {
-                reserved = self.reserve();
+            if self.capacity == 0 && !claimed {
+                self.claim_rendezvous();
+                claimed = true;
             }
             guard = self.not_empty.wait(guard).unwrap();
+        }
+    }
+
+    /// The queue's terminal state as an error, or `Ok` while it is open.
+    fn open_state(&self) -> Result<(), QueueError> {
+        match &*self.state.lock().unwrap() {
+            QueueState::Open => Ok(()),
+            QueueState::Ended => Err(QueueError::Done),
+            QueueState::Failed(message) => Err(QueueError::Failed(message.clone())),
+            QueueState::Interrupted => Err(QueueError::Interrupted),
         }
     }
 
@@ -985,33 +1040,60 @@ impl<A: Send> Queue<A> {
     pub fn take_interruptible(
         &self,
         interrupted: &dyn Fn() -> bool,
-    ) -> Result<Result<A, QueueError>, ()> {
+    ) -> Result<Result<A, QueueError>, ()>
+    where
+        A: Send + 'static,
+    {
         let mut guard = self.inner.lock().unwrap();
-        let mut reserved = false;
+        let mut claimed = false;
         loop {
             if let Some(value) = guard.pop_front() {
+                if claimed {
+                    self.release_rendezvous();
+                }
                 self.not_full.notify_one();
                 return Ok(Ok(value));
             }
-            match &*self.state.lock().unwrap() {
-                QueueState::Open => {}
-                QueueState::Ended => return Ok(Err(QueueError::Done)),
-                QueueState::Failed(message) => {
-                    return Ok(Err(QueueError::Failed(message.clone())));
+            if let Err(error) = self.open_state() {
+                if claimed {
+                    self.release_rendezvous();
                 }
-                QueueState::Interrupted => return Ok(Err(QueueError::Interrupted)),
+                return Ok(Err(error));
             }
             if interrupted() {
+                // The claim is a permit for one offer; leaving it behind
+                // would let a later offer push with no taker.
+                if claimed {
+                    self.release_rendezvous();
+                }
                 return Err(());
             }
-            if !reserved && self.capacity == 0 {
-                reserved = self.reserve();
+            if self.capacity == 0 && !claimed {
+                self.claim_rendezvous();
+                claimed = true;
             }
-            let (next, _) = self
-                .not_empty
-                .wait_timeout(guard, std::time::Duration::from_millis(1))
-                .unwrap();
-            guard = next;
+            let hook = crate::fiber::subscribe_current_interrupt({
+                let inner = Arc::clone(&self.inner);
+                let not_empty = Arc::clone(&self.not_empty);
+                move || {
+                    let _guard = inner.lock().unwrap();
+                    not_empty.notify_all();
+                }
+            });
+            if interrupted() {
+                if claimed {
+                    self.release_rendezvous();
+                }
+                return Err(());
+            }
+            guard = if hook.is_some() {
+                self.not_empty.wait(guard).unwrap()
+            } else {
+                self.not_empty
+                    .wait_timeout(guard, crate::COOPERATIVE_QUANTUM)
+                    .unwrap()
+                    .0
+            };
         }
     }
 
@@ -1033,59 +1115,38 @@ impl<A: Send> Queue<A> {
             std::mem::swap(&mut min, &mut max);
         }
         let mut out = Vec::new();
+        let mut claimed = false;
         loop {
-            {
-                let mut guard = self.inner.lock().unwrap();
-                while out.len() < max {
-                    match guard.pop_front() {
-                        Some(value) => out.push(value),
-                        None => break,
-                    }
+            let mut guard = self.inner.lock().unwrap();
+            while out.len() < max {
+                match guard.pop_front() {
+                    Some(value) => out.push(value),
+                    None => break,
                 }
-                if !out.is_empty() {
-                    self.not_full.notify_all();
-                }
+            }
+            if !out.is_empty() {
+                self.not_full.notify_all();
             }
             if out.len() >= min {
+                if claimed {
+                    self.release_rendezvous();
+                }
                 return Ok(out);
             }
-            match &*self.state.lock().unwrap() {
-                QueueState::Open => {}
-                QueueState::Ended => {
-                    return if out.is_empty() {
-                        Err(QueueError::Done)
-                    } else {
-                        Ok(out)
-                    };
+            if let Err(error) = self.open_state() {
+                if claimed {
+                    self.release_rendezvous();
                 }
-                QueueState::Failed(message) => {
-                    return if out.is_empty() {
-                        Err(QueueError::Failed(message.clone()))
-                    } else {
-                        Ok(out)
-                    };
-                }
-                QueueState::Interrupted => {
-                    return if out.is_empty() {
-                        Err(QueueError::Interrupted)
-                    } else {
-                        Ok(out)
-                    };
-                }
+                return if out.is_empty() { Err(error) } else { Ok(out) };
             }
-            let mut guard = self.inner.lock().unwrap();
-            while guard.len() + out.len() < min {
-                // A terminal state releases the wait even below the minimum:
-                // the closing queue drains what the taker already holds.
-                if !matches!(&*self.state.lock().unwrap(), QueueState::Open) {
-                    break;
-                }
-                let (next, _) = self
-                    .not_empty
-                    .wait_timeout(guard, std::time::Duration::from_millis(1))
-                    .unwrap();
-                guard = next;
+            // A capacity-0 queue needs a waiting taker before an offer may
+            // push; without this claim take_between waits while every
+            // offerer waits for a taker (the deadlock the review witnessed).
+            if self.capacity == 0 && !claimed {
+                self.claim_rendezvous();
+                claimed = true;
             }
+            guard = self.not_empty.wait(guard).unwrap();
         }
     }
 
@@ -1100,7 +1161,10 @@ impl<A: Send> Queue<A> {
     /// `Queue.takeAll` in its waiting form: block until at least one item
     /// is available (or the queue finishes), then drain the buffer. A
     /// finished empty queue reports the terminal error.
-    pub fn take_all_blocking(&self) -> Result<Vec<A>, QueueError> {
+    pub fn take_all_blocking(&self) -> Result<Vec<A>, QueueError>
+    where
+        A: Send + 'static,
+    {
         let first = self
             .take_interruptible(&|| false)
             .expect("uninterrupted wait")?;
@@ -1272,16 +1336,16 @@ struct SemState {
 
 /// A counting semaphore: at most `permits` permits loaned at once.
 pub struct Semaphore {
-    inner: Mutex<SemState>,
-    changed: Condvar,
+    inner: Arc<Mutex<SemState>>,
+    changed: Arc<Condvar>,
 }
 
 impl Semaphore {
     /// A semaphore with `permits` permits.
     pub fn new(permits: usize) -> Self {
         Self {
-            inner: Mutex::new(SemState { permits, taken: 0 }),
-            changed: Condvar::new(),
+            inner: Arc::new(Mutex::new(SemState { permits, taken: 0 })),
+            changed: Arc::new(Condvar::new()),
         }
     }
 
@@ -1290,7 +1354,10 @@ impl Semaphore {
     /// never returns.
     pub fn take(&self, permits: usize) -> usize {
         let mut state = self.inner.lock().unwrap();
-        while state.permits - state.taken < permits {
+        // `resize` may shrink the pool below what is on loan, so the free
+        // count can be negative in all but type. Saturating keeps a take
+        // parked until a release catches up instead of panicking.
+        while state.permits.saturating_sub(state.taken) < permits {
             state = self.changed.wait(state).unwrap();
         }
         state.taken += permits;
@@ -1301,7 +1368,7 @@ impl Semaphore {
     /// report false without waiting or taking a part.
     pub fn take_if_available(&self, permits: usize) -> bool {
         let mut state = self.inner.lock().unwrap();
-        if state.permits - state.taken < permits {
+        if state.permits.saturating_sub(state.taken) < permits {
             return false;
         }
         state.taken += permits;
@@ -1351,9 +1418,11 @@ impl Semaphore {
     /// Run `f` while holding `permits`.
     pub fn with_permits<R>(&self, permits: usize, f: impl FnOnce() -> R) -> R {
         self.take(permits);
-        let out = f();
-        self.release(permits);
-        out
+        let _held = HeldPermits {
+            semaphore: self,
+            permits,
+        };
+        f()
     }
 
     /// Run `f` while holding `permits`, or answer `None` without running it
@@ -1362,13 +1431,15 @@ impl Semaphore {
         if !self.take_if_available(permits) {
             return None;
         }
-        let out = f();
-        self.release(permits);
-        Some(out)
+        let _held = HeldPermits {
+            semaphore: self,
+            permits,
+        };
+        Some(f())
     }
 
     /// A take that observes an external interruption: waits on the changed
-    /// latch in a 1ms quantum and gives up holding nothing once
+    /// latch in the cooperative quantum and gives up holding nothing once
     /// `interrupted` turns true. This is the portable stand-in for a fiber
     /// interrupt landing on a parked `take`.
     pub fn take_interruptible(
@@ -1378,18 +1449,32 @@ impl Semaphore {
     ) -> Option<usize> {
         let mut state = self.inner.lock().unwrap();
         loop {
-            if state.permits - state.taken >= permits {
+            if state.permits.saturating_sub(state.taken) >= permits {
                 state.taken += permits;
                 return Some(permits);
             }
             if interrupted() {
                 return None;
             }
-            let (next, _) = self
-                .changed
-                .wait_timeout(state, std::time::Duration::from_millis(1))
-                .unwrap();
-            state = next;
+            let hook = crate::fiber::subscribe_current_interrupt({
+                let inner = Arc::clone(&self.inner);
+                let changed = Arc::clone(&self.changed);
+                move || {
+                    let _guard = inner.lock().unwrap();
+                    changed.notify_all();
+                }
+            });
+            if interrupted() {
+                return None;
+            }
+            state = if hook.is_some() {
+                self.changed.wait(state).unwrap()
+            } else {
+                self.changed
+                    .wait_timeout(state, crate::COOPERATIVE_QUANTUM)
+                    .unwrap()
+                    .0
+            };
         }
     }
 
@@ -1403,9 +1488,25 @@ impl Semaphore {
         f: impl FnOnce() -> R,
     ) -> Option<R> {
         self.take_interruptible(permits, interrupted)?;
-        let out = f();
-        self.release(permits);
-        Some(out)
+        let _held = HeldPermits {
+            semaphore: self,
+            permits,
+        };
+        Some(f())
+    }
+}
+
+/// Restores a semaphore's permits when it leaves scope, so a panic inside the
+/// guarded body cannot leak them (the same guard the partitioned semaphore
+/// already uses).
+struct HeldPermits<'a> {
+    semaphore: &'a Semaphore,
+    permits: usize,
+}
+
+impl Drop for HeldPermits<'_> {
+    fn drop(&mut self) {
+        self.semaphore.release(self.permits);
     }
 }
 
@@ -1423,44 +1524,62 @@ impl Semaphore {
 /// assert_eq!(watched.poll(sub), Some(5));
 /// ```
 pub struct SubscriptionRef<A> {
-    current: Mutex<A>,
-    sinks: Mutex<Vec<std::collections::VecDeque<A>>>,
+    // One lock for the value and the sinks: `subscribe` must snapshot the
+    // current value and register its sink in the same critical section, or a
+    // `set` landing between the two updates the cell and notifies a stream
+    // that does not exist yet, and the new subscriber never sees it.
+    hub: Mutex<SubscriptionHub<A>>,
+}
+
+struct SubscriptionHub<A> {
+    current: A,
+    // Unbounded by design, like the pin's `Queue.unbounded()`: a slow
+    // subscriber holds every update instead of losing one.
+    sinks: Vec<std::collections::VecDeque<A>>,
 }
 
 impl<A: Clone + Send> SubscriptionRef<A> {
     /// A cell holding `initial` with no subscribers.
     pub fn new(initial: A) -> Self {
         Self {
-            current: Mutex::new(initial),
-            sinks: Mutex::new(Vec::new()),
+            hub: Mutex::new(SubscriptionHub {
+                current: initial,
+                sinks: Vec::new(),
+            }),
         }
     }
 
     /// The current value.
     pub fn get(&self) -> A {
-        self.current.lock().unwrap().clone()
+        self.hub.lock().unwrap().current.clone()
     }
 
     /// Assign and broadcast to every subscriber buffer.
     pub fn set(&self, value: A) {
-        *self.current.lock().unwrap() = value.clone();
-        for sink in self.sinks.lock().unwrap().iter_mut() {
+        let mut hub = self.hub.lock().unwrap();
+        hub.current = value.clone();
+        for sink in &mut hub.sinks {
             sink.push_back(value.clone());
         }
     }
 
     /// Subscribe: returns an index seeded with the current value.
     pub fn subscribe(&self) -> usize {
-        let mut sinks = self.sinks.lock().unwrap();
+        let mut hub = self.hub.lock().unwrap();
         let mut queue = std::collections::VecDeque::new();
-        queue.push_back(self.current.lock().unwrap().clone());
-        sinks.push(queue);
-        sinks.len() - 1
+        queue.push_back(hub.current.clone());
+        hub.sinks.push(queue);
+        hub.sinks.len() - 1
     }
 
     /// Pop the subscriber's next value, if any.
     pub fn poll(&self, subscriber: usize) -> Option<A> {
-        self.sinks.lock().unwrap().get_mut(subscriber)?.pop_front()
+        self.hub
+            .lock()
+            .unwrap()
+            .sinks
+            .get_mut(subscriber)?
+            .pop_front()
     }
 }
 
@@ -1471,9 +1590,10 @@ impl<A: Clone + Send> SubscriptionRef<A> {
 /// a waiter, in round-robin order, so one busy key cannot monopolise the pool.
 ///
 /// The pin resumes waiters through fiber callbacks; here a parked take is a
-/// thread on the pool's condvar, and the `interruptible` variants are the
-/// portable cancellation story (wait in a 1ms quantum, then hand the partial
-/// grant back).
+/// thread on the pool's condvar. The `interruptible` variants subscribe to the
+/// running fiber's interrupt notification, so the request wakes the condvar;
+/// a thread outside a fiber keeps the bounded wait. An interrupted take hands
+/// its partial grant back.
 ///
 /// ```
 /// use elm_effect::PartitionedSemaphore;
@@ -1500,12 +1620,11 @@ impl<K> Clone for PartitionedSemaphore<K> {
 
 struct PoolInner<K> {
     pool: Mutex<PermitPool<K>>,
-    changed: Condvar,
+    changed: Arc<Condvar>,
 }
 
-/// A parked take's wait quantum. The pin is woken by a callback; a thread
-/// cannot be, so it re-checks the pool and its interrupt flag this often.
-const PARK_QUANTUM: Duration = Duration::from_millis(1);
+/// Fallback wait for a parked take on a thread with no fiber to subscribe to.
+const PARK_QUANTUM: Duration = crate::COOPERATIVE_QUANTUM;
 
 struct PermitPool<K> {
     capacity: usize,
@@ -1633,18 +1752,18 @@ impl<K: Eq + Hash + Clone> PermitPool<K> {
 
 /// Releases a with-permits body's permits on the way out, including an unwind
 /// (the pin gets this from `Effect.ensuring`).
-struct Hold<'a, K: Eq + Hash + Clone> {
+struct Hold<'a, K: Eq + Hash + Clone + Send + Sync + 'static> {
     sem: &'a PartitionedSemaphore<K>,
     permits: usize,
 }
 
-impl<K: Eq + Hash + Clone> Drop for Hold<'_, K> {
+impl<K: Eq + Hash + Clone + Send + Sync + 'static> Drop for Hold<'_, K> {
     fn drop(&mut self) {
         self.sem.release(self.permits);
     }
 }
 
-impl<K: Eq + Hash + Clone> PartitionedSemaphore<K> {
+impl<K: Eq + Hash + Clone + Send + Sync + 'static> PartitionedSemaphore<K> {
     /// A shared pool of `capacity` permits partitioned by key.
     pub fn new(capacity: usize) -> Self {
         Self {
@@ -1659,7 +1778,7 @@ impl<K: Eq + Hash + Clone> PartitionedSemaphore<K> {
                     needs: HashMap::new(),
                     next_id: 0,
                 }),
-                changed: Condvar::new(),
+                changed: Arc::new(Condvar::new()),
             }),
         }
     }
@@ -1709,8 +1828,25 @@ impl<K: Eq + Hash + Clone> PartitionedSemaphore<K> {
                 if interrupted() {
                     return None;
                 }
-                let (next, _) = self.inner.changed.wait_timeout(pool, PARK_QUANTUM).unwrap();
-                pool = next;
+                let hook = crate::fiber::subscribe_current_interrupt({
+                    let inner = Arc::clone(&self.inner);
+                    move || {
+                        let _guard = inner.pool.lock().unwrap();
+                        inner.changed.notify_all();
+                    }
+                });
+                if interrupted() {
+                    continue;
+                }
+                pool = if hook.is_some() {
+                    self.inner.changed.wait(pool).unwrap()
+                } else {
+                    self.inner
+                        .changed
+                        .wait_timeout(pool, PARK_QUANTUM)
+                        .unwrap()
+                        .0
+                };
             }
         }
         if pool.available >= permits {
@@ -1734,8 +1870,25 @@ impl<K: Eq + Hash + Clone> PartitionedSemaphore<K> {
                 self.inner.changed.notify_all();
                 return None;
             }
-            let (next, _) = self.inner.changed.wait_timeout(pool, PARK_QUANTUM).unwrap();
-            pool = next;
+            let hook = crate::fiber::subscribe_current_interrupt({
+                let inner = Arc::clone(&self.inner);
+                move || {
+                    let _guard = inner.pool.lock().unwrap();
+                    inner.changed.notify_all();
+                }
+            });
+            if interrupted() {
+                continue;
+            }
+            pool = if hook.is_some() {
+                self.inner.changed.wait(pool).unwrap()
+            } else {
+                self.inner
+                    .changed
+                    .wait_timeout(pool, PARK_QUANTUM)
+                    .unwrap()
+                    .0
+            };
         }
     }
 

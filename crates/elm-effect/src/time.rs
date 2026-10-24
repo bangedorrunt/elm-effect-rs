@@ -3,12 +3,13 @@
 //! [`Duration`] is millisecond time. [`ClockImpl`] is the service behind the
 //! [`Clock`](crate::Clock) tag: [`SystemClock`] parks threads on real
 //! deadlines, [`TestClock`] parks fibers on virtual time advanced only by
-//! [`TestClock::adjust`]. A sleep observes interruption through a poll
-//! closure, so bodies pass `&|| ctx.is_interrupted()`.
+//! [`TestClock::adjust`]. A sleep on a fiber subscribes to that fiber's
+//! interrupt notification, so the request wakes it directly; the `interrupted`
+//! closure is the predicate, and the cooperative quantum is only the fallback
+//! for a raw thread that has no fiber to subscribe to.
 //!
-//! The 1ms poll quantum inside sleeps bounds wall latency only: completions
-//! happen exclusively via `adjust` (virtual) or deadlines (real), so test
-//! outcomes are virtual-time-deterministic.
+//! Completions happen exclusively via `adjust` (virtual) or deadlines (real),
+//! so test outcomes are virtual-time-deterministic.
 
 use std::sync::{Arc, Condvar, Mutex};
 
@@ -523,6 +524,74 @@ impl Duration {
         crate::Equivalence::make(|a: &Duration, b: &Duration| a.compare(b).is_eq())
     }
 
+    /// The pin's `Duration.max` (ties keep the first value).
+    pub fn max(self, other: Self) -> Self {
+        if self.compare(&other).is_lt() {
+            other
+        } else {
+            self
+        }
+    }
+
+    /// The pin's `Duration.min` (ties keep the first value).
+    pub fn min(self, other: Self) -> Self {
+        if self.compare(&other).is_gt() {
+            other
+        } else {
+            self
+        }
+    }
+
+    /// The pin's `Duration.clamp`, inclusive at both bounds.
+    pub fn clamp(self, minimum: Self, maximum: Self) -> Self {
+        self.max(minimum).min(maximum)
+    }
+
+    /// The pin's `Duration.equals`: equivalence, not representation.
+    pub fn equals(self, other: Self) -> bool {
+        self.compare(&other).is_eq()
+    }
+
+    /// The pin's `Duration.between`, inclusive at both bounds.
+    pub fn between(self, minimum: Self, maximum: Self) -> bool {
+        !self.compare(&minimum).is_lt() && !self.compare(&maximum).is_gt()
+    }
+
+    /// The pin's `Duration.isGreaterThan`.
+    pub fn is_greater_than(self, other: Self) -> bool {
+        self.compare(&other).is_gt()
+    }
+
+    /// The pin's `Duration.isGreaterThanOrEqualTo`.
+    pub fn is_greater_than_or_equal(self, other: Self) -> bool {
+        !self.compare(&other).is_lt()
+    }
+
+    /// The pin's `Duration.isLessThan`.
+    pub fn is_less_than(self, other: Self) -> bool {
+        self.compare(&other).is_lt()
+    }
+
+    /// The pin's `Duration.isLessThanOrEqualTo`.
+    pub fn is_less_than_or_equal(self, other: Self) -> bool {
+        !self.compare(&other).is_gt()
+    }
+
+    /// The pin's `Duration.CombinerMax`.
+    pub fn combiner_max() -> crate::Combiner<Duration> {
+        crate::Combiner::max(Self::order())
+    }
+
+    /// The pin's `Duration.CombinerMin`.
+    pub fn combiner_min() -> crate::Combiner<Duration> {
+        crate::Combiner::min(Self::order())
+    }
+
+    /// The pin's `Duration.ReducerSum`.
+    pub fn reducer_sum() -> crate::Reducer<Duration> {
+        crate::Reducer::make(Self::zero(), |a: &Duration, b: &Duration| a.sum(*b))
+    }
+
     /// The pin's `parts`: the signed, normalized decomposition.
     pub fn parts(self) -> Parts {
         match self.value {
@@ -655,10 +724,6 @@ impl Duration {
             DurationValue::NegativeInfinity => on_negative_infinity(),
         }
     }
-
-
-
-
 }
 
 impl PartialEq for Duration {
@@ -814,14 +879,34 @@ impl ClockImpl for SystemClock {
         }
         let deadline =
             std::time::Instant::now() + std::time::Duration::from_millis(duration.as_millis());
+        // An interrupt request notifies this latch. A thread outside a fiber
+        // has no source to subscribe to, so it keeps the bounded wait.
+        let wake = Arc::new((Mutex::new(()), Condvar::new()));
+        let hook = crate::fiber::subscribe_current_interrupt({
+            let wake = Arc::clone(&wake);
+            move || {
+                let _guard = wake.0.lock().unwrap();
+                wake.1.notify_all();
+            }
+        });
         loop {
+            // Lock before re-checking: the interrupt waker takes this lock
+            // too, so the request cannot land between the check and the wait.
+            let (lock, cvar) = &*wake;
+            let guard = lock.lock().unwrap();
             if interrupted() {
                 return SleepOutcome::Interrupted;
             }
-            if std::time::Instant::now() >= deadline {
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            if remaining.is_zero() {
                 return SleepOutcome::Elapsed;
             }
-            std::thread::park_timeout(std::time::Duration::from_millis(1));
+            let wait = if hook.is_some() {
+                remaining
+            } else {
+                remaining.min(crate::COOPERATIVE_QUANTUM)
+            };
+            let _ = cvar.wait_timeout(guard, wait).unwrap();
         }
     }
 
@@ -836,7 +921,10 @@ impl ClockImpl for SystemClock {
     /// wall-clock correction changes nothing here.
     fn monotonic_millis(&self) -> u64 {
         static ORIGIN: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
-        ORIGIN.get_or_init(std::time::Instant::now).elapsed().as_millis() as u64
+        ORIGIN
+            .get_or_init(std::time::Instant::now)
+            .elapsed()
+            .as_millis() as u64
     }
 }
 
@@ -847,7 +935,7 @@ struct Sleeper {
 
 /// Virtual clock: time advances only through [`TestClock::adjust`]. Sleepers
 /// park on per-sleeper latches woken by `adjust`; interruption is observed
-/// through a 1ms poll quantum (latency only, never completion).
+/// through the cooperative poll quantum (latency only, never completion).
 pub struct TestClock {
     now_ms: Mutex<u64>,
     /// Time that passed, which only [`adjust`](TestClock::adjust) moves.
@@ -879,14 +967,20 @@ impl TestClock {
             *guard = guard.saturating_add(duration.as_millis());
             *guard
         };
-        let sleepers = self.sleepers.lock().unwrap();
-        for sleeper in sleepers.iter() {
+        let mut sleepers = self.sleepers.lock().unwrap();
+        // Woken sleepers leave the list here, not when they next run: a woken
+        // sleeper is no longer parked, and `pending_sleepers` is the test aid
+        // that says so.
+        sleepers.retain(|sleeper| {
             if sleeper.deadline_ms <= now {
                 let (lock, cvar) = &*sleeper.woken;
                 *lock.lock().unwrap() = true;
                 cvar.notify_one();
+                false
+            } else {
+                true
             }
-        }
+        });
     }
 
     /// Sleepers currently parked. Test aid: asserts scheduling happened (or
@@ -918,15 +1012,34 @@ impl Default for TestClock {
 
 impl ClockImpl for TestClock {
     fn sleep(&self, duration: Duration, interrupted: &dyn Fn() -> bool) -> SleepOutcome {
-        let now = self.now_millis();
-        let deadline = now.saturating_add(duration.as_millis());
-        if deadline <= now {
-            return SleepOutcome::Elapsed;
-        }
         let woken: Arc<(Mutex<bool>, Condvar)> = Arc::new((Mutex::new(false), Condvar::new()));
-        self.sleepers.lock().unwrap().push(Sleeper {
-            deadline_ms: deadline,
-            woken: Arc::clone(&woken),
+        // Read the clock while holding the sleeper list. A concurrent
+        // `adjust` then either lands before this read (its time is already in
+        // `now`) or finds the sleeper registered and wakes it. Sampling before
+        // taking the list left a window where neither held.
+        let deadline = {
+            let mut sleepers = self.sleepers.lock().unwrap();
+            let now = self.now_millis();
+            let deadline = now.saturating_add(duration.as_millis());
+            if deadline <= now {
+                return SleepOutcome::Elapsed;
+            }
+            sleepers.push(Sleeper {
+                deadline_ms: deadline,
+                woken: Arc::clone(&woken),
+            });
+            deadline
+        };
+        // A virtual sleeper wakes when `adjust` reaches its deadline; an
+        // interrupt request notifies the same latch here. Outside a fiber the
+        // predicate has no notification source, so the bounded wait remains.
+        let hook = crate::fiber::subscribe_current_interrupt({
+            let woken = Arc::clone(&woken);
+            move || {
+                let (lock, cvar) = &*woken;
+                *lock.lock().unwrap() = true;
+                cvar.notify_all();
+            }
         });
         loop {
             if interrupted() {
@@ -942,9 +1055,17 @@ impl ClockImpl for TestClock {
             if *guard {
                 continue;
             }
-            let _ = cvar
-                .wait_timeout(guard, std::time::Duration::from_millis(1))
-                .unwrap();
+            if hook.is_some() {
+                // `adjust` and the interrupt hook are the only wake sources;
+                // the deadline itself is what `adjust` compares against.
+                drop(cvar.wait(guard).unwrap());
+            } else {
+                let remaining =
+                    std::time::Duration::from_millis(deadline.saturating_sub(self.now_millis()));
+                let _ = cvar
+                    .wait_timeout(guard, remaining.min(crate::COOPERATIVE_QUANTUM))
+                    .unwrap();
+            }
         }
     }
 

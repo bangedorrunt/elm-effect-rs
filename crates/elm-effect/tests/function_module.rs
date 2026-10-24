@@ -12,7 +12,8 @@ use std::cell::Cell;
 use std::sync::Arc;
 
 use elm_effect::{
-    apply, compose, const_unit, flow, hole, identity, memoize, memoize_idempotent, pipe, sk,
+    apply, compose, const_false, const_null, const_true, const_unit, flip_curried, flow, hole,
+    identity, memoize, memoize_idempotent, pipe, sk, tupled, untupled,
 };
 
 #[test]
@@ -69,10 +70,7 @@ fn function_pipe() {
         10
     );
     // :239 - the value's type changes from step to step.
-    assert_eq!(
-        pipe!(5, |n: i32| n.to_string(), |s: String| s.len()),
-        1
-    );
+    assert_eq!(pipe!(5, |n: i32| n.to_string(), |s: String| s.len()), 1);
 }
 
 #[test]
@@ -83,11 +81,7 @@ fn function_flow() {
     assert_eq!(one(1), 2);
 
     // :261 - three functions compose left to right.
-    let three = flow!(
-        |s: &str| s.len(),
-        |n: usize| n * 2,
-        |n: usize| n + 1
-    );
+    let three = flow!(|s: &str| s.len(), |n: usize| n * 2, |n: usize| n + 1);
     assert_eq!(three("ab"), 5);
 
     // :272 - up to nine functions.
@@ -112,7 +106,7 @@ fn function_flow() {
 #[test]
 fn function_hole() {
     // :297 - `hole` panics when it is reached, naming itself.
-    let caught = std::panic::catch_unwind(|| hole::<u8>()).expect_err("hole must panic");
+    let caught = std::panic::catch_unwind(hole::<u8>).expect_err("hole must panic");
     let message = caught
         .downcast_ref::<&str>()
         .copied()
@@ -178,4 +172,82 @@ fn function_memoize_idempotent() {
     assert!(Arc::ptr_eq(&g(&fixed), &fixed));
     assert!(Arc::ptr_eq(&g(&fixed), &fixed));
     assert_eq!(calls.get(), 1);
+}
+
+#[test]
+fn function_identity_rows() {
+    // :93, :101, :108, :114, :120, :126 - identity returns its argument
+    // itself: primitives by value, objects by the same reference.
+    assert_eq!(identity(42), 42);
+    assert_eq!(identity("text"), "text");
+    assert!(identity(true));
+    assert_eq!(identity(()), ());
+
+    let shared = Arc::new(String::from("shared"));
+    let returned = identity(Arc::clone(&shared));
+    assert!(
+        Arc::ptr_eq(&returned, &shared),
+        "the same object comes back"
+    );
+
+    // The same call answers the same value every time; identity keeps no
+    // state.
+    assert_eq!(identity(7), identity(7));
+    assert!(Arc::ptr_eq(&identity(Arc::clone(&shared)), &shared));
+}
+
+#[test]
+fn function_constant_rows() {
+    // :135, :141, :147 - the three constant thunks answer always true,
+    // always false, and null (None in Rust).
+    let yes = const_true();
+    assert!(yes());
+    assert!(yes());
+    let no = const_false();
+    assert!(!no());
+    assert!(!no());
+    let null = const_null::<String>();
+    assert_eq!(null, None);
+    assert_eq!(null, None);
+}
+
+#[test]
+fn function_flip_curried_row() {
+    // :165 - the curried flip still applies the original function's first
+    // argument second.
+    let subtract = |a: i32| move |b: i32| a - b;
+    assert_eq!(subtract(10)(3), 7);
+    let flipped = flip_curried(subtract);
+    assert_eq!(flipped(3)(10), 7, "flipped(b)(a) is f(a)(b)");
+    assert_eq!(flipped(3)(10), 7, "the captured argument replays");
+}
+
+#[test]
+fn function_data_first_compose_runs_left_to_right() {
+    // :175 - compose's input goes through the first function first.
+    let inc = |n: i32| n + 1;
+    let double = |n: i32| n * 2;
+    assert_eq!(compose(inc, double)(3), 8);
+    assert_eq!(compose(double, inc)(3), 7);
+    assert_eq!(pipe!(3, inc, double), 8);
+}
+
+#[test]
+fn function_tupled_and_untupled_rows() {
+    // :193, :201 - the two adapters are inverses of each other.
+    let add = |a: i32, b: i32| a + b;
+    assert_eq!(tupled(add)((2, 3)), 5);
+    assert_eq!(untupled(tupled(add))(2, 3), 5);
+
+    let pair = |(a, b): (i32, i32)| a * b;
+    assert_eq!(untupled(pair)(4, 5), 20);
+    assert_eq!(tupled(untupled(pair))((4, 5)), 20);
+}
+
+#[test]
+fn function_composes_two_functions() {
+    // :255 - a two-function flow is compose with the same left-to-right order.
+    let f = flow!(|n: i32| n + 1, |n: i32| n * 2);
+    assert_eq!(f(3), 8);
+    assert_eq!(flow!(|n: i32| n * 2, |n: i32| n + 1)(3), 7);
 }

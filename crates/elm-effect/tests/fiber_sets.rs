@@ -8,10 +8,13 @@
 
 #![cfg(feature = "tokio")]
 
+#[allow(dead_code, clippy::type_complexity)]
 #[path = "../src/execution_plan.rs"]
 mod execution_plan;
+#[allow(dead_code, clippy::type_complexity)]
 #[path = "../src/fiber_map.rs"]
 mod fiber_map;
+#[allow(clippy::type_complexity)]
 #[path = "../src/fiber_set.rs"]
 mod fiber_set;
 
@@ -262,6 +265,27 @@ fn plan_exhausts_budget() {
     let planned = plan.run(&|| false, |_, _| Err::<i32, String>("down".to_owned()));
     assert_eq!(planned.outcome, Err("down".to_owned()));
     assert_eq!(planned.attempts, 2);
+}
+
+#[test]
+fn plan_probes_interruption_once_per_attempt() {
+    // The failure branch used to ask the probe twice: once to decide whether
+    // to retry and once to fill `interrupted`. A probe that is not a pure read
+    // could answer differently on the second call.
+    let plan = ExecutionPlan::new(3).expect("valid");
+    let probes = counter();
+    let probe = || {
+        probes.fetch_add(1, Ordering::SeqCst);
+        false
+    };
+    let planned = plan.run(&probe, |_, _| Err::<i32, String>("down".to_owned()));
+    assert_eq!(planned.attempts, 3);
+    assert!(!planned.interrupted);
+    assert_eq!(
+        probes.load(Ordering::SeqCst),
+        3,
+        "one probe per failed attempt"
+    );
 }
 
 #[test]

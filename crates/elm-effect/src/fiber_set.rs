@@ -155,10 +155,10 @@ where
     /// the pin's `Fiber.interrupt(fiber)` on the fiber `run` returned.
     pub fn interrupt_member(&self, index: usize) {
         let shared = self.members.lock().expect("set lock").get(index).cloned();
-        if let Some(shared) = shared {
-            if let Some(handle) = shared.lock().expect("set lock").as_ref() {
-                handle.interrupt();
-            }
+        if let Some(shared) = shared
+            && let Some(handle) = shared.lock().expect("set lock").as_ref()
+        {
+            handle.interrupt();
         }
     }
 
@@ -184,19 +184,9 @@ where
 
     /// Wait until every member finishes, then reap. Returns like [`join`](FiberSet::join).
     pub fn await_empty(&mut self) -> Exit<(), E> {
-        loop {
-            let done = self.members.lock().expect("set lock").iter().all(|shared| {
-                shared
-                    .lock()
-                    .expect("set lock")
-                    .as_ref()
-                    .is_none_or(|h| h.is_done())
-            });
-            if done {
-                break;
-            }
-            std::thread::park_timeout(std::time::Duration::from_millis(1));
-        }
+        // `join` already blocks on each member's exit (finalizers included)
+        // and drains the set, so the old 1 ms `is_done` poll only cost
+        // wakeups.
         self.join()
     }
 

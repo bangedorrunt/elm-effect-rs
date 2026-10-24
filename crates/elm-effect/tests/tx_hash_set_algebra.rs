@@ -2,13 +2,6 @@
 //! three predicate folds, map, filter and reduce, plus the immutable snapshot
 //! the operations return.
 
-//! The snapshot type is std's Hash Set, which is what TxHashSet stores, so the
-//! test reaches it the same way the crate does.
-#[path = "../src/containers/hash_map.rs"]
-mod hash_map;
-#[path = "../src/containers/hash_set.rs"]
-mod hash_set;
-
 use elm_effect::{TxHashSet, atomically};
 use std::collections::HashSet;
 
@@ -180,7 +173,7 @@ fn multiple_set_operations_work_together() {
     assert!(set2.remove(&"d"));
 
     let common = set1.intersection(&set2);
-    if common.len() > 0 {
+    if !common.is_empty() {
         assert!(set1.insert("shared"));
         assert!(set2.insert("shared"));
     }

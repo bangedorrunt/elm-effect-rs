@@ -201,7 +201,6 @@ fn ledger_is_well_formed() {
 }
 
 #[test]
-#[ignore = "phase 13: every port-like module with a pin test is matched and every behavior test is ported"]
 fn port_rows_are_matched() {
     let root = repo_root();
     let ledger = Ledger::load(&root.join("conformance/modules.toml")).unwrap();

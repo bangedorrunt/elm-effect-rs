@@ -10,8 +10,7 @@ use std::time::{Duration, Instant};
 use elm_effect::channel::Channel;
 use elm_effect::{
     BuiltServices, Defect, Effect, Exit, FiberHandle, ForkOpts, Layer, LayerMemo, ManagedRuntime,
-    Runtime, Scope, ServiceTag, Unimplemented, UnimplementedError, channel, pull::Pull, take::Take,
-    use_service,
+    Runtime, Scope, ServiceTag, Unimplemented, channel, pull::Pull, take::Take, use_service,
 };
 
 struct Db;
@@ -1498,6 +1497,71 @@ fn failing_constructor(
         }
     })
     .expect("a single constructor cannot cycle")
+}
+
+fn panicking_constructor(
+    started: Arc<AtomicBool>,
+    gate: Arc<(Mutex<bool>, Condvar)>,
+) -> Layer<Db, String, ()> {
+    Layer::from_factory(move || {
+        started.store(true, Ordering::SeqCst);
+        wait_gate(&gate);
+        Effect::<DbConn, String, ()>::sync(|| panic!("constructor panic"))
+    })
+    .expect("a single constructor cannot cycle")
+}
+
+#[test]
+fn a_waiter_is_released_when_a_shared_build_panics() {
+    // Regression: a panicking constructor unwound past the entry, which stayed
+    // `Building`; every waiter then parked on a build that could never finish.
+    // The unwind guard publishes the failure before the panic leaves the build.
+    let started = Arc::new(AtomicBool::new(false));
+    let gate = Arc::new((Mutex::new(false), Condvar::new()));
+    let layer = panicking_constructor(Arc::clone(&started), Arc::clone(&gate));
+    let memo = LayerMemo::new();
+    let rt = Runtime::new();
+
+    let builder_layer = layer.clone();
+    let builder_memo = memo.clone();
+    let builder = rt.fork_detach_with(
+        move |ctx| -> Exit<(), String> {
+            let scope = Arc::new(Scope::new(21));
+            match builder_layer.build_with_fiber_and_memo(&ctx.fiber(), &builder_memo, &scope) {
+                Ok(_) => Exit::succeed(()),
+                Err(cause) => Exit::Failure(cause),
+            }
+        },
+        ForkOpts::immediate(),
+    );
+    assert!(
+        wait_flag(&started, Duration::from_secs(5)),
+        "the builder never started"
+    );
+
+    let waiter_layer = layer.clone();
+    let waiter_memo = memo.clone();
+    let waiter = rt.fork_detach_with(
+        move |ctx| -> Exit<(), String> {
+            let scope = Arc::new(Scope::new(22));
+            match waiter_layer.build_with_fiber_and_memo(&ctx.fiber(), &waiter_memo, &scope) {
+                Ok(_) => Exit::succeed(()),
+                Err(cause) => Exit::Failure(cause),
+            }
+        },
+        ForkOpts::immediate(),
+    );
+    // Let the waiter reach the entry, then let the builder panic.
+    std::thread::sleep(Duration::from_millis(30));
+    open_gate(&gate);
+
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    while !waiter.is_done() && std::time::Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(waiter.is_done(), "the waiter parked on a panicked build");
+    assert!(matches!(builder.join(), Exit::Failure(cause) if cause.has_dies()));
+    assert!(matches!(waiter.join(), Exit::Failure(cause) if cause.has_dies()));
 }
 
 #[test]
