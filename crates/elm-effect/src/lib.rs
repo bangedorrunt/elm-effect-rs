@@ -85,7 +85,6 @@ pub mod observability;
 // `observability/OtlpTracer.ts`: the tracer's `layer` builds on `Layer`.
 #[cfg(feature = "tokio")]
 pub mod otlp_tracer;
-mod partitioned_semaphore;
 pub mod path;
 pub mod platform_error;
 #[cfg(feature = "tokio")]

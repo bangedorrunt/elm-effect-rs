@@ -12,8 +12,10 @@
 
 use crate::Exit;
 use std::any::Any;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
+use std::hash::Hash;
 use std::sync::{Arc, Condvar, Mutex};
+use std::time::Duration;
 
 use crate::Effect;
 
@@ -1462,133 +1464,342 @@ impl<A: Clone + Send> SubscriptionRef<A> {
     }
 }
 
-/// Independent permit pools behind one handle (`PartitionedSemaphore`
-/// shape): each partition counts down separately; `acquire` blocks on
-/// its partition's condvar while `try_acquire` never does.
+/// The pin's `PartitionedSemaphore` (`PartitionedSemaphore.ts`): ONE shared
+/// pool of `capacity` permits with parked takes grouped by partition key. A
+/// take that cannot be met in full absorbs whatever is free and parks its
+/// shortfall under its key; each released permit goes to the next key holding
+/// a waiter, in round-robin order, so one busy key cannot monopolise the pool.
+///
+/// The pin resumes waiters through fiber callbacks; here a parked take is a
+/// thread on the pool's condvar, and the `interruptible` variants are the
+/// portable cancellation story (wait in a 1ms quantum, then hand the partial
+/// grant back).
 ///
 /// ```
 /// use elm_effect::PartitionedSemaphore;
-/// let sem = PartitionedSemaphore::new(2, 1);
-/// assert!(sem.try_acquire(0));
-/// assert!(!sem.try_acquire(0));
-/// assert!(sem.try_acquire(1));
-/// sem.release(0);
-/// assert_eq!(sem.available(0), 1);
+/// let sem = PartitionedSemaphore::new(2);
+/// sem.with_permits("a", 2, || {});
+/// assert_eq!(sem.available(), 2);
+/// assert!(sem.try_take(2));
+/// assert!(!sem.try_take(1));
+/// sem.release(2);
+/// assert_eq!(sem.available(), 2);
 /// ```
-pub struct PartitionedSemaphore {
-    partitions: Mutex<Vec<usize>>,
+pub struct PartitionedSemaphore<K> {
+    inner: Arc<PoolInner<K>>,
+}
+
+/// Cloning a handle shares the pool, like the pin's value being the pool.
+impl<K> Clone for PartitionedSemaphore<K> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
+    }
+}
+
+struct PoolInner<K> {
+    pool: Mutex<PermitPool<K>>,
     changed: Condvar,
 }
 
-impl PartitionedSemaphore {
-    /// `partitions` pools with `permits_each` permits apiece.
-    pub fn new(partitions: usize, permits_each: usize) -> Self {
+/// A parked take's wait quantum. The pin is woken by a callback; a thread
+/// cannot be, so it re-checks the pool and its interrupt flag this often.
+const PARK_QUANTUM: Duration = Duration::from_millis(1);
+
+struct PermitPool<K> {
+    capacity: usize,
+    /// Permits free right now.
+    available: usize,
+    /// Sum of the shortfalls parked takes still wait for.
+    waiting: usize,
+    /// Keys holding waiters, in the order each key's first waiter arrived.
+    order: Vec<K>,
+    /// Index in `order` that receives the next released permit.
+    cursor: usize,
+    queues: HashMap<K, VecDeque<u64>>,
+    /// Parked take id -> permits still needed. Missing means satisfied.
+    needs: HashMap<u64, usize>,
+    next_id: u64,
+}
+
+impl<K: Eq + Hash + Clone> PermitPool<K> {
+    fn enqueue(&mut self, key: K, need: usize) -> u64 {
+        let id = self.next_id;
+        self.next_id += 1;
+        self.needs.insert(id, need);
+        match self.queues.get_mut(&key) {
+            Some(queue) => queue.push_back(id),
+            None => {
+                self.order.push(key.clone());
+                let mut queue = VecDeque::new();
+                queue.push_back(id);
+                self.queues.insert(key, queue);
+            }
+        }
+        id
+    }
+
+    /// Hand one released permit to the next key in rotation. `false` when
+    /// nobody is parked, so the caller can grow `available` instead.
+    fn grant_one(&mut self) -> bool {
+        if self.waiting == 0 || self.order.is_empty() {
+            return false;
+        }
+        if self.cursor >= self.order.len() {
+            self.cursor = 0;
+        }
+        let key = self.order[self.cursor].clone();
+        let id = {
+            let queue = self
+                .queues
+                .get_mut(&key)
+                .expect("every ordered key keeps its queue");
+            *queue.front().expect("every ordered key keeps a waiter")
+        };
+        let need = self
+            .needs
+            .get_mut(&id)
+            .expect("a queued take keeps its remaining need");
+        *need -= 1;
+        self.waiting -= 1;
+        // A partly satisfied waiter keeps its place at the head of its key's
+        // queue; only a satisfied one leaves, which is how the pin mutates the
+        // waiter entry and resumes it on the third permit.
+        let satisfied = *need == 0;
+        let queue_now_empty = if satisfied {
+            // Absence from `needs` is how the parked take learns it holds
+            // everything it asked for.
+            self.needs.remove(&id);
+            let queue = self
+                .queues
+                .get_mut(&key)
+                .expect("every ordered key keeps its queue");
+            queue.pop_front();
+            queue.is_empty()
+        } else {
+            false
+        };
+        if queue_now_empty {
+            self.queues.remove(&key);
+            self.order.remove(self.cursor);
+            // The next key slid into this slot, so the cursor stays put: that
+            // is the rotation.
+        } else {
+            self.cursor += 1;
+        }
+        true
+    }
+
+    /// Distribution half of `release`: waiters first, then the free pool.
+    fn distribute(&mut self, mut permits: usize) -> usize {
+        while permits > 0 {
+            if self.waiting == 0 {
+                self.available = (self.available + permits).min(self.capacity);
+                return self.available;
+            }
+            if !self.grant_one() {
+                return self.available;
+            }
+            permits -= 1;
+        }
+        self.available
+    }
+
+    /// Drop an interrupted take's charge and answer how much it still needs,
+    /// so the caller can hand back everything it had already absorbed.
+    fn forget(&mut self, key: &K, id: u64) -> Option<usize> {
+        let need = self.needs.remove(&id)?;
+        self.waiting -= need;
+        let empty = match self.queues.get_mut(key) {
+            Some(queue) => {
+                queue.retain(|queued| *queued != id);
+                queue.is_empty()
+            }
+            None => false,
+        };
+        if empty {
+            self.queues.remove(key);
+            if let Some(pos) = self.order.iter().position(|ordered| ordered == key) {
+                self.order.remove(pos);
+                if pos < self.cursor {
+                    self.cursor -= 1;
+                }
+            }
+        }
+        Some(need)
+    }
+}
+
+/// Releases a with-permits body's permits on the way out, including an unwind
+/// (the pin gets this from `Effect.ensuring`).
+struct Hold<'a, K: Eq + Hash + Clone> {
+    sem: &'a PartitionedSemaphore<K>,
+    permits: usize,
+}
+
+impl<K: Eq + Hash + Clone> Drop for Hold<'_, K> {
+    fn drop(&mut self) {
+        self.sem.release(self.permits);
+    }
+}
+
+impl<K: Eq + Hash + Clone> PartitionedSemaphore<K> {
+    /// A shared pool of `capacity` permits partitioned by key.
+    pub fn new(capacity: usize) -> Self {
         Self {
-            partitions: Mutex::new(vec![permits_each; partitions]),
-            changed: Condvar::new(),
+            inner: Arc::new(PoolInner {
+                pool: Mutex::new(PermitPool {
+                    capacity,
+                    available: capacity,
+                    waiting: 0,
+                    order: Vec::new(),
+                    cursor: 0,
+                    queues: HashMap::new(),
+                    needs: HashMap::new(),
+                    next_id: 0,
+                }),
+                changed: Condvar::new(),
+            }),
         }
     }
 
-    /// Take one permit from `partition`, blocking until free.
-    pub fn acquire(&self, partition: usize) {
-        let mut pools = self.partitions.lock().unwrap();
-        while pools[partition] == 0 {
-            pools = self.changed.wait(pools).unwrap();
-        }
-        pools[partition] -= 1;
+    /// The pool size (`PartitionedSemaphore.capacity`).
+    pub fn capacity(&self) -> usize {
+        self.inner.pool.lock().unwrap().capacity
     }
 
-    /// Take one permit without blocking (`false` when empty or missing).
-    pub fn try_acquire(&self, partition: usize) -> bool {
-        match self.partitions.lock().unwrap().get_mut(partition) {
-            Some(permits) if *permits > 0 => {
-                *permits -= 1;
-                true
+    /// Permits free right now (`PartitionedSemaphore.available`), across every
+    /// key.
+    pub fn available(&self) -> usize {
+        self.inner.pool.lock().unwrap().available
+    }
+
+    /// Permits parked takes are still short of: the pool's outstanding charge.
+    pub fn waiting(&self) -> usize {
+        self.inner.pool.lock().unwrap().waiting
+    }
+
+    /// `PartitionedSemaphore.take`: block until `permits` arrive for `key`.
+    /// A take above the pool never returns, which is the pin's `Effect.never`.
+    pub fn take(&self, key: K, permits: usize) {
+        let _ = self.take_interruptible(key, permits, &|| false);
+    }
+
+    /// A take that observes an external interrupt: it hands back whatever it
+    /// had absorbed and answers `None`, holding nothing.
+    ///
+    /// `interrupted` runs on the thread holding the pool lock, so it must not
+    /// call back into this semaphore (`available`, `release`, another take) or
+    /// it will deadlock on the non-reentrant mutex.
+    pub fn take_interruptible(
+        &self,
+        key: K,
+        permits: usize,
+        interrupted: &dyn Fn() -> bool,
+    ) -> Option<()> {
+        if permits == 0 {
+            return Some(());
+        }
+        let mut pool = self.inner.pool.lock().unwrap();
+        if permits > pool.capacity {
+            // No release can ever satisfy a need larger than the whole pool,
+            // and the pin never grants such a take a partial permit either.
+            loop {
+                if interrupted() {
+                    return None;
+                }
+                let (next, _) = self.inner.changed.wait_timeout(pool, PARK_QUANTUM).unwrap();
+                pool = next;
             }
-            _ => false,
         }
-    }
-
-    /// Blocking acquire that observes external interruption: waits on the
-    /// changed latch in a 1ms quantum (the TestClock sleep precedent) and
-    /// gives up, holding nothing, once `interrupted` turns true.
-    pub fn acquire_interruptible(&self, partition: usize, interrupted: &dyn Fn() -> bool) -> bool {
-        let mut pools = self.partitions.lock().unwrap();
+        if pool.available >= permits {
+            pool.available -= permits;
+            return Some(());
+        }
+        let need = permits - pool.available;
+        pool.available = 0;
+        pool.waiting += need;
+        let id = pool.enqueue(key.clone(), need);
         loop {
+            if !pool.needs.contains_key(&id) {
+                return Some(());
+            }
             if interrupted() {
-                return false;
+                let remaining = pool
+                    .forget(&key, id)
+                    .expect("a parked take is dropped once");
+                let absorbed = permits - remaining;
+                pool.distribute(absorbed);
+                self.inner.changed.notify_all();
+                return None;
             }
-            if pools[partition] > 0 {
-                pools[partition] -= 1;
-                return true;
-            }
-            let (guard, _waited) = self
-                .changed
-                .wait_timeout(pools, std::time::Duration::from_millis(1))
-                .unwrap();
-            pools = guard;
-            if interrupted() {
-                return false;
-            }
+            let (next, _) = self.inner.changed.wait_timeout(pool, PARK_QUANTUM).unwrap();
+            pool = next;
         }
     }
 
-    /// Scoped multi-permit take with interruption restore (`withPermits`
-    /// shape): takes `count` permits, runs `f`, releases everything after.
-    /// An interruption before the take completes releases the partial
-    /// take and yields `None`; an interruption after the take but before
-    /// `f` runs also releases and yields `None`. A resumed waiter never
-    /// steals another partition's permits: takes are per-partition.
+    /// `withPermitsIfAvailable`: take all `permits` or nothing at all. Never
+    /// waits.
+    pub fn try_take(&self, permits: usize) -> bool {
+        let mut pool = self.inner.pool.lock().unwrap();
+        if permits > pool.capacity || permits > pool.available {
+            return false;
+        }
+        pool.available -= permits;
+        true
+    }
+
+    /// `PartitionedSemaphore.release`: waiters first in round-robin order, the
+    /// remainder back into the pool. Answers the pool's free count.
+    pub fn release(&self, permits: usize) -> usize {
+        let total = self.inner.pool.lock().unwrap().distribute(permits);
+        self.inner.changed.notify_all();
+        total
+    }
+
+    /// `withPermits`: run `f` while `key` holds `permits`, and give them back
+    /// even when `f` unwinds.
+    pub fn with_permits<R>(&self, key: K, permits: usize, f: impl FnOnce() -> R) -> R {
+        self.take(key, permits);
+        let _held = Hold { sem: self, permits };
+        f()
+    }
+
+    /// `withPermit`: the single-permit `withPermits`.
+    pub fn with_permit<R>(&self, key: K, f: impl FnOnce() -> R) -> R {
+        self.with_permits(key, 1, f)
+    }
+
+    /// `withPermitsIfAvailable`: run `f` only when the pool can give it every
+    /// permit at once, and give them back afterwards.
+    pub fn with_permits_if_available<R>(&self, permits: usize, f: impl FnOnce() -> R) -> Option<R> {
+        if !self.try_take(permits) {
+            return None;
+        }
+        let _held = Hold { sem: self, permits };
+        Some(f())
+    }
+
+    /// `withPermits` under an external interrupt: an interrupted wait takes
+    /// nothing and does not run `f`, so no permit leaks out of a take that
+    /// never finished. The same lock rule as [`take_interruptible`] applies to
+    /// `interrupted`.
     pub fn with_permits_interruptible<R>(
         &self,
-        partition: usize,
-        count: usize,
+        key: K,
+        permits: usize,
         interrupted: &dyn Fn() -> bool,
         f: impl FnOnce() -> R,
     ) -> Option<R> {
-        let mut taken = 0;
-        while taken < count {
-            if interrupted() {
-                self.release_n(partition, taken);
-                return None;
-            }
-            if !self.acquire_interruptible(partition, interrupted) {
-                self.release_n(partition, taken);
-                return None;
-            }
-            taken += 1;
-        }
+        self.take_interruptible(key, permits, interrupted)?;
         if interrupted() {
-            self.release_n(partition, taken);
+            // The take was satisfied but the interrupt landed before the body:
+            // the pin's `ensuring` still gives the permits back.
+            self.release(permits);
             return None;
         }
-        let out = f();
-        self.release_n(partition, taken);
-        Some(out)
-    }
-
-    fn release_n(&self, partition: usize, mut count: usize) {
-        while count > 0 {
-            self.release(partition);
-            count -= 1;
-        }
-    }
-
-    /// Return one permit to `partition`.
-    pub fn release(&self, partition: usize) {
-        if let Some(permits) = self.partitions.lock().unwrap().get_mut(partition) {
-            *permits += 1;
-        }
-        self.changed.notify_all();
-    }
-
-    /// Permits currently free in `partition` (0 when missing).
-    pub fn available(&self, partition: usize) -> usize {
-        self.partitions
-            .lock()
-            .unwrap()
-            .get(partition)
-            .copied()
-            .unwrap_or(0)
+        let _held = Hold { sem: self, permits };
+        Some(f())
     }
 }

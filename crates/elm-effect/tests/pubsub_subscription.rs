@@ -4,14 +4,12 @@
 //! in for fibers; Effect-scope/interruption rows stay `unported` with
 //! reasons in the close report.
 
-#[path = "../src/partitioned_semaphore.rs"]
-mod partitioned_semaphore;
 #[path = "../src/pubsub.rs"]
 mod pubsub;
 #[path = "../src/subscription_ref.rs"]
 mod subscription_ref;
 
-use partitioned_semaphore::PartitionedSemaphore;
+use elm_effect::PartitionedSemaphore;
 use pubsub::{PubSub, Strategy};
 use subscription_ref::SubscriptionRef;
 
@@ -348,10 +346,14 @@ fn subscription_ref_concurrent_use() {
 // ---------------------------------------------------- PartitionedSemaphore ---
 
 #[test]
-fn semaphore_module_delegates_to_instance() {
+fn semaphore_capacity_and_available_agree() {
     let sem = PartitionedSemaphore::<String>::new(2);
-    assert_eq!(sem.permits_per_key(), 2);
-    assert_eq!(sem.available("a".to_string()), 2);
+    assert_eq!(sem.capacity(), 2);
+    assert_eq!(sem.available(), 2);
+    sem.take("k".to_string(), 1);
+    assert_eq!(sem.available(), 1);
+    sem.release(1);
+    assert_eq!(sem.available(), 2);
 }
 
 #[test]
@@ -359,57 +361,85 @@ fn semaphore_zero_permits_run_immediately() {
     let sem = PartitionedSemaphore::<String>::new(1);
     let ran = sem.with_permits("k".to_string(), 0, || 42);
     assert_eq!(ran, 42);
-    assert_eq!(sem.available("k".to_string()), 1);
+    assert_eq!(sem.available(), 1);
 }
 
 #[test]
 fn semaphore_try_acquire_reports() {
     let sem = PartitionedSemaphore::<String>::new(1);
-    let g = sem.try_acquire("k".to_string(), 1).expect("free");
-    assert!(sem.try_acquire("k".to_string(), 1).is_none());
-    drop(g);
-    assert!(sem.try_acquire("k".to_string(), 1).is_some());
+    sem.take("k".to_string(), 1);
+    let mut ran = false;
+    assert_eq!(
+        sem.with_permits_if_available(1, || ran = true),
+        None,
+        "the pool is empty while the take holds it"
+    );
+    assert!(!ran, "an unavailable take never runs the body");
+    sem.release(1);
+    assert_eq!(sem.with_permits_if_available(1, || ()), Some(()));
 }
 
+/// The pin's defining rule: keys share ONE pool, so a busy key can leave
+/// another key waiting. (This is the row the port used to get wrong with a
+/// pool per key.)
 #[test]
-fn semaphore_keys_do_not_contend() {
+fn semaphore_keys_share_one_pool() {
     let sem = PartitionedSemaphore::<String>::new(1);
-    let a = sem.try_acquire("a".to_string(), 1).expect("a free");
-    assert!(sem.try_acquire("b".to_string(), 1).is_some());
-    drop(a);
+    sem.take("a".to_string(), 1);
+    assert!(
+        !sem.try_take(1),
+        "key b cannot borrow a permit that key a holds"
+    );
+    sem.release(1);
+    assert_eq!(sem.with_permits_if_available(1, || ()), Some(()));
 }
 
 #[test]
 fn semaphore_with_permits_releases() {
     let sem = PartitionedSemaphore::<String>::new(2);
     sem.with_permits("k".to_string(), 2, || {
-        assert_eq!(sem.available("k".to_string()), 0);
+        assert_eq!(sem.available(), 0);
     });
-    assert_eq!(sem.available("k".to_string()), 2);
+    assert_eq!(sem.available(), 2);
 }
 
+/// Row 122: competing takes cannot acquire the same permit. Two takers of one
+/// permit on one key run one after the other, and the permit comes back.
 #[test]
 fn semaphore_competing_takes_serialize() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Arc, Barrier, Mutex};
     let sem = PartitionedSemaphore::<String>::new(1);
     let gate = Arc::new(Barrier::new(3));
     let order = Arc::new(Mutex::new(Vec::new()));
+    let running = Arc::new(AtomicUsize::new(0));
+    let peak = Arc::new(AtomicUsize::new(0));
     let mut handles = Vec::new();
     for i in 0..2 {
-        let (s, g, o) = (sem.clone(), gate.clone(), order.clone());
+        let (s, g, o, r, p) = (
+            sem.clone(),
+            gate.clone(),
+            order.clone(),
+            running.clone(),
+            peak.clone(),
+        );
         handles.push(std::thread::spawn(move || {
             g.wait();
-            let _guard = s.acquire("k".to_string(), 1);
-            o.lock().unwrap().push(i);
-            std::thread::sleep(std::time::Duration::from_millis(20));
+            s.with_permits("k".to_string(), 1, || {
+                p.fetch_max(r.fetch_add(1, Ordering::SeqCst) + 1, Ordering::SeqCst);
+                o.lock().unwrap().push(i);
+                std::thread::sleep(std::time::Duration::from_millis(20));
+                r.fetch_sub(1, Ordering::SeqCst);
+            });
         }));
     }
     gate.wait();
     for h in handles {
         h.join().unwrap();
     }
+    assert_eq!(peak.load(Ordering::SeqCst), 1, "never two holders at once");
     assert_eq!(order.lock().unwrap().len(), 2);
-    assert_eq!(sem.available("k".to_string()), 1);
+    assert_eq!(sem.available(), 1);
 }
 
 #[test]
