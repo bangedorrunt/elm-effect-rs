@@ -247,8 +247,10 @@ fn write_of(id: u64) -> Option<Arc<WriteFn>> {
 
 /// The context a read runs with: the pin's `AtomContext`. A readable atom
 /// reads its sources through this rather than through a single fixed source.
+#[derive(Clone)]
 pub struct ReadContext {
     registry: Arc<Registry>,
+    self_id: u64,
 }
 
 impl ReadContext {
@@ -261,6 +263,52 @@ impl ReadContext {
     /// Refresh another atom (`get.refresh`).
     pub fn refresh<T: Clone + Send + Sync + 'static>(&self, atom: &Atom<T>) {
         self.registry.refresh(atom);
+    }
+
+    /// The value this node held before the current build (`get.self`). A
+    /// first build has none.
+    pub fn self_value<T: Clone + Send + Sync + 'static>(&self) -> Option<T> {
+        let nodes = self.registry.nodes.lock().unwrap();
+        nodes
+            .get(&self.self_id)
+            .and_then(|node| node.value.downcast_ref::<T>())
+            .cloned()
+    }
+
+    /// Write this node's value from inside its own read (`get.setSelf`). A
+    /// value set this way still notifies listeners, and the build's return
+    /// value overwrites it, exactly as the pin does.
+    pub fn set_self<T: Clone + Send + Sync + 'static>(&self, value: T) {
+        // During the FIRST build the node is absent and building it would
+        // re-enter the read; there is nothing to write to yet. Sets from a
+        // subscription callback (the pin's actual use) always find the node.
+        if self.registry.nodes.lock().unwrap().contains_key(&self.self_id) {
+            if let Some(spec) = spec_of(self.self_id) {
+                self.registry.assign(&spec, Arc::new(value));
+            }
+        }
+    }
+
+    /// Subscribe to another atom for the life of this node (`get.subscribe`).
+    /// Pair it with [`add_finalizer`](Self::add_finalizer), which is what
+    /// cancels it when the node is released.
+    pub fn subscribe<T: Clone + Send + Sync + 'static>(
+        &self,
+        atom: &Atom<T>,
+        listener: impl Fn(T) + Send + Sync + 'static,
+    ) -> Subscription {
+        self.registry.subscribe(atom, listener)
+    }
+
+    /// Register cleanup on this node (`get.addFinalizer`). Runs once, when
+    /// the disposal pass releases the node.
+    pub fn add_finalizer(&self, finalizer: impl Fn() + Send + Sync + 'static) {
+        self.registry.on_dispose(self.self_id, finalizer);
+    }
+
+    /// Mark this node stale so its next read rebuilds it (`refreshSelf`).
+    pub fn refresh_self(&self) {
+        self.registry.invalidate_id(self.self_id);
     }
 }
 
@@ -2236,6 +2284,7 @@ impl Registry {
             }
             AtomKind::Readable { read } => read(&ReadContext {
                 registry: Arc::clone(self),
+                self_id: spec.id,
             }),
         }
     }
