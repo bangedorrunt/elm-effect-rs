@@ -378,7 +378,7 @@ impl<A: Clone + Send + 'static, E: Send + 'static> Remote<A, E> {
         F: Fn() -> Effect<A, E, ()> + Send + Sync + 'static,
     {
         let start_ms = clock.now_millis();
-        let backoff: Schedule<(), ()> = Schedule::exponential(self.policy.backoff)
+        let backoff: Schedule<(), Duration> = Schedule::exponential(self.policy.backoff)
             .capped(self.policy.ceiling)
             .jitter(Random::with_seed(self.policy.seed));
         let mut attempt: u32 = 0;

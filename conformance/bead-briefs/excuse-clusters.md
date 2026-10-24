@@ -41,7 +41,7 @@ other 11 are excused by representability, listed in A.
 | Atom surface | 60 | `Atom.fn`/idleTTL/batching (33) and `Atom.swr`/refresh (27); the port has the lifecycle core only | `crates/elm-effect-unstable/src/reactivity.rs` |
 | HTTP client/api/server | 80 | Transport, discovery, handler/middleware wiring | `crates/elm-effect-unstable/src/http.rs` |
 | MCP transport | 54 | stdio/HTTP/SSE/session/batch; only the in-memory pair exists | `crates/elm-effect-unstable/src/mcp_server.rs` |
-| Schedule policy | 31 | no clock inside the step, so `duration`/`during`/cron/window alignment are unobservable; no `toStep` metadata; no per-run state for `concat`/`concatResult` | `crates/elm-effect/src/schedule.rs` |
+| ~~Schedule policy~~ | ~~31~~ 0 | **Ported** in `elm-effect-rs-wb8g`: a schedule now owns its own metadata counters (`attempt`/`start`/`previous`, the pin's `metadataFn`), steps are timestamped, and `Decision::Done` carries the pin's done value. `during`, `duration`, `cron`, `windowed`, `fixed`'s window alignment, `concat`/`concatResult`, `tap`/`modifyDelay`/`addDelay`, `while`, and `upTo(options)` all exist. All 23 remaining rows are in `crates/elm-effect/tests/schedule.rs`. | `crates/elm-effect/src/schedule.rs` |
 
 Disposition: each is a machinery bead when scheduled, with a dependency on its
 enabler; none may carry a wave label until then. `Schedule` looked cheapest and
@@ -130,7 +130,16 @@ means `Schema<T>` carries the effect, which is a schema redesign.
 
 ## Next step
 
-No cheap cluster is left. `Config.schema` (54) needs the schema bridge; the 45
-remaining `SchemaParser` rows need an effect-carrying `Schema`; and
-`Atom`/`MCP`/`HTTP` need runtime or transport work. Pick one substrate and
+No cheap cluster is left. `Config.schema` is **done** (the bridge in
+`crates/elm-effect/src/config.rs`: `schema_wires` walks the provider into the
+codec's wire shape, `has_schema_input` decides absence versus refusal; 166 of
+its 169 rows are ported and the last three are terminal: module copies, an
+ambient provider service, and a `Result` arm on `Value`). `Schedule` is done
+too. What remains: the 45 `SchemaParser` rows need an effect-carrying `Schema`,
+and `Atom`/`MCP`/`HTTP` need runtime or transport work. Pick one substrate and
 build it end to end.
+
+A claim-absent API that resolves is usually a name collision, not a stale
+excuse: `Channel.forever` resolves to an effect combinator, `MutableList.Empty`
+to a schema declaration, and `Effect.fromNullishOr` to `Array.from_nullish_or`.
+Read the cited line before re-opening a row.

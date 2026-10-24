@@ -46,6 +46,9 @@ mod concurrency;
 // `Config` is the startup read: a descriptor plus `load` against a provider,
 // so an application never touches the environment from domain code.
 pub mod config;
+// Cron parsing and stepping, used by `Schedule::cron` (ADR-0002 Phase 3). The
+// file stays self-contained so the port tests can include it by `#[path]`.
+mod cron;
 // `Config.mapEffect`'s driver: the transform is an `Effect`, and `config`
 // cannot name one without breaking its path-module tests, so the bridge lives
 // beside it.
@@ -202,8 +205,8 @@ pub use runtime::{
     timeout, timeout_fail,
 };
 pub use schedule::{
-    LoopOptions, LoopPredicate, Random, RandomError, RandomTag, Schedule, repeat, repeat_with,
-    retry, retry_with,
+    Decision, LoopOptions, LoopPredicate, Meta, Metadata, Random, RandomError, RandomTag, Schedule,
+    Stepper, UpTo, repeat, repeat_with, retry, retry_with,
 };
 #[cfg(feature = "schema")]
 pub use schema_adapter::{

@@ -12,6 +12,7 @@
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 
+use crate::cron::{Cron, CronError, DateTime};
 use crate::effect::{ErasedStep, Step};
 use crate::service::{Services, empty_services};
 use crate::time::Duration;
@@ -191,23 +192,224 @@ impl crate::service::ServiceTag for RandomTag {
     const ID: &'static str = "elm-effect/random";
 }
 
-/// Retry policy as a value: given the attempt index (0-based count of
-/// retries so far) and the input, decide whether to continue and how long
-/// to wait. `None` stops.
-type StepFn<In, Out> = Arc<dyn Fn(u64, &In) -> Option<(Out, Duration)> + Send + Sync + 'static>;
+/// What one step is told before it decides: the pin's `InputMetadata`.
+///
+/// `attempt` is 1-based, counting the step being taken. `start` is the `now`
+/// of the run's first step, so `elapsed` is time since the run began and
+/// `elapsed_since_previous` is time since the last step was asked.
+#[derive(Clone, Copy)]
+pub struct Meta<'a, In> {
+    /// The value the driver handed this step.
+    pub input: &'a In,
+    /// 1-based count of the step being taken.
+    pub attempt: u64,
+    /// Timestamp of the run's first step.
+    pub start: f64,
+    /// This step's timestamp.
+    pub now: f64,
+    /// `now - start`.
+    pub elapsed: f64,
+    /// `now` minus the previous step's `now`; zero on the first step.
+    pub elapsed_since_previous: f64,
+}
+
+/// A completed step's metadata: the pin's `Metadata`, which adds the output
+/// and delay the step chose to [`Meta`].
+pub struct Metadata<'a, In, Out> {
+    /// The value the driver handed this step.
+    pub input: &'a In,
+    /// What the step emitted.
+    pub output: Out,
+    /// How long the step asked to wait.
+    pub duration: Duration,
+    /// 1-based count of the step that just ran.
+    pub attempt: u64,
+    /// Timestamp of the run's first step.
+    pub start: f64,
+    /// This step's timestamp.
+    pub now: f64,
+    /// `now - start`.
+    pub elapsed: f64,
+    /// Time since the previous step; zero on the first step.
+    pub elapsed_since_previous: f64,
+}
+
+/// What one step decided: keep going after a delay, or complete.
+///
+/// The pin's pull carries the value the step produced even when it completes,
+/// so a stop is [`Done`](Decision::Done) with that value rather than an
+/// absence. Combinators that refuse a step after it ran (`upTo`, `while`)
+/// therefore report the refused output, which is what their rows assert.
+pub enum Decision<Out> {
+    /// Continue, waiting `duration` before the next step.
+    Continue {
+        /// What this step emitted.
+        output: Out,
+        /// How long to wait before the next step.
+        duration: Duration,
+    },
+    /// Stop. `output` is what this step produced, when it produced one.
+    Done {
+        /// The step's own output, if it had one.
+        output: Option<Out>,
+    },
+}
+
+impl<Out> Decision<Out> {
+    /// This step's output, whichever way it went.
+    pub fn into_output(self) -> Option<Out> {
+        match self {
+            Self::Continue { output, .. } => Some(output),
+            Self::Done { output } => output,
+        }
+    }
+
+    /// The delay if this step continues; `None` when the schedule is done.
+    pub fn duration(&self) -> Option<Duration> {
+        match self {
+            Self::Continue { duration, .. } => Some(*duration),
+            Self::Done { .. } => None,
+        }
+    }
+
+    /// Map the output of either shape, keeping the decision.
+    fn map_output<B>(self, f: impl Fn(Out) -> B) -> Decision<B> {
+        match self {
+            Self::Continue { output, duration } => Decision::Continue {
+                output: f(output),
+                duration,
+            },
+            Self::Done { output } => Decision::Done {
+                output: output.map(f),
+            },
+        }
+    }
+}
+
+/// One schedule's own metadata counters, the pin's `metadataFn`.
+///
+/// Every schedule instance owns one, so `attempt` counts the steps *that
+/// schedule* took. A wrapper (`upTo`, `tap`) therefore counts its own calls,
+/// and a concatenated second schedule starts again at attempt 1, exactly as
+/// the pin's per-`fromStepWithMetadata` closure does.
+struct Counters {
+    attempt: u64,
+    start: Option<f64>,
+    previous: Option<f64>,
+}
+
+impl Counters {
+    fn new() -> Self {
+        Self {
+            attempt: 0,
+            start: None,
+            previous: None,
+        }
+    }
+
+    fn advance<'i, In>(&mut self, now: f64, input: &'i In) -> Meta<'i, In> {
+        let start = *self.start.get_or_insert(now);
+        let elapsed = now - start;
+        let elapsed_since_previous = self.previous.map_or(0.0, |previous| now - previous);
+        self.previous = Some(now);
+        self.attempt += 1;
+        Meta {
+            input,
+            attempt: self.attempt,
+            start,
+            now,
+            elapsed,
+            elapsed_since_previous,
+        }
+    }
+}
+
+/// One step. `Done` stops the schedule.
+type StepFn<In, Out> = Arc<dyn Fn(&Meta<'_, In>) -> Decision<Out> + Send + Sync + 'static>;
 
 /// Marker for a driver loop over `A`, failing with `E`, needing `R`.
 type LoopMarker<A, E, R, O> = PhantomData<fn() -> (A, E, R, O)>;
 
 #[derive(Clone)]
 pub struct Schedule<In: Send + Sync + 'static, Out: Send + 'static> {
+    counters: Arc<Mutex<Counters>>,
     step: StepFn<In, Out>,
 }
 
 impl<In: Send + Sync + 'static, Out: Send + 'static> Schedule<In, Out> {
-    /// Decide attempt `attempt`: `None` stops, otherwise the output and delay.
+    /// A schedule whose step sees its own attempt and timing counters.
+    pub fn from_step(f: impl Fn(&Meta<'_, In>) -> Decision<Out> + Send + Sync + 'static) -> Self {
+        Self {
+            counters: Arc::new(Mutex::new(Counters::new())),
+            step: Arc::new(f),
+        }
+    }
+
+    /// Take one step at timestamp `now` (milliseconds), advancing this
+    /// schedule's own counters.
+    pub fn step(&self, now: f64, input: &In) -> Decision<Out> {
+        let meta = self.counters.lock().unwrap().advance(now, input);
+        (self.step)(&meta)
+    }
+
+    /// Decide attempt `attempt` with no clock, reporting `None` when the
+    /// schedule completes.
+    ///
+    /// The caller owns the count: `attempt` is 0-based, so the step runs as
+    /// attempt `attempt + 1` with zero timestamps. Policies whose delay
+    /// depends on time (`fixed`'s window alignment, `during`, `up_to` with a
+    /// duration) report what they would decide at the start of a run. Use
+    /// [`to_step`](Self::to_step) to drive a schedule over a clock.
     pub fn decide(&self, attempt: u64, input: &In) -> Option<(Out, Duration)> {
-        (self.step)(attempt, input)
+        {
+            let mut counters = self.counters.lock().unwrap();
+            counters.attempt = attempt;
+            // Zeroed timing is the pin's `toStep(0, …)` starting point, and
+            // keeps `decide` idempotent for a caller that repeats an index.
+            counters.start = Some(0.0);
+            counters.previous = Some(0.0);
+        }
+        match self.step(0.0, input) {
+            Decision::Continue { output, duration } => Some((output, duration)),
+            Decision::Done { .. } => None,
+        }
+    }
+
+    /// `Schedule.toStep`: this schedule's step function over a caller-supplied
+    /// timestamp in milliseconds.
+    pub fn to_step(&self) -> Stepper<'_, In, Out> {
+        Stepper { schedule: self }
+    }
+}
+
+/// A schedule's step function bound to a timestamp source (the pin's
+/// `toStep`/`toStepWithMetadata`). The schedule's own counters still advance,
+/// so a test can drive it over a virtual clock without sleeping.
+pub struct Stepper<'a, In: Send + Sync + 'static, Out: Send + 'static> {
+    schedule: &'a Schedule<In, Out>,
+}
+
+impl<'a, In: Send + Sync + 'static, Out: Send + 'static> Stepper<'a, In, Out> {
+    /// Take one step.
+    pub fn step(&mut self, now: f64, input: &In) -> Decision<Out> {
+        self.schedule.step(now, input)
+    }
+
+    /// Take one step and report its metadata, the pin's
+    /// `toStepWithMetadata`. `None` means the schedule completed.
+    ///
+    /// The pin also sleeps for the delay after a step; a caller that wants
+    /// that sleeps for `metadata.duration` and advances `now` by it.
+    pub fn step_with_metadata<'i>(
+        &mut self,
+        now: f64,
+        input: &'i In,
+    ) -> Option<Metadata<'i, In, Out>> {
+        let meta = self.schedule.counters.lock().unwrap().advance(now, input);
+        match (self.schedule.step)(&meta) {
+            Decision::Continue { output, duration } => Some(metadata_of(&meta, output, duration)),
+            Decision::Done { .. } => None,
+        }
     }
 }
 
@@ -215,157 +417,472 @@ impl<In: Send + Sync + 'static> Schedule<In, u64> {
     /// Up to `n` retries after the first attempt, with no wait. Compose with
     /// a backoff (via [`max`](Schedule::max)) to add delays.
     pub fn recurs(n: u64) -> Schedule<In, u64> {
-        Schedule {
-            step: Arc::new(move |attempt, _| {
-                if attempt < n {
-                    Some((attempt, Duration::ZERO))
-                } else {
-                    None
+        Schedule::from_step(move |meta| {
+            if meta.attempt <= n {
+                Decision::Continue {
+                    output: meta.attempt - 1,
+                    duration: Duration::ZERO,
                 }
-            }),
-        }
+            } else {
+                Decision::Done { output: None }
+            }
+        })
+    }
+}
+
+impl<In: Send + Sync + 'static> Schedule<In, u64> {
+    /// A fixed wait per attempt, continuing forever, outputting the zero-based
+    /// attempt index (`spaced`).
+    pub fn spaced(delay: Duration) -> Schedule<In, u64> {
+        Schedule::from_step(move |meta| Decision::Continue {
+            output: meta.attempt - 1,
+            duration: delay,
+        })
     }
 }
 
 impl<In: Send + Sync + 'static> Schedule<In, ()> {
-    /// A fixed wait per attempt, continuing forever.
-    pub fn spaced(delay: Duration) -> Schedule<In, ()> {
-        Schedule {
-            step: Arc::new(move |_, _| Some(((), delay))),
-        }
-    }
-
-    /// A constant wait per attempt (`fixed`). The pin also aligns each wait to
-    /// its window boundary, which needs a clock inside the step; only the
-    /// constant-delay observable is carried here.
-    pub fn fixed(delay: Duration) -> Schedule<In, ()> {
-        Self::spaced(delay)
-    }
-
     /// Continue exactly once, then stop (`once`).
     pub fn once() -> Schedule<In, ()> {
-        Schedule {
-            step: Arc::new(|attempt, _| {
-                if attempt == 0 {
-                    Some(((), Duration::ZERO))
-                } else {
-                    None
+        Schedule::from_step(|meta| {
+            if meta.attempt == 1 {
+                Decision::Continue {
+                    output: (),
+                    duration: Duration::ZERO,
                 }
-            }),
-        }
+            } else {
+                Decision::Done { output: None }
+            }
+        })
+    }
+}
+
+impl<In: Send + Sync + 'static> Schedule<In, u64> {
+    /// Wait until the next window boundary, forever (`windowed`), outputting
+    /// the zero-based attempt index.
+    ///
+    /// Unlike [`fixed`](Schedule::fixed), a step that starts late still waits
+    /// the remainder of its window rather than skipping ahead: the delay is
+    /// always `window - (elapsed % window)`, which is why a slow action still
+    /// produces a partial wait.
+    pub fn windowed(interval: Duration) -> Schedule<In, u64> {
+        let window = interval.as_millis() as f64;
+        Schedule::from_step(move |meta| {
+            let delay = if window == 0.0 {
+                0.0
+            } else {
+                window - (meta.elapsed % window)
+            };
+            Decision::Continue {
+                output: meta.attempt - 1,
+                duration: Duration::from_millis(delay as u64),
+            }
+        })
     }
 
+    /// A wait aligned to window boundaries (`fixed`), outputting the
+    /// zero-based attempt index as at the pin.
+    ///
+    /// The first step asks for one full window, and later steps wait only
+    /// until the next boundary after the run started. A step that begins once
+    /// its window has already passed waits nothing, so a slow action never
+    /// pushes the schedule further behind.
+    pub fn fixed(window: Duration) -> Schedule<In, u64> {
+        let window = window.as_millis() as f64;
+        // (run start, the time the current window ends): the same two numbers
+        // the pin holds in its step closure.
+        let state = Arc::new(Mutex::new((0.0f64, 0.0f64)));
+        Schedule::from_step(move |meta| {
+            if window == 0.0 {
+                return Decision::Continue {
+                    output: meta.attempt - 1,
+                    duration: Duration::ZERO,
+                };
+            }
+            let mut state = state.lock().unwrap();
+            let (start, last_run) = &mut *state;
+            if meta.attempt == 1 {
+                *start = meta.now;
+                *last_run = meta.now + window;
+                return Decision::Continue {
+                    output: 0,
+                    duration: Duration::from_millis(window as u64),
+                };
+            }
+            let running_behind = meta.now > *last_run + window;
+            let boundary = window - ((meta.now - *start) % window);
+            let delay = if running_behind {
+                0.0
+            } else if boundary == 0.0 {
+                window
+            } else {
+                boundary
+            };
+            *last_run = if running_behind {
+                meta.now
+            } else {
+                meta.now + delay
+            };
+            Decision::Continue {
+                output: meta.attempt - 1,
+                duration: Duration::from_millis(delay as u64),
+            }
+        })
+    }
+}
+
+impl<In: Send + Sync + 'static> Schedule<In, Duration> {
     /// Exponential backoff from `base`, doubling per attempt (saturating),
-    /// continuing forever. Bound it with [`recurs`](Schedule::recurs) via
-    /// [`max`](Schedule::max).
-    pub fn exponential(base: Duration) -> Schedule<In, ()> {
-        Schedule {
-            step: Arc::new(move |attempt, _| {
-                let shift = attempt.min(63);
-                let millis = base.as_millis().saturating_mul(1u64 << shift);
-                Some(((), Duration::from_millis(millis)))
-            }),
-        }
+    /// continuing forever and outputting the chosen delay. Bound it with
+    /// [`recurs`](Schedule::recurs) via [`max`](Schedule::max).
+    pub fn exponential(base: Duration) -> Schedule<In, Duration> {
+        Schedule::from_step(move |meta| {
+            let shift = (meta.attempt - 1).min(63);
+            let millis = base.as_millis().saturating_mul(1u64 << shift);
+            let delay = Duration::from_millis(millis);
+            Decision::Continue {
+                output: delay,
+                duration: delay,
+            }
+        })
+    }
+
+    /// Recur while the run has not outlived `limit`, outputting the elapsed
+    /// time (`during`). The step that crosses the limit completes with that
+    /// elapsed time as its done value.
+    pub fn during(limit: Duration) -> Schedule<In, Duration> {
+        let limit = limit.as_millis() as f64;
+        Schedule::from_step(move |meta| {
+            let elapsed = Duration::from_millis(meta.elapsed as u64);
+            if meta.elapsed > limit {
+                Decision::Done {
+                    output: Some(elapsed),
+                }
+            } else {
+                Decision::Continue {
+                    output: elapsed,
+                    duration: Duration::ZERO,
+                }
+            }
+        })
+    }
+
+    /// Recur exactly once, after `delay` (`duration`); output and delay are
+    /// both the configured duration.
+    pub fn duration(delay: Duration) -> Schedule<In, Duration> {
+        Schedule::from_step(move |meta| {
+            if meta.attempt == 1 {
+                Decision::Continue {
+                    output: delay,
+                    duration: delay,
+                }
+            } else {
+                Decision::Done { output: None }
+            }
+        })
+    }
+
+    /// Recur at each instant a cron expression matches (`cron`): the delay is
+    /// the gap to the next occurrence, measured from the step's `now`.
+    ///
+    /// Parsing happens here, so a bad expression is this constructor's error,
+    /// as at the pin. A non-finite `now` (a clock adjusted to infinity)
+    /// completes instead of failing.
+    pub fn cron(expression: &str, tz: Option<&str>) -> Result<Schedule<In, Duration>, CronError> {
+        let cron = Cron::parse_zoned(expression, None, tz)?;
+        Ok(Schedule::from_step(move |meta| {
+            if !meta.now.is_finite() {
+                return Decision::Done { output: None };
+            }
+            let at = DateTime::from_epoch_millis(meta.now as i64);
+            let next = match cron.next(&at) {
+                Ok(next) => next,
+                Err(_) => return Decision::Done { output: None },
+            };
+            let millis = (next.epoch_millis() - meta.now as i64).max(0) as u64;
+            let delay = Duration::from_millis(millis);
+            Decision::Continue {
+                output: delay,
+                duration: delay,
+            }
+        }))
     }
 }
 
 impl<In: Clone + Send + Sync + 'static> Schedule<In, In> {
     /// Echo the input as the output with no wait (`identity`).
     pub fn identity() -> Schedule<In, In> {
-        Schedule {
-            step: Arc::new(|_, input| Some((input.clone(), Duration::ZERO))),
-        }
+        Schedule::from_step(|meta: &Meta<'_, In>| Decision::Continue {
+            output: meta.input.clone(),
+            duration: Duration::ZERO,
+        })
     }
 }
 
+/// Bounds for [`Schedule::up_to`] (the pin's `upTo` options record).
+///
+/// An unset field imposes no bound, and both unset leaves the schedule
+/// unchanged.
+#[derive(Clone, Copy, Default)]
+pub struct UpTo {
+    /// Stop after this many continuations.
+    pub times: Option<u64>,
+    /// Stop once the run has lasted longer than this.
+    pub duration: Option<Duration>,
+}
+
 impl<In: Send + Sync + 'static, A: Send + 'static> Schedule<In, A> {
-    /// Stop after `times` continuations (`upTo({ times })`): the driver's
-    /// attempt index counts continuations, so `times(2)` lets two through.
-    pub fn up_to_times(self, times: u64) -> Self {
-        let step = self.step;
-        Schedule {
-            step: Arc::new(move |attempt, input| {
-                if attempt >= times {
-                    None
-                } else {
-                    step(attempt, input)
-                }
-            }),
+    /// Stop after `times` continuations, or once `duration` has elapsed, or
+    /// under both bounds when both are set (`upTo`).
+    ///
+    /// The bound is checked after the inner step decides, so the refused step
+    /// completes with its own output, as the pin's `while` does.
+    pub fn up_to(self, options: UpTo) -> Self {
+        if options.times.is_none() && options.duration.is_none() {
+            return self;
         }
+        Schedule::from_step(move |meta| match self.step(meta.now, meta.input) {
+            Decision::Continue { output, duration } => {
+                let exhausted = options.times.is_some_and(|times| meta.attempt > times)
+                    || options
+                        .duration
+                        .is_some_and(|limit| meta.elapsed > limit.as_millis() as f64);
+                if exhausted {
+                    Decision::Done {
+                        output: Some(output),
+                    }
+                } else {
+                    Decision::Continue { output, duration }
+                }
+            }
+            Decision::Done { output } => Decision::Done { output },
+        })
+    }
+
+    /// [`up_to`](Self::up_to) with only a times bound: `times(2)` lets two
+    /// continuations through.
+    pub fn up_to_times(self, times: u64) -> Self {
+        self.up_to(UpTo {
+            times: Some(times),
+            duration: None,
+        })
     }
 
     /// Cap every delay at `limit`.
     pub fn capped(self, limit: Duration) -> Self {
-        let step = self.step;
-        Schedule {
-            step: Arc::new(move |attempt, input| {
-                step(attempt, input).map(|(out, delay)| {
-                    let capped = delay.as_millis().min(limit.as_millis());
-                    (out, Duration::from_millis(capped))
-                })
-            }),
-        }
+        Schedule::from_step(move |meta| match self.step(meta.now, meta.input) {
+            Decision::Continue { output, duration } => {
+                let capped = duration.as_millis().min(limit.as_millis());
+                Decision::Continue {
+                    output,
+                    duration: Duration::from_millis(capped),
+                }
+            }
+            Decision::Done { output } => Decision::Done { output },
+        })
+    }
+
+    /// Transform the output, keeping the delay (`map`).
+    pub fn map<B: Send + 'static>(
+        self,
+        f: impl Fn(A) -> B + Send + Sync + 'static,
+    ) -> Schedule<In, B> {
+        Schedule::from_step(move |meta| self.step(meta.now, meta.input).map_output(|out| f(out)))
+    }
+
+    /// Observe each continuing step's full metadata (`tap`), leaving the
+    /// decision untouched.
+    pub fn tap<F>(self, f: F) -> Self
+    where
+        F: Fn(&Metadata<'_, In, A>) + Send + Sync + 'static,
+    {
+        Schedule::from_step(move |meta| match self.step(meta.now, meta.input) {
+            Decision::Continue { output, duration } => {
+                let full = metadata_of(meta, output, duration);
+                f(&full);
+                Decision::Continue {
+                    output: full.output,
+                    duration: full.duration,
+                }
+            }
+            Decision::Done { output } => Decision::Done { output },
+        })
+    }
+
+    /// Replace each delay with what `f` decides from the full metadata
+    /// (`modifyDelay`).
+    pub fn modify_delay<F>(self, f: F) -> Self
+    where
+        F: Fn(&Metadata<'_, In, A>) -> Duration + Send + Sync + 'static,
+    {
+        Schedule::from_step(move |meta| match self.step(meta.now, meta.input) {
+            Decision::Continue { output, duration } => {
+                let full = metadata_of(meta, output, duration);
+                let replaced = f(&full);
+                Decision::Continue {
+                    output: full.output,
+                    duration: replaced,
+                }
+            }
+            Decision::Done { output } => Decision::Done { output },
+        })
+    }
+
+    /// Add what `f` decides from the full metadata to each delay
+    /// (`addDelay`).
+    pub fn add_delay<F>(self, f: F) -> Self
+    where
+        F: Fn(&Metadata<'_, In, A>) -> Duration + Send + Sync + 'static,
+    {
+        Schedule::from_step(move |meta| match self.step(meta.now, meta.input) {
+            Decision::Continue { output, duration } => {
+                let full = metadata_of(meta, output, duration);
+                let extra = f(&full);
+                let summed = duration.as_millis().saturating_add(extra.as_millis());
+                Decision::Continue {
+                    output: full.output,
+                    duration: Duration::from_millis(summed),
+                }
+            }
+            Decision::Done { output } => Decision::Done { output },
+        })
+    }
+
+    /// Stop when `pred` refuses a continuing step's metadata (`while`): the
+    /// refused step completes with its own output.
+    pub fn while_metadata<F>(self, pred: F) -> Self
+    where
+        F: Fn(&Metadata<'_, In, A>) -> bool + Send + Sync + 'static,
+    {
+        Schedule::from_step(move |meta| match self.step(meta.now, meta.input) {
+            Decision::Continue { output, duration } => {
+                let full = metadata_of(meta, output, duration);
+                if pred(&full) {
+                    Decision::Continue {
+                        output: full.output,
+                        duration: full.duration,
+                    }
+                } else {
+                    Decision::Done {
+                        output: Some(full.output),
+                    }
+                }
+            }
+            Decision::Done { output } => Decision::Done { output },
+        })
     }
 
     /// Drop the policy's output, keeping only its continue/delay decision.
     /// Drivers that stop on a predicate never read the output, and `recurs`
     /// outputs `u64` while `spaced` outputs `()`.
     pub fn ignore_output(self) -> Schedule<In, ()> {
-        let step = self.step;
-        Schedule {
-            step: Arc::new(move |attempt, input| {
-                step(attempt, input).map(|(_, delay)| ((), delay))
-            }),
-        }
+        Schedule::from_step(move |meta| match self.step(meta.now, meta.input) {
+            Decision::Continue { duration, .. } => Decision::Continue {
+                output: (),
+                duration,
+            },
+            Decision::Done { .. } => Decision::Done { output: None },
+        })
+    }
+
+    /// Run `self` to completion, then `other`, tagging each output with the
+    /// side that produced it (`concatResult`): `Err` for `self` and `Ok` for
+    /// `other`, as the pin's `Result` does.
+    pub fn concat_result<B: Send + 'static>(
+        self,
+        other: Schedule<In, B>,
+    ) -> Schedule<In, std::result::Result<B, A>> {
+        // 0 while `self` is producing, 1 once it has completed: the pin keeps
+        // the same `currentSide` flag in its step closure.
+        let side = Arc::new(Mutex::new(0u8));
+        Schedule::from_step(move |meta| {
+            let mut side = side.lock().unwrap();
+            if *side == 0 {
+                match self.step(meta.now, meta.input) {
+                    Decision::Continue { output, duration } => {
+                        return Decision::Continue {
+                            output: Err(output),
+                            duration,
+                        };
+                    }
+                    // The left side is done: the right side supplies this
+                    // same step's decision. Its own counters start at attempt
+                    // 1, as a freshly extracted step does at the pin.
+                    Decision::Done { .. } => *side = 1,
+                }
+            }
+            other
+                .step(meta.now, meta.input)
+                .map_output(|output| Ok(output))
+        })
+    }
+
+    /// Run `self` to completion, then `other`, merging their outputs
+    /// (`concat`). Both sides must emit the same type, which is what merging
+    /// a union of one type means.
+    pub fn concat(self, other: Schedule<In, A>) -> Schedule<In, A> {
+        self.concat_result(other).map(|either| match either {
+            Ok(output) | Err(output) => output,
+        })
     }
 
     /// Scale every delay by a factor in `[0.8, 1.2)` drawn from `rng`, the
     /// pin's `jittered` band (`Schedule.test.ts:476`).
     pub fn jitter(self, rng: Random) -> Self {
-        let step = self.step;
-        Schedule {
-            step: Arc::new(move |attempt, input| {
-                step(attempt, input).map(|(out, delay)| {
-                    let factor = 0.8 + 0.4 * rng.next_unit();
-                    let millis = (delay.as_millis() as f64 * factor) as u64;
-                    (out, Duration::from_millis(millis))
-                })
-            }),
-        }
+        Schedule::from_step(move |meta| match self.step(meta.now, meta.input) {
+            Decision::Continue { output, duration } => {
+                let factor = 0.8 + 0.4 * rng.next_unit();
+                let millis = (duration.as_millis() as f64 * factor) as u64;
+                Decision::Continue {
+                    output,
+                    duration: Duration::from_millis(millis),
+                }
+            }
+            Decision::Done { output } => Decision::Done { output },
+        })
     }
 
     /// Continue only while `pred` holds (e.g. `error.retryable`).
     pub fn given(self, pred: impl Fn(&In) -> bool + Send + Sync + 'static) -> Self {
-        let step = self.step;
-        Schedule {
-            step: Arc::new(move |attempt, input| {
-                if pred(input) {
-                    step(attempt, input)
-                } else {
-                    None
-                }
-            }),
-        }
+        Schedule::from_step(move |meta| {
+            if pred(meta.input) {
+                self.step(meta.now, meta.input)
+            } else {
+                Decision::Done { output: None }
+            }
+        })
     }
 
     /// Continue while every member continues; wait the longer delay.
     pub fn max<B: Send + 'static>(self, second: Schedule<In, B>) -> Schedule<In, (A, B)> {
-        let first = self;
-        Schedule {
-            step: Arc::new(move |attempt, input| {
-                match (first.decide(attempt, input), second.decide(attempt, input)) {
-                    (Some((a, da)), Some((b, db))) => {
-                        let longer = if da.as_millis() >= db.as_millis() {
-                            da
-                        } else {
-                            db
-                        };
-                        Some(((a, b), longer))
+        Schedule::from_step(move |meta| {
+            match (
+                self.step(meta.now, meta.input),
+                second.step(meta.now, meta.input),
+            ) {
+                (
+                    Decision::Continue {
+                        output: a,
+                        duration: da,
+                    },
+                    Decision::Continue {
+                        output: b,
+                        duration: db,
+                    },
+                ) => {
+                    let longer = if da.as_millis() >= db.as_millis() {
+                        da
+                    } else {
+                        db
+                    };
+                    Decision::Continue {
+                        output: (a, b),
+                        duration: longer,
                     }
-                    _ => None,
                 }
-            }),
-        }
+                _ => Decision::Done { output: None },
+            }
+        })
     }
 
     /// Continue while any member continues; wait the shorter of the decided
@@ -374,30 +891,47 @@ impl<In: Send + Sync + 'static, A: Send + 'static> Schedule<In, A> {
         self,
         second: Schedule<In, B>,
     ) -> Schedule<In, (Option<A>, Option<B>)> {
-        let first = self;
-        Schedule {
-            step: Arc::new(move |attempt, input| {
-                let a = first.decide(attempt, input);
-                let b = second.decide(attempt, input);
-                match (&a, &b) {
-                    (None, None) => None,
-                    _ => {
-                        let mut millis = u64::MAX;
-                        if let Some((_, d)) = &a {
-                            millis = millis.min(d.as_millis());
-                        }
-                        if let Some((_, d)) = &b {
-                            millis = millis.min(d.as_millis());
-                        }
-                        let (oa, ob) = (a.map(|(o, _)| o), b.map(|(o, _)| o));
-                        Some(((oa, ob), Duration::from_millis(millis)))
+        Schedule::from_step(move |meta| {
+            let a = self.step(meta.now, meta.input);
+            let b = second.step(meta.now, meta.input);
+            let (da, db) = (a.duration(), b.duration());
+            match (da, db) {
+                (None, None) => Decision::Done { output: None },
+                _ => {
+                    let mut millis = u64::MAX;
+                    if let Some(d) = da {
+                        millis = millis.min(d.as_millis());
+                    }
+                    if let Some(d) = db {
+                        millis = millis.min(d.as_millis());
+                    }
+                    Decision::Continue {
+                        output: (a.into_output(), b.into_output()),
+                        duration: Duration::from_millis(millis),
                     }
                 }
-            }),
-        }
+            }
+        })
     }
 }
 
+/// Pair a step's timing with the output and delay it chose.
+fn metadata_of<'a, In, Out>(
+    meta: &Meta<'a, In>,
+    output: Out,
+    duration: Duration,
+) -> Metadata<'a, In, Out> {
+    Metadata {
+        input: meta.input,
+        output,
+        duration,
+        attempt: meta.attempt,
+        start: meta.start,
+        now: meta.now,
+        elapsed: meta.elapsed,
+        elapsed_since_previous: meta.elapsed_since_previous,
+    }
+}
 /// Re-run the recipe after typed failure, until the policy stops. Defects
 /// and interrupts are never retried: they pass through on first sight.
 /// Effects are one-shot, so the recipe is a factory (like layers).
@@ -522,12 +1056,13 @@ impl<In: Send + Sync + 'static, E: Send + 'static> LoopOptions<In, E> {
     /// The pin treats a missing schedule as "repeat forever, no delay".
     fn base(&self) -> Schedule<In, ()> {
         match &self.schedule {
-            // `#[derive(Clone)]` would demand `In: Clone`; only the step is
-            // shared, so clone that instead.
+            // `#[derive(Clone)]` would demand `In: Clone`; the derived clone
+            // shares the counters and step, like the pin's schedule object.
             Some(schedule) => Schedule {
+                counters: Arc::clone(&schedule.counters),
                 step: Arc::clone(&schedule.step),
             },
-            None => Schedule::spaced(Duration::ZERO),
+            None => Schedule::spaced(Duration::ZERO).ignore_output(),
         }
     }
 
@@ -609,16 +1144,18 @@ where
 {
     fn run_erased(self: Box<Self>, scope: &Services) -> Result<A, Cause<E>> {
         let schedule = self.options.base();
+        let mut stepper = schedule.to_step();
+        let origin = std::time::Instant::now();
         let mut attempt = 0u64;
         loop {
             let value = (self.make)().run_sync_with(scope)?;
             if self.options.stop_after(&value, attempt, scope)? {
                 return Ok(value);
             }
-            match schedule.decide(attempt, &value) {
-                None => return Ok(value),
-                Some((_, delay)) => {
-                    std::thread::sleep(std::time::Duration::from_millis(delay.as_millis()));
+            match stepper.step(elapsed_millis(origin), &value) {
+                Decision::Done { .. } => return Ok(value),
+                Decision::Continue { duration, .. } => {
+                    std::thread::sleep(std::time::Duration::from_millis(duration.as_millis()));
                     attempt += 1;
                 }
             }
@@ -647,6 +1184,8 @@ where
 {
     fn run_erased(self: Box<Self>, scope: &Services) -> Result<A, Cause<E>> {
         let schedule = self.options.base();
+        let mut stepper = schedule.to_step();
+        let origin = std::time::Instant::now();
         let mut attempt = 0u64;
         loop {
             let cause = match (self.make)().run_sync_with(scope) {
@@ -659,9 +1198,9 @@ where
                     if self.options.stop_after(error, attempt, scope)? {
                         RetryStep::Stop
                     } else {
-                        match schedule.decide(attempt, error) {
-                            None => RetryStep::Stop,
-                            Some((_, delay)) => RetryStep::Retry(delay),
+                        match stepper.step(elapsed_millis(origin), error) {
+                            Decision::Done { .. } => RetryStep::Stop,
+                            Decision::Continue { duration, .. } => RetryStep::Retry(duration),
                         }
                     }
                 }
@@ -692,17 +1231,19 @@ where
     F: Fn() -> Effect<A, E, R> + Send + Sync,
 {
     fn run_erased(self: Box<Self>, scope: &Services) -> Result<A, Cause<E>> {
-        let mut attempt = 0u64;
+        let mut stepper = self.policy.to_step();
+        let origin = std::time::Instant::now();
         loop {
             let effect = (self.make)();
             match effect.run_sync_with(scope) {
                 Ok(a) => return Ok(a),
                 Err(cause) => match only_fail(&cause) {
-                    Some(input) => match self.policy.decide(attempt, input) {
-                        None => return Err(cause),
-                        Some((_, delay)) => {
-                            std::thread::sleep(std::time::Duration::from_millis(delay.as_millis()));
-                            attempt += 1;
+                    Some(input) => match stepper.step(elapsed_millis(origin), input) {
+                        Decision::Done { .. } => return Err(cause),
+                        Decision::Continue { duration, .. } => {
+                            std::thread::sleep(std::time::Duration::from_millis(
+                                duration.as_millis(),
+                            ));
                         }
                     },
                     None => return Err(cause),
@@ -727,19 +1268,24 @@ where
     F: Fn() -> Effect<A, E, R> + Send + Sync,
 {
     fn run_erased(self: Box<Self>, scope: &Services) -> Result<A, Cause<E>> {
-        let mut attempt = 0u64;
+        let mut stepper = self.policy.to_step();
+        let origin = std::time::Instant::now();
         loop {
             let effect = (self.make)();
             let a = effect.run_sync_with(scope)?;
-            match self.policy.decide(attempt, &a) {
-                None => return Ok(a),
-                Some((_, delay)) => {
-                    std::thread::sleep(std::time::Duration::from_millis(delay.as_millis()));
-                    attempt += 1;
+            match stepper.step(elapsed_millis(origin), &a) {
+                Decision::Done { .. } => return Ok(a),
+                Decision::Continue { duration, .. } => {
+                    std::thread::sleep(std::time::Duration::from_millis(duration.as_millis()));
                 }
             }
         }
     }
+}
+
+/// Milliseconds since `origin`, the `now` a driver hands its step.
+fn elapsed_millis(origin: std::time::Instant) -> f64 {
+    origin.elapsed().as_secs_f64() * 1000.0
 }
 
 /// The typed error if the cause is exactly one `Fail`; `None` for defects,
