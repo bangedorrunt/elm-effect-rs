@@ -37,7 +37,7 @@ pub struct Finding {
     pub rule: Rule,
 }
 
-/// The three rules this crate enforces.
+/// The four rules this crate enforces.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Rule {
     /// The run edge reached outside `main`, tests, or examples.

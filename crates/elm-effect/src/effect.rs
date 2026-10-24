@@ -305,7 +305,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> ErasedStep<A, E> for 
 /// Hands the fiber running this effect to the callback, then runs the effect
 /// the callback builds. The fiber comes from the ambient `FiberTag`; asking
 /// where no fiber exists is a defect, the crate's fail-closed answer to
-/// missing context (`tx_retry` outside a transaction is the same shape).
+/// missing context.
 #[cfg(feature = "tokio")]
 struct WithFiber<A: Send + 'static, E: Send + 'static, R: Requirement, F> {
     f: F,
