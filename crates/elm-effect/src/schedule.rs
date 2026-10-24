@@ -12,7 +12,6 @@
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 
-use crate::cron::{Cron, CronError, DateTime};
 use crate::effect::{ErasedStep, Step};
 use crate::service::{Services, empty_services};
 use crate::time::Duration;
@@ -582,31 +581,6 @@ impl<In: Send + Sync + 'static> Schedule<In, Duration> {
         })
     }
 
-    /// Recur at each instant a cron expression matches (`cron`): the delay is
-    /// the gap to the next occurrence, measured from the step's `now`.
-    ///
-    /// Parsing happens here, so a bad expression is this constructor's error,
-    /// as at the pin. A non-finite `now` (a clock adjusted to infinity)
-    /// completes instead of failing.
-    pub fn cron(expression: &str, tz: Option<&str>) -> Result<Schedule<In, Duration>, CronError> {
-        let cron = Cron::parse_zoned(expression, None, tz)?;
-        Ok(Schedule::from_step(move |meta| {
-            if !meta.now.is_finite() {
-                return Decision::Done { output: None };
-            }
-            let at = DateTime::from_epoch_millis(meta.now as i64);
-            let next = match cron.next(&at) {
-                Ok(next) => next,
-                Err(_) => return Decision::Done { output: None },
-            };
-            let millis = (next.epoch_millis() - meta.now as i64).max(0) as u64;
-            let delay = Duration::from_millis(millis);
-            Decision::Continue {
-                output: delay,
-                duration: delay,
-            }
-        }))
-    }
 }
 
 impl<In: Clone + Send + Sync + 'static> Schedule<In, In> {

@@ -461,48 +461,6 @@ fn tap_modify_and_add_delay_see_full_metadata() {
     ));
 }
 
-#[test]
-fn cron_matches_the_pin() {
-    // 2024-01-01T00:00:00Z, and 35 seconds past it.
-    const MIDNIGHT: f64 = 1_704_067_200_000.0;
-    const MIDNIGHT_35: f64 = 1_704_067_235_000.0;
-
-    // :283 — every second minute, from :35 past midnight.
-    let every_two = Schedule::<(), Duration>::cron("*/2 * * * *", None).expect("parse");
-    assert_eq!(
-        run_delays_from(&every_two, &[(); 4], MIDNIGHT_35),
-        vec![85_000, 120_000, 120_000, 120_000]
-    );
-
-    // :304 — six-field form: every third second.
-    let every_three = Schedule::<(), Duration>::cron("*/3 * * * * *", None).expect("parse");
-    assert_eq!(
-        run_delays_from(&every_three, &[(); 10], MIDNIGHT),
-        vec![3_000; 10]
-    );
-
-    // :331 — 04:30 on the 5th, 15th, and every Wednesday.
-    let wednesdays = Schedule::<(), Duration>::cron("30 4 5,15 * WED", None).expect("parse");
-    assert_eq!(
-        run_delays_from(&wednesdays, &[(); 6], MIDNIGHT),
-        vec![
-            189_000_000, // Wed Jan 3, 04:30
-            172_800_000, // Fri Jan 5, 04:30 (day of month)
-            432_000_000, // Wed Jan 10
-            432_000_000, // Mon Jan 15 (day of month)
-            172_800_000, // Wed Jan 17
-            604_800_000, // Wed Jan 24
-        ]
-    );
-
-    // :354 — a clock adjusted to infinity completes instead of failing.
-    let zoned = Schedule::<(), Duration>::cron("0 0 4 8-14 * *", Some("UTC")).expect("parse");
-    let mut stepper = zoned.to_step();
-    assert!(matches!(
-        stepper.step(f64::INFINITY, &()),
-        Decision::Done { .. }
-    ));
-}
 
 #[test]
 fn duration_recurs_once_after_its_delay() {

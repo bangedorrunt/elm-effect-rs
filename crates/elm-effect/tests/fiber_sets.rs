@@ -14,8 +14,6 @@ mod execution_plan;
 mod fiber_map;
 #[path = "../src/fiber_set.rs"]
 mod fiber_set;
-#[path = "../src/scheduler.rs"]
-mod scheduler;
 
 use std::time::Duration;
 
@@ -23,7 +21,6 @@ use elm_effect::{Cause, Exit, Runtime};
 use execution_plan::ExecutionPlan;
 use fiber_map::FiberMap;
 use fiber_set::FiberSet;
-use scheduler::Scheduler;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
@@ -279,24 +276,6 @@ fn plan_stops_when_interrupted() {
     assert_eq!(planned.outcome, Err("down".to_owned()));
     assert_eq!(planned.attempts, 2);
     assert!(planned.interrupted);
-}
-
-// --- Scheduler ---
-
-#[test]
-fn scheduler_runs_fifo_and_counts_yields() {
-    let mut sched = Scheduler::new(2);
-    let order = Arc::new(std::sync::Mutex::new(Vec::new()));
-    for i in 0..5 {
-        let order = order.clone();
-        sched.schedule(move || order.lock().expect("order").push(i));
-    }
-    assert_eq!(sched.pending(), 5);
-    assert_eq!(sched.run_until_idle(), 5);
-    assert_eq!(*order.lock().expect("order"), vec![0, 1, 2, 3, 4]);
-    assert_eq!(sched.yields(), 2);
-    assert_eq!(sched.pending(), 0);
-    assert_eq!(sched.max_ops(), 2);
 }
 
 #[test]

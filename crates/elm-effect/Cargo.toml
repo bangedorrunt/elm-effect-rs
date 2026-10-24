@@ -39,14 +39,3 @@ required-features = ["stm"]
 [dependencies]
 thiserror = "1"
 tokio = { version = "1", optional = true, features = ["rt", "rt-multi-thread", "sync", "time"] }
-# `bigdecimal` is part of the lib, so the bignum pair it needs cannot stay
-# dev-only. (Port cut candidates; see docs/learnings/minimalism-audit.md.)
-num-bigint = "0.4"
-num-traits = "0.2"
-# `datetime` is a `jiff::Zoned`, so the parse/format pair cannot stay dev-only.
-jiff = "0.2"
-
-# Used only by test targets, which compile parts of the source tree through
-# `#[path]` includes (the `data/` and `cron/` modules the port campaign parked).
-[dev-dependencies]
-num-integer = "0.1"

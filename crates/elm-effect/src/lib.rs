@@ -17,36 +17,15 @@
 // describe them, so the complexity lint is off for this crate.
 #![allow(clippy::type_complexity)]
 
-pub mod basics;
-// The `data/` values a schema family speaks for: byte counts and arbitrary
-// precision decimals, the chunk sequence and the regexp pattern. The rest of
-// the `data/` tree stays test-only.
-#[path = "data/bigdecimal.rs"]
-pub mod bigdecimal;
-#[path = "data/byte_size.rs"]
-pub mod byte_size;
-#[path = "data/chunk.rs"]
-pub mod chunk;
-// `Chunk::take_nonempty` answers a `NonEmpty`, so the chunk module reaches it
-// as `super::nonempty` and it has to sit beside `chunk` at the crate root.
-#[path = "data/nonempty.rs"]
-pub mod nonempty;
-#[path = "data/regexp.rs"]
-pub mod regexp;
 pub mod cause;
 pub mod channel;
 // `Logger.console*` writes through this port, so it is part of the surface.
 pub mod console;
-// `ChannelSchema` only exists for a schema-encoded boundary, so the feature that
-// brings the schema crate in is the one that carries it.
 #[cfg(feature = "tokio")]
 mod concurrency;
 // `Config` is the startup read: a descriptor plus `load` against a provider,
 // so an application never touches the environment from domain code.
 pub mod config;
-// Cron parsing and stepping, used by `Schedule::cron` (ADR-0002 Phase 3). The
-// file stays self-contained so the port tests can include it by `#[path]`.
-mod cron;
 // `Config.mapEffect`'s driver: the transform is an `Effect`, and `config`
 // cannot name one without breaking its path-module tests, so the bridge lives
 // beside it.
@@ -54,9 +33,6 @@ mod config_effect;
 pub mod config_provider;
 mod context;
 mod crypto;
-// `Schema.Date` speaks for `DateTime`, so the module is part of the surface
-// rather than only the test targets that include it by path.
-pub mod datetime;
 pub mod effect;
 pub mod execution_plan;
 #[cfg(feature = "tokio")]
@@ -64,39 +40,20 @@ mod executor;
 mod exit;
 #[cfg(feature = "tokio")]
 pub mod fiber;
-// `Schema.File` speaks for this value, so it is part of the surface.
-pub mod file;
-pub mod filesystem;
-mod formatter;
 mod foundation;
-// `Schema.Graph` speaks for this type, so the module is part of the surface
-// rather than only the test targets that include it by path.
-pub mod graph;
-mod json;
-pub mod json_patch;
-mod json_pointer;
 #[cfg(feature = "tokio")]
 mod layer;
 mod metric;
 #[cfg(feature = "tokio")]
 mod mock;
-mod optic;
 pub mod observability;
-// `observability/OtlpTracer.ts`: the tracer's `layer` builds on `Layer`.
-#[cfg(feature = "tokio")]
-pub mod otlp_tracer;
-pub mod path;
-pub mod platform_error;
 #[cfg(feature = "tokio")]
 mod policy;
-pub mod predicate;
 mod pubsub;
-pub mod request;
 pub mod pull;
 #[cfg(feature = "tokio")]
 mod runtime;
 mod schedule;
-pub mod scheduler;
 #[cfg(feature = "tokio")]
 mod scope;
 mod service;
@@ -114,11 +71,7 @@ pub mod take;
 mod time;
 // `Tracer.ts`: the span model the observability port already pointed at.
 pub mod tracer;
-pub mod utils_gen;
 
-pub use bigdecimal::Decimal;
-pub use byte_size::ByteSize;
-pub use chunk::Chunk;
 pub use cause::{
     Cause, CauseError, Defect, Done, FiberId, Reason, Squash, is_die_reason, is_done,
     is_exceeded_capacity_error, is_fail_reason, is_illegal_argument_error, is_interrupt_reason,
@@ -134,15 +87,12 @@ pub use concurrency::{
     validate_items,
 };
 pub use context::{Context, ContextReference, Tag};
-pub use datetime::DateTime;
 pub use effect::{Effect, Requirement};
-pub use graph::{Graph, Kind};
 #[cfg(feature = "tokio")]
 pub use effect::{Resume, Restore};
 #[cfg(feature = "tokio")]
 pub use executor::{BoxFuture, Executor, TokioExecutor};
 pub use exit::Exit;
-pub use file::File;
 #[cfg(feature = "tokio")]
 pub use fiber::{Ctx, Fiber, FiberHandle, ForkOpts, Mask, StartMode};
 pub use foundation::{
@@ -162,10 +112,6 @@ pub use metric::{
 };
 #[cfg(feature = "tokio")]
 pub use mock::{Mock, Unimplemented, UnimplementedError};
-pub use optic::{
-    Iso, Lens, OpticError, Optional, Prism, Traversal, at_map, at_vec, at_vec_exact, failure, none,
-    some, success,
-};
 #[cfg(feature = "tokio")]
 pub use policy::{BreakerConfig, Bulkhead, RateLimiter, Remote, RemoteError, RemotePolicy, hedge};
 #[cfg(feature = "tokio")]
@@ -177,7 +123,6 @@ pub use schedule::{
     Decision, LoopOptions, LoopPredicate, Meta, Metadata, Random, RandomError, RandomTag, Schedule,
     Stepper, UpTo, repeat, repeat_with, retry, retry_with,
 };
-pub use regexp::RegExp;
 #[cfg(feature = "tokio")]
 pub use scope::{Scope, ScopeTag};
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};
