@@ -227,6 +227,54 @@ fn register_spec(spec: &Arc<AtomSpec>) {
         .insert(spec.id, Arc::clone(spec));
 }
 
+/// Write behaviours, by atom id. A writable atom carries a different write
+/// payload than its value type, so the write side lives beside the spec table
+/// instead of inside `AtomKind`.
+static WRITES: std::sync::Mutex<Option<std::collections::HashMap<u64, Arc<WriteFn>>>> =
+    std::sync::Mutex::new(None);
+
+/// A type-erased write behaviour: the payload arrives boxed, and the closure
+/// owns the downcast to its declared payload type.
+type WriteFn = dyn Fn(&WriteContext, AnyValue) + Send + Sync;
+
+fn write_of(id: u64) -> Option<Arc<WriteFn>> {
+    WRITES
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|writes| writes.get(&id).map(Arc::clone))
+}
+
+/// The context a write runs with: the pin's `WriteContext`.
+pub struct WriteContext {
+    registry: Arc<Registry>,
+    atom_id: u64,
+}
+
+impl WriteContext {
+    /// Another atom's current value.
+    pub fn get<T: Clone + Send + Sync + 'static>(&self, atom: &Atom<T>) -> T {
+        self.registry.get(atom)
+    }
+
+    /// Write another atom.
+    pub fn set<T: Clone + Send + Sync + 'static>(&self, atom: &Atom<T>, value: T) {
+        self.registry.set(atom, value);
+    }
+
+    /// Write the atom this write belongs to (the pin's `setSelf`).
+    pub fn set_self<T: Clone + Send + Sync + 'static>(&self, value: T) {
+        if let Some(spec) = spec_of(self.atom_id) {
+            self.registry.assign(&spec, Arc::new(value));
+        }
+    }
+
+    /// Mark this atom stale so the next read rebuilds it (`refreshSelf`).
+    pub fn refresh_self(&self) {
+        self.registry.invalidate_id(self.atom_id);
+    }
+}
+
 fn spec_of(id: u64) -> Option<Arc<AtomSpec>> {
     SPECS
         .lock()
@@ -1421,6 +1469,78 @@ where
     }
 }
 
+/// `Atom.writable(read, write)`: an atom with a write behaviour that receives
+/// a [`WriteContext`], so a write can read, write other atoms, or refresh
+/// itself. The value half is an ordinary atom; the write half is registered
+/// by id.
+pub struct WritableAtom<T, W> {
+    atom: Atom<T>,
+    write_payload: std::marker::PhantomData<fn(W)>,
+}
+
+impl<T, W> Clone for WritableAtom<T, W> {
+    fn clone(&self) -> Self {
+        Self {
+            atom: self.atom.clone(),
+            write_payload: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T, W> WritableAtom<T, W>
+where
+    T: Clone + Send + Sync + 'static,
+    W: Send + Sync + 'static,
+{
+    /// The atom whose value reads the result of the writes.
+    pub fn atom(&self) -> &Atom<T> {
+        &self.atom
+    }
+
+    /// Apply a write payload through the atom's write behaviour.
+    pub fn write(&self, registry: &Arc<Registry>, payload: W) {
+        if let Some(write) = write_of(self.atom.spec.id) {
+            write(
+                &WriteContext {
+                    registry: Arc::clone(registry),
+                    atom_id: self.atom.spec.id,
+                },
+                Arc::new(payload),
+            );
+        }
+    }
+}
+
+/// Build a writable atom: `initial` is the value before any write, and
+/// `write` runs with a [`WriteContext`] on every write.
+pub fn writable<T, W>(
+    initial: T,
+    write: impl Fn(&WriteContext, W) + Send + Sync + 'static,
+) -> WritableAtom<T, W>
+where
+    T: Clone + Send + Sync + 'static,
+    W: Clone + Send + Sync + 'static,
+{
+    let atom = Atom::make(initial);
+    let id = atom.spec.id;
+    WRITES
+        .lock()
+        .unwrap()
+        .get_or_insert_with(std::collections::HashMap::new)
+        .insert(
+            id,
+            Arc::new(move |context: &WriteContext, payload: AnyValue| {
+                let payload = Arc::downcast::<W>(payload)
+                    .expect("a write payload carries its declared type");
+                write(context, (*payload).clone());
+            }),
+        );
+    WritableAtom {
+        atom,
+        write_payload: std::marker::PhantomData,
+    }
+}
+
 /// The registry's per-atom state.
 struct AtomNodeState {
     value: AnyValue,
@@ -1901,6 +2021,14 @@ impl Registry {
         };
         for hook in hooks {
             hook();
+        }
+    }
+
+    /// Mark a node stale by id, for a write that wants a rebuild
+    /// (`refreshSelf`).
+    pub fn invalidate_id(&self, id: u64) {
+        if let Some(node) = self.nodes.lock().unwrap().get_mut(&id) {
+            node.dirty = true;
         }
     }
 
