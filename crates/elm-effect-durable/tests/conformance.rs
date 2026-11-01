@@ -27,7 +27,11 @@ fn replay_never_runs_an_effect_twice() {
         "second start must not dispatch again: {second:?}"
     );
     // Journal still has exactly one intent row for the key.
-    let row = eng.journal().get("run-a").expect("journal row");
+    let row = eng
+        .journal()
+        .get("run-a")
+        .expect("get")
+        .expect("journal row");
     assert_eq!(row.key, "run-a");
     assert_eq!(row.attempts, 0);
 }
@@ -321,13 +325,17 @@ fn drain_due_clears_orphaned_and_terminal_parks() {
 #[test]
 fn prepared_intent_is_completed_by_start() {
     let mut eng = OurEngine::new();
-    let prepared = eng.journal().record_intent("p2", 8);
+    let prepared = eng.journal().record_intent("p2", 8).expect("record intent");
     assert_eq!(prepared.state, EffectState::Prepared);
 
     let outcome = eng.start("p2", 0).expect("start completes the intent");
     assert!(matches!(outcome, StartOutcome::Started { .. }));
     assert_eq!(
-        eng.journal().get("p2").expect("journal row").state,
+        eng.journal()
+            .get("p2")
+            .expect("get")
+            .expect("journal row")
+            .state,
         EffectState::InFlight
     );
     assert!(matches!(
@@ -341,7 +349,7 @@ fn host_journal_is_injected() {
     use elm_effect_journal::store::InMemoryStore;
 
     let journal = InMemoryStore::new(1024);
-    journal.record_intent("host", 8);
+    journal.record_intent("host", 8).expect("record intent");
     let mut eng = OurEngine::with_journal(MemStorage::new(), journal);
 
     assert!(matches!(
@@ -359,13 +367,15 @@ fn journal_only_run_reattaches_with_a_run_row() {
     use elm_effect_journal::store::InMemoryStore;
 
     let journal = InMemoryStore::new(1024);
-    let prepared = journal.record_intent("j1", 8);
+    let prepared = journal.record_intent("j1", 8).expect("record intent");
     let claimed = journal
         .claim("j1", "host", 0, 0, prepared.generation)
-        .expect("claim");
+        .expect("claim")
+        .expect("row");
     journal
         .settle("j1", claimed.generation, EffectState::InFlight)
-        .expect("inflight");
+        .expect("settle")
+        .expect("row");
 
     let mut eng = OurEngine::with_journal(MemStorage::new(), journal);
     assert!(matches!(
@@ -382,16 +392,24 @@ fn journal_only_run_reattaches_with_a_run_row() {
 #[test]
 fn live_host_lease_reattaches_without_stealing() {
     let mut eng = OurEngine::new();
-    let prepared = eng.journal().record_intent("leased", 8);
+    let prepared = eng
+        .journal()
+        .record_intent("leased", 8)
+        .expect("record intent");
     let claimed = eng
         .journal()
         .claim("leased", "host", 10_000, 0, prepared.generation)
-        .expect("host claim");
+        .expect("host claim")
+        .expect("row");
 
     let outcome = eng.start("leased", 0).expect("re-attach");
     assert!(matches!(outcome, StartOutcome::Already { .. }));
     assert_eq!(
-        eng.journal().get("leased").expect("journal").generation,
+        eng.journal()
+            .get("leased")
+            .expect("get")
+            .expect("journal")
+            .generation,
         claimed.generation
     );
 
@@ -405,16 +423,19 @@ fn journal_terminal_wins_over_stale_storage() {
     use elm_effect_journal::store::InMemoryStore;
 
     let journal = InMemoryStore::new(1024);
-    let prepared = journal.record_intent("stale", 8);
+    let prepared = journal.record_intent("stale", 8).expect("record intent");
     let claimed = journal
         .claim("stale", "host", 0, 0, prepared.generation)
-        .expect("claim");
+        .expect("claim")
+        .expect("row");
     journal
         .settle("stale", claimed.generation, EffectState::InFlight)
-        .expect("inflight");
+        .expect("settle")
+        .expect("row");
     journal
         .settle("stale", claimed.generation, EffectState::Settled)
-        .expect("settled");
+        .expect("settle")
+        .expect("row");
 
     let mut storage = MemStorage::new();
     storage
@@ -444,16 +465,19 @@ fn newer_journal_fence_wins_over_stale_park() {
     use elm_effect_journal::store::InMemoryStore;
 
     let journal = InMemoryStore::new(1024);
-    let prepared = journal.record_intent("fenced", 8);
+    let prepared = journal.record_intent("fenced", 8).expect("record intent");
     let first = journal
         .claim("fenced", "host", 0, 0, prepared.generation)
-        .expect("first claim");
+        .expect("first claim")
+        .expect("row");
     let second = journal
         .claim("fenced", "host", 0, 0, first.generation)
-        .expect("second claim");
+        .expect("second claim")
+        .expect("row");
     journal
         .settle("fenced", second.generation, EffectState::InFlight)
-        .expect("inflight");
+        .expect("settle")
+        .expect("row");
 
     let mut storage = MemStorage::new();
     storage

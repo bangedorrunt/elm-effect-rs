@@ -120,8 +120,9 @@ The engine is a synchronous kernel, like `DurableLog`, not a second runtime.
 * Time is an input: the host reads its `Clock` / `TestClock` at the edge and
   passes `now_ms`; the engine never sleeps or reads the clock.
 * I/O is a trait: `EngineStorage` is fallible (`StorageError`) and
-  `JournalStore` is the in-memory fence; a host can inject a persisted journal
-  and override the transactional commit hooks.
+  `JournalStore` is fallible (`JournalError`); a host can inject a persisted
+  journal and override the transactional commit hooks. `MemStorage` and
+  `InMemoryStore` never fail.
 * A host lifts a verb into an `Effect` and provides the engine through its own
   `ServiceTag`. `EngineMsg` is data for the Elm `Msg`; the run key is the
   durable command key and the `DurableLog` `producer_id`.
@@ -310,9 +311,10 @@ An agent **must not**:
       park/wake.
 - [x] A `ServiceTag` + `Effect` + `Runtime` witness calls `start` at the
       framework edge (`crates/elm-effect-durable/tests/framework_fit.rs`).
-- [x] `EngineStorage` is fallible; a fault-injection store proves `start`,
-      `park_until`, `drain_due`, and `query` propagate `StorageError` without
-      inventing a successful outcome.
+- [x] `EngineStorage` and `JournalStore` are fallible; fault-injection stores
+      prove `start`, `park_until`, `wake`, `cancel`, `mark_unknown`,
+      `drain_due`, and `query` propagate `StorageError` / `JournalError`
+      without inventing a successful outcome.
 - [x] `cargo test -p elm-effect-elm --test guide_imports` compiles the cron
       `use` line the guide publishes.
 - [x] No `resonate`, `temporal`, `rivet`, or `cron` crate appears in this
@@ -411,6 +413,28 @@ An agent **must not**:
   cron unit, 21 conformance, 2 cron integration, 5 fallible storage, and 1
   framework-fit test; workspace `clippy -D warnings` / `fmt --check` green.
 
+### 2026-11-01 — fallible JournalStore
+
+- `elm_effect_journal::store::JournalError` now covers `Unavailable`,
+  `Corrupt`, and `Rejected`. Every `JournalStore` method returns
+  `Result<_, JournalError>`; `InMemoryStore` returns `Ok` and keeps the same
+  fence semantics.
+- `EngineError::Journal(#[from] JournalError)` replaces the string variant.
+  Store failures and invariant refusals are separate; refusals use
+  `JournalError::Rejected`.
+- `crates/elm-effect-journal/tests/journal_store.rs` is the same 18-case fence
+  suite with the `Result` outer layer; assertions are unchanged.
+- `crates/elm-effect-durable/tests/fallible_journal.rs` (pi crew
+  `CopperCoast`) injects `JournalError::Unavailable` per method and pins
+  `start`, `query`, `park_until` / `wake`, `cancel` / `mark_unknown`, and the
+  control path.
+- Both engine seams are now fallible. There is no remaining infallible storage
+  or journal path in the engine.
+- Verification: `cargo test --workspace` (1,339 tests, 0 failed), including
+  `journal_store` (18) and the durable crate (47: 13 cron unit, 21 conformance,
+  2 cron integration, 5 fallible journal, 5 fallible storage, 1 framework fit);
+  workspace `clippy -D warnings` / `fmt --check` green.
+
 ### 2026-11-01 — what we borrowed
 
 - Resonate: the idempotent run key and the park/wake split stay.
@@ -449,12 +473,10 @@ An agent **must not**:
 - Cutover limitations: single-host only; the default journal is in-memory;
   cron is 5-field UTC at minute resolution; no vendor history import; no
   multi-host placement, dashboard, or actor migration.
-- `EngineStorage` is fallible (`StorageError`) and synchronous; the engine
-  propagates every store failure. `JournalStore` is still the in-memory fence
-  and remains infallible; a host that persists journal rows across restart must
-  handle I/O at its boundary or open a new decision to make that trait
-  fallible. `EngineStorage` is no longer the pre-production gap; the journal
-  seam is.
+- `EngineStorage` is fallible (`StorageError`) and `JournalStore` is fallible
+  (`JournalError`); both are synchronous and the engine propagates every
+  failure. `MemStorage` and `InMemoryStore` never fail. A host store maps its
+  I/O errors to the matching typed error at its boundary.
 - `park_until` stores the absolute `until_ms`; `max_wait_secs` caps the
   reported `wait_ms`, not the stored deadline. A host that needs an earlier
   wake schedules it and calls `wake`, then re-parks.

@@ -25,8 +25,10 @@ witness below is withdrawn rather than left red.
 > **Amended 2026-11-01.** ADR-0005 replaces Resonate with our own single-host
 > engine. This record's statements that "Resonate stays an engine adapter" and
 > that a `WorkflowEngine` adapter runs the flywheel loop are historical; the end
-> state is removal, not an adapter. The carrier laws (journal, `DurableLog`,
-> Elm loop) are unchanged.
+> state is removal, not an adapter. The journal `JournalStore` methods are
+> fallible (`JournalError`); the in-memory store returns `Ok`. The lifecycle
+> vocabulary and the carrier laws (journal, `DurableLog`, Elm loop) are
+> unchanged.
 
 ## How to read this
 

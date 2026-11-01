@@ -5,7 +5,7 @@ use elm_effect_journal::plan::ParkDecision;
 use elm_effect_journal::plan::{
     DispatchPlan, EffectView, ProviderCapability, may_claim, plan_attempt, plan_park,
 };
-use elm_effect_journal::store::{InMemoryStore, JournalStore};
+use elm_effect_journal::store::{InMemoryStore, JournalError, JournalStore};
 
 use crate::engine::{DurableEngine, EngineError, ParkOutcome, RunPhase, RunStatus, StartOutcome};
 use crate::scheduler::due_wakes;
@@ -100,7 +100,7 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         generation: u64,
         to: EffectState,
     ) -> Result<Option<elm_effect_journal::store::Row>, EngineError> {
-        let Some(row) = self.journal.settle(key, generation, to) else {
+        let Some(row) = self.journal.settle(key, generation, to)? else {
             return Ok(None);
         };
         self.apply_journal_row(&row)?;
@@ -117,9 +117,9 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         now_ms: i64,
         expected_generation: u64,
     ) -> Result<Option<elm_effect_journal::store::Row>, EngineError> {
-        let Some(row) = self
-            .journal
-            .claim(key, owner, lease_deadline, now_ms, expected_generation)
+        let Some(row) =
+            self.journal
+                .claim(key, owner, lease_deadline, now_ms, expected_generation)?
         else {
             return Ok(None);
         };
@@ -156,7 +156,7 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
             .storage
             .get_run(key)?
             .ok_or_else(|| EngineError::NotFound(key.into()))?;
-        if let Some(j) = self.journal.get(key)
+        if let Some(j) = self.journal.get(key)?
             && j.state.is_terminal()
         {
             return Err(EngineError::Terminal {
@@ -172,13 +172,15 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         }
         // Drive the journal to Unknown when it is not there already. A refused
         // edge is a real inconsistency, not a silent success.
-        if let Some(j) = self.journal.get(key)
+        if let Some(j) = self.journal.get(key)?
             && j.state != EffectState::Unknown
         {
             let settled = self
                 .journal
-                .settle(&j.key, j.generation, EffectState::Unknown)
-                .ok_or_else(|| EngineError::Journal("refused Unknown".into()))?;
+                .settle(&j.key, j.generation, EffectState::Unknown)?
+                .ok_or_else(|| {
+                    EngineError::Journal(JournalError::Rejected("refused Unknown".into()))
+                })?;
             row.generation = settled.generation;
             row.attempt = i64::from(settled.attempts);
         }
@@ -245,7 +247,7 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
             .storage
             .get_run(key)?
             .ok_or_else(|| EngineError::NotFound(key.into()))?;
-        if let Some(journal) = self.journal.get(key) {
+        if let Some(journal) = self.journal.get(key)? {
             if journal.state.is_terminal() {
                 return Err(EngineError::Terminal {
                     key: key.into(),
@@ -274,7 +276,7 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
 
 impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
     fn start(&mut self, key: &str, now_ms: u64) -> Result<StartOutcome, EngineError> {
-        if let Some(j) = self.journal.get(key) {
+        if let Some(j) = self.journal.get(key)? {
             let view = EffectView {
                 state: j.state,
                 attempt: i64::from(j.attempts),
@@ -318,7 +320,7 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
             });
         }
 
-        let j = self.journal.record_intent(key, 8);
+        let j = self.journal.record_intent(key, 8)?;
         let now = journal_ms(now_ms);
         // Another owner with a live lease is already handling this prepared
         // intent. Re-attach; never steal it or fail the start.
@@ -349,12 +351,16 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
         // expired: this engine schedules, the host holds the execution lease.
         let claimed = self
             .journal
-            .claim(key, "engine", now, now, j.generation)
-            .ok_or_else(|| EngineError::Journal("claim after intent failed".into()))?;
+            .claim(key, "engine", now, now, j.generation)?
+            .ok_or_else(|| {
+                EngineError::Journal(JournalError::Rejected("claim after intent failed".into()))
+            })?;
         let inflight = self
             .journal
-            .settle(key, claimed.generation, EffectState::InFlight)
-            .ok_or_else(|| EngineError::Journal("Prepared→InFlight failed".into()))?;
+            .settle(key, claimed.generation, EffectState::InFlight)?
+            .ok_or_else(|| {
+                EngineError::Journal(JournalError::Rejected("Prepared→InFlight failed".into()))
+            })?;
         let row = RunRow {
             key: key.to_string(),
             phase: RunPhase::Running,
@@ -454,7 +460,7 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
                 phase: row.phase,
             });
         }
-        if let Some(j) = self.journal.get(key) {
+        if let Some(j) = self.journal.get(key)? {
             if j.state.is_terminal() {
                 self.storage.clear_parks(key)?;
                 return Err(EngineError::Terminal {
@@ -464,8 +470,10 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
             }
             let settled = self
                 .journal
-                .settle(&j.key, j.generation, EffectState::Cancelled)
-                .ok_or_else(|| EngineError::Journal("refused cancel".into()))?;
+                .settle(&j.key, j.generation, EffectState::Cancelled)?
+                .ok_or_else(|| {
+                    EngineError::Journal(JournalError::Rejected("refused cancel".into()))
+                })?;
             row.generation = settled.generation;
             row.attempt = i64::from(settled.attempts);
         }
@@ -476,7 +484,7 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
     }
 
     fn query(&self, key: &str) -> Result<RunStatus, EngineError> {
-        if let Some(j) = self.journal.get(key) {
+        if let Some(j) = self.journal.get(key)? {
             return self.status_with_journal(key, &j);
         }
         self.storage

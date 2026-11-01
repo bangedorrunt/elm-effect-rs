@@ -1,5 +1,7 @@
 //! Port types: scheduling verbs only (ADR-0005).
 
+use elm_effect_journal::store::JournalError;
+
 use crate::storage::ParkedRow;
 
 /// A host store could not complete an operation.
@@ -36,9 +38,9 @@ pub enum EngineError {
         /// Run key.
         key: String,
     },
-    /// The journal refused an internal transition (an engine invariant).
-    #[error("journal: {0}")]
-    Journal(String),
+    /// The journal failed or refused an internal transition.
+    #[error("{0}")]
+    Journal(#[from] JournalError),
     /// The host store failed.
     #[error("{0}")]
     Storage(#[from] StorageError),

@@ -13,7 +13,7 @@
 //! JSON message carries the schema version; unknown versions are typed
 //! errors.
 //!
-//! Both kernels admit an envelope through the same [`Store::admit`]. A
+//! Both kernels admit an envelope through the same `Store::admit`. A
 //! [`FileLog`] reopened from disk replays its lines through that same path,
 //! so fencing, sequence, and dedupe state come back exactly as they were.
 //! A producer's epoch only moves forward: an append whose epoch is below the

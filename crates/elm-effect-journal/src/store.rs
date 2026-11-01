@@ -1,7 +1,9 @@
 //! Journal store (ADR-0002 Phase 9, claim/settle/offsets).
 //!
 //! A [`JournalStore`] records intent *before* the provider runs, keyed by
-//! a stable key so retries reuse the same row. Claiming sets owner, lease
+//! a stable key so retries reuse the same row. Every method is fallible:
+//! a host store returns [`JournalError`], while [`InMemoryStore`] never
+//! fails. Claiming sets owner, lease
 //! deadline, and `generation + 1` atomically and returns the row;
 //! settling carries the generation and a stale generation settles
 //! nothing. An attempt carries the generation too, so a zombie that lost
@@ -20,6 +22,20 @@ use std::collections::BTreeMap;
 use std::sync::Mutex;
 
 use super::{EffectState, can_transition};
+
+/// A host journal could not complete an operation.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum JournalError {
+    /// The journal is temporarily unavailable; a retry may succeed.
+    #[error("journal unavailable: {0}")]
+    Unavailable(String),
+    /// The journal returned data that violates its contract.
+    #[error("journal corrupt: {0}")]
+    Corrupt(String),
+    /// The journal rejected the operation.
+    #[error("journal rejected: {0}")]
+    Rejected(String),
+}
 
 /// Graph-admission disposition of a dead row, mirroring toron's column.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -98,12 +114,20 @@ pub enum Read {
 /// Durable journal contract.
 pub trait JournalStore {
     /// Record intent (idempotent on key); returns the row.
-    fn record_intent(&self, key: &str, max_attempts: u32) -> Row;
+    ///
+    /// # Errors
+    ///
+    /// Returns [`JournalError`] when the host store cannot read or write.
+    fn record_intent(&self, key: &str, max_attempts: u32) -> Result<Row, JournalError>;
     /// Claim: owner + deadline + generation+1, atomically; returns the row.
     /// Fenced like settle: terminal rows never move, a stale
     /// `expected_generation` claims nothing, and a live lease under
     /// another owner is never stolen — reclaim only after expiry
     /// (`lease_deadline <= now_ms`) or by the same owner renewing.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`JournalError`] when the host store cannot read or write.
     fn claim(
         &self,
         key: &str,
@@ -111,20 +135,41 @@ pub trait JournalStore {
         lease_deadline: i64,
         now_ms: i64,
         expected_generation: u64,
-    ) -> Option<Row>;
+    ) -> Result<Option<Row>, JournalError>;
     /// Settle toward `to` carrying `generation`; stale generations,
     /// illegal edges, and terminal rows settle nothing.
-    fn settle(&self, key: &str, generation: u64, to: EffectState) -> Option<Row>;
+    ///
+    /// # Errors
+    ///
+    /// Returns [`JournalError`] when the host store cannot read or write.
+    fn settle(
+        &self,
+        key: &str,
+        generation: u64,
+        to: EffectState,
+    ) -> Result<Option<Row>, JournalError>;
     /// Note one provider attempt for the holder of `generation`; a stale
     /// generation, or a terminal row, notes nothing. Fenced like
     /// [`settle`](Self::settle), so a zombie that lost its lease cannot
     /// dead-letter the row a live worker now holds. Exhaustion
     /// dead-letters the row.
-    fn attempt(&self, key: &str, generation: u64) -> Option<Row>;
+    ///
+    /// # Errors
+    ///
+    /// Returns [`JournalError`] when the host store cannot read or write.
+    fn attempt(&self, key: &str, generation: u64) -> Result<Option<Row>, JournalError>;
     /// Read one offset (`-1` means latest).
-    fn read(&self, offset: i64) -> Option<Read>;
+    ///
+    /// # Errors
+    ///
+    /// Returns [`JournalError`] when the host store cannot read.
+    fn read(&self, offset: i64) -> Result<Option<Read>, JournalError>;
     /// Current row for a key, if any.
-    fn get(&self, key: &str) -> Option<Row>;
+    ///
+    /// # Errors
+    ///
+    /// Returns [`JournalError`] when the host store cannot read.
+    fn get(&self, key: &str) -> Result<Option<Row>, JournalError>;
 }
 
 /// In-memory journal: one lock commits offset and state together.
@@ -173,10 +218,10 @@ impl InMemoryStore {
 }
 
 impl JournalStore for InMemoryStore {
-    fn record_intent(&self, key: &str, max_attempts: u32) -> Row {
+    fn record_intent(&self, key: &str, max_attempts: u32) -> Result<Row, JournalError> {
         let mut inner = self.inner.lock().unwrap();
         if let Some(row) = inner.rows.get(key) {
-            return row.clone();
+            return Ok(row.clone());
         }
         let row = Row {
             key: key.to_string(),
@@ -190,7 +235,7 @@ impl JournalStore for InMemoryStore {
             max_attempts,
         };
         self.commit(&mut inner, key, &row);
-        inner.rows[key].clone()
+        Ok(inner.rows[key].clone())
     }
 
     fn claim(
@@ -200,9 +245,11 @@ impl JournalStore for InMemoryStore {
         lease_deadline: i64,
         now_ms: i64,
         expected_generation: u64,
-    ) -> Option<Row> {
+    ) -> Result<Option<Row>, JournalError> {
         let mut inner = self.inner.lock().unwrap();
-        let row = inner.rows.get(key)?.clone();
+        let Some(row) = inner.rows.get(key).cloned() else {
+            return Ok(None);
+        };
         if !super::plan::may_claim(
             row.state,
             row.owner.as_deref(),
@@ -212,41 +259,50 @@ impl JournalStore for InMemoryStore {
             expected_generation,
             row.generation,
         ) {
-            return None;
+            return Ok(None);
         }
         let mut row = row;
         row.owner = Some(owner.to_string());
         row.lease_deadline = Some(lease_deadline);
         row.generation += 1;
         self.commit(&mut inner, key, &row);
-        Some(inner.rows[key].clone())
+        Ok(Some(inner.rows[key].clone()))
     }
 
-    fn settle(&self, key: &str, generation: u64, to: EffectState) -> Option<Row> {
+    fn settle(
+        &self,
+        key: &str,
+        generation: u64,
+        to: EffectState,
+    ) -> Result<Option<Row>, JournalError> {
         let mut inner = self.inner.lock().unwrap();
-        let row = inner.rows.get(key)?.clone();
+        let Some(row) = inner.rows.get(key).cloned() else {
+            return Ok(None);
+        };
         if row.generation != generation {
-            return None;
+            return Ok(None);
         }
         if row.state.is_terminal() {
-            return None;
+            return Ok(None);
         }
         if !can_transition(row.state, to) {
-            return None;
+            return Ok(None);
         }
         let mut next = row.clone();
         next.state = to;
         self.commit(&mut inner, key, &next);
-        Some(inner.rows[key].clone())
+        Ok(Some(inner.rows[key].clone()))
     }
 
-    fn attempt(&self, key: &str, generation: u64) -> Option<Row> {
+    fn attempt(&self, key: &str, generation: u64) -> Result<Option<Row>, JournalError> {
         let mut inner = self.inner.lock().unwrap();
-        let mut row = inner.rows.get(key)?.clone();
+        let Some(mut row) = inner.rows.get(key).cloned() else {
+            return Ok(None);
+        };
         // Fencing beats counting: a worker whose lease was taken over must
         // not be able to spend the new holder's attempt budget.
         if row.generation != generation || row.state.is_terminal() {
-            return None;
+            return Ok(None);
         }
         row.attempts += 1;
         if row.attempts > row.max_attempts {
@@ -254,35 +310,37 @@ impl JournalStore for InMemoryStore {
             row.disposition = Some(Disposition::TerminalFailed);
         }
         self.commit(&mut inner, key, &row);
-        Some(inner.rows[key].clone())
+        Ok(Some(inner.rows[key].clone()))
     }
 
-    fn read(&self, offset: i64) -> Option<Read> {
+    fn read(&self, offset: i64) -> Result<Option<Read>, JournalError> {
         let inner = self.inner.lock().unwrap();
         if offset == -1 {
-            let (o, row) = inner.log.last()?;
-            return Some(Read::Entry {
+            let Some((o, row)) = inner.log.last() else {
+                return Ok(None);
+            };
+            return Ok(Some(Read::Entry {
                 offset: *o,
                 row: row.clone(),
-            });
+            }));
         }
         let first = Self::first_replayable(&inner);
         if offset < first {
-            return Some(Read::Gone {
+            return Ok(Some(Read::Gone {
                 first_replayable: first,
-            });
+            }));
         }
-        inner
+        Ok(inner
             .log
             .iter()
             .find(|(o, _)| *o == offset)
             .map(|(o, row)| Read::Entry {
                 offset: *o,
                 row: row.clone(),
-            })
+            }))
     }
 
-    fn get(&self, key: &str) -> Option<Row> {
-        self.inner.lock().unwrap().rows.get(key).cloned()
+    fn get(&self, key: &str) -> Result<Option<Row>, JournalError> {
+        Ok(self.inner.lock().unwrap().rows.get(key).cloned())
     }
 }

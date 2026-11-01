@@ -17,8 +17,10 @@
 //! [`laws`] (trait-level law checks any `DurableLog` implementation must
 //! pass, so a sibling's own log runs the same checks as [`MemLog`](durable_log::MemLog)),
 //! [`store`] (claim/settle) and [`plan`] (`plan_attempt`, `plan_park`,
-//! `may_settle`). Producer fencing and closure live on [`DurableLog`] itself,
-//! which is the only log the loop and the HTTP adapter read and write.
+//! `may_settle`). Store methods return [`store::JournalError`]; the in-memory
+//! store never fails. Producer fencing and closure live on
+//! [`DurableLog`](durable_log::DurableLog) itself, which is the only log the
+//! loop and the HTTP adapter read and write.
 
 // The public surface is the product: a missing doc on a public item ships
 // silently. CI turns this warning into an error.
