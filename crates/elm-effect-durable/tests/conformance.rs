@@ -1,8 +1,8 @@
 //! Conformance suite for durable engines (ADR-0005).
 //!
-//! Runs against [`OurEngine`]. A future vendor adapter must pass the same
-//! cases. Carrier laws stay in ADR-0002 / elm-effect-journal; these cases pin
-//! the scheduling port.
+//! Runs against [`OurEngine`]. A future engine must pass the same cases; there
+//! is no vendor adapter layer. Carrier laws stay in ADR-0002 /
+//! elm-effect-journal; these cases pin the scheduling port.
 
 use elm_effect::{ClockImpl, Duration, TestClock};
 use elm_effect_durable::{

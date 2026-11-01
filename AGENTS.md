@@ -55,8 +55,9 @@ ADR-0002 — do not ask whether it is accepted.
 - `TestClock` order: fork → adjust → join.
 - A durable append uses one `epoch` and one `seq` for one retry of the same append.
 - Do not rebuild `.beads/gates.jsonl` from the issues log (beads invariant).
-- Do not remove the Resonate dependency during a sibling migration — Resonate
-  is an engine adapter, not the carrier.
+- A sibling removes Resonate only through its own adoption record. This repo's
+  engine replaces it (ADR-0005); do not restore a vendor adapter or add a new
+  one.
 - A module earns its place when a caller uses it: type/function + failing test
   + guide entry. Do not mirror another library's file layout.
 - Extension from an app: add a `ServiceTag`, a `Program`, or a `DurableLog` —

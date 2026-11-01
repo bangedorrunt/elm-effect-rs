@@ -19,6 +19,7 @@ pub struct WakeIntent {
 ///
 /// A row is due when `until_ms <= now_ms`. Order is stable by
 /// `(until_ms, key, park_generation)` so tests are deterministic.
+#[must_use]
 pub fn due_wakes(parked: &[ParkedRow], now_ms: u64) -> Vec<WakeIntent> {
     let mut due: Vec<&ParkedRow> = parked.iter().filter(|r| r.until_ms <= now_ms).collect();
     due.sort_by(|a, b| {

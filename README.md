@@ -29,7 +29,7 @@ The design records are
 [ADR-0003](docs/decisions/0003-make-elm-effect-a-first-class-rust-framework.md)
 (adoption and extension), and
 [ADR-0005](docs/decisions/0005-durable-engine-port-and-our-engine.md)
-(the durable engine and cron timing).
+(the durable engine, cron timing, and vendor removal).
 
 ## License
 

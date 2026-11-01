@@ -76,7 +76,7 @@ vocabulary and `DurableLog`:
 - cron timing (`CronSchedule`, `next_after_ms`, `latest_at_or_before_ms`,
   `fire_key`); registration stays plane-side
 
-Pure scheduler core: given parked rows + `now_ms`, which keys are due. Storage trait with an in-memory impl; toron later binds `WorkflowEffectStore` (ADR-0002 L342). No SQLite inside the framework unless a future adoption record requires it — today every plane that needs durable bytes already has a store (Resonate's db or toron's).
+Pure scheduler core: given parked rows + `now_ms`, which keys are due. Storage trait with an in-memory impl; toron later binds `WorkflowEffectStore` (ADR-0002 L342). A host can inject a persisted journal with `with_journal` and override `commit_run` / `commit_park` with a transaction. No SQLite inside the framework unless a future adoption record requires it — today every plane that needs durable bytes already has a store (Resonate's db or toron's).
 
 ## What the port deliberately does not cover
 
@@ -87,10 +87,11 @@ Pure scheduler core: given parked rows + `now_ms`, which keys are due. Storage t
 - Multi-host placement, search attributes, actor addressing
 - A third lifecycle vocabulary (no parallel "PromiseState" enum in the framework)
 
-Those remain plane concerns until each plane's adoption record deletes its Resonate pin.
+Those remain plane concerns until each plane's adoption record deletes its Resonate pin. No vendor adapter crate is planned; our engine replaces the vendor (ADR-0005).
 
 ## Open follow-ups (not decisions for this inventory)
 
 - Migration order (toron-workflow → flywheel → chiebukuro) belongs in ADR-0005.
 - Whether chiebukuro's cron firings become toron-workflow cron or direct `start` calls is a chiebukuro adoption question.
 - Cutting `ensure_resonate` / doctor `/health` is per-plane once the engine is default.
+- No adapter crate and no vendor history import; a plane cutover starts fresh runs.

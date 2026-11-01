@@ -234,7 +234,8 @@ fn five_outcomes_do_not_collapse() {
 #[test]
 fn library_crate_has_no_run() {
     // `Runtime::run` / `block_on` appear only in `elm-effect` itself,
-    // `elm-effect-test`, and `examples/` binaries.
+    // `elm-effect-test`, `examples/` binaries, and test directories. Library
+    // `src` stays run-free.
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let allowed = ["crates/elm-effect", "crates/elm-effect-test", "examples"];
     let mut stack = vec![root.join("crates")];
@@ -248,9 +249,11 @@ fn library_crate_has_no_run() {
             .unwrap_or(&dir)
             .to_string_lossy()
             .replace('\\', "/");
-        let is_allowed = allowed
-            .iter()
-            .any(|a| rel == *a || rel.starts_with(&format!("{a}/")));
+        let is_test = rel.ends_with("/tests") || rel.contains("/tests/");
+        let is_allowed = is_test
+            || allowed
+                .iter()
+                .any(|a| rel == *a || rel.starts_with(&format!("{a}/")));
         let entries = std::fs::read_dir(&dir).unwrap();
         for entry in entries {
             let path = entry.unwrap().path();

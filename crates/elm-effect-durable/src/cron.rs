@@ -147,6 +147,7 @@ impl CronSchedule {
     ///
     /// Returns `None` when the expression names no tick inside the search
     /// horizon (for example `0 0 30 2 *`).
+    #[must_use]
     pub fn next_after_ms(&self, from_ms: u64) -> Option<u64> {
         let start = (from_ms / MINUTE_MS).checked_add(1)?;
         let end = start.checked_add(SEARCH_HORIZON_MINUTES)?;
@@ -184,6 +185,7 @@ impl CronSchedule {
     /// This is the one-tick catch-up after downtime: the host runs the latest
     /// missed tick once, never a burst. Returns `None` when no tick is due in
     /// that window, including `now_ms < last_ms`.
+    #[must_use]
     pub fn latest_at_or_before_ms(&self, last_ms: u64, now_ms: u64) -> Option<u64> {
         if now_ms < last_ms {
             return None;

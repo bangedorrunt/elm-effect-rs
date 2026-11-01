@@ -18,6 +18,21 @@
 //! tick, calls [`DurableEngine::start`] with [`fire_key`], and keeps cron
 //! registration and the tick loop.
 //!
+//! ## Framework fit
+//!
+//! The engine is a synchronous kernel, like `DurableLog`, not a second
+//! runtime. The pure decisions are functions ([`due_wakes`],
+//! [`CronSchedule`], `plan_park`, `plan_attempt`). The host reads its
+//! `Clock` / `TestClock` at the edge and passes `now_ms`; the engine never
+//! sleeps, spawns, or reads the clock. Storage and journal are traits, so the
+//! host supplies its store and can inject a persisted journal.
+//!
+//! A host lifts an engine verb into an `Effect` and provides the engine through
+//! its own `ServiceTag`; `tests/framework_fit.rs` is the witness. [`EngineMsg`]
+//! is data for the host's Elm `Msg`, and the run key is the host's durable
+//! command key and the `DurableLog` `producer_id`. Retries, timeouts, and
+//! remote policy stay in the host's `Interpret` / `plan_attempt` layer.
+//!
 //! See `docs/decisions/0005-durable-engine-port-and-our-engine.md`.
 
 #![warn(missing_docs)]

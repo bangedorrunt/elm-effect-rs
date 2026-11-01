@@ -21,6 +21,12 @@ witness below is withdrawn rather than left red.
 > `crates/*/tests/` are the proof. The references to all of these below are
 > history, not current requirements. The laws and the carrier shape remain in
 > force.
+>
+> **Amended 2026-11-01.** ADR-0005 replaces Resonate with our own single-host
+> engine. This record's statements that "Resonate stays an engine adapter" and
+> that a `WorkflowEngine` adapter runs the flywheel loop are historical; the end
+> state is removal, not an adapter. The carrier laws (journal, `DurableLog`,
+> Elm loop) are unchanged.
 
 ## How to read this
 
