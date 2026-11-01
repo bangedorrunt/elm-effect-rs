@@ -13,13 +13,20 @@ informed: agents implementing elm-effect-rs and the three plane migrations
 > and the journal crate note that toron implements the store trait for
 > `WorkflowEffectStore` (ADR-0002 around the journal section).
 
+> **Amended 2026-11-01.** Cron *timing* moves into this framework as a pure
+> 5-field evaluator (`CronSchedule`, `next_after_ms`,
+> `latest_at_or_before_ms`, `fire_key`). Cron registration, pause/resume,
+> catch-up policy, and the tick loop stay plane-side. Where this record says
+> "cron stays plane-side", read that as registration and operations, not the
+> timing kernel.
+
 ## Context and Problem Statement
 
 Three planes pin three different Resonate SDKs (crates.io 0.6 in flywheel and
 toron-workflow; a git `main` tip in chiebukuro). They use Resonate for durable
-run start, durable sleep/park, wake, cancel, and status query. Cron
-registration, `resonate serve`, `/health`, groups, and promise dashboards are
-plane ops around that core (see
+run start, durable sleep/park, wake, cancel, and status query. Cron timing is a
+small pure computation; cron registration, `resonate serve`, `/health`, groups,
+and promise dashboards are plane ops around that core (see
 [resonate-inventory.md](../research/resonate-inventory.md)).
 
 ADR-0002 already rejected "Resonate as the carrier" and kept Resonate as an
@@ -35,8 +42,8 @@ framework stay free of Resonate, Temporal, and Rivet dependencies?
 
 * ADR-0002: Resonate is an adapter, not the carrier; no thunk-style middleware
   that starts work; journal and `DurableLog` vocabularies already exist.
-* Inventory: only scheduling verbs are shared; cron, server process, and
-  dashboards are not.
+* Inventory: only scheduling verbs and cron timing are shared; cron
+  registration, server process, and dashboards are not.
 * Single host (mikasa) today; multi-host and a hosted dashboard are not
   required.
 * Swap or drop a vendor later without rewriting plane reducers.
@@ -83,6 +90,23 @@ offsets stay where ADR-0002 put them. The engine does not invent a parallel
 * A small runtime loop turns due wakes into Msgs for the Elm fold. I/O stays
   at the boundary.
 
+### Cron timing (ours)
+
+Cron **registration** stays plane-side: which jobs exist, pause/resume,
+catch-up policy, and the loop that executes a firing. The **timing kernel**
+ships here so each plane does not fork a parser:
+
+* `CronSchedule::parse` accepts 5-field vixie cron, lists, ranges, steps, and
+  month / weekday names. UTC, minute resolution; no timezone database.
+* `next_after_ms` is strictly after; `latest_at_or_before_ms(last, now)` is
+  the one-tick catch-up after downtime.
+* `fire_key(name, tick_ms)` is the run key. The host calls `start` with it, so
+  the same firing re-attaches (`Already`) instead of dispatching twice.
+* No clock, no I/O, no scheduler loop. The host passes `now_ms` and runs the
+  tick loop at its edge.
+
+These are pure functions, not a second scheduler and not a port verb.
+
 ### Vendor adapters (later, not now)
 
 Allowed as separate crates (`elm-effect-resonate`, `-temporal`, `-rivet`) only
@@ -126,6 +150,8 @@ record cuts it.
 
 * Multi-host durable execution.
 * A vendor-hosted dashboard and search attributes / actor placement.
+* Local-time / DST cron. Timing is UTC and has no timezone database; a host
+  that needs local time converts at its edge.
 
 Acceptable for the current single-host stack. The port keeps the replacement
 path open if we outgrow one host.
@@ -133,9 +159,12 @@ path open if we outgrow one host.
 ## Consequences
 
 * Good: one pin, no Resonate in the framework; planes speak journal + port.
+* Good: one cron timing kernel; planes keep their own registration tables.
 * Good: conformance suite catches a bad adapter before a plane cutover.
-* Bad: we maintain a small scheduler and storage trait.
-* Neutral: cron, `/health`, and promise UIs stay plane-side until deleted.
+* Bad: we maintain a small scheduler, a storage trait, and a cron parser.
+* Neutral: cron registration, `/health`, and promise UIs stay plane-side until
+  deleted.
+* Neutral: cron timing is UTC only; a local-time host converts at the edge.
 * Neutral: status stays `proposed` until operator sign-off; the
   agent-authority section below authorizes implementation meanwhile
   (ADR-0001).
@@ -147,6 +176,8 @@ While status is `proposed`, an agent **may**:
 * Add crate `elm-effect-durable` with `DurableEngine`, pure scheduler,
   storage trait + in-memory impl, injected clock, and wake→Msg loop.
 * Add the conformance suite and run it against our engine.
+* Add the pure cron timing kernel (`CronSchedule`, `next_after_ms`,
+  `latest_at_or_before_ms`, `fire_key`) and its tests.
 * Point workspace `Cargo.toml` / root `AGENTS.md` at the new crate.
 * Amend this record under `## More Information` with verification evidence.
 
@@ -156,28 +187,39 @@ An agent **must not**:
 * Edit flywheel, toron, beads, or chiebukuro in the name of this record.
 * Invent a third lifecycle vocabulary or a second scheduler inside
   `elm-effect` itself.
+* Add a cron crate dependency or a scheduler loop inside the framework.
 * Open toron's SQLite from this crate; storage is a trait.
 
 ## Implementation Plan
 
 * **Affected paths**: `docs/decisions/0005-…`, `docs/decisions/README.md`,
-  `crates/elm-effect-durable/`, workspace `Cargo.toml`, root `AGENTS.md`,
-  conformance tests.
-* **Dependencies**: `elm-effect`, `elm-effect-journal`; no vendor SDKs.
+  `crates/elm-effect-durable/`, `docs/guides/15-use-the-apis.mdx`,
+  `crates/elm-effect-elm/tests/guide_imports.rs`, workspace `Cargo.toml`,
+  root `AGENTS.md`, conformance and cron tests.
+* **Dependencies**: `elm-effect`, `elm-effect-journal`, `thiserror`; no vendor
+  SDKs and no cron crate.
 * **Patterns to follow**: ADR-0002 journal purity; ADR-0004 reconcile (engine
-  does not settle `Unknown`); inventory sizing.
+  does not settle `Unknown`); inventory sizing; cron is pure with the host
+  supplying `now_ms`; vixie OR rule for restricted day fields.
 * **Patterns to avoid**: thunk middleware; `tokio::time::sleep` in decisions;
-  SQLite inside the framework without a new decision; adapter crates now.
+  SQLite inside the framework without a new decision; adapter crates now; a
+  cron crate dependency or a timezone database in the decision path.
 * **Migration steps**: none in this repo's siblings. Plane cutovers are
-  separate records.
+  separate records. Each plane registers its own cron jobs and calls
+  `CronSchedule` + `fire_key` + `start` at its edge.
 
 ### Verification
 
 - [x] `cargo test -p elm-effect-durable` and workspace `cargo test` /
       `clippy -D warnings` / `fmt --check` are green.
 - [x] Conformance cases listed above exist and pass on the in-memory engine.
-- [x] No `resonate`, `temporal`, or `rivet` crate appears in this workspace's
-      `Cargo.toml` files.
+- [x] Cron cases cover strict next, one-tick catch-up, vixie Sunday 0/7,
+      restricted day-of-month OR day-of-week, names, leap day, impossible
+      dates, parse errors, and a firing that starts once through `OurEngine`.
+- [x] `cargo test -p elm-effect-elm --test guide_imports` compiles the cron
+      `use` line the guide publishes.
+- [x] No `resonate`, `temporal`, `rivet`, or `cron` crate appears in this
+      workspace's `Cargo.toml` files.
 - [x] README index lists ADR-0005.
 
 ## Pros and Cons of the Options
@@ -209,3 +251,25 @@ An agent **must not**:
 - Conformance: `crates/elm-effect-durable/tests/conformance.rs` (8 cases) plus
   two pure scheduler unit tests. Workspace `cargo test` / `clippy -D warnings`
   / `fmt --check` green after the landing.
+
+### 2026-11-01 — cron timing kernel; crate merged
+
+- The crate is on `main` at `c123947` (the four `feat/durable-engine` commits
+  are merged). The earlier entry is retained as history.
+- `crates/elm-effect-durable/src/cron.rs`: `CronSchedule`,
+  `next_after_ms`, `latest_at_or_before_ms`, `fire_key`. 5-field vixie cron,
+  UTC, minute resolution, no clock, no I/O, no cron crate, no timezone
+  database.
+- `crates/elm-effect-durable/tests/cron.rs`: one cron tick starts once through
+  `OurEngine`; the second start is `Already`. The unit cases pin strict next,
+  one-tick catch-up, Sunday 0/7, restricted day OR weekday, names, leap day,
+  impossible dates, and parse errors.
+- `docs/guides/15-use-the-apis.mdx` publishes the calls;
+  `crates/elm-effect-elm/tests/guide_imports.rs` compiles the new `use` line.
+- Verification: `cargo test -p elm-effect-durable`,
+  `cargo test -p elm-effect-elm --test guide_imports`, workspace
+  `cargo test` / `clippy -D warnings` / `fmt --check` green.
+- No flywheel, toron, beads, or chiebukuro file changed. Their Resonate pins
+  stay until each plane's adoption record cuts them.
+- Status remains `proposed`; ADR-0001 reserves `accepted` for operator
+  sign-off.

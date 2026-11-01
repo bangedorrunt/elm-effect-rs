@@ -23,7 +23,7 @@ Three different pins. A single engine behind one port retires that split.
 | `ctx.run` / nested durable child | yes (leaves) | yes (`ctx.run(run_workflow, …).spawn()`) | yes (mining → compile, etc.) | start run (idempotent key); nesting is plane composition |
 | `ctx.sleep` / durable delay | yes (loop interval) | yes (delay steps, park waits, retry backoff) | rare (mostly handle `.timeout`) | park until |
 | External / createable promises (approval, spawn-await) | yes (`promise_pending`) | yes (approval + spawn side-channels in `sinks.rs`) | via SDK promise records for task UI | wake / cancel / query — promise *identity* collapses to the run/journal key |
-| `Resonate::schedule` (cron → durable fn) | no (cron goes through toron-workflow / own cron) | yes (`cron.rs` durable-sleep loops) | yes (`daemon/scheduler.rs`, ~9 specs) | no — cron expression eval stays plane-side; each firing is `start` |
+| `Resonate::schedule` (cron → durable fn) | no (cron goes through toron-workflow / own cron) | yes (`cron.rs` durable-sleep loops) | yes (`daemon/scheduler.rs`, ~9 specs) | timing only — `CronSchedule` is shared; registration and the tick loop stay plane-side; each firing is `start` |
 | Register functions on a client | yes | yes | yes | no — host registers interpreters; engine stores runs |
 | `Resonate::new` / `::local` / embedded store | yes | yes (Pinned / ProbedRemote / ProbedLocal / Embedded) | yes (`ResonateServer` + `::local` in tests) | our engine is the embedded default |
 | Server process (`resonate serve` + sqlite `resonate.db`) | yes (`daemon::ensure_resonate`, `cmd/engine`) | probed, not spawned by workflow | yes (`daemon/server.rs`) | no — process supervision is plane ops |
@@ -65,20 +65,23 @@ Plane-specific (stay plane-side during migration; port must not block them):
 
 ## What the port covers
 
-Scheduling verbs only, on top of `elm-effect-journal` vocabulary and `DurableLog`:
+Scheduling verbs and pure cron timing, on top of `elm-effect-journal`
+vocabulary and `DurableLog`:
 
 - `start` (run key = journal key = `producer_id`)
 - `park_until` (delegates to `plan_park`)
 - `wake`
 - `cancel`
 - `query`
+- cron timing (`CronSchedule`, `next_after_ms`, `latest_at_or_before_ms`,
+  `fire_key`); registration stays plane-side
 
 Pure scheduler core: given parked rows + `now_ms`, which keys are due. Storage trait with an in-memory impl; toron later binds `WorkflowEffectStore` (ADR-0002 L342). No SQLite inside the framework unless a future adoption record requires it — today every plane that needs durable bytes already has a store (Resonate's db or toron's).
 
 ## What the port deliberately does not cover
 
 - Proc-macro durable functions and SDK `Context` / `ctx.run` shape
-- Cron expression registration (`schedule`)
+- Cron registration, pause/resume, and the tick loop (`schedule`)
 - Spawning or probing an external `resonate serve`
 - `/health`, groups, tokens, promise dashboards, DB purge UIs
 - Multi-host placement, search attributes, actor addressing

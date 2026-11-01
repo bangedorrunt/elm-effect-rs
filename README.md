@@ -13,6 +13,7 @@ scope waits for its children and interruption is a real outcome.
 | `elm-effect` | Effects, fibers, scopes, layers, services, schedules, sync primitives, clocks |
 | `elm-effect-elm` | `Program`, `Cmd`, `Interpret`: a message log folded into a model |
 | `elm-effect-journal` | Durable logs for commands that must survive a restart |
+| `elm-effect-durable` | Durable engine port, single-host engine, and pure cron timing (ADR-0005) |
 | `elm-effect-test` | `TestClock` and test helpers |
 | `elm-effect-lints` | Optional lints for effect code |
 
@@ -24,9 +25,11 @@ is the same path for an agent.
 
 The design records are
 [ADR-0002](docs/decisions/0002-port-effect-4-into-rust-with-an-elm-loop.md)
-(the carrier and its laws) and
+(the carrier and its laws),
 [ADR-0003](docs/decisions/0003-make-elm-effect-a-first-class-rust-framework.md)
-(adoption and extension).
+(adoption and extension), and
+[ADR-0005](docs/decisions/0005-durable-engine-port-and-our-engine.md)
+(the durable engine and cron timing).
 
 ## License
 

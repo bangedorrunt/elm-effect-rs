@@ -231,6 +231,19 @@ let park = plan_park(until_ms, max_wait_secs, now_ms, None);
 
 `None` for the current row means `DispatchNew`. `plan_park` with no ceiling uses 86400 seconds. A larger `max_wait_secs` is `RefusedOverCeiling`. A past `until_ms` is `ResumeNow`. `PendingStore::upsert_pending` writes one park. The same `(run_id, promise_id, park_generation)` writes nothing the second time.
 
+## A cron tick
+
+```rust
+use elm_effect_durable::{CronSchedule, fire_key};
+
+let schedule = CronSchedule::parse("30 3 * * 0")?;
+let tick_ms = schedule.next_after_ms(now_ms).expect("a 5-field cron has a next tick");
+let key = fire_key("weekly-review", tick_ms);
+let out = engine.start(&key, now_ms)?;
+```
+
+`CronSchedule` is pure and uses UTC with minute resolution. The fields are `minute hour day-of-month month day-of-week`; lists, ranges, steps, and month or weekday names are accepted. `next_after_ms` is strict. `latest_at_or_before_ms(last_ms, now_ms)` is the one-tick catch-up after downtime. The same `fire_key` starts once: a replay re-attaches instead of dispatching the effect twice. Registration, pause/resume, catch-up policy, and the tick loop stay with the host.
+
 ## Where to read next
 
 | You are about to | Read |

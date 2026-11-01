@@ -15,3 +15,5 @@ thiserror = "1"
 [dev-dependencies]
 # The fold lint rules live in one crate; the tests here call them.
 elm-effect-lints = { path = "../elm-effect-lints" }
+# The guide-import fence compiles the cron call the guide publishes.
+elm-effect-durable = { path = "../elm-effect-durable" }

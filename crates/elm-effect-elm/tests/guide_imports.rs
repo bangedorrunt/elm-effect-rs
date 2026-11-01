@@ -20,6 +20,7 @@ use elm_effect::config_provider::Provider;
 use elm_effect::{Config, ConfigError};
 use elm_effect::{Effect, Exit, Runtime, Schedule, ServiceTag, effect, retry, use_service};
 use elm_effect::{flow, pipe};
+use elm_effect_durable::{CronSchedule, fire_key};
 use elm_effect_elm::{Boot, Program, Update};
 
 use std::fs;
@@ -44,6 +45,8 @@ const PUBLISHED: &[&str] = &[
     "use elm_effect::{Config, ConfigError};",
     "use elm_effect::config::Value;",
     "use elm_effect::config_provider::Provider;",
+    // The cron section's import.
+    "use elm_effect_durable::{CronSchedule, fire_key};",
     "use elm_effect_elm::{Boot, Program, Update};",
 ];
 
