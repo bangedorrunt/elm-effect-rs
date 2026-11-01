@@ -2,6 +2,20 @@
 
 use crate::storage::ParkedRow;
 
+/// A host store could not complete an operation.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum StorageError {
+    /// The store is temporarily unavailable; a retry may succeed.
+    #[error("storage unavailable: {0}")]
+    Unavailable(String),
+    /// The store returned data that violates its contract.
+    #[error("storage corrupt: {0}")]
+    Corrupt(String),
+    /// The store rejected the operation.
+    #[error("storage rejected: {0}")]
+    Rejected(String),
+}
+
 /// Errors from the durable engine port.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum EngineError {
@@ -22,9 +36,12 @@ pub enum EngineError {
         /// Run key.
         key: String,
     },
-    /// Storage rejected the write.
-    #[error("storage: {0}")]
-    Storage(String),
+    /// The journal refused an internal transition (an engine invariant).
+    #[error("journal: {0}")]
+    Journal(String),
+    /// The host store failed.
+    #[error("{0}")]
+    Storage(#[from] StorageError),
 }
 
 /// Coarse phase a [`query`](DurableEngine::query) reports.
@@ -152,5 +169,5 @@ pub trait DurableEngine {
     fn drain_due(&mut self, now_ms: u64) -> Result<Vec<crate::EngineMsg>, EngineError>;
 
     /// Parked rows currently stored (for tests and host inspection).
-    fn parked(&self) -> Vec<ParkedRow>;
+    fn parked(&self) -> Result<Vec<ParkedRow>, EngineError>;
 }

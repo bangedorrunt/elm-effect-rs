@@ -54,8 +54,8 @@ impl Default for OurEngine<MemStorage> {
 impl<S: EngineStorage> OurEngine<S, InMemoryStore> {
     /// Engine over a host store with the crate's in-memory journal.
     ///
-    /// Existing parks seed the next park generation, so a fresh process on a
-    /// populated store never reuses a generation.
+    /// Park generations are read lazily from the store on the next
+    /// `park_until`, so construction does not perform I/O.
     pub fn with_storage(storage: S) -> Self {
         Self::with_journal(storage, InMemoryStore::new(1024))
     }
@@ -75,19 +75,10 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
     /// A host that persists journal rows across restart injects them here, so
     /// `start` re-attaches to the recorded intent instead of re-dispatching.
     pub fn with_journal(storage: S, journal: J) -> Self {
-        let mut engine = Self {
+        Self {
             storage,
             journal,
             next_park_gen: std::collections::BTreeMap::new(),
-        };
-        engine.reseed_park_generations();
-        engine
-    }
-
-    fn reseed_park_generations(&mut self) {
-        for park in self.storage.list_parked() {
-            let entry = self.next_park_gen.entry(park.key).or_insert(0);
-            *entry = (*entry).max(park.park_generation);
         }
     }
 
@@ -108,10 +99,12 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         key: &str,
         generation: u64,
         to: EffectState,
-    ) -> Option<elm_effect_journal::store::Row> {
-        let row = self.journal.settle(key, generation, to)?;
-        self.apply_journal_row(&row);
-        Some(row)
+    ) -> Result<Option<elm_effect_journal::store::Row>, EngineError> {
+        let Some(row) = self.journal.settle(key, generation, to) else {
+            return Ok(None);
+        };
+        self.apply_journal_row(&row)?;
+        Ok(Some(row))
     }
 
     /// Claim a journal row (bumps generation), then project the fence onto the
@@ -123,23 +116,29 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         lease_deadline: i64,
         now_ms: i64,
         expected_generation: u64,
-    ) -> Option<elm_effect_journal::store::Row> {
-        let row = self
+    ) -> Result<Option<elm_effect_journal::store::Row>, EngineError> {
+        let Some(row) = self
             .journal
-            .claim(key, owner, lease_deadline, now_ms, expected_generation)?;
-        if let Some(mut run) = self.storage.get_run(key) {
+            .claim(key, owner, lease_deadline, now_ms, expected_generation)
+        else {
+            return Ok(None);
+        };
+        if let Some(mut run) = self.storage.get_run(key)? {
             run.generation = row.generation;
             run.attempt = i64::from(row.attempts);
             run.phase = RunPhase::Running;
             run.until_ms = None;
-            self.storage.commit_run(run);
+            self.storage.commit_run(run)?;
         }
-        Some(row)
+        Ok(Some(row))
     }
 
-    fn apply_journal_row(&mut self, row: &elm_effect_journal::store::Row) {
-        let Some(mut run) = self.storage.get_run(&row.key) else {
-            return;
+    fn apply_journal_row(
+        &mut self,
+        row: &elm_effect_journal::store::Row,
+    ) -> Result<(), EngineError> {
+        let Some(mut run) = self.storage.get_run(&row.key)? else {
+            return Ok(());
         };
         run.generation = row.generation;
         run.attempt = i64::from(row.attempts);
@@ -147,14 +146,15 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         run.until_ms = None;
         // A settle is an active transition, not a wait; a park row beside it
         // is stale and would block the drain.
-        self.storage.commit_run(run);
+        self.storage.commit_run(run)?;
+        Ok(())
     }
 
     /// Mark the run Unknown (uncertain outcome). Only reconcile may leave it.
     pub fn mark_unknown(&mut self, key: &str) -> Result<(), EngineError> {
         let mut row = self
             .storage
-            .get_run(key)
+            .get_run(key)?
             .ok_or_else(|| EngineError::NotFound(key.into()))?;
         if let Some(j) = self.journal.get(key)
             && j.state.is_terminal()
@@ -178,13 +178,13 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
             let settled = self
                 .journal
                 .settle(&j.key, j.generation, EffectState::Unknown)
-                .ok_or_else(|| EngineError::Storage("journal refused Unknown".into()))?;
+                .ok_or_else(|| EngineError::Journal("refused Unknown".into()))?;
             row.generation = settled.generation;
             row.attempt = i64::from(settled.attempts);
         }
         row.phase = RunPhase::Unknown;
         row.until_ms = None;
-        self.storage.commit_run(row);
+        self.storage.commit_run(row)?;
         Ok(())
     }
 
@@ -203,8 +203,8 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         &self,
         key: &str,
         journal: &elm_effect_journal::store::Row,
-    ) -> RunStatus {
-        let mut status = match self.storage.get_run(key) {
+    ) -> Result<RunStatus, EngineError> {
+        let mut status = match self.storage.get_run(key)? {
             Some(row) => Self::status_of(&row),
             None => RunStatus {
                 key: key.to_string(),
@@ -213,6 +213,12 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
                 until_ms: None,
             },
         };
+        if journal.generation > status.generation {
+            // The journal has a newer fence than storage. A stale Parked row
+            // must not hide a claim that already moved the run forward.
+            status.phase = phase_of(journal.state);
+            status.until_ms = None;
+        }
         match journal.state {
             EffectState::Settled
             | EffectState::Failed
@@ -231,13 +237,13 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
             }
         }
         status.generation = journal.generation;
-        status
+        Ok(status)
     }
 
     fn require_live(&self, key: &str) -> Result<RunRow, EngineError> {
         let row = self
             .storage
-            .get_run(key)
+            .get_run(key)?
             .ok_or_else(|| EngineError::NotFound(key.into()))?;
         if let Some(journal) = self.journal.get(key) {
             if journal.state.is_terminal() {
@@ -288,7 +294,7 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
             // other existing row re-attaches; retries and reconciliation are
             // explicit host verbs.
             if !(j.state == EffectState::Prepared && matches!(plan, DispatchPlan::DispatchNew)) {
-                if self.storage.get_run(key).is_none() {
+                if self.storage.get_run(key)?.is_none() {
                     // A host-injected journal may arrive before its run row.
                     // Re-attach still leaves a row the other verbs can use.
                     self.storage.commit_run(RunRow {
@@ -297,13 +303,13 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
                         generation: j.generation,
                         until_ms: None,
                         attempt: i64::from(j.attempts),
-                    });
+                    })?;
                 }
                 return Ok(StartOutcome::Already {
-                    status: self.status_with_journal(key, &j),
+                    status: self.status_with_journal(key, &j)?,
                 });
             }
-        } else if let Some(existing) = self.storage.get_run(key)
+        } else if let Some(existing) = self.storage.get_run(key)?
             && existing.phase != RunPhase::Running
         {
             // A park, terminal row, or unknown outcome is already the answer.
@@ -326,7 +332,7 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
             j.generation,
         ) {
             return Ok(StartOutcome::Already {
-                status: self.status_with_journal(key, &j),
+                status: self.status_with_journal(key, &j)?,
             });
         }
         // Write the run row before the journal fence. A crash between the two
@@ -338,17 +344,17 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
             generation: j.generation,
             until_ms: None,
             attempt: i64::from(j.attempts),
-        });
+        })?;
         // The generation fences stale settle attempts. The lease is already
         // expired: this engine schedules, the host holds the execution lease.
         let claimed = self
             .journal
             .claim(key, "engine", now, now, j.generation)
-            .ok_or_else(|| EngineError::Storage("claim after intent failed".into()))?;
+            .ok_or_else(|| EngineError::Journal("claim after intent failed".into()))?;
         let inflight = self
             .journal
             .settle(key, claimed.generation, EffectState::InFlight)
-            .ok_or_else(|| EngineError::Storage("Prepared→InFlight failed".into()))?;
+            .ok_or_else(|| EngineError::Journal("Prepared→InFlight failed".into()))?;
         let row = RunRow {
             key: key.to_string(),
             phase: RunPhase::Running,
@@ -356,7 +362,7 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
             until_ms: None,
             attempt: i64::from(inflight.attempts),
         };
-        self.storage.commit_run(row);
+        self.storage.commit_run(row)?;
         Ok(StartOutcome::Started {
             generation: inflight.generation,
         })
@@ -382,13 +388,17 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
             ParkDecision::ResumeNow { overdue_ms } => {
                 row.phase = RunPhase::Running;
                 row.until_ms = None;
-                self.storage.commit_run(row);
+                self.storage.commit_run(row)?;
                 Ok(ParkOutcome::ResumeNow { overdue_ms })
             }
             ParkDecision::Wait { wait_ms, intent } => {
                 // Re-parking the same key to the same instant keeps the
                 // existing generation; only a different instant bumps it.
-                let existing = self.storage.get_park(key);
+                let existing = self.storage.get_park(key)?;
+                if let Some(park) = &existing {
+                    let generation = self.next_park_gen.entry(key.to_string()).or_insert(0);
+                    *generation = (*generation).max(park.park_generation);
+                }
                 let park_generation = match existing {
                     Some(park) if park.until_ms == intent.until_ms => park.park_generation,
                     _ => {
@@ -406,7 +416,7 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
                         until_ms: intent.until_ms,
                         park_generation,
                     },
-                );
+                )?;
                 Ok(ParkOutcome::Wait {
                     until_ms: intent.until_ms,
                     wait_ms,
@@ -419,21 +429,21 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
         let mut row = self.require_live(key)?;
         if row.phase != RunPhase::Parked {
             // Already running: idempotent wake. A park row beside it is stale.
-            self.storage.clear_parks(key);
+            self.storage.clear_parks(key)?;
             return Ok(None);
         }
         let until = row.until_ms.unwrap_or(now_ms);
         let overdue = now_ms.saturating_sub(until);
         row.phase = RunPhase::Running;
         row.until_ms = None;
-        self.storage.commit_run(row);
+        self.storage.commit_run(row)?;
         Ok(Some(overdue))
     }
 
     fn cancel(&mut self, key: &str, _now_ms: u64) -> Result<(), EngineError> {
         let mut row = self
             .storage
-            .get_run(key)
+            .get_run(key)?
             .ok_or_else(|| EngineError::NotFound(key.into()))?;
         if row.phase == RunPhase::Cancelled {
             return Ok(());
@@ -446,7 +456,7 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
         }
         if let Some(j) = self.journal.get(key) {
             if j.state.is_terminal() {
-                self.storage.clear_parks(key);
+                self.storage.clear_parks(key)?;
                 return Err(EngineError::Terminal {
                     key: key.into(),
                     phase: phase_of(j.state),
@@ -455,28 +465,28 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
             let settled = self
                 .journal
                 .settle(&j.key, j.generation, EffectState::Cancelled)
-                .ok_or_else(|| EngineError::Storage("journal refused cancel".into()))?;
+                .ok_or_else(|| EngineError::Journal("refused cancel".into()))?;
             row.generation = settled.generation;
             row.attempt = i64::from(settled.attempts);
         }
         row.phase = RunPhase::Cancelled;
         row.until_ms = None;
-        self.storage.commit_run(row);
+        self.storage.commit_run(row)?;
         Ok(())
     }
 
     fn query(&self, key: &str) -> Result<RunStatus, EngineError> {
         if let Some(j) = self.journal.get(key) {
-            return Ok(self.status_with_journal(key, &j));
+            return self.status_with_journal(key, &j);
         }
         self.storage
-            .get_run(key)
+            .get_run(key)?
             .map(|r| Self::status_of(&r))
             .ok_or_else(|| EngineError::NotFound(key.into()))
     }
 
     fn drain_due(&mut self, now_ms: u64) -> Result<Vec<EngineMsg>, EngineError> {
-        let intents = due_wakes(&self.storage.due_parks(now_ms), now_ms);
+        let intents = due_wakes(&self.storage.due_parks(now_ms)?, now_ms);
         let mut msgs = Vec::with_capacity(intents.len());
         for intent in intents {
             match self.wake(&intent.key, now_ms) {
@@ -492,15 +502,15 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
                     EngineError::NotFound(_)
                     | EngineError::Terminal { .. }
                     | EngineError::Uncertain { .. },
-                ) => self.storage.clear_parks(&intent.key),
+                ) => self.storage.clear_parks(&intent.key)?,
                 Err(other) => return Err(other),
             }
         }
         Ok(msgs)
     }
 
-    fn parked(&self) -> Vec<ParkedRow> {
-        self.storage.list_parked()
+    fn parked(&self) -> Result<Vec<ParkedRow>, EngineError> {
+        self.storage.list_parked().map_err(Into::into)
     }
 }
 

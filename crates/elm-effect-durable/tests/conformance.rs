@@ -41,13 +41,17 @@ fn unknown_has_no_default_exit() {
     eng.mark_unknown("u1").expect("mark unknown");
     assert_eq!(eng.query("u1").unwrap().phase, RunPhase::Unknown);
     // Direct Settled from Unknown is refused by the golden table.
-    let settled = eng.settle("u1", generation, EffectState::Settled);
+    let settled = eng
+        .settle("u1", generation, EffectState::Settled)
+        .expect("settle");
     assert!(
         settled.is_none(),
         "Unknown must not settle without reconcile"
     );
     // Cancel remains an admitted exit.
-    let cancelled = eng.settle("u1", generation, EffectState::Cancelled);
+    let cancelled = eng
+        .settle("u1", generation, EffectState::Cancelled)
+        .expect("settle");
     assert!(cancelled.is_some());
 }
 
@@ -135,14 +139,23 @@ fn stale_generation_holder_cannot_settle() {
         panic!("started");
     };
     // A zombie with generation 0 (pre-claim) cannot settle.
-    assert!(eng.settle("g1", 0, EffectState::Settled).is_none());
+    assert!(
+        eng.settle("g1", 0, EffectState::Settled)
+            .expect("settle")
+            .is_none()
+    );
     // Live generation can (InFlight → Settled).
     let row = eng
         .settle("g1", generation, EffectState::Settled)
+        .expect("settle")
         .expect("live generation settles");
     assert_eq!(row.state, EffectState::Settled);
     // Terminal row: further settle is refused.
-    assert!(eng.settle("g1", generation, EffectState::Failed).is_none());
+    assert!(
+        eng.settle("g1", generation, EffectState::Failed)
+            .expect("settle")
+            .is_none()
+    );
 }
 
 #[test]
@@ -151,7 +164,7 @@ fn parking_same_key_same_instant_is_one_row() {
     eng.start("s1", 0).unwrap();
     eng.park_until("s1", 5_000, 60, 0, None).unwrap();
     eng.park_until("s1", 5_000, 60, 0, None).unwrap();
-    let parks = eng.parked();
+    let parks = eng.parked().expect("parked");
     assert_eq!(parks.len(), 1, "one row for the same instant: {parks:?}");
     assert_eq!(parks[0].until_ms, 5_000);
 }
@@ -163,7 +176,7 @@ fn reparking_a_different_instant_keeps_one_park() {
     eng.park_until("p3", 1_000, 60, 0, None).unwrap();
     eng.park_until("p3", 2_000, 60, 0, None).unwrap();
 
-    let parks = eng.parked();
+    let parks = eng.parked().expect("parked");
     assert_eq!(parks.len(), 1, "one active park per run: {parks:?}");
     assert_eq!(parks[0].until_ms, 2_000);
     assert_eq!(parks[0].park_generation, 2);
@@ -181,17 +194,18 @@ fn restart_recovery_wakes_pending_parks() {
     let snapshot = {
         let mut snap = MemStorage::new();
         for key in ["r1", "r2"] {
-            snap.put_run(eng.query(key).unwrap().into_run_row());
+            snap.put_run(eng.query(key).unwrap().into_run_row())
+                .expect("put run");
         }
-        for p in eng.parked() {
-            snap.upsert_park(p);
+        for p in eng.parked().expect("parked") {
+            snap.upsert_park(p).expect("park");
         }
         snap
     };
     drop(eng);
 
     let mut recovered = OurEngine::recover(snapshot);
-    assert_eq!(recovered.parked().len(), 2);
+    assert_eq!(recovered.parked().expect("parked").len(), 2);
     let msgs = recovered.drain_due(150).unwrap();
     assert_eq!(msgs.len(), 1);
     assert_eq!(
@@ -213,16 +227,20 @@ fn settle_projects_terminal_phase_and_clears_park() {
         panic!("started");
     };
     eng.park_until("s2", 1_000, 60, 0, None).unwrap();
-    assert_eq!(eng.parked().len(), 1);
+    assert_eq!(eng.parked().expect("parked").len(), 1);
 
     let row = eng
         .settle("s2", generation, EffectState::Settled)
-        .expect("settle");
+        .expect("settle")
+        .expect("row");
     assert_eq!(row.state, EffectState::Settled);
     let status = eng.query("s2").unwrap();
     assert_eq!(status.phase, RunPhase::Settled);
     assert_eq!(status.until_ms, None);
-    assert!(eng.parked().is_empty(), "a terminal settle clears the park");
+    assert!(
+        eng.parked().expect("parked").is_empty(),
+        "a terminal settle clears the park"
+    );
 }
 
 #[test]
@@ -235,12 +253,16 @@ fn claim_projects_generation_and_clears_park() {
 
     let claimed = eng
         .claim("c2", "worker", 10_000, 0, generation)
-        .expect("claim");
+        .expect("claim")
+        .expect("row");
     assert!(claimed.generation > generation);
     let status = eng.query("c2").unwrap();
     assert_eq!(status.phase, RunPhase::Running);
     assert_eq!(status.generation, claimed.generation);
-    assert!(eng.parked().is_empty(), "a claim is a dispatch, not a wait");
+    assert!(
+        eng.parked().expect("parked").is_empty(),
+        "a claim is a dispatch, not a wait"
+    );
 }
 
 #[test]
@@ -249,7 +271,10 @@ fn unknown_clears_park_and_cannot_resume() {
     eng.start("u2", 0).unwrap();
     eng.park_until("u2", 1_000, 60, 0, None).unwrap();
     eng.mark_unknown("u2").unwrap();
-    assert!(eng.parked().is_empty(), "unknown is not a park");
+    assert!(
+        eng.parked().expect("parked").is_empty(),
+        "unknown is not a park"
+    );
 
     assert!(matches!(
         eng.park_until("u2", 2_000, 60, 0, None),
@@ -267,23 +292,27 @@ fn unknown_clears_park_and_cannot_resume() {
 #[test]
 fn drain_due_clears_orphaned_and_terminal_parks() {
     let mut storage = MemStorage::new();
-    storage.put_run(RunRow {
-        key: "gone".into(),
-        phase: RunPhase::Settled,
-        generation: 1,
-        until_ms: Some(100),
-        attempt: 1,
-    });
-    storage.upsert_park(ParkedRow {
-        key: "gone".into(),
-        until_ms: 100,
-        park_generation: 1,
-    });
+    storage
+        .put_run(RunRow {
+            key: "gone".into(),
+            phase: RunPhase::Settled,
+            generation: 1,
+            until_ms: Some(100),
+            attempt: 1,
+        })
+        .expect("put run");
+    storage
+        .upsert_park(ParkedRow {
+            key: "gone".into(),
+            until_ms: 100,
+            park_generation: 1,
+        })
+        .expect("park");
 
     let mut eng = OurEngine::recover(storage);
     assert!(eng.drain_due(200).unwrap().is_empty());
     assert!(
-        eng.parked().is_empty(),
+        eng.parked().expect("parked").is_empty(),
         "a stale park must not block the drain"
     );
     assert_eq!(eng.query("gone").unwrap().phase, RunPhase::Settled);
@@ -388,13 +417,15 @@ fn journal_terminal_wins_over_stale_storage() {
         .expect("settled");
 
     let mut storage = MemStorage::new();
-    storage.put_run(RunRow {
-        key: "stale".into(),
-        phase: RunPhase::Running,
-        generation: claimed.generation,
-        until_ms: None,
-        attempt: 0,
-    });
+    storage
+        .put_run(RunRow {
+            key: "stale".into(),
+            phase: RunPhase::Running,
+            generation: claimed.generation,
+            until_ms: None,
+            attempt: 0,
+        })
+        .expect("put run");
     let mut eng = OurEngine::with_journal(storage, journal);
 
     assert!(matches!(
@@ -409,12 +440,47 @@ fn journal_terminal_wins_over_stale_storage() {
 }
 
 #[test]
+fn newer_journal_fence_wins_over_stale_park() {
+    use elm_effect_journal::store::InMemoryStore;
+
+    let journal = InMemoryStore::new(1024);
+    let prepared = journal.record_intent("fenced", 8);
+    let first = journal
+        .claim("fenced", "host", 0, 0, prepared.generation)
+        .expect("first claim");
+    let second = journal
+        .claim("fenced", "host", 0, 0, first.generation)
+        .expect("second claim");
+    journal
+        .settle("fenced", second.generation, EffectState::InFlight)
+        .expect("inflight");
+
+    let mut storage = MemStorage::new();
+    storage
+        .put_run(RunRow {
+            key: "fenced".into(),
+            phase: RunPhase::Parked,
+            generation: first.generation,
+            until_ms: Some(1_000),
+            attempt: 0,
+        })
+        .expect("put run");
+
+    let eng = OurEngine::with_journal(storage, journal);
+    let status = eng.query("fenced").expect("query");
+    assert_eq!(status.phase, RunPhase::Running);
+    assert_eq!(status.generation, second.generation);
+    assert_eq!(status.until_ms, None);
+}
+
+#[test]
 fn restart_without_journal_redispatches_a_running_run() {
     let mut eng = OurEngine::new();
     eng.start("r3", 0).unwrap();
     let snapshot = {
         let mut snap = MemStorage::new();
-        snap.put_run(eng.query("r3").unwrap().into_run_row());
+        snap.put_run(eng.query("r3").unwrap().into_run_row())
+            .expect("put run");
         snap
     };
     drop(eng);
@@ -434,26 +500,30 @@ fn restart_without_journal_redispatches_a_running_run() {
 #[test]
 fn recovery_reseeds_park_generation() {
     let mut storage = MemStorage::new();
-    storage.put_run(RunRow {
-        key: "gen".into(),
-        phase: RunPhase::Parked,
-        generation: 1,
-        until_ms: Some(100),
-        attempt: 1,
-    });
-    storage.upsert_park(ParkedRow {
-        key: "gen".into(),
-        until_ms: 100,
-        park_generation: 7,
-    });
+    storage
+        .put_run(RunRow {
+            key: "gen".into(),
+            phase: RunPhase::Parked,
+            generation: 1,
+            until_ms: Some(100),
+            attempt: 1,
+        })
+        .expect("put run");
+    storage
+        .upsert_park(ParkedRow {
+            key: "gen".into(),
+            until_ms: 100,
+            park_generation: 7,
+        })
+        .expect("park");
 
     let mut eng = OurEngine::recover(storage);
     eng.park_until("gen", 100, 60, 0, None).unwrap();
-    assert_eq!(eng.parked()[0].park_generation, 7);
+    assert_eq!(eng.parked().expect("parked")[0].park_generation, 7);
 
     eng.park_until("gen", 200, 60, 0, None).unwrap();
-    assert_eq!(eng.parked()[0].park_generation, 8);
-    assert_eq!(eng.parked()[0].until_ms, 200);
+    assert_eq!(eng.parked().expect("parked")[0].park_generation, 8);
+    assert_eq!(eng.parked().expect("parked")[0].until_ms, 200);
 }
 
 /// Test helper: rebuild a [`elm_effect_durable::RunRow`] from status.

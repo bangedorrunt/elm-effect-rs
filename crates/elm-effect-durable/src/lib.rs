@@ -25,7 +25,9 @@
 //! [`CronSchedule`], `plan_park`, `plan_attempt`). The host reads its
 //! `Clock` / `TestClock` at the edge and passes `now_ms`; the engine never
 //! sleeps, spawns, or reads the clock. Storage and journal are traits, so the
-//! host supplies its store and can inject a persisted journal.
+//! host supplies its store and can inject a persisted journal. The store is
+//! fallible: every read and write returns [`StorageError`], and the engine
+//! propagates it as [`EngineError::Storage`].
 //!
 //! A host lifts an engine verb into an `Effect` and provides the engine through
 //! its own `ServiceTag`; `tests/framework_fit.rs` is the witness. [`EngineMsg`]
@@ -44,7 +46,9 @@ mod scheduler;
 mod storage;
 
 pub use cron::{CronError, CronSchedule, fire_key};
-pub use engine::{DurableEngine, EngineError, ParkOutcome, RunPhase, RunStatus, StartOutcome};
+pub use engine::{
+    DurableEngine, EngineError, ParkOutcome, RunPhase, RunStatus, StartOutcome, StorageError,
+};
 pub use runtime::{EngineMsg, OurEngine};
 pub use scheduler::{WakeIntent, due_wakes};
 pub use storage::{EngineStorage, MemStorage, ParkedRow, RunRow};
