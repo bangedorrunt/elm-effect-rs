@@ -16,6 +16,12 @@ pub enum EngineError {
         /// Terminal phase observed.
         phase: RunPhase,
     },
+    /// The outcome is unknown; reconcile before resuming or parking.
+    #[error("run {key} outcome is unknown; reconcile first")]
+    Uncertain {
+        /// Run key.
+        key: String,
+    },
     /// Storage rejected the write.
     #[error("storage: {0}")]
     Storage(String),
@@ -42,7 +48,8 @@ pub enum RunPhase {
 }
 
 impl RunPhase {
-    /// Terminal phases never resume through the engine.
+    /// Terminal phases never resume through the engine. `Unknown` is not
+    /// terminal, but it must reconcile before park or wake.
     pub const fn is_terminal(self) -> bool {
         matches!(self, Self::Cancelled | Self::Settled | Self::Failed)
     }

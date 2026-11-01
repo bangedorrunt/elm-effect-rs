@@ -6,9 +6,10 @@
 //! `elm-effect-journal` — this crate does not invent a third vocabulary.
 //! The run key equals the journal key, which equals the log `producer_id`.
 //!
-//! The default engine is [`OurEngine`]: single-host, storage-trait-backed
-//! (in-memory shipped; toron later binds `WorkflowEffectStore`). Pure park
-//! and dispatch decisions reuse
+//! The default engine is [`OurEngine`]: single-host, storage-trait-backed and
+//! journal-injectable (in-memory shipped; a host binds its persisted store
+//! with `with_storage` and its journal with `with_journal`). Pure park and
+//! dispatch decisions reuse
 //! [`plan_park`](elm_effect_journal::plan::plan_park) and
 //! [`plan_attempt`](elm_effect_journal::plan::plan_attempt); they are not
 //! reimplemented here. A clock is injected; tests advance time explicitly.

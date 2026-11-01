@@ -25,3 +25,24 @@ fn one_cron_tick_starts_once() {
     assert_eq!(schedule.latest_at_or_before_ms(tick_ms, tick_ms + 1), None);
     assert!(schedule.next_after_ms(tick_ms).is_some());
 }
+
+#[test]
+fn one_catch_up_tick_starts_once() {
+    let schedule = CronSchedule::parse("0 8 * * *").expect("valid cron");
+    let last_ms = 1_700_000_000_000;
+    let now_ms = last_ms + 3 * 86_400_000;
+    let tick_ms = schedule
+        .latest_at_or_before_ms(last_ms, now_ms)
+        .expect("one missed tick");
+
+    let mut engine = OurEngine::new();
+    let key = fire_key("daily", tick_ms);
+    assert!(matches!(
+        engine.start(&key, now_ms),
+        Ok(StartOutcome::Started { .. })
+    ));
+    assert!(matches!(
+        engine.start(&key, now_ms),
+        Ok(StartOutcome::Already { .. })
+    ));
+}

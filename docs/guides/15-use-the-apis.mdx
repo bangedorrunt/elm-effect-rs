@@ -242,7 +242,9 @@ let key = fire_key("weekly-review", tick_ms);
 let out = engine.start(&key, now_ms)?;
 ```
 
-`CronSchedule` is pure and uses UTC with minute resolution. The fields are `minute hour day-of-month month day-of-week`; lists, ranges, steps, and month or weekday names are accepted. `next_after_ms` is strict. `latest_at_or_before_ms(last_ms, now_ms)` is the one-tick catch-up after downtime. The same `fire_key` starts once: a replay re-attaches instead of dispatching the effect twice. Registration, pause/resume, catch-up policy, and the tick loop stay with the host.
+`CronSchedule` is pure and uses UTC with minute resolution. The fields are `minute hour day-of-month month day-of-week`; lists, ranges, steps, and month or weekday names are accepted. `next_after_ms` is strict. `latest_at_or_before_ms(last_ms, now_ms)` is the one-tick catch-up after downtime. The same `fire_key` starts once: a replay re-attaches instead of dispatching the effect twice. The tick is part of the key, so overlapping firings are distinct runs; choose the overlap policy at the host. Registration, pause/resume, catch-up policy, and the tick loop stay with the host.
+
+`OurEngine::with_storage(store)` binds a host `EngineStorage`. `with_journal(store, journal)` also binds a persisted `JournalStore`, so a restart re-attaches to recorded intent. A transactional store overrides `commit_run` and `commit_park` to make the run and park one write. `park_until` and `wake` refuse an `Unknown` run with `EngineError::Uncertain`; reconcile or cancel it first.
 
 ## Where to read next
 

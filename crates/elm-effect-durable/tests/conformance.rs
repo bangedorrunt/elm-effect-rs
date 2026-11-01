@@ -6,8 +6,8 @@
 
 use elm_effect::{ClockImpl, Duration, TestClock};
 use elm_effect_durable::{
-    DurableEngine, EngineMsg, EngineStorage, MemStorage, OurEngine, ParkOutcome, RunPhase,
-    StartOutcome,
+    DurableEngine, EngineError, EngineMsg, EngineStorage, MemStorage, OurEngine, ParkOutcome,
+    ParkedRow, RunPhase, RunRow, StartOutcome,
 };
 use elm_effect_journal::EffectState;
 use elm_effect_journal::store::JournalStore;
@@ -109,19 +109,8 @@ fn wake_on_time_overdue_and_over_ceiling() {
     assert!(eng.drain_due(clock_ms(&clock)).unwrap().is_empty());
     clock.set_time(2_500);
     let msgs = eng.drain_due(clock_ms(&clock)).unwrap();
-    assert_eq!(msgs[0].overdue_ms_if_woke(), Some(500));
-}
-
-trait WokeOverdue {
-    fn overdue_ms_if_woke(&self) -> Option<u64>;
-}
-impl WokeOverdue for EngineMsg {
-    fn overdue_ms_if_woke(&self) -> Option<u64> {
-        match self {
-            EngineMsg::Woke { overdue_ms, .. } => Some(*overdue_ms),
-            _ => None,
-        }
-    }
+    let EngineMsg::Woke { overdue_ms, .. } = &msgs[0];
+    assert_eq!(*overdue_ms, 500);
 }
 
 #[test]
@@ -168,6 +157,19 @@ fn parking_same_key_same_instant_is_one_row() {
 }
 
 #[test]
+fn reparking_a_different_instant_keeps_one_park() {
+    let mut eng = OurEngine::new();
+    eng.start("p3", 0).unwrap();
+    eng.park_until("p3", 1_000, 60, 0, None).unwrap();
+    eng.park_until("p3", 2_000, 60, 0, None).unwrap();
+
+    let parks = eng.parked();
+    assert_eq!(parks.len(), 1, "one active park per run: {parks:?}");
+    assert_eq!(parks[0].until_ms, 2_000);
+    assert_eq!(parks[0].park_generation, 2);
+}
+
+#[test]
 fn restart_recovery_wakes_pending_parks() {
     let mut eng = OurEngine::new();
     eng.start("r1", 0).unwrap();
@@ -202,6 +204,256 @@ fn restart_recovery_wakes_pending_parks() {
     );
     assert_eq!(recovered.query("r1").unwrap().phase, RunPhase::Running);
     assert_eq!(recovered.query("r2").unwrap().phase, RunPhase::Parked);
+}
+
+#[test]
+fn settle_projects_terminal_phase_and_clears_park() {
+    let mut eng = OurEngine::new();
+    let StartOutcome::Started { generation } = eng.start("s2", 0).unwrap() else {
+        panic!("started");
+    };
+    eng.park_until("s2", 1_000, 60, 0, None).unwrap();
+    assert_eq!(eng.parked().len(), 1);
+
+    let row = eng
+        .settle("s2", generation, EffectState::Settled)
+        .expect("settle");
+    assert_eq!(row.state, EffectState::Settled);
+    let status = eng.query("s2").unwrap();
+    assert_eq!(status.phase, RunPhase::Settled);
+    assert_eq!(status.until_ms, None);
+    assert!(eng.parked().is_empty(), "a terminal settle clears the park");
+}
+
+#[test]
+fn claim_projects_generation_and_clears_park() {
+    let mut eng = OurEngine::new();
+    let StartOutcome::Started { generation } = eng.start("c2", 0).unwrap() else {
+        panic!("started");
+    };
+    eng.park_until("c2", 1_000, 60, 0, None).unwrap();
+
+    let claimed = eng
+        .claim("c2", "worker", 10_000, 0, generation)
+        .expect("claim");
+    assert!(claimed.generation > generation);
+    let status = eng.query("c2").unwrap();
+    assert_eq!(status.phase, RunPhase::Running);
+    assert_eq!(status.generation, claimed.generation);
+    assert!(eng.parked().is_empty(), "a claim is a dispatch, not a wait");
+}
+
+#[test]
+fn unknown_clears_park_and_cannot_resume() {
+    let mut eng = OurEngine::new();
+    eng.start("u2", 0).unwrap();
+    eng.park_until("u2", 1_000, 60, 0, None).unwrap();
+    eng.mark_unknown("u2").unwrap();
+    assert!(eng.parked().is_empty(), "unknown is not a park");
+
+    assert!(matches!(
+        eng.park_until("u2", 2_000, 60, 0, None),
+        Err(EngineError::Uncertain { .. })
+    ));
+    assert!(matches!(
+        eng.wake("u2", 0),
+        Err(EngineError::Uncertain { .. })
+    ));
+    // Cancel remains an admitted exit.
+    eng.cancel("u2", 0).unwrap();
+    assert_eq!(eng.query("u2").unwrap().phase, RunPhase::Cancelled);
+}
+
+#[test]
+fn drain_due_clears_orphaned_and_terminal_parks() {
+    let mut storage = MemStorage::new();
+    storage.put_run(RunRow {
+        key: "gone".into(),
+        phase: RunPhase::Settled,
+        generation: 1,
+        until_ms: Some(100),
+        attempt: 1,
+    });
+    storage.upsert_park(ParkedRow {
+        key: "gone".into(),
+        until_ms: 100,
+        park_generation: 1,
+    });
+
+    let mut eng = OurEngine::recover(storage);
+    assert!(eng.drain_due(200).unwrap().is_empty());
+    assert!(
+        eng.parked().is_empty(),
+        "a stale park must not block the drain"
+    );
+    assert_eq!(eng.query("gone").unwrap().phase, RunPhase::Settled);
+}
+
+#[test]
+fn prepared_intent_is_completed_by_start() {
+    let mut eng = OurEngine::new();
+    let prepared = eng.journal().record_intent("p2", 8);
+    assert_eq!(prepared.state, EffectState::Prepared);
+
+    let outcome = eng.start("p2", 0).expect("start completes the intent");
+    assert!(matches!(outcome, StartOutcome::Started { .. }));
+    assert_eq!(
+        eng.journal().get("p2").expect("journal row").state,
+        EffectState::InFlight
+    );
+    assert!(matches!(
+        eng.start("p2", 0).unwrap(),
+        StartOutcome::Already { .. }
+    ));
+}
+
+#[test]
+fn host_journal_is_injected() {
+    use elm_effect_journal::store::InMemoryStore;
+
+    let journal = InMemoryStore::new(1024);
+    journal.record_intent("host", 8);
+    let mut eng = OurEngine::with_journal(MemStorage::new(), journal);
+
+    assert!(matches!(
+        eng.start("host", 0).unwrap(),
+        StartOutcome::Started { .. }
+    ));
+    assert!(matches!(
+        eng.start("host", 0).unwrap(),
+        StartOutcome::Already { .. }
+    ));
+}
+
+#[test]
+fn journal_only_run_reattaches_with_a_run_row() {
+    use elm_effect_journal::store::InMemoryStore;
+
+    let journal = InMemoryStore::new(1024);
+    let prepared = journal.record_intent("j1", 8);
+    let claimed = journal
+        .claim("j1", "host", 0, 0, prepared.generation)
+        .expect("claim");
+    journal
+        .settle("j1", claimed.generation, EffectState::InFlight)
+        .expect("inflight");
+
+    let mut eng = OurEngine::with_journal(MemStorage::new(), journal);
+    assert!(matches!(
+        eng.start("j1", 0).unwrap(),
+        StartOutcome::Already { .. }
+    ));
+    assert_eq!(eng.query("j1").unwrap().phase, RunPhase::Running);
+    assert!(matches!(
+        eng.park_until("j1", 1_000, 60, 0, None).unwrap(),
+        ParkOutcome::Wait { .. }
+    ));
+}
+
+#[test]
+fn live_host_lease_reattaches_without_stealing() {
+    let mut eng = OurEngine::new();
+    let prepared = eng.journal().record_intent("leased", 8);
+    let claimed = eng
+        .journal()
+        .claim("leased", "host", 10_000, 0, prepared.generation)
+        .expect("host claim");
+
+    let outcome = eng.start("leased", 0).expect("re-attach");
+    assert!(matches!(outcome, StartOutcome::Already { .. }));
+    assert_eq!(
+        eng.journal().get("leased").expect("journal").generation,
+        claimed.generation
+    );
+
+    // Once the lease expires, the engine may complete the prepared intent.
+    let outcome = eng.start("leased", 20_000).expect("expired lease");
+    assert!(matches!(outcome, StartOutcome::Started { .. }));
+}
+
+#[test]
+fn journal_terminal_wins_over_stale_storage() {
+    use elm_effect_journal::store::InMemoryStore;
+
+    let journal = InMemoryStore::new(1024);
+    let prepared = journal.record_intent("stale", 8);
+    let claimed = journal
+        .claim("stale", "host", 0, 0, prepared.generation)
+        .expect("claim");
+    journal
+        .settle("stale", claimed.generation, EffectState::InFlight)
+        .expect("inflight");
+    journal
+        .settle("stale", claimed.generation, EffectState::Settled)
+        .expect("settled");
+
+    let mut storage = MemStorage::new();
+    storage.put_run(RunRow {
+        key: "stale".into(),
+        phase: RunPhase::Running,
+        generation: claimed.generation,
+        until_ms: None,
+        attempt: 0,
+    });
+    let mut eng = OurEngine::with_journal(storage, journal);
+
+    assert!(matches!(
+        eng.park_until("stale", 1_000, 60, 0, None),
+        Err(EngineError::Terminal { .. })
+    ));
+    assert!(matches!(
+        eng.wake("stale", 0),
+        Err(EngineError::Terminal { .. })
+    ));
+    assert_eq!(eng.query("stale").unwrap().phase, RunPhase::Settled);
+}
+
+#[test]
+fn restart_without_journal_redispatches_a_running_run() {
+    let mut eng = OurEngine::new();
+    eng.start("r3", 0).unwrap();
+    let snapshot = {
+        let mut snap = MemStorage::new();
+        snap.put_run(eng.query("r3").unwrap().into_run_row());
+        snap
+    };
+    drop(eng);
+
+    let mut recovered = OurEngine::recover(snapshot);
+    let outcome = recovered.start("r3", 0).expect("re-dispatch");
+    assert!(
+        matches!(outcome, StartOutcome::Started { .. }),
+        "a storage row without a journal intent is not a dispatch record"
+    );
+    assert!(matches!(
+        recovered.start("r3", 0).unwrap(),
+        StartOutcome::Already { .. }
+    ));
+}
+
+#[test]
+fn recovery_reseeds_park_generation() {
+    let mut storage = MemStorage::new();
+    storage.put_run(RunRow {
+        key: "gen".into(),
+        phase: RunPhase::Parked,
+        generation: 1,
+        until_ms: Some(100),
+        attempt: 1,
+    });
+    storage.upsert_park(ParkedRow {
+        key: "gen".into(),
+        until_ms: 100,
+        park_generation: 7,
+    });
+
+    let mut eng = OurEngine::recover(storage);
+    eng.park_until("gen", 100, 60, 0, None).unwrap();
+    assert_eq!(eng.parked()[0].park_generation, 7);
+
+    eng.park_until("gen", 200, 60, 0, None).unwrap();
+    assert_eq!(eng.parked()[0].park_generation, 8);
+    assert_eq!(eng.parked()[0].until_ms, 200);
 }
 
 /// Test helper: rebuild a [`elm_effect_durable::RunRow`] from status.

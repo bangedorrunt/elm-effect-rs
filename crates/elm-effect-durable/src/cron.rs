@@ -150,9 +150,33 @@ impl CronSchedule {
     pub fn next_after_ms(&self, from_ms: u64) -> Option<u64> {
         let start = (from_ms / MINUTE_MS).checked_add(1)?;
         let end = start.checked_add(SEARCH_HORIZON_MINUTES)?;
-        (start..=end)
-            .find(|minute| self.matches_minute(*minute))
-            .and_then(|minute| minute.checked_mul(MINUTE_MS))
+        let mut minute = start;
+        while minute <= end {
+            let day = minute / MINUTES_PER_DAY;
+            if !self.day_matches(day) {
+                // Skip the rest of this day; the next loop checks the next day.
+                minute = (day + 1).checked_mul(MINUTES_PER_DAY)?;
+                continue;
+            }
+            let minute_of_day = minute % MINUTES_PER_DAY;
+            let hour = minute_of_day / 60;
+            let minute_in_hour = minute_of_day % 60;
+            if !self.hour_matches(hour) {
+                minute = minute.checked_add(60 - minute_in_hour)?;
+                continue;
+            }
+            let allowed = self.minutes & (!0u64 << minute_in_hour);
+            if allowed == 0 {
+                minute = minute.checked_add(60 - minute_in_hour)?;
+                continue;
+            }
+            let candidate = minute - minute_in_hour + u64::from(allowed.trailing_zeros());
+            if candidate > end {
+                return None;
+            }
+            return candidate.checked_mul(MINUTE_MS);
+        }
+        None
     }
 
     /// Latest tick strictly after `last_ms` and at or before `now_ms`.
@@ -171,22 +195,43 @@ impl CronSchedule {
         }
         let horizon_start = now_minute.saturating_sub(SEARCH_HORIZON_MINUTES);
         let start = start.max(horizon_start);
-        (start..=now_minute)
-            .rev()
-            .find(|minute| self.matches_minute(*minute))
-            .and_then(|minute| minute.checked_mul(MINUTE_MS))
+        let mut minute = now_minute;
+        loop {
+            if minute < start {
+                return None;
+            }
+            let day = minute / MINUTES_PER_DAY;
+            if !self.day_matches(day) {
+                if day == 0 {
+                    return None;
+                }
+                minute = day * MINUTES_PER_DAY - 1;
+                continue;
+            }
+            let minute_of_day = minute % MINUTES_PER_DAY;
+            let hour = minute_of_day / 60;
+            let minute_in_hour = minute_of_day % 60;
+            let hour_start = minute - minute_in_hour;
+            if !self.hour_matches(hour) {
+                minute = previous_hour_end(day, hour_start)?;
+                continue;
+            }
+            let allowed = self.minutes & ((1u64 << (minute_in_hour + 1)) - 1);
+            if allowed == 0 {
+                minute = previous_hour_end(day, hour_start)?;
+                continue;
+            }
+            let candidate = hour_start + u64::from(63 - allowed.leading_zeros());
+            if candidate < start {
+                return None;
+            }
+            return candidate.checked_mul(MINUTE_MS);
+        }
     }
 
-    fn matches_minute(&self, minute_index: u64) -> bool {
-        let day_index = minute_index / MINUTES_PER_DAY;
-        let minute_of_day = minute_index % MINUTES_PER_DAY;
-        let hour = minute_of_day / 60;
-        let minute = minute_of_day % 60;
+    fn day_matches(&self, day_index: u64) -> bool {
         let (_, month, day) = civil_from_days(day_index);
-        if self.months & (1u64 << month) == 0
-            || self.hours & (1u64 << hour) == 0
-            || self.minutes & (1u64 << minute) == 0
-        {
+        if self.months & (1u64 << month) == 0 {
             return false;
         }
         let dom_match = self.days_of_month & (1u64 << day) != 0;
@@ -195,6 +240,10 @@ impl CronSchedule {
             (true, true) => dom_match || dow_match,
             _ => dom_match && dow_match,
         }
+    }
+
+    fn hour_matches(&self, hour: u64) -> bool {
+        self.hours & (1u64 << hour) != 0
     }
 }
 
@@ -313,6 +362,19 @@ fn civil_from_days(days: u64) -> (u64, u64, u64) {
     (if month <= 2 { year + 1 } else { year }, month, day)
 }
 
+/// Last minute of the hour before `hour_start`, or the previous day's last
+/// minute when the hour is the first of the day.
+fn previous_hour_end(day: u64, hour_start: u64) -> Option<u64> {
+    if hour_start == 0 {
+        if day == 0 {
+            return None;
+        }
+        Some(day * MINUTES_PER_DAY - 1)
+    } else {
+        Some(hour_start - 1)
+    }
+}
+
 /// 0 = Sunday. 1970-01-01 was Thursday.
 fn weekday_from_days(days: u64) -> u64 {
     (days + 4) % 7
@@ -339,6 +401,77 @@ mod tests {
 
     fn schedule(expression: &str) -> CronSchedule {
         CronSchedule::parse(expression).expect("valid cron")
+    }
+
+    fn brute_matches(cron: &CronSchedule, minute_index: u64) -> bool {
+        let day_index = minute_index / MINUTES_PER_DAY;
+        let minute_of_day = minute_index % MINUTES_PER_DAY;
+        let hour = minute_of_day / 60;
+        let minute = minute_of_day % 60;
+        let (_, month, day) = civil_from_days(day_index);
+        if cron.months & (1u64 << month) == 0
+            || cron.hours & (1u64 << hour) == 0
+            || cron.minutes & (1u64 << minute) == 0
+        {
+            return false;
+        }
+        let dom = cron.days_of_month & (1u64 << day) != 0;
+        let dow = cron.days_of_week & (1u64 << weekday_from_days(day_index)) != 0;
+        match (cron.dom_restricted, cron.dow_restricted) {
+            (true, true) => dom || dow,
+            _ => dom && dow,
+        }
+    }
+
+    fn brute_next(cron: &CronSchedule, from_ms: u64) -> Option<u64> {
+        let start = from_ms / MINUTE_MS + 1;
+        let end = start + SEARCH_HORIZON_MINUTES;
+        (start..=end)
+            .find(|minute| brute_matches(cron, *minute))
+            .map(|minute| minute * MINUTE_MS)
+    }
+
+    fn brute_prev(cron: &CronSchedule, last_ms: u64, now_ms: u64) -> Option<u64> {
+        if now_ms < last_ms {
+            return None;
+        }
+        let start = last_ms / MINUTE_MS + 1;
+        let now_minute = now_ms / MINUTE_MS;
+        if start > now_minute {
+            return None;
+        }
+        (start..=now_minute)
+            .rev()
+            .find(|minute| brute_matches(cron, *minute))
+            .map(|minute| minute * MINUTE_MS)
+    }
+
+    #[test]
+    fn jump_search_agrees_with_brute_force() {
+        for (expression, base) in [
+            ("* * * * *", ms(2024, 9, 6, 12, 0)),
+            ("*/15 * * * *", ms(2024, 9, 6, 12, 7)),
+            ("30 3 * * *", ms(2024, 9, 6, 23, 59)),
+            ("0 0 13 * FRI", ms(2024, 10, 12, 0, 0)),
+            ("59 23 * * *", ms(2024, 9, 6, 0, 0)),
+            ("0 0 29 2 *", ms(2024, 2, 28, 0, 0)),
+        ] {
+            let cron = schedule(expression);
+            assert_eq!(
+                cron.next_after_ms(base),
+                brute_next(&cron, base),
+                "{expression} next from {base}"
+            );
+            for delta in [1, 60_000, 86_400_000, 3 * 86_400_000] {
+                let now = base + delta;
+                let last = base.saturating_sub(1);
+                assert_eq!(
+                    cron.latest_at_or_before_ms(last, now),
+                    brute_prev(&cron, last, now),
+                    "{expression} latest from {last} to {now}"
+                );
+            }
+        }
     }
 
     #[test]
@@ -403,6 +536,37 @@ mod tests {
         let want = ms(1970, 1, 4, 3, 0);
         assert_eq!(zero.next_after_ms(0), Some(want));
         assert_eq!(seven.next_after_ms(0), Some(want));
+    }
+
+    #[test]
+    fn day_and_hour_rollovers() {
+        let midnight = schedule("0 0 * * *");
+        assert_eq!(
+            midnight.next_after_ms(ms(2024, 9, 6, 23, 59)),
+            Some(ms(2024, 9, 7, 0, 0))
+        );
+        assert_eq!(
+            midnight.latest_at_or_before_ms(ms(2024, 9, 5, 12, 0), ms(2024, 9, 6, 23, 59)),
+            Some(ms(2024, 9, 6, 0, 0))
+        );
+        assert_eq!(
+            midnight.latest_at_or_before_ms(ms(2024, 9, 6, 0, 0), ms(2024, 9, 6, 23, 59)),
+            None
+        );
+
+        let late = schedule("59 23 * * *");
+        assert_eq!(
+            late.next_after_ms(ms(2024, 9, 6, 0, 0)),
+            Some(ms(2024, 9, 6, 23, 59))
+        );
+        assert_eq!(
+            late.latest_at_or_before_ms(ms(2024, 9, 5, 23, 58), ms(2024, 9, 6, 0, 0)),
+            Some(ms(2024, 9, 5, 23, 59))
+        );
+        assert_eq!(
+            late.latest_at_or_before_ms(ms(2024, 9, 5, 23, 59), ms(2024, 9, 6, 0, 0)),
+            None
+        );
     }
 
     #[test]

@@ -26,7 +26,7 @@ pub struct RunRow {
     pub generation: u64,
     /// When [`RunPhase::Parked`], the absolute wake time.
     pub until_ms: Option<u64>,
-    /// Attempt counter for dispatch planning.
+    /// Attempts recorded on the journal row (0 before the first dispatch).
     pub attempt: i64,
 }
 
@@ -40,11 +40,44 @@ pub trait EngineStorage {
     fn put_run(&mut self, row: RunRow);
     /// All parked rows.
     fn list_parked(&self) -> Vec<ParkedRow>;
-    /// Upsert a park. Returns `true` when written, `false` when an identical
-    /// `(key, until_ms)` row already existed (one row rule).
+    /// The active park for `key`, if any. A host that indexes parks by key
+    /// overrides the default scan.
+    fn get_park(&self, key: &str) -> Option<ParkedRow> {
+        self.list_parked().into_iter().find(|park| park.key == key)
+    }
+    /// Parks due at `now_ms`. A host with a time index overrides the default
+    /// scan; the pure selection still runs in [`due_wakes`](crate::due_wakes).
+    fn due_parks(&self, now_ms: u64) -> Vec<ParkedRow> {
+        self.list_parked()
+            .into_iter()
+            .filter(|park| park.until_ms <= now_ms)
+            .collect()
+    }
+    /// Upsert a park. Any other park for the same key is replaced (one active
+    /// park per run). Returns `true` when written, `false` when the identical
+    /// `(key, until_ms)` row already existed.
     fn upsert_park(&mut self, row: ParkedRow) -> bool;
     /// Remove parks for `key` (any generation).
     fn clear_parks(&mut self, key: &str);
+    /// Persist a run row and drop any park for it as one unit.
+    ///
+    /// The default clears the park then writes the run. A host with a
+    /// transaction should override this so a crash cannot leave the run and
+    /// its wake row disagreeing.
+    fn commit_run(&mut self, run: RunRow) {
+        self.clear_parks(&run.key);
+        self.put_run(run);
+    }
+    /// Persist the run row and its park as one unit. The pair replaces any
+    /// other park for the same key.
+    ///
+    /// The default writes the run then the park. A host with a transaction
+    /// should override this so a crash cannot leave a parked run without its
+    /// wake row.
+    fn commit_park(&mut self, run: RunRow, park: ParkedRow) {
+        self.put_run(run);
+        self.upsert_park(park);
+    }
 }
 
 /// In-memory storage for tests and single-process hosts.
@@ -77,13 +110,12 @@ impl EngineStorage for MemStorage {
 
     fn upsert_park(&mut self, row: ParkedRow) -> bool {
         let k = (row.key.clone(), row.until_ms);
-        if self.parks.contains_key(&k) {
-            return false;
-        }
-        // Drop any other park for this key (one active park per run).
-        self.parks.retain(|(key, _), _| key != &row.key);
+        let existed = self.parks.contains_key(&k);
+        // Keep the identical row, drop any other instant for this key.
+        self.parks
+            .retain(|(key, until), _| key != &row.key || *until == row.until_ms);
         self.parks.insert(k, row);
-        true
+        !existed
     }
 
     fn clear_parks(&mut self, key: &str) {

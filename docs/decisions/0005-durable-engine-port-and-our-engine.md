@@ -75,7 +75,8 @@ Crate `elm-effect-durable` defines `DurableEngine`:
 
 No third vocabulary. Journal states (`Prepared` … `Parked` …) and `DurableLog`
 offsets stay where ADR-0002 put them. The engine does not invent a parallel
-`PromiseState` enum.
+`PromiseState` enum. A run whose outcome is `Unknown` refuses `park_until` and
+`wake` with `EngineError::Uncertain`; reconcile or cancel it first.
 
 ### Default engine (ours)
 
@@ -83,6 +84,19 @@ offsets stay where ADR-0002 put them. The engine does not invent a parallel
   host persist rows; **prefer** toron implementing that trait on
   `WorkflowEffectStore` (ADR-0002 journal section) rather than opening SQLite
   inside this framework.
+* Storage and journal are separate seams. `EngineStorage` persists runs and
+  parks; `JournalStore` persists intent / claim / settle. `with_storage` binds
+  the former and `with_journal` binds the latter, so a host can inject the
+  journal it already persists. `commit_run` and `commit_park` are the
+  transactional hooks; a host with one transaction overrides them so a crash
+  cannot leave a run and its park disagreeing.
+* Recovery is journal-first. A recorded `Prepared` intent is completed by
+  `start`; a recorded `InFlight` row re-attaches; a `Running` storage row with
+  no journal intent is re-dispatched under the same key (the provider
+  idempotency key is the run key). `Unknown` cannot park or wake.
+* A terminal settle or a claim projects onto the run row, so `query` and the
+  park set do not go stale. The drain clears orphaned parks instead of
+  aborting.
 * Pure scheduler core: given parked rows and `now_ms`, which keys are due. It
   **reuses** `plan_park` and `plan_attempt`; it does not reimplement them.
 * Clock is injected. Tests use `elm-effect`'s `TestClock` / a plain `now_ms`
@@ -101,7 +115,12 @@ ships here so each plane does not fork a parser:
 * `next_after_ms` is strictly after; `latest_at_or_before_ms(last, now)` is
   the one-tick catch-up after downtime.
 * `fire_key(name, tick_ms)` is the run key. The host calls `start` with it, so
-  the same firing re-attaches (`Already`) instead of dispatching twice.
+  the same firing re-attaches (`Already`) instead of dispatching twice. The
+  tick is part of the key, so two overlapping firings are distinct runs;
+  overlap policy (skip, buffer one, cancel the previous) is the host's choice,
+  not a new engine verb.
+* The evaluator jumps by day, hour, and minute bit-scan; a sparse schedule
+  (for example February 29) does not scan every minute of the horizon.
 * No clock, no I/O, no scheduler loop. The host passes `now_ms` and runs the
   tick loop at its edge.
 
@@ -135,6 +154,16 @@ Shipped with the engine (in `elm-effect-durable` tests and/or
 7. Parking the same key to the same instant creates one row.
 8. Restart recovery: a fresh engine on the same storage wakes pending parks.
 
+The suite also pins the hardening cases: a terminal settle projects to
+`query` and clears the park; a claim projects the new generation; `Unknown`
+refuses park and wake but still cancels; the drain clears orphaned parks; a
+`Prepared` intent is completed by `start`; a `Running` row with no journal
+intent is re-dispatched under the same key; recovery re-seeds park
+generations; re-parking a different instant keeps one park; a host-injected
+journal re-attaches, including a journal-only run; a live host lease
+re-attaches without being stolen; and a terminal journal row wins over stale
+storage.
+
 ### Migration order
 
 One plane at a time, each through its own adoption record (ADR-0003 style):
@@ -152,6 +181,9 @@ record cuts it.
 * A vendor-hosted dashboard and search attributes / actor placement.
 * Local-time / DST cron. Timing is UTC and has no timezone database; a host
   that needs local time converts at its edge.
+* A persistent journal by default. The in-memory journal survives no process
+  restart; a host injects a persisted `JournalStore` with `with_journal`, and a
+  `Running` row with no journal intent is re-dispatched under the same key.
 
 Acceptable for the current single-host stack. The port keeps the replacement
 path open if we outgrow one host.
@@ -160,8 +192,12 @@ path open if we outgrow one host.
 
 * Good: one pin, no Resonate in the framework; planes speak journal + port.
 * Good: one cron timing kernel; planes keep their own registration tables.
+* Good: the journal is a host seam; persistent history is an injection, not a
+  fork of the engine.
 * Good: conformance suite catches a bad adapter before a plane cutover.
 * Bad: we maintain a small scheduler, a storage trait, and a cron parser.
+* Neutral: the default journal is in-memory; a single-process host and the
+  conformance suite use it, a durable host injects its own.
 * Neutral: cron registration, `/health`, and promise UIs stay plane-side until
   deleted.
 * Neutral: cron timing is UTC only; a local-time host converts at the edge.
@@ -214,8 +250,14 @@ An agent **must not**:
       `clippy -D warnings` / `fmt --check` are green.
 - [x] Conformance cases listed above exist and pass on the in-memory engine.
 - [x] Cron cases cover strict next, one-tick catch-up, vixie Sunday 0/7,
-      restricted day-of-month OR day-of-week, names, leap day, impossible
-      dates, parse errors, and a firing that starts once through `OurEngine`.
+      restricted day-of-month OR day-of-week, names, leap day, day/hour
+      rollovers, impossible dates, parse errors, and a firing that starts once
+      through `OurEngine`.
+- [x] Hardening cases cover journal injection, prepared-intent completion,
+      running-without-journal re-dispatch, live-lease re-attach, terminal
+      journal over stale storage, terminal/claim projection, orphaned parks,
+      one-park re-parking, park-generation reseeding, and `Unknown` refusing
+      park/wake.
 - [x] `cargo test -p elm-effect-elm --test guide_imports` compiles the cron
       `use` line the guide publishes.
 - [x] No `resonate`, `temporal`, `rivet`, or `cron` crate appears in this
@@ -273,3 +315,34 @@ An agent **must not**:
   stay until each plane's adoption record cuts them.
 - Status remains `proposed`; ADR-0001 reserves `accepted` for operator
   sign-off.
+
+### 2026-11-01 — engine hardening and cron jump search
+
+- `OurEngine` is generic over `JournalStore`; `with_journal` injects a
+  persisted journal, so a restart re-attaches instead of guessing.
+  `EngineStorage::commit_run` and `commit_park` are the transactional seams a
+  host overrides when its store can write the pair atomically.
+- `start` is journal-first: it completes a `Prepared` intent, re-attaches to
+  every other recorded row, re-attaches without stealing a live host lease,
+  and re-dispatches a `Running` row with no journal intent under the same key.
+- `settle` and `claim` project onto the run row; terminal and unknown settles
+  clear parks; the drain clears orphaned parks; `Unknown` refuses park and wake
+  but still cancels; a terminal journal row wins over stale storage; park
+  generations are re-seeded on recovery; the redundant in-engine pending store
+  was removed.
+- Cron search jumps by day, hour, and minute bit-scan instead of scanning every
+  minute; plane schedules and day/hour rollovers are pinned.
+- Verification: `cargo test -p elm-effect-durable` (13 cron unit, 20
+  conformance, 2 cron integration), workspace `cargo test` / `clippy -D
+  warnings` / `fmt --check` green.
+
+### 2026-11-01 — what we borrowed
+
+- Resonate: the idempotent run key and the park/wake split stay.
+- Temporal: the journal is the history and wins for lifecycle; a claim is a
+  fencing generation; terminal state must project onto the query; cron overlap
+  is a host policy, not a tick.
+- Rivet: one run key is one actor identity; one active park per key; a wake
+  resumes the same identity.
+- Not copied: multi-host placement, actor migration, a replay VM, timezone or
+  jitter schedules.
