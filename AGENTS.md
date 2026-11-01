@@ -23,6 +23,7 @@ repo's Rust practice pointer for this workspace.
 | `elm-effect` | Effects, fibers, scopes, layers, services, schedules, sync, clocks |
 | `elm-effect-elm` | `Program`, `Cmd`, `Interpret` — pure fold |
 | `elm-effect-journal` | Durable logs for commands that must survive restart |
+| `elm-effect-durable` | Durable engine port and our single-host engine (ADR-0005) |
 | `elm-effect-test` | `TestClock` and helpers |
 | `elm-effect-lints` | Optional lints |
 

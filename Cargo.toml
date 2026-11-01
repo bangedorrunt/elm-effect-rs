@@ -1,3 +1,10 @@
 [workspace]
-members = ["crates/elm-effect", "crates/elm-effect-lints", "crates/elm-effect-test", "crates/elm-effect-elm", "crates/elm-effect-journal"]
+members = [
+    "crates/elm-effect",
+    "crates/elm-effect-lints",
+    "crates/elm-effect-test",
+    "crates/elm-effect-elm",
+    "crates/elm-effect-journal",
+    "crates/elm-effect-durable",
+]
 resolver = "3"
