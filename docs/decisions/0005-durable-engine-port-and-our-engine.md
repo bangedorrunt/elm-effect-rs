@@ -1,0 +1,200 @@
+---
+status: proposed
+date: 2026-11-01
+decision-makers: operator of the flywheel, toron, beads, and chiebukuro stack
+consulted: ADR-0002, ADR-0003, ADR-0004, docs/research/resonate-inventory.md
+informed: agents implementing elm-effect-rs and the three plane migrations
+---
+
+# Durable engine port plus our own single-host engine
+
+> Carrier law stays [ADR-0002](0002-port-effect-4-into-rust-with-an-elm-loop.md).
+> This record does not copy it. Point at L14 (journal), L16 (`DurableLog`),
+> and the journal crate note that toron implements the store trait for
+> `WorkflowEffectStore` (ADR-0002 around the journal section).
+
+## Context and Problem Statement
+
+Three planes pin three different Resonate SDKs (crates.io 0.6 in flywheel and
+toron-workflow; a git `main` tip in chiebukuro). They use Resonate for durable
+run start, durable sleep/park, wake, cancel, and status query. Cron
+registration, `resonate serve`, `/health`, groups, and promise dashboards are
+plane ops around that core (see
+[resonate-inventory.md](../research/resonate-inventory.md)).
+
+ADR-0002 already rejected "Resonate as the carrier" and kept Resonate as an
+engine adapter. The inventory shows the adapter surface we actually need is
+small. We can ship our own single-host engine behind that surface and drop the
+vendor from the framework path, while leaving a door for Resonate, Temporal, or
+Rivet adapters later.
+
+How does a plane schedule a durable run without naming a vendor? How does the
+framework stay free of Resonate, Temporal, and Rivet dependencies?
+
+## Decision Drivers
+
+* ADR-0002: Resonate is an adapter, not the carrier; no thunk-style middleware
+  that starts work; journal and `DurableLog` vocabularies already exist.
+* Inventory: only scheduling verbs are shared; cron, server process, and
+  dashboards are not.
+* Single host (mikasa) today; multi-host and a hosted dashboard are not
+  required.
+* Swap or drop a vendor later without rewriting plane reducers.
+* No regressions: planes keep their Resonate pins until each adoption record
+  cuts them; this repo adds the port and default engine only.
+
+## Considered Options
+
+* Keep Resonate as the only engine; pin one SDK version in every plane.
+* Write a durable engine port (scheduling verbs) plus our own SQLite-or-trait
+  backed single-host engine as the default; vendor adapters later.
+* Adopt Temporal (or Rivet) now as the shared engine.
+
+## Decision Outcome
+
+Chosen option: "Durable engine port plus our own single-host engine."
+
+### Port (scheduling verbs only)
+
+Crate `elm-effect-durable` defines `DurableEngine`:
+
+| Verb | Meaning |
+| --- | --- |
+| `start` | Begin or re-attach a run. The run key **is** the journal key, which **is** the `DurableLog` `producer_id`. |
+| `park_until` | Ask to wait until an absolute `until_ms`. Decision is `plan_park` from `elm-effect-journal` (overdue → resume; over ceiling → typed refuse; never a silent shorter sleep). |
+| `wake` | Resume a parked run (scheduler or host). |
+| `cancel` | Terminal cancel. |
+| `query` | Read run status. |
+
+No third vocabulary. Journal states (`Prepared` … `Parked` …) and `DurableLog`
+offsets stay where ADR-0002 put them. The engine does not invent a parallel
+`PromiseState` enum.
+
+### Default engine (ours)
+
+* Single-host. In-memory storage ships in the crate. A storage trait lets a
+  host persist rows; **prefer** toron implementing that trait on
+  `WorkflowEffectStore` (ADR-0002 journal section) rather than opening SQLite
+  inside this framework.
+* Pure scheduler core: given parked rows and `now_ms`, which keys are due. It
+  **reuses** `plan_park` and `plan_attempt`; it does not reimplement them.
+* Clock is injected. Tests use `elm-effect`'s `TestClock` / a plain `now_ms`
+  function — never `tokio::time::sleep` inside the decision path.
+* A small runtime loop turns due wakes into Msgs for the Elm fold. I/O stays
+  at the boundary.
+
+### Vendor adapters (later, not now)
+
+Allowed as separate crates (`elm-effect-resonate`, `-temporal`, `-rivet`) only
+after an adoption need. Rules:
+
+* Vendor history (Temporal event history, Rivet actor state, Resonate promise
+  log) is **internal** to the adapter.
+* Our `DurableLog` remains the source of truth for Msgs.
+* Vendor workflow / run id maps 1:1 onto our run/journal key — no second
+  identity.
+* Every adapter must pass the conformance suite below.
+
+This record does **not** add those adapter crates.
+
+### Conformance suite
+
+Shipped with the engine (in `elm-effect-durable` tests and/or
+`elm-effect-test` helpers). Every engine, including ours, must prove:
+
+1. Replay never runs an effect twice (same key / attempt).
+2. `Unknown` has no default exit.
+3. Park is not terminal.
+4. Wake on time; overdue wake reports the gap; over-ceiling park is refused.
+5. Cancel is terminal.
+6. A stale generation (or epoch) holder cannot settle.
+7. Parking the same key to the same instant creates one row.
+8. Restart recovery: a fresh engine on the same storage wakes pending parks.
+
+### Migration order
+
+One plane at a time, each through its own adoption record (ADR-0003 style):
+
+1. **toron-workflow** (owns the journal store).
+2. **flywheel**.
+3. **chiebukuro** (git SDK pin; cron + task UI; highest risk).
+
+This repository does not edit those planes. Planes keep Resonate until their
+record cuts it.
+
+### What we give up
+
+* Multi-host durable execution.
+* A vendor-hosted dashboard and search attributes / actor placement.
+
+Acceptable for the current single-host stack. The port keeps the replacement
+path open if we outgrow one host.
+
+## Consequences
+
+* Good: one pin, no Resonate in the framework; planes speak journal + port.
+* Good: conformance suite catches a bad adapter before a plane cutover.
+* Bad: we maintain a small scheduler and storage trait.
+* Neutral: cron, `/health`, and promise UIs stay plane-side until deleted.
+* Neutral: status stays `proposed` until operator sign-off; the
+  agent-authority section below authorizes implementation meanwhile
+  (ADR-0001).
+
+## Agent authority
+
+While status is `proposed`, an agent **may**:
+
+* Add crate `elm-effect-durable` with `DurableEngine`, pure scheduler,
+  storage trait + in-memory impl, injected clock, and wake→Msg loop.
+* Add the conformance suite and run it against our engine.
+* Point workspace `Cargo.toml` / root `AGENTS.md` at the new crate.
+* Amend this record under `## More Information` with verification evidence.
+
+An agent **must not**:
+
+* Add Resonate, Temporal, or Rivet dependencies to this repository.
+* Edit flywheel, toron, beads, or chiebukuro in the name of this record.
+* Invent a third lifecycle vocabulary or a second scheduler inside
+  `elm-effect` itself.
+* Open toron's SQLite from this crate; storage is a trait.
+
+## Implementation Plan
+
+* **Affected paths**: `docs/decisions/0005-…`, `docs/decisions/README.md`,
+  `crates/elm-effect-durable/`, workspace `Cargo.toml`, root `AGENTS.md`,
+  conformance tests.
+* **Dependencies**: `elm-effect`, `elm-effect-journal`; no vendor SDKs.
+* **Patterns to follow**: ADR-0002 journal purity; ADR-0004 reconcile (engine
+  does not settle `Unknown`); inventory sizing.
+* **Patterns to avoid**: thunk middleware; `tokio::time::sleep` in decisions;
+  SQLite inside the framework without a new decision; adapter crates now.
+* **Migration steps**: none in this repo's siblings. Plane cutovers are
+  separate records.
+
+### Verification
+
+- [ ] `cargo test -p elm-effect-durable` and workspace `cargo test` /
+      `clippy -D warnings` / `fmt --check` are green.
+- [ ] Conformance cases listed above exist and pass on the in-memory engine.
+- [ ] No `resonate`, `temporal`, or `rivet` crate appears in this workspace's
+      `Cargo.toml` files.
+- [ ] README index lists ADR-0005.
+
+## Pros and Cons of the Options
+
+### Keep Resonate only
+
+* Good: no new code.
+* Bad: three SDK pins; framework still vendor-shaped; ADR-0002 already rejected
+  Resonate as carrier.
+
+### Port + our engine (chosen)
+
+* Good: dependency-free default; swap path preserved; sized to inventory.
+* Bad: we own the scheduler.
+
+### Adopt Temporal / Rivet now
+
+* Good: multi-host later.
+* Bad: larger surface than we use; still a vendor pin; migrates every plane
+  twice if we later want our own default.
