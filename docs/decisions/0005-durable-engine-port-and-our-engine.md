@@ -173,12 +173,12 @@ An agent **must not**:
 
 ### Verification
 
-- [ ] `cargo test -p elm-effect-durable` and workspace `cargo test` /
+- [x] `cargo test -p elm-effect-durable` and workspace `cargo test` /
       `clippy -D warnings` / `fmt --check` are green.
-- [ ] Conformance cases listed above exist and pass on the in-memory engine.
-- [ ] No `resonate`, `temporal`, or `rivet` crate appears in this workspace's
+- [x] Conformance cases listed above exist and pass on the in-memory engine.
+- [x] No `resonate`, `temporal`, or `rivet` crate appears in this workspace's
       `Cargo.toml` files.
-- [ ] README index lists ADR-0005.
+- [x] README index lists ADR-0005.
 
 ## Pros and Cons of the Options
 
@@ -198,3 +198,14 @@ An agent **must not**:
 * Good: multi-host later.
 * Bad: larger surface than we use; still a vendor pin; migrates every plane
   twice if we later want our own default.
+
+## More Information
+
+### 2026-11-01 — crate landed on `feat/durable-engine`
+
+- Inventory: `docs/research/resonate-inventory.md`.
+- Crate: `elm-effect-durable` with `DurableEngine`, `OurEngine`, `MemStorage`,
+  `due_wakes`, `EngineMsg`. No Resonate/Temporal/Rivet deps in the workspace.
+- Conformance: `crates/elm-effect-durable/tests/conformance.rs` (8 cases) plus
+  two pure scheduler unit tests. Workspace `cargo test` / `clippy -D warnings`
+  / `fmt --check` green after the landing.

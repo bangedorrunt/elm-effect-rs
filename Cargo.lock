@@ -11,6 +11,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "elm-effect-durable"
+version = "0.4.0"
+dependencies = [
+ "elm-effect",
+ "elm-effect-journal",
+ "elm-effect-test",
+ "thiserror",
+]
+
+[[package]]
 name = "elm-effect-elm"
 version = "0.4.0"
 dependencies = [
