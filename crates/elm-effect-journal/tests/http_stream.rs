@@ -480,6 +480,23 @@ fn long_poll_times_out_empty_at_the_tail() {
     server.shutdown();
 }
 
+/// Reopen after a server shutdown. `shutdown` returns before the connection
+/// threads do (they hold their own `Arc` and exit on their next poll), so the
+/// fence can stay held for a moment: wait for the handle to be released
+/// instead of racing it.
+fn reopen_after_drain(path: &std::path::Path) -> FileLog {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    loop {
+        match FileLog::open(path) {
+            Ok(log) => return log,
+            Err(error) if std::time::Instant::now() >= deadline => {
+                panic!("reopen: {error}");
+            }
+            Err(_) => std::thread::sleep(std::time::Duration::from_millis(10)),
+        }
+    }
+}
+
 #[test]
 fn sse_resumes_from_the_last_cursor_after_a_file_log_restart() {
     let scratch = Scratch::new("restart");
@@ -513,7 +530,7 @@ fn sse_resumes_from_the_last_cursor_after_a_file_log_restart() {
     drop(server);
     drop(log);
 
-    let log = Arc::new(FileLog::open(&scratch.0).expect("reopen"));
+    let log = Arc::new(reopen_after_drain(&scratch.0));
     assert_eq!(
         log.read_from(&Offset::Start).expect("read").len(),
         2,

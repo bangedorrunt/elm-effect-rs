@@ -33,7 +33,23 @@ impl Drop for Scratch {
     fn drop(&mut self) {
         let _ = fs::remove_file(&self.0);
         let _ = fs::remove_file(self.0.with_extension("compacting"));
+        let mut lock = self.0.as_os_str().to_owned();
+        lock.push(".lock");
+        let _ = fs::remove_file(PathBuf::from(lock));
     }
+}
+
+#[test]
+fn a_second_writer_is_refused_until_the_first_handle_closes() {
+    let scratch = Scratch::new("one-writer");
+    let first = FileLog::open(&scratch.0).unwrap();
+    let refused = FileLog::open(&scratch.0).expect_err("two writers splice records");
+    assert!(
+        format!("{refused}").contains("already open by another writer"),
+        "the refusal names the fence: {refused}"
+    );
+    drop(first);
+    FileLog::open(&scratch.0).expect("the fence is released with the handle");
 }
 
 #[test]

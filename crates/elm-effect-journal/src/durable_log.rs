@@ -239,12 +239,28 @@ impl MemLog {
 /// leaves a torn tail, which [`FileLog::open`] discards, since that append
 /// never returned `Ok`.
 ///
+/// One writer per file: a second [`FileLog::open`] on the same path is refused
+/// while the first handle lives. Two writers would otherwise each append at
+/// its own offset and splice each other's records (a corrupt line that no
+/// reader can admit, wedging every later pass). The fence is an advisory lock
+/// on the sibling `*.lock` file, because compaction renames over the journal
+/// itself and would drop a lock held on the journal's inode.
+///
 /// ponytail: one file and one lock; appends fsync each record. Batch the sync
 /// if append throughput ever matters.
 #[derive(Debug)]
 pub struct FileLog {
     store: Mutex<Store>,
     path: PathBuf,
+    /// Held for the handle's lifetime; released on drop.
+    _fence: std::fs::File,
+}
+
+/// The journal's fence file: beside it, so compaction cannot replace it.
+fn fence_path(path: &Path) -> PathBuf {
+    let mut name = path.as_os_str().to_owned();
+    name.push(".lock");
+    PathBuf::from(name)
 }
 
 /// Admitted state: the records and the fencing tables derived from them.
@@ -696,8 +712,30 @@ impl FileLog {
     /// Closure survives too: a sealed line carries both the final record and
     /// the closed flag, and a bare close line marks EOF. A fresh record after
     /// either is corruption, not a late append to accept.
+    ///
+    /// Refused with a `Storage` error when another handle already holds the
+    /// path: a second writer would splice the first one's records.
     pub fn open(path: impl Into<PathBuf>) -> Result<Self, AppendError> {
         let path = path.into();
+        let fence = fence_path(&path);
+        let fence_file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(&fence)
+            .map_err(storage)?;
+        match fence_file.try_lock() {
+            Ok(()) => {}
+            Err(std::fs::TryLockError::WouldBlock) => {
+                return Err(AppendError::Storage(format!(
+                    "{}: already open by another writer (fence {} is held); \
+                     one writer per journal",
+                    path.display(),
+                    fence.display()
+                )));
+            }
+            Err(std::fs::TryLockError::Error(e)) => return Err(storage(e)),
+        }
         let mut store = Store::default();
         // A bare close line (no envelope) closes the file from that point on.
         // A checkpoint may also carry `closed`, from a compaction after a
@@ -783,6 +821,7 @@ impl FileLog {
         Ok(Self {
             store: Mutex::new(store),
             path,
+            _fence: fence_file,
         })
     }
 }
