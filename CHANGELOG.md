@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.4.1] - 2026-11-03
+
+### Fixed
+- **One writer per file log (`elm-effect-rs-journal-one-writer-ab5r`).** `FileLog::open` takes an exclusive advisory fence on the sibling `<journal>.lock` for the handle's lifetime and refuses a second open with a `Storage` error naming the fence. The journal inode itself cannot hold the lock: compaction renames over the file. Two writers each appending at their own offset had spliced records into a line no reader can admit (the failure that wedged chiebukuro's memory pipelines). The `http_stream` restart test now waits for the fence instead of racing the server's lingering connection threads.
+
 ## [0.4.0] - 2026-10-25
 
 ### Added
