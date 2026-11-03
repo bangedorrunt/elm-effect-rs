@@ -202,6 +202,9 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         run.phase = phase_of(row.state);
         run.until_ms = None;
         self.storage.commit_run(run)?;
+        if row.state.is_terminal() {
+            self.storage.clear_signals(&row.key)?;
+        }
         Ok(())
     }
 

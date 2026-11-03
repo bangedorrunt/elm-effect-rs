@@ -30,6 +30,20 @@ pub struct RunRow {
     pub attempt: i64,
 }
 
+/// One latched signal. `payload` is an opaque host-serialized string; the
+/// engine never parses it. `seq` orders signals per key (`max + 1` at latch).
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct SignalRow {
+    /// Run / journal key.
+    pub key: String,
+    /// Host-chosen id; a late duplicate never re-latches.
+    pub signal_id: String,
+    /// Opaque host-serialized payload.
+    pub payload: String,
+    /// Per-key latch order, from 1.
+    pub seq: u64,
+}
+
 /// Host-persisted engine state. Prefer implementing this on toron's
 /// `WorkflowEffectStore` rather than opening SQLite inside this crate
 /// (ADR-0002 journal section; ADR-0005).
@@ -80,6 +94,37 @@ pub trait EngineStorage {
         self.upsert_park(park)?;
         self.put_run(run)
     }
+    /// Latch a signal for `key`, assigning `seq = max + 1` per key.
+    /// Returns `false` when `(key, signal_id)` already exists, consumed or
+    /// not, so a late duplicate never re-latches and does nothing else.
+    /// A store that does not adopt signals fails loudly only when called.
+    fn put_signal(
+        &mut self,
+        _key: &str,
+        _signal_id: &str,
+        _payload: &str,
+    ) -> Result<bool, StorageError> {
+        Err(StorageError::Rejected(
+            "signals unsupported by this store".into(),
+        ))
+    }
+    /// Unconsumed signals for `key` in `seq` order.
+    fn pending_signals(&self, _key: &str) -> Result<Vec<SignalRow>, StorageError> {
+        Err(StorageError::Rejected(
+            "signals unsupported by this store".into(),
+        ))
+    }
+    /// Unconsumed signals for `key` in `seq` order, marking them consumed.
+    fn take_signals(&mut self, _key: &str) -> Result<Vec<SignalRow>, StorageError> {
+        Err(StorageError::Rejected(
+            "signals unsupported by this store".into(),
+        ))
+    }
+    /// Drop all signals for `key`. Pure cleanup: an unsupporting store
+    /// never held signals, so the default is `Ok(())`.
+    fn clear_signals(&mut self, _key: &str) -> Result<(), StorageError> {
+        Ok(())
+    }
 }
 
 /// In-memory storage for tests and single-process hosts.
@@ -88,6 +133,13 @@ pub struct MemStorage {
     runs: std::collections::BTreeMap<String, RunRow>,
     /// Keyed by `(key, until_ms)` so the same instant is one row.
     parks: std::collections::BTreeMap<(String, u64), ParkedRow>,
+    /// Latched signals keyed by `(key, signal_id)`; a consumed id stays
+    /// reserved so a late duplicate never re-latches.
+    signals: std::collections::BTreeMap<(String, String), SignalRow>,
+    /// Consumed `(key, signal_id)` ids.
+    consumed: std::collections::BTreeSet<(String, String)>,
+    /// Next `seq` per key (monotonic; never reset by takes or clears).
+    next_seq: std::collections::BTreeMap<String, u64>,
 }
 
 impl MemStorage {
@@ -113,6 +165,126 @@ pub fn storage_laws(store: &mut dyn EngineStorage) -> Vec<(&'static str, Result<
         ("clear_parks removes", law_clear_parks(store)),
         ("due_parks filters the future", law_due_parks(store)),
     ]
+}
+
+/// Conformance laws for latched signals on any [`EngineStorage`]. Opt-in
+/// per rule 4: [`storage_laws`] keeps its case list; a sibling host runs
+/// these against its own store to adopt signals explicitly.
+///
+/// Returns `(name, outcome)` per law. A host fails the suite when any
+/// outcome is `Err`.
+///
+/// Re-exported through the feature module until the integration bead
+/// adds the crate-root re-export (§8).
+pub fn signal_storage_laws(
+    store: &mut dyn EngineStorage,
+) -> Vec<(&'static str, Result<(), String>)> {
+    vec![
+        ("first latch assigns seq 1", law_signal_seq(store)),
+        ("duplicate id never re-latches", law_signal_duplicate(store)),
+        ("pending reads seq order", law_signal_order(store)),
+        ("take consumes and stays consumed", law_signal_take(store)),
+        ("clear drops the key", law_signal_clear(store)),
+        ("keys are isolated", law_signal_isolation(store)),
+    ]
+}
+
+fn law_signal_seq(store: &mut dyn EngineStorage) -> Result<(), String> {
+    law_ok(
+        store.put_signal("sig-seq", "a", "{}").map_err(law_err)?,
+        "first latch writes",
+    )?;
+    let pending = store.pending_signals("sig-seq").map_err(law_err)?;
+    law_ok(
+        pending.len() == 1 && pending[0].seq == 1 && pending[0].payload == "{}",
+        "first latch carries seq 1 and the payload",
+    )
+}
+
+fn law_signal_duplicate(store: &mut dyn EngineStorage) -> Result<(), String> {
+    store.put_signal("sig-dup", "a", "{}").map_err(law_err)?;
+    law_ok(
+        !store
+            .put_signal("sig-dup", "a", r#"{"v":2}"#)
+            .map_err(law_err)?,
+        "duplicate id before consumption latches nothing",
+    )?;
+    let taken = store.take_signals("sig-dup").map_err(law_err)?;
+    law_ok(
+        taken.len() == 1 && taken[0].payload == "{}",
+        "the first payload wins",
+    )?;
+    law_ok(
+        !store
+            .put_signal("sig-dup", "a", r#"{"v":3}"#)
+            .map_err(law_err)?,
+        "duplicate id after consumption never re-latches",
+    )
+}
+
+fn law_signal_order(store: &mut dyn EngineStorage) -> Result<(), String> {
+    for id in ["c", "a", "b"] {
+        store.put_signal("sig-order", id, id).map_err(law_err)?;
+    }
+    let pending = store.pending_signals("sig-order").map_err(law_err)?;
+    law_ok(
+        pending
+            .iter()
+            .map(|row| row.signal_id.as_str())
+            .collect::<Vec<_>>()
+            == ["c", "a", "b"],
+        "pending reads latch (seq) order, not id order",
+    )?;
+    law_ok(
+        pending.iter().map(|row| row.seq).collect::<Vec<_>>() == [1, 2, 3],
+        "seq is max + 1 per key",
+    )
+}
+
+fn law_signal_take(store: &mut dyn EngineStorage) -> Result<(), String> {
+    store.put_signal("sig-take", "a", "{}").map_err(law_err)?;
+    law_ok(
+        store.take_signals("sig-take").map_err(law_err)?.len() == 1,
+        "take returns the latched row",
+    )?;
+    law_ok(
+        store.take_signals("sig-take").map_err(law_err)?.is_empty(),
+        "a second take is empty: consumption sticks",
+    )?;
+    law_ok(
+        store
+            .pending_signals("sig-take")
+            .map_err(law_err)?
+            .is_empty(),
+        "pending is empty after take",
+    )
+}
+
+fn law_signal_clear(store: &mut dyn EngineStorage) -> Result<(), String> {
+    store.put_signal("sig-clear", "a", "{}").map_err(law_err)?;
+    store.clear_signals("sig-clear").map_err(law_err)?;
+    law_ok(
+        store
+            .pending_signals("sig-clear")
+            .map_err(law_err)?
+            .is_empty(),
+        "clear drops pending rows",
+    )
+}
+
+fn law_signal_isolation(store: &mut dyn EngineStorage) -> Result<(), String> {
+    store.put_signal("sig-k1", "a", "1").map_err(law_err)?;
+    store.put_signal("sig-k2", "a", "2").map_err(law_err)?;
+    let first = store.pending_signals("sig-k1").map_err(law_err)?;
+    law_ok(
+        first.len() == 1 && first[0].payload == "1" && first[0].seq == 1,
+        "same id on another key latches independently with its own seq",
+    )?;
+    store.clear_signals("sig-k1").map_err(law_err)?;
+    law_ok(
+        store.pending_signals("sig-k2").map_err(law_err)?.len() == 1,
+        "clear touches only its key",
+    )
 }
 
 fn law_ok(cond: bool, what: &str) -> Result<(), String> {
@@ -313,6 +485,61 @@ impl EngineStorage for MemStorage {
 
     fn clear_parks(&mut self, key: &str) -> Result<(), StorageError> {
         self.parks.retain(|(k, _), _| k != key);
+        Ok(())
+    }
+
+    fn put_signal(
+        &mut self,
+        key: &str,
+        signal_id: &str,
+        payload: &str,
+    ) -> Result<bool, StorageError> {
+        let id = (key.to_string(), signal_id.to_string());
+        if self.signals.contains_key(&id) {
+            return Ok(false);
+        }
+        let seq = self.next_seq.get(key).copied().unwrap_or(1);
+        self.next_seq.insert(key.to_string(), seq.saturating_add(1));
+        self.signals.insert(
+            id,
+            SignalRow {
+                key: key.to_string(),
+                signal_id: signal_id.to_string(),
+                payload: payload.to_string(),
+                seq,
+            },
+        );
+        Ok(true)
+    }
+
+    fn pending_signals(&self, key: &str) -> Result<Vec<SignalRow>, StorageError> {
+        let mut rows: Vec<SignalRow> = self
+            .signals
+            .values()
+            .filter(|row| {
+                row.key == key
+                    && !self
+                        .consumed
+                        .contains(&(row.key.clone(), row.signal_id.clone()))
+            })
+            .cloned()
+            .collect();
+        rows.sort_by_key(|row| row.seq);
+        Ok(rows)
+    }
+
+    fn take_signals(&mut self, key: &str) -> Result<Vec<SignalRow>, StorageError> {
+        let rows = self.pending_signals(key)?;
+        for row in &rows {
+            self.consumed
+                .insert((row.key.clone(), row.signal_id.clone()));
+        }
+        Ok(rows)
+    }
+
+    fn clear_signals(&mut self, key: &str) -> Result<(), StorageError> {
+        self.signals.retain(|(k, _), _| k != key);
+        self.consumed.retain(|(k, _)| k != key);
         Ok(())
     }
 }
