@@ -202,9 +202,6 @@ pub struct ProviderCapability {
 pub enum DispatchPlan {
     /// No intent or a fresh intent: commit intent, then dispatch attempt one.
     DispatchNew,
-    /// The row is `Prepared` but its dispatch lease is live under another
-    /// owner: do not dispatch over it, say nothing else.
-    SkipLeaseLive,
     /// Uncertainty with an idempotent provider: re-dispatch the SAME
     /// logical key as this next attempt number.
     RetrySameKey {
@@ -245,13 +242,7 @@ pub fn plan_attempt(current: Option<&EffectView>, cap: &ProviderCapability) -> D
         S::Parked => DispatchPlan::ResumeParked {
             attempt: view.attempt.max(1),
         },
-        S::Prepared => {
-            if view.lease_live {
-                DispatchPlan::SkipLeaseLive
-            } else {
-                DispatchPlan::DispatchNew
-            }
-        }
+        S::Prepared => DispatchPlan::DispatchNew,
         S::ReconcilePending => DispatchPlan::RefuseBlindRetry {
             reason: "reconciliation owns this effect; the dispatcher waits".into(),
         },

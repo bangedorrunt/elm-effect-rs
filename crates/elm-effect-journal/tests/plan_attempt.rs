@@ -33,19 +33,22 @@ fn none_and_prepared_dispatch_new() {
         plan_attempt(Some(&view(S::Prepared, 1, false)), &cap(false, false)),
         DispatchPlan::DispatchNew
     );
+    assert_eq!(
+        plan_attempt(Some(&view(S::Prepared, 1, true)), &cap(true, true)),
+        DispatchPlan::DispatchNew
+    );
 }
 
 #[test]
-fn prepared_live_lease_skips() {
-    // A Prepared row under a live lease is someone else's dispatch: skip,
-    // never DispatchNew over it.
+fn prepared_live_lease_is_fenced_at_claim() {
+    // `plan_attempt` matches toron's 6-variant table (`Prepared => DispatchNew`),
+    // while `check_claim` / `may_claim` fences a live lease on a Prepared row.
     assert_eq!(
-        plan_attempt(Some(&view(S::Prepared, 1, true)), &cap(true, true)),
-        DispatchPlan::SkipLeaseLive
-    );
-    assert_eq!(
-        plan_attempt(Some(&view(S::Prepared, 1, true)), &cap(false, false)),
-        DispatchPlan::SkipLeaseLive
+        plan::check_claim(S::Prepared, Some("other"), Some(500), "me", 100, 1, 1),
+        Err(plan::ClaimRejection::LeaseLive {
+            owner: "other".to_string(),
+            lease_deadline: 500,
+        })
     );
 }
 
@@ -209,7 +212,6 @@ fn replay_mismatch_display_error_and_serde() {
 fn dispatch_plan_serde_roundtrip() {
     for plan in [
         DispatchPlan::DispatchNew,
-        DispatchPlan::SkipLeaseLive,
         DispatchPlan::RetrySameKey { attempt: 5 },
         DispatchPlan::ReconcileFirst {
             reason: "ask first".to_string(),

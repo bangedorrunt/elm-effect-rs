@@ -159,7 +159,6 @@ pub struct RunStatus {
 
 /// Result of [`DurableEngine::start`].
 #[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-#[must_use]
 pub enum StartOutcome {
     /// Fresh run; first attempt may dispatch.
     Started {
@@ -176,7 +175,6 @@ pub enum StartOutcome {
 /// Result of [`DurableEngine::park_until`], mirroring journal `ParkDecision`
 /// without re-deriving it.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-#[must_use]
 pub enum ParkOutcome {
     /// Wait until `until_ms` (intent persisted).
     Wait {
