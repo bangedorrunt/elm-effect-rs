@@ -7,7 +7,8 @@
 use elm_effect::{ClockImpl, Duration, TestClock};
 use elm_effect_durable::{
     DurableEngine, EngineError, EngineMsg, EngineStorage, MemStorage, OurEngine, ParkOutcome,
-    ParkedRow, RunPhase, RunRow, StartOutcome,
+    ParkedRow, ParseRunPhaseError, RunPhase, RunRow, StartOptions, StartOutcome, engine_laws,
+    storage_laws,
 };
 use elm_effect_journal::EffectState;
 use elm_effect_journal::store::JournalStore;
@@ -62,14 +63,14 @@ fn unknown_has_no_default_exit() {
 #[test]
 fn park_is_not_terminal() {
     let mut eng = OurEngine::new();
-    eng.start("p1", 0).unwrap();
+    let _ = eng.start("p1", 0).unwrap();
     let out = eng.park_until("p1", 1_000, 60, 0, None).expect("park");
     assert!(matches!(out, ParkOutcome::Wait { .. }));
     let st = eng.query("p1").unwrap();
     assert_eq!(st.phase, RunPhase::Parked);
     assert!(!st.phase.is_terminal());
     // Wake resumes — not fail/settle.
-    eng.wake("p1", 1_000).unwrap();
+    let _ = eng.wake("p1", 1_000).unwrap();
     assert_eq!(eng.query("p1").unwrap().phase, RunPhase::Running);
 }
 
@@ -77,7 +78,7 @@ fn park_is_not_terminal() {
 fn wake_on_time_overdue_and_over_ceiling() {
     let clock = TestClock::new();
     let mut eng = OurEngine::new();
-    eng.start("t1", clock_ms(&clock)).unwrap();
+    let _ = eng.start("t1", clock_ms(&clock)).unwrap();
 
     // Over ceiling: refuse, do not shorten.
     let refused = eng
@@ -93,7 +94,8 @@ fn wake_on_time_overdue_and_over_ceiling() {
     assert_eq!(eng.query("t1").unwrap().phase, RunPhase::Running);
 
     // Park to T=1000.
-    eng.park_until("t1", 1_000, 60, clock_ms(&clock), None)
+    let _ = eng
+        .park_until("t1", 1_000, 60, clock_ms(&clock), None)
         .unwrap();
     assert_eq!(eng.query("t1").unwrap().phase, RunPhase::Parked);
 
@@ -111,7 +113,8 @@ fn wake_on_time_overdue_and_over_ceiling() {
     assert_eq!(eng.query("t1").unwrap().phase, RunPhase::Running);
 
     // Park again, then overdue.
-    eng.park_until("t1", 2_000, 60, clock_ms(&clock), None)
+    let _ = eng
+        .park_until("t1", 2_000, 60, clock_ms(&clock), None)
         .unwrap();
     clock.adjust(Duration::from_millis(500)); // now 1500 — not due yet
     assert!(eng.drain_due(clock_ms(&clock)).unwrap().is_empty());
@@ -124,8 +127,8 @@ fn wake_on_time_overdue_and_over_ceiling() {
 #[test]
 fn cancel_is_terminal() {
     let mut eng = OurEngine::new();
-    eng.start("c1", 0).unwrap();
-    eng.park_until("c1", 9_999, 60, 0, None).unwrap();
+    let _ = eng.start("c1", 0).unwrap();
+    let _ = eng.park_until("c1", 9_999, 60, 0, None).unwrap();
     eng.cancel("c1", 0).unwrap();
     assert_eq!(eng.query("c1").unwrap().phase, RunPhase::Cancelled);
     assert!(eng.query("c1").unwrap().phase.is_terminal());
@@ -165,9 +168,9 @@ fn stale_generation_holder_cannot_settle() {
 #[test]
 fn parking_same_key_same_instant_is_one_row() {
     let mut eng = OurEngine::new();
-    eng.start("s1", 0).unwrap();
-    eng.park_until("s1", 5_000, 60, 0, None).unwrap();
-    eng.park_until("s1", 5_000, 60, 0, None).unwrap();
+    let _ = eng.start("s1", 0).unwrap();
+    let _ = eng.park_until("s1", 5_000, 60, 0, None).unwrap();
+    let _ = eng.park_until("s1", 5_000, 60, 0, None).unwrap();
     let parks = eng.parked().expect("parked");
     assert_eq!(parks.len(), 1, "one row for the same instant: {parks:?}");
     assert_eq!(parks[0].until_ms, 5_000);
@@ -176,9 +179,9 @@ fn parking_same_key_same_instant_is_one_row() {
 #[test]
 fn reparking_a_different_instant_keeps_one_park() {
     let mut eng = OurEngine::new();
-    eng.start("p3", 0).unwrap();
-    eng.park_until("p3", 1_000, 60, 0, None).unwrap();
-    eng.park_until("p3", 2_000, 60, 0, None).unwrap();
+    let _ = eng.start("p3", 0).unwrap();
+    let _ = eng.park_until("p3", 1_000, 60, 0, None).unwrap();
+    let _ = eng.park_until("p3", 2_000, 60, 0, None).unwrap();
 
     let parks = eng.parked().expect("parked");
     assert_eq!(parks.len(), 1, "one active park per run: {parks:?}");
@@ -189,10 +192,10 @@ fn reparking_a_different_instant_keeps_one_park() {
 #[test]
 fn restart_recovery_wakes_pending_parks() {
     let mut eng = OurEngine::new();
-    eng.start("r1", 0).unwrap();
-    eng.park_until("r1", 100, 60, 0, None).unwrap();
-    eng.start("r2", 0).unwrap();
-    eng.park_until("r2", 200, 60, 0, None).unwrap();
+    let _ = eng.start("r1", 0).unwrap();
+    let _ = eng.park_until("r1", 100, 60, 0, None).unwrap();
+    let _ = eng.start("r2", 0).unwrap();
+    let _ = eng.park_until("r2", 200, 60, 0, None).unwrap();
 
     // Snapshot storage and "crash".
     let snapshot = {
@@ -230,7 +233,7 @@ fn settle_projects_terminal_phase_and_clears_park() {
     let StartOutcome::Started { generation } = eng.start("s2", 0).unwrap() else {
         panic!("started");
     };
-    eng.park_until("s2", 1_000, 60, 0, None).unwrap();
+    let _ = eng.park_until("s2", 1_000, 60, 0, None).unwrap();
     assert_eq!(eng.parked().expect("parked").len(), 1);
 
     let row = eng
@@ -253,7 +256,7 @@ fn claim_projects_generation_and_clears_park() {
     let StartOutcome::Started { generation } = eng.start("c2", 0).unwrap() else {
         panic!("started");
     };
-    eng.park_until("c2", 1_000, 60, 0, None).unwrap();
+    let _ = eng.park_until("c2", 1_000, 60, 0, None).unwrap();
 
     let claimed = eng
         .claim("c2", "worker", 10_000, 0, generation)
@@ -272,8 +275,8 @@ fn claim_projects_generation_and_clears_park() {
 #[test]
 fn unknown_clears_park_and_cannot_resume() {
     let mut eng = OurEngine::new();
-    eng.start("u2", 0).unwrap();
-    eng.park_until("u2", 1_000, 60, 0, None).unwrap();
+    let _ = eng.start("u2", 0).unwrap();
+    let _ = eng.park_until("u2", 1_000, 60, 0, None).unwrap();
     eng.mark_unknown("u2").unwrap();
     assert!(
         eng.parked().expect("parked").is_empty(),
@@ -500,7 +503,7 @@ fn newer_journal_fence_wins_over_stale_park() {
 #[test]
 fn restart_without_journal_redispatches_a_running_run() {
     let mut eng = OurEngine::new();
-    eng.start("r3", 0).unwrap();
+    let _ = eng.start("r3", 0).unwrap();
     let snapshot = {
         let mut snap = MemStorage::new();
         snap.put_run(eng.query("r3").unwrap().into_run_row())
@@ -542,10 +545,10 @@ fn recovery_reseeds_park_generation() {
         .expect("park");
 
     let mut eng = OurEngine::recover(storage);
-    eng.park_until("gen", 100, 60, 0, None).unwrap();
+    let _ = eng.park_until("gen", 100, 60, 0, None).unwrap();
     assert_eq!(eng.parked().expect("parked")[0].park_generation, 7);
 
-    eng.park_until("gen", 200, 60, 0, None).unwrap();
+    let _ = eng.park_until("gen", 200, 60, 0, None).unwrap();
     assert_eq!(eng.parked().expect("parked")[0].park_generation, 8);
     assert_eq!(eng.parked().expect("parked")[0].until_ms, 200);
 }
@@ -563,5 +566,198 @@ impl IntoRunRow for elm_effect_durable::RunStatus {
             until_ms: self.until_ms,
             attempt: 1,
         }
+    }
+}
+
+#[test]
+fn run_phase_codecs_roundtrip() {
+    use std::str::FromStr as _;
+
+    for phase in [
+        RunPhase::Running,
+        RunPhase::Parked,
+        RunPhase::Cancelled,
+        RunPhase::Settled,
+        RunPhase::Failed,
+        RunPhase::Unknown,
+    ] {
+        // as_str, Display, and FromStr agree.
+        assert_eq!(
+            RunPhase::from_str(phase.as_str()).expect("wire name parses"),
+            phase
+        );
+        assert_eq!(phase.to_string(), phase.as_str());
+        // serde keeps the lowercase wire name.
+        let json = serde_json::to_string(&phase).expect("serialize");
+        assert_eq!(json, format!("\"{}\"", phase.as_str()));
+        assert_eq!(
+            serde_json::from_str::<RunPhase>(&json).expect("deserialize"),
+            phase
+        );
+    }
+    assert!(matches!(
+        RunPhase::from_str("bogus"),
+        Err(ParseRunPhaseError(_))
+    ));
+}
+
+#[test]
+fn start_with_records_custom_options() {
+    let mut eng = OurEngine::new();
+    let opts = StartOptions {
+        max_attempts: 3,
+        lease_ms: 5_000,
+        owner: "custom".into(),
+    };
+    let StartOutcome::Started { generation } =
+        eng.start_with("opts", 0, &opts).expect("start_with")
+    else {
+        panic!("start_with must Start");
+    };
+    let journal = eng.journal().get("opts").expect("get").expect("row");
+    assert_eq!(journal.max_attempts, 3);
+    assert_eq!(journal.owner.as_deref(), Some("custom"));
+    // A live host lease re-attaches instead of stealing; an expired one
+    // completes the prepared intent.
+    let prepared = eng.journal().record_intent("leased", 8).expect("intent");
+    let _ = eng
+        .journal()
+        .claim("leased", "host", 10_000, 0, prepared.generation)
+        .expect("host claim")
+        .expect("row");
+    assert!(
+        matches!(
+            eng.start_with("leased", 1_000, &opts).expect("re-attach"),
+            StartOutcome::Already { .. }
+        ),
+        "live lease must re-attach"
+    );
+    // Once the lease lapses the intent completes.
+    assert!(
+        matches!(
+            eng.start_with("leased", 60_000, &opts)
+                .expect("expired lease"),
+            StartOutcome::Started { .. }
+        ),
+        "expired lease completes the intent"
+    );
+    let _ = generation;
+}
+
+#[test]
+fn attempt_dead_letter_projects_terminal_and_keeps_parks_otherwise() {
+    // Dead-letter: max_attempts 0 turns the first attempt terminal.
+    let mut eng = OurEngine::new();
+    let opts = StartOptions {
+        max_attempts: 0,
+        ..StartOptions::default()
+    };
+    let StartOutcome::Started { generation } =
+        eng.start_with("dead", 0, &opts).expect("start_with")
+    else {
+        panic!("start_with must Start");
+    };
+    let _ = eng.park_until("dead", 1_000, 60, 0, None).expect("park");
+    let row = eng
+        .attempt("dead", generation)
+        .expect("attempt")
+        .expect("row");
+    assert_eq!(row.state, EffectState::Failed);
+    let status = eng.query("dead").expect("query");
+    assert_eq!(status.phase, RunPhase::Failed);
+    assert!(
+        eng.parked().expect("parked").is_empty(),
+        "dead-letter clears the park"
+    );
+
+    // Ordinary retry: the fence moves, the live park survives.
+    let mut eng = OurEngine::new();
+    let StartOutcome::Started { generation } = eng.start("retry", 0).expect("start") else {
+        panic!("start must Start");
+    };
+    let _ = eng.park_until("retry", 1_000, 60, 0, None).expect("park");
+    let row = eng
+        .attempt("retry", generation)
+        .expect("attempt")
+        .expect("row");
+    assert_eq!(row.attempts, 1);
+    assert_eq!(row.state, EffectState::InFlight);
+    assert_eq!(eng.query("retry").expect("query").phase, RunPhase::Parked);
+    assert_eq!(
+        eng.parked().expect("parked").len(),
+        1,
+        "retry keeps the park"
+    );
+}
+
+#[test]
+fn reconcile_steps_unknown_to_outcome() {
+    for (key, outcome, phase) in [
+        ("rec-settled", EffectState::Settled, RunPhase::Settled),
+        ("rec-failed", EffectState::Failed, RunPhase::Failed),
+    ] {
+        let mut eng = OurEngine::new();
+        let StartOutcome::Started { generation } = eng.start(key, 0).expect("start") else {
+            panic!("start must Start");
+        };
+        eng.mark_unknown(key).expect("mark unknown");
+        let row = eng
+            .reconcile(key, generation, outcome)
+            .expect("reconcile")
+            .expect("row");
+        assert_eq!(row.state, outcome);
+        assert_eq!(eng.query(key).expect("query").phase, phase);
+    }
+    // Only uncertain rows reconcile: a live run is not a reconcile input.
+    let mut eng = OurEngine::new();
+    let StartOutcome::Started { generation } = eng.start("rec-live", 0).expect("start") else {
+        panic!("start must Start");
+    };
+    assert!(
+        eng.reconcile("rec-live", generation, EffectState::Settled)
+            .expect("reconcile")
+            .is_none()
+    );
+}
+
+#[test]
+fn concurrent_settle_projects_the_live_fence() {
+    let mut eng = OurEngine::new();
+    let StartOutcome::Started { generation } = eng.start("conc", 0).expect("start") else {
+        panic!("start must Start");
+    };
+    let claimed = eng
+        .claim("conc", "worker", 10_000, 0, generation)
+        .expect("claim")
+        .expect("row");
+    // A zombie holding the pre-claim fence settles stale.
+    assert!(
+        eng.settle("conc", generation, EffectState::Settled)
+            .expect("settle")
+            .is_none()
+    );
+    // Storage still carries the live fence, not the zombie's.
+    let status = eng.query("conc").expect("query");
+    assert_eq!(status.generation, claimed.generation);
+    assert_eq!(status.phase, RunPhase::Running);
+}
+
+#[test]
+fn law_suites_pass_on_the_shipped_store_and_engine() {
+    let mut store = MemStorage::new();
+    for (name, outcome) in storage_laws(&mut store) {
+        assert!(
+            outcome.is_ok(),
+            "storage law failed: {name}: {}",
+            outcome.unwrap_err()
+        );
+    }
+    let mut engine = OurEngine::new();
+    for (name, outcome) in engine_laws(&mut engine) {
+        assert!(
+            outcome.is_ok(),
+            "engine law failed: {name}: {}",
+            outcome.unwrap_err()
+        );
     }
 }

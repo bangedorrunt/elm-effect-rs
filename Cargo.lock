@@ -17,6 +17,8 @@ dependencies = [
  "elm-effect",
  "elm-effect-journal",
  "elm-effect-test",
+ "serde",
+ "serde_json",
  "thiserror",
 ]
 

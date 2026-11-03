@@ -4,6 +4,7 @@ use crate::storage::ParkedRow;
 
 /// One due wake the runtime should turn into a Msg.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[must_use]
 pub struct WakeIntent {
     /// Run key.
     pub key: String,

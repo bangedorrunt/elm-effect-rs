@@ -49,8 +49,9 @@ mod storage;
 
 pub use cron::{CronError, CronSchedule, fire_key};
 pub use engine::{
-    DurableEngine, EngineError, ParkOutcome, RunPhase, RunStatus, StartOutcome, StorageError,
+    DurableEngine, EngineError, ParkOutcome, ParseRunPhaseError, RunPhase, RunStatus, StartOptions,
+    StartOutcome, StorageError, engine_laws,
 };
 pub use runtime::{EngineMsg, OurEngine};
 pub use scheduler::{WakeIntent, due_wakes};
-pub use storage::{EngineStorage, MemStorage, ParkedRow, RunRow};
+pub use storage::{EngineStorage, MemStorage, ParkedRow, RunRow, storage_laws};

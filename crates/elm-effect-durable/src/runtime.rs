@@ -5,9 +5,11 @@ use elm_effect_journal::plan::ParkDecision;
 use elm_effect_journal::plan::{
     DispatchPlan, EffectView, ProviderCapability, may_claim, plan_attempt, plan_park,
 };
-use elm_effect_journal::store::{InMemoryStore, JournalError, JournalStore};
+use elm_effect_journal::store::{InMemoryStore, JournalError, JournalStore, Row};
 
-use crate::engine::{DurableEngine, EngineError, ParkOutcome, RunPhase, RunStatus, StartOutcome};
+use crate::engine::{
+    DurableEngine, EngineError, ParkOutcome, RunPhase, RunStatus, StartOptions, StartOutcome,
+};
 use crate::scheduler::due_wakes;
 use crate::storage::{EngineStorage, MemStorage, ParkedRow, RunRow};
 
@@ -88,27 +90,18 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
     }
 
     /// Settle a journal row toward `to` with a generation fence, then project
-    /// the result onto the run row.
-    ///
-    /// Stale generations return `None`. A settle is an active transition, so
-    /// it clears any park. `Unknown` has no default exit: the golden table
-    /// refuses `Unknown → Settled` without reconcile (`Unknown →
-    /// ReconcilePending` first).
+    /// the result onto the run row. See [`DurableEngine::settle`].
     pub fn settle(
         &mut self,
         key: &str,
         generation: u64,
         to: EffectState,
-    ) -> Result<Option<elm_effect_journal::store::Row>, EngineError> {
-        let Some(row) = self.journal.settle(key, generation, to)? else {
-            return Ok(None);
-        };
-        self.apply_journal_row(&row)?;
-        Ok(Some(row))
+    ) -> Result<Option<Row>, EngineError> {
+        self.settle_impl(key, generation, to)
     }
 
     /// Claim a journal row (bumps generation), then project the fence onto the
-    /// run row. A claim is a dispatch, so it clears any park.
+    /// run row. See [`DurableEngine::claim`].
     pub fn claim(
         &mut self,
         key: &str,
@@ -116,42 +109,182 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         lease_deadline: i64,
         now_ms: i64,
         expected_generation: u64,
-    ) -> Result<Option<elm_effect_journal::store::Row>, EngineError> {
-        let Some(row) =
-            self.journal
-                .claim(key, owner, lease_deadline, now_ms, expected_generation)?
-        else {
-            return Ok(None);
-        };
-        if let Some(mut run) = self.storage.get_run(key)? {
-            run.generation = row.generation;
-            run.attempt = i64::from(row.attempts);
-            run.phase = RunPhase::Running;
-            run.until_ms = None;
-            self.storage.commit_run(run)?;
-        }
-        Ok(Some(row))
+    ) -> Result<Option<Row>, EngineError> {
+        self.claim_impl(key, owner, lease_deadline, now_ms, expected_generation)
     }
 
-    fn apply_journal_row(
+    /// Count one provider attempt against the journal fence.
+    /// See [`DurableEngine::attempt`].
+    pub fn attempt(&mut self, key: &str, generation: u64) -> Result<Option<Row>, EngineError> {
+        self.attempt_impl(key, generation)
+    }
+
+    /// Step `Unknown -> ReconcilePending -> outcome`.
+    /// See [`DurableEngine::reconcile`].
+    pub fn reconcile(
         &mut self,
-        row: &elm_effect_journal::store::Row,
-    ) -> Result<(), EngineError> {
-        let Some(mut run) = self.storage.get_run(&row.key)? else {
-            return Ok(());
-        };
+        key: &str,
+        generation: u64,
+        outcome: EffectState,
+    ) -> Result<Option<Row>, EngineError> {
+        self.reconcile_impl(key, generation, outcome)
+    }
+
+    /// Begin or re-attach a run with explicit journal options.
+    /// See [`DurableEngine::start_with`].
+    pub fn start_with(
+        &mut self,
+        key: &str,
+        now_ms: u64,
+        opts: &StartOptions,
+    ) -> Result<StartOutcome, EngineError> {
+        self.start_with_impl(key, now_ms, opts)
+    }
+
+    /// Project a journal row onto storage, creating the run row when a
+    /// host-injected journal arrived first. Active transitions (settle,
+    /// claim, reconcile, dead-letter) clear parks: a park beside a moved
+    /// run is stale and would block the drain.
+    fn project_row(&mut self, row: &Row) -> Result<(), EngineError> {
+        let mut run = self.storage.get_run(&row.key)?.unwrap_or(RunRow {
+            key: row.key.clone(),
+            phase: phase_of(row.state),
+            generation: row.generation,
+            until_ms: None,
+            attempt: i64::from(row.attempts),
+        });
         run.generation = row.generation;
         run.attempt = i64::from(row.attempts);
         run.phase = phase_of(row.state);
         run.until_ms = None;
-        // A settle is an active transition, not a wait; a park row beside it
-        // is stale and would block the drain.
         self.storage.commit_run(run)?;
         Ok(())
     }
 
+    /// Project a retry counter: a live park survives (the run still waits),
+    /// only the fence and the attempt count move. A dead-letter (`Failed`)
+    /// is terminal, so it clears the park through [`project_row`](Self::project_row).
+    fn project_attempt(&mut self, row: &Row) -> Result<(), EngineError> {
+        if row.state.is_terminal() {
+            return self.project_row(row);
+        }
+        match self.storage.get_run(&row.key)? {
+            Some(mut run) => {
+                run.generation = row.generation;
+                run.attempt = i64::from(row.attempts);
+                self.storage.put_run(run)?;
+            }
+            None => self.storage.put_run(RunRow {
+                key: row.key.clone(),
+                phase: phase_of(row.state),
+                generation: row.generation,
+                until_ms: None,
+                attempt: i64::from(row.attempts),
+            })?,
+        }
+        Ok(())
+    }
+
+    fn settle_impl(
+        &mut self,
+        key: &str,
+        generation: u64,
+        to: EffectState,
+    ) -> Result<Option<Row>, EngineError> {
+        let Some(row) = self.journal.settle(key, generation, to)? else {
+            // A concurrent journal update moved the fence. Project the
+            // latest row so storage never stays stale, then report the
+            // stale fence.
+            if let Some(latest) = self.journal.get(key)? {
+                self.project_row(&latest)?;
+            }
+            return Ok(None);
+        };
+        self.project_row(&row)?;
+        Ok(Some(row))
+    }
+
+    fn claim_impl(
+        &mut self,
+        key: &str,
+        owner: &str,
+        lease_deadline: i64,
+        now_ms: i64,
+        expected_generation: u64,
+    ) -> Result<Option<Row>, EngineError> {
+        let Some(row) =
+            self.journal
+                .claim(key, owner, lease_deadline, now_ms, expected_generation)?
+        else {
+            if let Some(latest) = self.journal.get(key)? {
+                self.project_row(&latest)?;
+            }
+            return Ok(None);
+        };
+        self.project_row(&row)?;
+        Ok(Some(row))
+    }
+
+    fn attempt_impl(&mut self, key: &str, generation: u64) -> Result<Option<Row>, EngineError> {
+        let Some(row) = self.journal.attempt(key, generation)? else {
+            return Ok(None);
+        };
+        self.project_attempt(&row)?;
+        Ok(Some(row))
+    }
+
+    fn reconcile_impl(
+        &mut self,
+        key: &str,
+        generation: u64,
+        outcome: EffectState,
+    ) -> Result<Option<Row>, EngineError> {
+        let current = match self.journal.get(key)? {
+            Some(row) if row.generation == generation => row,
+            // Stale fence or absent row: project the latest journal row so
+            // storage never stays stale, then report the stale fence.
+            _ => {
+                if let Some(latest) = self.journal.get(key)? {
+                    self.project_row(&latest)?;
+                }
+                return Ok(None);
+            }
+        };
+        // Step through ReconcilePending; settle keeps the generation, so one
+        // fence covers both edges.
+        if current.state == EffectState::Unknown {
+            if self
+                .journal
+                .settle(key, generation, EffectState::ReconcilePending)?
+                .is_none()
+            {
+                if let Some(latest) = self.journal.get(key)? {
+                    self.project_row(&latest)?;
+                }
+                return Ok(None);
+            }
+        } else if current.state != EffectState::ReconcilePending {
+            // Only uncertain rows reconcile; settled, failed, running, and
+            // parked rows are not reconcile inputs.
+            return Ok(None);
+        }
+        let Some(row) = self.journal.settle(key, generation, outcome)? else {
+            if let Some(latest) = self.journal.get(key)? {
+                self.project_row(&latest)?;
+            }
+            return Ok(None);
+        };
+        self.project_row(&row)?;
+        Ok(Some(row))
+    }
+
     /// Mark the run Unknown (uncertain outcome). Only reconcile may leave it.
+    /// See [`DurableEngine::mark_unknown`].
     pub fn mark_unknown(&mut self, key: &str) -> Result<(), EngineError> {
+        self.mark_unknown_impl(key)
+    }
+
+    fn mark_unknown_impl(&mut self, key: &str) -> Result<(), EngineError> {
         let mut row = self
             .storage
             .get_run(key)?
@@ -188,6 +321,114 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         row.until_ms = None;
         self.storage.commit_run(row)?;
         Ok(())
+    }
+
+    fn start_with_impl(
+        &mut self,
+        key: &str,
+        now_ms: u64,
+        opts: &StartOptions,
+    ) -> Result<StartOutcome, EngineError> {
+        if let Some(j) = self.journal.get(key)? {
+            let view = EffectView {
+                state: j.state,
+                attempt: i64::from(j.attempts),
+                lease_live: j
+                    .lease_deadline
+                    .is_some_and(|deadline| deadline > journal_ms(now_ms)),
+            };
+            let plan = plan_attempt(
+                Some(&view),
+                &ProviderCapability {
+                    supports_idempotency_key: true,
+                    supports_reconcile_query: false,
+                },
+            );
+            // The one case start completes: an intent was recorded but the
+            // claim never happened (crash between intent and dispatch). Every
+            // other existing row re-attaches; retries and reconciliation are
+            // explicit host verbs.
+            if !(j.state == EffectState::Prepared && matches!(plan, DispatchPlan::DispatchNew)) {
+                if self.storage.get_run(key)?.is_none() {
+                    // A host-injected journal may arrive before its run row.
+                    // Re-attach still leaves a row the other verbs can use.
+                    self.storage.commit_run(RunRow {
+                        key: key.to_string(),
+                        phase: phase_of(j.state),
+                        generation: j.generation,
+                        until_ms: None,
+                        attempt: i64::from(j.attempts),
+                    })?;
+                }
+                return Ok(StartOutcome::Already {
+                    status: self.status_with_journal(key, &j)?,
+                });
+            }
+        } else if let Some(existing) = self.storage.get_run(key)?
+            && existing.phase != RunPhase::Running
+        {
+            // A park, terminal row, or unknown outcome is already the answer.
+            return Ok(StartOutcome::Already {
+                status: Self::status_of(&existing),
+            });
+        }
+
+        let j = self.journal.record_intent(key, opts.max_attempts)?;
+        let now = journal_ms(now_ms);
+        let lease_deadline = now.saturating_add(i64::try_from(opts.lease_ms).unwrap_or(i64::MAX));
+        // Another owner with a live lease is already handling this prepared
+        // intent. Re-attach; never steal it or fail the start. Project the
+        // journal row when storage has none, so the re-attach is queryable.
+        if !may_claim(
+            j.state,
+            j.owner.as_deref(),
+            j.lease_deadline,
+            &opts.owner,
+            now,
+            j.generation,
+            j.generation,
+        ) {
+            if j.state == EffectState::Prepared && self.storage.get_run(key)?.is_none() {
+                self.storage.commit_run(RunRow {
+                    key: key.to_string(),
+                    phase: phase_of(j.state),
+                    generation: j.generation,
+                    until_ms: None,
+                    attempt: i64::from(j.attempts),
+                })?;
+            }
+            return Ok(StartOutcome::Already {
+                status: self.status_with_journal(key, &j)?,
+            });
+        }
+        // The generation fences stale settle attempts. With the default
+        // `lease_ms: 0` the lease is already expired: this engine schedules,
+        // the host holds the execution lease.
+        let claimed = self
+            .journal
+            .claim(key, &opts.owner, lease_deadline, now, j.generation)?
+            .ok_or_else(|| {
+                EngineError::Journal(JournalError::Rejected("claim after intent failed".into()))
+            })?;
+        let inflight = self
+            .journal
+            .settle(key, claimed.generation, EffectState::InFlight)?
+            .ok_or_else(|| {
+                EngineError::Journal(JournalError::Rejected("Prepared→InFlight failed".into()))
+            })?;
+        // One storage write after the journal reaches InFlight: a crash
+        // before it leaves a journal the next start completes, never a
+        // half-fenced run row.
+        self.storage.commit_run(RunRow {
+            key: key.to_string(),
+            phase: RunPhase::Running,
+            generation: inflight.generation,
+            until_ms: None,
+            attempt: i64::from(inflight.attempts),
+        })?;
+        Ok(StartOutcome::Started {
+            generation: inflight.generation,
+        })
     }
 
     fn status_of(row: &RunRow) -> RunStatus {
@@ -276,102 +517,53 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
 
 impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
     fn start(&mut self, key: &str, now_ms: u64) -> Result<StartOutcome, EngineError> {
-        if let Some(j) = self.journal.get(key)? {
-            let view = EffectView {
-                state: j.state,
-                attempt: i64::from(j.attempts),
-                lease_live: j
-                    .lease_deadline
-                    .is_some_and(|deadline| deadline > journal_ms(now_ms)),
-            };
-            let plan = plan_attempt(
-                Some(&view),
-                &ProviderCapability {
-                    supports_idempotency_key: true,
-                    supports_reconcile_query: false,
-                },
-            );
-            // The one case start completes: an intent was recorded but the
-            // claim never happened (crash between intent and dispatch). Every
-            // other existing row re-attaches; retries and reconciliation are
-            // explicit host verbs.
-            if !(j.state == EffectState::Prepared && matches!(plan, DispatchPlan::DispatchNew)) {
-                if self.storage.get_run(key)?.is_none() {
-                    // A host-injected journal may arrive before its run row.
-                    // Re-attach still leaves a row the other verbs can use.
-                    self.storage.commit_run(RunRow {
-                        key: key.to_string(),
-                        phase: phase_of(j.state),
-                        generation: j.generation,
-                        until_ms: None,
-                        attempt: i64::from(j.attempts),
-                    })?;
-                }
-                return Ok(StartOutcome::Already {
-                    status: self.status_with_journal(key, &j)?,
-                });
-            }
-        } else if let Some(existing) = self.storage.get_run(key)?
-            && existing.phase != RunPhase::Running
-        {
-            // A park, terminal row, or unknown outcome is already the answer.
-            return Ok(StartOutcome::Already {
-                status: Self::status_of(&existing),
-            });
-        }
+        self.start_with_impl(key, now_ms, &StartOptions::default())
+    }
 
-        let j = self.journal.record_intent(key, 8)?;
-        let now = journal_ms(now_ms);
-        // Another owner with a live lease is already handling this prepared
-        // intent. Re-attach; never steal it or fail the start.
-        if !may_claim(
-            j.state,
-            j.owner.as_deref(),
-            j.lease_deadline,
-            "engine",
-            now,
-            j.generation,
-            j.generation,
-        ) {
-            return Ok(StartOutcome::Already {
-                status: self.status_with_journal(key, &j)?,
-            });
-        }
-        // Write the run row before the journal fence. A crash between the two
-        // still leaves a row the host can query and park; the final commit
-        // below carries the claimed generation.
-        self.storage.commit_run(RunRow {
-            key: key.to_string(),
-            phase: RunPhase::Running,
-            generation: j.generation,
-            until_ms: None,
-            attempt: i64::from(j.attempts),
-        })?;
-        // The generation fences stale settle attempts. The lease is already
-        // expired: this engine schedules, the host holds the execution lease.
-        let claimed = self
-            .journal
-            .claim(key, "engine", now, now, j.generation)?
-            .ok_or_else(|| {
-                EngineError::Journal(JournalError::Rejected("claim after intent failed".into()))
-            })?;
-        let inflight = self
-            .journal
-            .settle(key, claimed.generation, EffectState::InFlight)?
-            .ok_or_else(|| {
-                EngineError::Journal(JournalError::Rejected("Prepared→InFlight failed".into()))
-            })?;
-        let row = RunRow {
-            key: key.to_string(),
-            phase: RunPhase::Running,
-            generation: inflight.generation,
-            until_ms: None,
-            attempt: i64::from(inflight.attempts),
-        };
-        self.storage.commit_run(row)?;
-        Ok(StartOutcome::Started {
-            generation: inflight.generation,
-        })
+    fn start_with(
+        &mut self,
+        key: &str,
+        now_ms: u64,
+        opts: &StartOptions,
+    ) -> Result<StartOutcome, EngineError> {
+        self.start_with_impl(key, now_ms, opts)
+    }
+
+    fn settle(
+        &mut self,
+        key: &str,
+        generation: u64,
+        to: EffectState,
+    ) -> Result<Option<Row>, EngineError> {
+        self.settle_impl(key, generation, to)
+    }
+
+    fn claim(
+        &mut self,
+        key: &str,
+        owner: &str,
+        lease_deadline: i64,
+        now_ms: i64,
+        expected_generation: u64,
+    ) -> Result<Option<Row>, EngineError> {
+        self.claim_impl(key, owner, lease_deadline, now_ms, expected_generation)
+    }
+
+    fn attempt(&mut self, key: &str, generation: u64) -> Result<Option<Row>, EngineError> {
+        self.attempt_impl(key, generation)
+    }
+
+    fn mark_unknown(&mut self, key: &str) -> Result<(), EngineError> {
+        self.mark_unknown_impl(key)
+    }
+
+    fn reconcile(
+        &mut self,
+        key: &str,
+        generation: u64,
+        outcome: EffectState,
+    ) -> Result<Option<Row>, EngineError> {
+        self.reconcile_impl(key, generation, outcome)
     }
 
     fn park_until(

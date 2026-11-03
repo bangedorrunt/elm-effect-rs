@@ -145,7 +145,7 @@ fn park_until_propagates_storage_error_without_fake_wait() {
     ] {
         let flag = FailFlag::new();
         let mut eng = OurEngine::with_storage(FaultyStore::faulty(&flag));
-        eng.start("p", 0).expect("control start");
+        let _ = eng.start("p", 0).expect("control start");
         flag.set(fail_on);
         let err = eng
             .park_until("p", 10_000, 60, 0, None)
@@ -168,8 +168,9 @@ fn park_until_propagates_storage_error_without_fake_wait() {
 fn drain_due_propagates_due_parks_error_with_no_wakes() {
     let flag = FailFlag::new();
     let mut eng = OurEngine::with_storage(FaultyStore::faulty(&flag));
-    eng.start("d", 0).expect("control start");
-    eng.park_until("d", 1_000, 60, 0, None)
+    let _ = eng.start("d", 0).expect("control start");
+    let _ = eng
+        .park_until("d", 1_000, 60, 0, None)
         .expect("control park");
     flag.set("due_parks");
     let err = eng
@@ -182,7 +183,7 @@ fn drain_due_propagates_due_parks_error_with_no_wakes() {
 fn query_propagates_get_run_error() {
     let flag = FailFlag::new();
     let mut eng = OurEngine::with_storage(FaultyStore::faulty(&flag));
-    eng.start("q", 0).expect("control start");
+    let _ = eng.start("q", 0).expect("control start");
     flag.set("get_run");
     let err = eng
         .query("q")

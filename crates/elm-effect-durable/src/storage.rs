@@ -97,6 +97,196 @@ impl MemStorage {
     }
 }
 
+/// Conformance laws for any [`EngineStorage`]. A sibling host runs these
+/// against its own store to verify the contract in one call.
+///
+/// Returns `(name, outcome)` per law. A host fails the suite when any
+/// outcome is `Err`.
+pub fn storage_laws(store: &mut dyn EngineStorage) -> Vec<(&'static str, Result<(), String>)> {
+    vec![
+        ("put then get roundtrips", law_put_get(store)),
+        ("get absent is None", law_get_absent(store)),
+        ("same instant parks once", law_same_instant(store)),
+        ("repark replaces the instant", law_repark(store)),
+        ("commit_run clears the park", law_commit_run(store)),
+        ("commit_park persists the pair", law_commit_park(store)),
+        ("clear_parks removes", law_clear_parks(store)),
+        ("due_parks filters the future", law_due_parks(store)),
+    ]
+}
+
+fn law_ok(cond: bool, what: &str) -> Result<(), String> {
+    if cond { Ok(()) } else { Err(what.to_string()) }
+}
+
+fn law_err(got: impl std::fmt::Debug) -> String {
+    format!("{got:?}")
+}
+
+fn law_put_get(store: &mut dyn EngineStorage) -> Result<(), String> {
+    store
+        .put_run(RunRow {
+            key: "law-rw".into(),
+            phase: RunPhase::Running,
+            generation: 1,
+            until_ms: None,
+            attempt: 0,
+        })
+        .map_err(law_err)?;
+    let row = store
+        .get_run("law-rw")
+        .map_err(law_err)?
+        .ok_or("put row must read back")?;
+    law_ok(
+        row.generation == 1 && row.phase == RunPhase::Running,
+        "row survives the roundtrip",
+    )
+}
+
+fn law_get_absent(store: &mut dyn EngineStorage) -> Result<(), String> {
+    law_ok(
+        store.get_run("law-nope").map_err(law_err)?.is_none(),
+        "absent run must be None",
+    )
+}
+
+fn law_same_instant(store: &mut dyn EngineStorage) -> Result<(), String> {
+    let park = ParkedRow {
+        key: "law-park".into(),
+        until_ms: 500,
+        park_generation: 1,
+    };
+    let first = store.upsert_park(park.clone()).map_err(law_err)?;
+    law_ok(first, "first park writes")?;
+    let second = store.upsert_park(park).map_err(law_err)?;
+    law_ok(!second, "identical park writes nothing the second time")?;
+    let parks = store.list_parked().map_err(law_err)?;
+    law_ok(
+        parks.iter().filter(|p| p.key == "law-park").count() == 1,
+        "one row for the same instant",
+    )
+}
+
+fn law_repark(store: &mut dyn EngineStorage) -> Result<(), String> {
+    store
+        .upsert_park(ParkedRow {
+            key: "law-repark".into(),
+            until_ms: 100,
+            park_generation: 1,
+        })
+        .map_err(law_err)?;
+    store
+        .upsert_park(ParkedRow {
+            key: "law-repark".into(),
+            until_ms: 200,
+            park_generation: 2,
+        })
+        .map_err(law_err)?;
+    let parks = store.list_parked().map_err(law_err)?;
+    let mine: Vec<_> = parks.iter().filter(|p| p.key == "law-repark").collect();
+    law_ok(
+        mine.len() == 1 && mine[0].until_ms == 200,
+        "one active park per run",
+    )
+}
+
+fn law_commit_run(store: &mut dyn EngineStorage) -> Result<(), String> {
+    store
+        .put_run(RunRow {
+            key: "law-cr".into(),
+            phase: RunPhase::Parked,
+            generation: 1,
+            until_ms: Some(100),
+            attempt: 0,
+        })
+        .map_err(law_err)?;
+    store
+        .upsert_park(ParkedRow {
+            key: "law-cr".into(),
+            until_ms: 100,
+            park_generation: 1,
+        })
+        .map_err(law_err)?;
+    store
+        .commit_run(RunRow {
+            key: "law-cr".into(),
+            phase: RunPhase::Running,
+            generation: 2,
+            until_ms: None,
+            attempt: 0,
+        })
+        .map_err(law_err)?;
+    law_ok(
+        store.get_park("law-cr").map_err(law_err)?.is_none(),
+        "active transition drops the park",
+    )
+}
+
+fn law_commit_park(store: &mut dyn EngineStorage) -> Result<(), String> {
+    store
+        .commit_park(
+            RunRow {
+                key: "law-cp".into(),
+                phase: RunPhase::Parked,
+                generation: 1,
+                until_ms: Some(300),
+                attempt: 0,
+            },
+            ParkedRow {
+                key: "law-cp".into(),
+                until_ms: 300,
+                park_generation: 1,
+            },
+        )
+        .map_err(law_err)?;
+    law_ok(
+        store.get_park("law-cp").map_err(law_err)?.is_some(),
+        "park beside the run",
+    )?;
+    law_ok(
+        store.get_run("law-cp").map_err(law_err)?.is_some(),
+        "run beside the park",
+    )
+}
+
+fn law_clear_parks(store: &mut dyn EngineStorage) -> Result<(), String> {
+    store
+        .upsert_park(ParkedRow {
+            key: "law-cl".into(),
+            until_ms: 400,
+            park_generation: 1,
+        })
+        .map_err(law_err)?;
+    store.clear_parks("law-cl").map_err(law_err)?;
+    law_ok(
+        store.get_park("law-cl").map_err(law_err)?.is_none(),
+        "park gone after clear",
+    )
+}
+
+fn law_due_parks(store: &mut dyn EngineStorage) -> Result<(), String> {
+    store
+        .upsert_park(ParkedRow {
+            key: "law-due".into(),
+            until_ms: 100,
+            park_generation: 1,
+        })
+        .map_err(law_err)?;
+    store
+        .upsert_park(ParkedRow {
+            key: "law-future".into(),
+            until_ms: 9_999,
+            park_generation: 1,
+        })
+        .map_err(law_err)?;
+    let due = store.due_parks(200).map_err(law_err)?;
+    law_ok(due.iter().any(|p| p.key == "law-due"), "due park fires")?;
+    law_ok(
+        due.iter().all(|p| p.key != "law-future"),
+        "future park waits",
+    )
+}
+
 impl EngineStorage for MemStorage {
     fn get_run(&self, key: &str) -> Result<Option<RunRow>, StorageError> {
         Ok(self.runs.get(key).cloned())

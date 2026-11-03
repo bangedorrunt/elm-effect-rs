@@ -149,7 +149,7 @@ fn start_propagates_journal_error_and_starts_nothing() {
 fn query_propagates_get_error() {
     let flag = FailFlag::new();
     let mut eng = engine(&flag);
-    eng.start("q", 0).expect("control start");
+    let _ = eng.start("q", 0).expect("control start");
     flag.set("get");
     let err = eng.query("q").expect_err("query must propagate get error");
     assert!(is_journal(&err), "query: expected Journal, got {err:?}");
@@ -160,7 +160,7 @@ fn park_until_and_wake_propagate_get_error() {
     for verb in ["park_until", "wake"] {
         let flag = FailFlag::new();
         let mut eng = engine(&flag);
-        eng.start("w", 0).expect("control start");
+        let _ = eng.start("w", 0).expect("control start");
         flag.set("get");
         let err = match verb {
             "park_until" => eng
@@ -177,7 +177,7 @@ fn cancel_and_mark_unknown_propagate_journal_error() {
     for fail_on in ["get", "settle"] {
         let flag = FailFlag::new();
         let mut eng = engine(&flag);
-        eng.start("c", 0).expect("control start");
+        let _ = eng.start("c", 0).expect("control start");
         flag.set(fail_on);
         let err = eng
             .cancel("c", 0)
