@@ -490,6 +490,41 @@ An agent **must not**:
   cron unit, 20 conformance, 2 cron integration, and 1 framework-fit test;
   workspace `clippy -D warnings` / `fmt --check` green.
 
+### 2026-11-03 — live Elm Loop proofs, full fault-injection, complete surface docs (ud08)
+
+- `crates/elm-effect-durable/tests/cron.rs`: `CronPolicy::Latest` /
+  `Skip { grace_ms }`, `CronFire`, `plan_cron_tick`, and
+  `CronSchedule::plan_tick` each drive `OurEngine::start` with the returned
+  key — the first start dispatches (`Started`), a replay re-attaches
+  (`Already`).
+- `fallible_journal.rs` / `fallible_storage.rs`: every port verb now has a
+  fault-injection proof. `start_with`, `claim`, `settle`, `attempt`,
+  `reconcile`, and `expire_lease` propagate `JournalError::Unavailable`
+  (`EngineError::Journal`) and `StorageError::Unavailable`
+  (`EngineError::Storage`) without corrupting state: a failed verb leaves the
+  run `Running`, a failed `reconcile` leaves it `Unknown`, and clearing the
+  flag lets the retry go through.
+- `framework_fit.rs`: live Elm `Program` + `Loop` + `Interpret` + `OurEngine`
+  + `TestClock` witnesses. Park → advance the clock → `drain_due` →
+  `EngineMsg::Woke` fed into `Loop::send` → resume → `settle` to `Settled`;
+  `child_key` + `plan_join` (`Pending` while children run/park →
+  `AllSettled` when all settle, `Failed` short-circuiting pending when one
+  child cancels); `step_key` + forward failure → `plan_saga_rollback`
+  (`compensate_key`) runs compensations in strict LIFO order through the
+  engine and resumes idempotently after a halfway crash; `plan_cron_tick`
+  under both policies fires exactly once per tick into the loop.
+- Guide (`15-use-the-apis.mdx`) and this record now name the complete
+  surface: `plan_cron_tick`, `CronPolicy`, `CronFire`, `plan_join`,
+  `JoinOutcome`, `plan_saga_rollback`, `SagaStep`, `SagaStepStatus`,
+  `SagaPlan`, `compensate_key`, `check_claim`, `check_settle`,
+  `ClaimRejection`, `SettleRejection`, `expire_lease`, and
+  `journal_store_all`. No new `use` lines in the guide's fenced blocks, so
+  `guide_imports` still compiles the published set.
+- Verification: `cargo test -p elm-effect-durable`,
+  `cargo test -p elm-effect-elm --test guide_imports`,
+  `cargo clippy -p elm-effect-durable --all-targets -- -D warnings`, and
+  `cargo fmt --check` green.
+
 ### 2026-11-01 — framework fit witness
 
 - `crates/elm-effect-durable/tests/framework_fit.rs` holds `OurEngine` in a

@@ -1,6 +1,9 @@
 //! A cron firing is one durable start (ADR-0005).
 
-use elm_effect_durable::{CronSchedule, DurableEngine, OurEngine, StartOutcome, fire_key};
+use elm_effect_durable::{
+    CronFire, CronPolicy, CronSchedule, DurableEngine, OurEngine, StartOutcome, fire_key,
+    plan_cron_tick,
+};
 
 fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
     let year = if month <= 2 { year - 1 } else { year };
@@ -151,4 +154,80 @@ fn one_catch_up_tick_starts_once() {
         engine.start(&key, now_ms),
         Ok(StartOutcome::Already { .. })
     ));
+}
+
+#[test]
+fn cron_policy_latest_starts_once_through_engine() {
+    let schedule = CronSchedule::parse("* * * * *").expect("valid cron");
+    let tick = ms(2024, 9, 6, 12, 0);
+    let now_ms = tick + 30_000;
+    // Free function and method planner agree on the same firing.
+    let fire = plan_cron_tick("beat", &schedule, CronPolicy::Latest, None, now_ms)
+        .expect("latest fires a fresh tick");
+    assert_eq!(fire.tick_ms, tick);
+    assert_eq!(fire.key, fire_key("beat", tick));
+    assert_eq!(
+        schedule.plan_tick("beat", CronPolicy::Latest, None, now_ms),
+        Some(fire.clone())
+    );
+    // A CronFire is data: it round-trips through serde.
+    let back: CronFire =
+        serde_json::from_str(&serde_json::to_string(&fire).expect("json")).expect("back");
+    assert_eq!(back, fire);
+
+    let mut engine = OurEngine::new();
+    assert!(
+        matches!(
+            engine.start(&fire.key, now_ms),
+            Ok(StartOutcome::Started { .. })
+        ),
+        "first firing dispatches"
+    );
+    assert!(
+        matches!(
+            engine.start(&fire.key, now_ms),
+            Ok(StartOutcome::Already { .. })
+        ),
+        "replay re-attaches instead of dispatching twice"
+    );
+}
+
+#[test]
+fn cron_policy_skip_grace_starts_once_through_engine() {
+    let schedule = CronSchedule::parse("* * * * *").expect("valid cron");
+    let tick = ms(2024, 9, 6, 12, 0);
+    let now_ms = tick + 30_000;
+    let policy = CronPolicy::Skip { grace_ms: 60_000 };
+    let fire = plan_cron_tick("beat", &schedule, policy, None, now_ms).expect("fresh tick fires");
+    assert_eq!(
+        schedule.plan_tick("beat", policy, None, now_ms),
+        Some(fire.clone())
+    );
+    // A stale tick never fires, however the engine would have taken it.
+    assert!(
+        plan_cron_tick(
+            "beat",
+            &schedule,
+            CronPolicy::Skip { grace_ms: 10_000 },
+            None,
+            now_ms
+        )
+        .is_none()
+    );
+
+    let mut engine = OurEngine::new();
+    assert!(
+        matches!(
+            engine.start(&fire.key, now_ms),
+            Ok(StartOutcome::Started { .. })
+        ),
+        "first firing dispatches"
+    );
+    assert!(
+        matches!(
+            engine.start(&fire.key, now_ms),
+            Ok(StartOutcome::Already { .. })
+        ),
+        "replay re-attaches instead of dispatching twice"
+    );
 }

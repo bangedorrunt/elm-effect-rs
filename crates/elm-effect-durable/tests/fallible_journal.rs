@@ -7,7 +7,8 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use elm_effect_durable::{
-    DurableEngine, EngineError, MemStorage, OurEngine, ParkOutcome, RunPhase, StartOutcome,
+    DurableEngine, EngineError, MemStorage, OurEngine, ParkOutcome, RunPhase, StartOptions,
+    StartOutcome,
 };
 use elm_effect_journal::EffectState;
 use elm_effect_journal::store::{InMemoryStore, JournalError, JournalStore, Read, Row};
@@ -211,4 +212,138 @@ fn control_without_failure_behaves_normally() {
     assert_eq!(overdue, Some(1_000));
     let status = eng.query("ok").expect("control query");
     assert_eq!(status.phase, RunPhase::Running);
+}
+
+fn started_generation(eng: &mut OurEngine<MemStorage, FaultyJournal>, key: &str) -> u64 {
+    match eng.start(key, 0).expect("control start") {
+        StartOutcome::Started { generation } => generation,
+        StartOutcome::Already { .. } => panic!("fresh key must start"),
+    }
+}
+
+#[test]
+fn start_with_propagates_journal_error() {
+    for fail_on in ["get", "record_intent", "claim", "settle"] {
+        let flag = FailFlag::new();
+        flag.set(fail_on);
+        let mut eng = engine(&flag);
+        let err = eng
+            .start_with("sw", 0, &StartOptions::default())
+            .expect_err("start_with must propagate journal error");
+        assert!(
+            is_journal(&err),
+            "start_with({fail_on}): expected Journal, got {err:?}"
+        );
+        flag.set("");
+        match eng.query("sw") {
+            Ok(status) => assert_eq!(
+                status.phase,
+                RunPhase::Running,
+                "start_with({fail_on}): readable status must stay Running"
+            ),
+            Err(EngineError::NotFound(_)) => {}
+            Err(EngineError::Journal(_)) => {}
+            Err(other) => panic!("start_with({fail_on}): unexpected query error {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn claim_settle_attempt_propagate_journal_error_without_corrupting_state() {
+    // claim fences through the journal claim edge.
+    {
+        let flag = FailFlag::new();
+        let mut eng = engine(&flag);
+        let generation = started_generation(&mut eng, "jk-claim");
+        flag.set("claim");
+        let err = eng
+            .claim("jk-claim", "worker", 10_000, 0, generation)
+            .expect_err("claim must propagate journal error");
+        assert!(is_journal(&err), "claim: expected Journal, got {err:?}");
+        flag.set("");
+        assert_eq!(
+            eng.query("jk-claim").expect("run stays queryable").phase,
+            RunPhase::Running,
+            "failed claim must leave the run Running"
+        );
+    }
+    // settle fences through the journal settle edge.
+    {
+        let flag = FailFlag::new();
+        let mut eng = engine(&flag);
+        let generation = started_generation(&mut eng, "jk-settle");
+        flag.set("settle");
+        let err = eng
+            .settle("jk-settle", generation, EffectState::Settled)
+            .expect_err("settle must propagate journal error");
+        assert!(is_journal(&err), "settle: expected Journal, got {err:?}");
+        flag.set("");
+        assert_eq!(
+            eng.query("jk-settle").expect("run stays queryable").phase,
+            RunPhase::Running,
+            "failed settle must leave the run Running"
+        );
+    }
+    // attempt counts through the journal attempt edge.
+    {
+        let flag = FailFlag::new();
+        let mut eng = engine(&flag);
+        let generation = started_generation(&mut eng, "jk-attempt");
+        flag.set("attempt");
+        let err = eng
+            .attempt("jk-attempt", generation)
+            .expect_err("attempt must propagate journal error");
+        assert!(is_journal(&err), "attempt: expected Journal, got {err:?}");
+        flag.set("");
+        assert_eq!(
+            eng.query("jk-attempt").expect("run stays queryable").phase,
+            RunPhase::Running,
+            "failed attempt must leave the run Running"
+        );
+    }
+}
+
+#[test]
+fn reconcile_and_expire_lease_propagate_journal_error_without_corrupting_state() {
+    // reconcile reads the journal row first: a get failure is a Journal error.
+    {
+        let flag = FailFlag::new();
+        let mut eng = engine(&flag);
+        let generation = started_generation(&mut eng, "jk-reconcile");
+        eng.mark_unknown("jk-reconcile").expect("control unknown");
+        flag.set("get");
+        let err = eng
+            .reconcile("jk-reconcile", generation, EffectState::Settled)
+            .expect_err("reconcile must propagate journal error");
+        assert!(is_journal(&err), "reconcile: expected Journal, got {err:?}");
+        flag.set("");
+        assert_eq!(
+            eng.query("jk-reconcile")
+                .expect("run stays queryable")
+                .phase,
+            RunPhase::Unknown,
+            "failed reconcile must leave the run Unknown"
+        );
+    }
+    // expire_lease reads the journal row first too.
+    {
+        let flag = FailFlag::new();
+        let mut eng = engine(&flag);
+        started_generation(&mut eng, "jk-expire");
+        flag.set("get");
+        let err = eng
+            .expire_lease("jk-expire", 0)
+            .expect_err("expire_lease must propagate journal error");
+        assert!(
+            is_journal(&err),
+            "expire_lease: expected Journal, got {err:?}"
+        );
+        flag.set("");
+        // The default start holds no live lease, so the retry expires cleanly.
+        let updated = eng
+            .expire_lease("jk-expire", 0)
+            .expect("retry after clearing the flag")
+            .expect("expired lease must transition");
+        assert_eq!(updated.state, EffectState::Unknown);
+    }
 }

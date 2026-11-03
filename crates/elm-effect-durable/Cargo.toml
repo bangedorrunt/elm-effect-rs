@@ -13,5 +13,6 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "1"
 
 [dev-dependencies]
+elm-effect-elm = { path = "../elm-effect-elm" }
 elm-effect-test = { path = "../elm-effect-test" }
 serde_json = "1"

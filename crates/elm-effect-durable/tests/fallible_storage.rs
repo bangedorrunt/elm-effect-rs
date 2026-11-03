@@ -8,8 +8,9 @@ use std::rc::Rc;
 
 use elm_effect_durable::{
     DurableEngine, EngineError, EngineStorage, MemStorage, OurEngine, ParkOutcome, ParkedRow,
-    RunPhase, RunRow, StartOutcome, StorageError,
+    RunPhase, RunRow, StartOptions, StartOutcome, StorageError,
 };
+use elm_effect_journal::EffectState;
 
 /// Shared failure flag: the test flips it, the store reads it.
 #[derive(Clone)]
@@ -205,4 +206,157 @@ fn control_without_failure_behaves_normally() {
     assert_eq!(wakes.len(), 1, "control drain must wake the park");
     let parked = eng.parked().expect("control parked");
     assert!(parked.is_empty(), "drained park must be gone");
+}
+
+fn faulty(flag: &FailFlag) -> OurEngine<FaultyStore> {
+    OurEngine::with_storage(FaultyStore::faulty(flag))
+}
+
+fn started_generation(eng: &mut OurEngine<FaultyStore>, key: &str) -> u64 {
+    match eng.start(key, 0).expect("control start") {
+        StartOutcome::Started { generation } => generation,
+        StartOutcome::Already { .. } => panic!("fresh key must start"),
+    }
+}
+
+fn assert_running(eng: &OurEngine<FaultyStore>, key: &str, verb: &str) {
+    let status = eng
+        .query(key)
+        .expect("run stays queryable after a storage error");
+    assert_eq!(
+        status.phase,
+        RunPhase::Running,
+        "{verb}: failed verb must leave the run Running"
+    );
+}
+
+#[test]
+fn start_with_propagates_storage_error() {
+    for fail_on in ["get_run", "put_run", "commit_run", "clear_parks"] {
+        let flag = FailFlag::new();
+        flag.set(fail_on);
+        let mut eng = faulty(&flag);
+        let err = eng
+            .start_with("sw", 0, &StartOptions::default())
+            .expect_err("start_with must propagate storage error");
+        assert!(
+            is_storage(&err),
+            "start_with({fail_on}): expected Storage, got {err:?}"
+        );
+        flag.set("");
+        match eng.query("sw") {
+            Ok(status) => assert_eq!(
+                status.phase,
+                RunPhase::Running,
+                "start_with({fail_on}): readable status must stay Running"
+            ),
+            Err(EngineError::NotFound(_)) => {}
+            Err(EngineError::Storage(_)) => {}
+            Err(other) => panic!("start_with({fail_on}): unexpected query error {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn claim_settle_attempt_propagate_storage_error_without_corrupting_state() {
+    // claim projects the fence onto storage: a failed write is Storage.
+    {
+        let flag = FailFlag::new();
+        let mut eng = faulty(&flag);
+        let generation = started_generation(&mut eng, "sk-claim");
+        flag.set("put_run");
+        let err = eng
+            .claim("sk-claim", "worker", 10_000, 0, generation)
+            .expect_err("claim must propagate storage error");
+        assert!(is_storage(&err), "claim: expected Storage, got {err:?}");
+        flag.set("");
+        assert_running(&eng, "sk-claim", "claim");
+    }
+    // settle projects the settled row: the journal moves first, so a failed
+    // storage write propagates Storage while the journal stays authoritative.
+    {
+        let flag = FailFlag::new();
+        let mut eng = faulty(&flag);
+        let generation = started_generation(&mut eng, "sk-settle");
+        flag.set("put_run");
+        let err = eng
+            .settle("sk-settle", generation, EffectState::Settled)
+            .expect_err("settle must propagate storage error");
+        assert!(is_storage(&err), "settle: expected Storage, got {err:?}");
+        flag.set("");
+        // The journal settled before the storage write failed, and the
+        // journal is authoritative for lifecycle: the run reads Settled.
+        let status = eng.query("sk-settle").expect("run stays queryable");
+        assert_eq!(
+            status.phase,
+            RunPhase::Settled,
+            "settle: journal truth must survive a failed projection"
+        );
+    }
+    // attempt projects only the counter while the run still waits.
+    {
+        let flag = FailFlag::new();
+        let mut eng = faulty(&flag);
+        let generation = started_generation(&mut eng, "sk-attempt");
+        flag.set("put_run");
+        let err = eng
+            .attempt("sk-attempt", generation)
+            .expect_err("attempt must propagate storage error");
+        assert!(is_storage(&err), "attempt: expected Storage, got {err:?}");
+        flag.set("");
+        assert_running(&eng, "sk-attempt", "attempt");
+    }
+}
+
+#[test]
+fn reconcile_and_expire_lease_propagate_storage_error_without_corrupting_state() {
+    // reconcile projects Unknown -> Settled: the journal moves first, so a
+    // failed storage write propagates Storage while the journal stays
+    // authoritative.
+    {
+        let flag = FailFlag::new();
+        let mut eng = faulty(&flag);
+        let generation = started_generation(&mut eng, "sk-reconcile");
+        eng.mark_unknown("sk-reconcile").expect("control unknown");
+        flag.set("put_run");
+        let err = eng
+            .reconcile("sk-reconcile", generation, EffectState::Settled)
+            .expect_err("reconcile must propagate storage error");
+        assert!(is_storage(&err), "reconcile: expected Storage, got {err:?}");
+        flag.set("");
+        let status = eng.query("sk-reconcile").expect("run stays queryable");
+        assert_eq!(
+            status.phase,
+            RunPhase::Settled,
+            "failed reconcile projection must not hide the journal outcome"
+        );
+    }
+    // expire_lease projects InFlight -> Unknown: the journal moves first.
+    {
+        let flag = FailFlag::new();
+        let mut eng = faulty(&flag);
+        started_generation(&mut eng, "sk-expire");
+        flag.set("put_run");
+        let err = eng
+            .expire_lease("sk-expire", 0)
+            .expect_err("expire_lease must propagate storage error");
+        assert!(
+            is_storage(&err),
+            "expire_lease: expected Storage, got {err:?}"
+        );
+        flag.set("");
+        // The journal already moved to Unknown before the write failed, so
+        // a retry finds no live lease and the run reads Unknown.
+        let retry = eng.expire_lease("sk-expire", 0).expect("retry");
+        assert!(
+            retry.is_none(),
+            "journal already Unknown: no second transition"
+        );
+        let status = eng.query("sk-expire").expect("run stays queryable");
+        assert_eq!(
+            status.phase,
+            RunPhase::Unknown,
+            "journal truth must survive a failed projection"
+        );
+    }
 }
