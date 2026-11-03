@@ -1,6 +1,7 @@
 //! Port types: scheduling verbs only (ADR-0005).
 
 use elm_effect_journal::EffectState;
+use elm_effect_journal::plan::{ClaimRejection, SettleRejection};
 use elm_effect_journal::store::{JournalError, Row};
 
 use crate::storage::ParkedRow;
@@ -198,6 +199,44 @@ pub enum ParkOutcome {
     },
 }
 
+/// Result of [`DurableEngine::wake_checked`].
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[must_use]
+pub enum WakeOutcome {
+    /// Parked run resumed to `Running`.
+    Woken {
+        /// `now_ms - until_ms` (0 when on time or early).
+        overdue_ms: u64,
+        /// Park generation that was woken.
+        park_generation: u64,
+    },
+    /// Run was already live and not parked; any stale park was cleared.
+    NotParked {
+        /// Current live phase.
+        phase: RunPhase,
+    },
+}
+
+/// Result of [`DurableEngine::claim_checked`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[must_use]
+pub enum ClaimOutcome {
+    /// Claim succeeded, bumped generation, and projected onto storage.
+    Claimed(Row),
+    /// Claim was refused by the fence; latest journal state projected.
+    Rejected(ClaimRejection),
+}
+
+/// Result of [`DurableEngine::settle_checked`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[must_use]
+pub enum SettleOutcome {
+    /// Settle succeeded and projected onto storage.
+    Settled(Row),
+    /// Settle was refused by the fence; latest journal state projected.
+    Rejected(SettleRejection),
+}
+
 /// Scheduling port. Journal and `DurableLog` stay elsewhere.
 pub trait DurableEngine {
     /// Begin or re-attach a run. Idempotent on `key`: a second start does not
@@ -229,6 +268,10 @@ pub trait DurableEngine {
     /// Wake one parked run now. Returns overdue ms when the deadline had passed.
     fn wake(&mut self, key: &str, now_ms: u64) -> Result<Option<u64>, EngineError>;
 
+    /// Wake one parked run now, reporting the park generation. [`wake`](Self::wake)
+    /// delegates: `Woken` maps to its `overdue_ms`, `NotParked` to `None`.
+    fn wake_checked(&mut self, key: &str, now_ms: u64) -> Result<WakeOutcome, EngineError>;
+
     /// Terminal cancel.
     fn cancel(&mut self, key: &str, now_ms: u64) -> Result<(), EngineError>;
 
@@ -253,6 +296,16 @@ pub trait DurableEngine {
         to: EffectState,
     ) -> Result<Option<Row>, EngineError>;
 
+    /// Settle a journal row toward `to`, reporting the fence refusal typed.
+    /// [`settle`](Self::settle) delegates: `Settled` maps to its row,
+    /// `Rejected` to `None`.
+    fn settle_checked(
+        &mut self,
+        key: &str,
+        generation: u64,
+        to: EffectState,
+    ) -> Result<SettleOutcome, EngineError>;
+
     /// Claim a journal row (bumps generation), then project the fence onto
     /// the run row. A claim is a dispatch, so it clears any park. A stale
     /// fence returns `None` after projecting the latest journal row.
@@ -264,6 +317,18 @@ pub trait DurableEngine {
         now_ms: i64,
         expected_generation: u64,
     ) -> Result<Option<Row>, EngineError>;
+
+    /// Claim a journal row, reporting the fence refusal typed.
+    /// [`claim`](Self::claim) delegates: `Claimed` maps to its row,
+    /// `Rejected` to `None`.
+    fn claim_checked(
+        &mut self,
+        key: &str,
+        owner: &str,
+        lease_deadline: i64,
+        now_ms: i64,
+        expected_generation: u64,
+    ) -> Result<ClaimOutcome, EngineError>;
 
     /// Count one provider attempt against the journal fence. Past
     /// `max_attempts` the row dead-letters to `Failed` and the run projects
@@ -327,6 +392,14 @@ pub fn engine_laws(engine: &mut dyn DurableEngine) -> Vec<(&'static str, Result<
         (
             "expire_lease times out a dead lease",
             law_expire_lease(engine),
+        ),
+        (
+            "wake_checked reports Woken vs NotParked",
+            law_wake_checked(engine),
+        ),
+        (
+            "claim_checked and settle_checked report typed rejections",
+            law_checked_rejections(engine),
         ),
     ]
 }
@@ -537,6 +610,97 @@ fn law_expire_lease(engine: &mut dyn DurableEngine) -> Result<(), String> {
     law_check(
         engine.query("law-expire-dead").map_err(law_fail)?.phase == RunPhase::Settled,
         "run settled after reconcile",
+    )
+}
+
+fn law_wake_checked(engine: &mut dyn DurableEngine) -> Result<(), String> {
+    require_started(engine.start("law-wakecheck", 0).map_err(law_fail)?, "start")?;
+    // Live but never parked: NotParked names the Running phase.
+    match engine.wake_checked("law-wakecheck", 0).map_err(law_fail)? {
+        WakeOutcome::NotParked { phase } => {
+            law_check(phase == RunPhase::Running, "live run reports Running")?
+        }
+        WakeOutcome::Woken { .. } => return Err("unparked wake must be NotParked".into()),
+    }
+    let out = engine
+        .park_until("law-wakecheck", 1_000, 60, 0, None)
+        .map_err(law_fail)?;
+    law_check(matches!(out, ParkOutcome::Wait { .. }), "park must Wait")?;
+    match engine
+        .wake_checked("law-wakecheck", 1_200)
+        .map_err(law_fail)?
+    {
+        WakeOutcome::Woken {
+            overdue_ms,
+            park_generation,
+        } => {
+            law_check(overdue_ms == 200, "overdue names the gap")?;
+            law_check(park_generation >= 1, "park generation is live")?;
+        }
+        WakeOutcome::NotParked { .. } => return Err("parked wake must be Woken".into()),
+    }
+    law_check(
+        engine.query("law-wakecheck").map_err(law_fail)?.phase == RunPhase::Running,
+        "wake resumes",
+    )
+}
+
+fn law_checked_rejections(engine: &mut dyn DurableEngine) -> Result<(), String> {
+    // Absent rows reject as NotFound on both verbs.
+    law_check(
+        matches!(
+            engine
+                .claim_checked("law-absent-claim", "w", 10_000, 0, 0)
+                .map_err(law_fail)?,
+            ClaimOutcome::Rejected(ClaimRejection::NotFound)
+        ),
+        "absent claim rejects NotFound",
+    )?;
+    law_check(
+        matches!(
+            engine
+                .settle_checked("law-absent-settle", 0, EffectState::Settled)
+                .map_err(law_fail)?,
+            SettleOutcome::Rejected(SettleRejection::NotFound)
+        ),
+        "absent settle rejects NotFound",
+    )?;
+    // Live claim succeeds; a zombie fence rejects stale.
+    let generation = require_started(engine.start("law-checked", 0).map_err(law_fail)?, "start")?;
+    let claimed = match engine
+        .claim_checked("law-checked", "worker", 10_000, 0, generation)
+        .map_err(law_fail)?
+    {
+        ClaimOutcome::Claimed(row) => row,
+        ClaimOutcome::Rejected(r) => return Err(format!("live claim must succeed: {r:?}")),
+    };
+    law_check(
+        matches!(
+            engine
+                .claim_checked("law-checked", "zombie", 10_000, 0, generation)
+                .map_err(law_fail)?,
+            ClaimOutcome::Rejected(ClaimRejection::StaleGeneration { .. })
+        ),
+        "zombie claim rejects StaleGeneration",
+    )?;
+    // Live settle succeeds; terminal rows reject terminal.
+    match engine
+        .settle_checked("law-checked", claimed.generation, EffectState::Settled)
+        .map_err(law_fail)?
+    {
+        SettleOutcome::Settled(row) => {
+            law_check(row.state == EffectState::Settled, "journal settled")?
+        }
+        SettleOutcome::Rejected(r) => return Err(format!("live settle must succeed: {r:?}")),
+    }
+    law_check(
+        matches!(
+            engine
+                .settle_checked("law-checked", claimed.generation, EffectState::Failed)
+                .map_err(law_fail)?,
+            SettleOutcome::Rejected(SettleRejection::Terminal { .. })
+        ),
+        "terminal settle rejects Terminal",
     )
 }
 

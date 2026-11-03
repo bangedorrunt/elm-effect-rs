@@ -3,12 +3,14 @@
 use elm_effect_journal::EffectState;
 use elm_effect_journal::plan::ParkDecision;
 use elm_effect_journal::plan::{
-    DispatchPlan, EffectView, ProviderCapability, may_claim, plan_attempt, plan_park,
+    ClaimRejection, DispatchPlan, EffectView, ProviderCapability, SettleRejection, check_claim,
+    check_settle, may_claim, plan_attempt, plan_park,
 };
 use elm_effect_journal::store::{InMemoryStore, JournalError, JournalStore, Row};
 
 use crate::engine::{
-    DurableEngine, EngineError, ParkOutcome, RunPhase, RunStatus, StartOptions, StartOutcome,
+    ClaimOutcome, DurableEngine, EngineError, ParkOutcome, RunPhase, RunStatus, SettleOutcome,
+    StartOptions, StartOutcome, WakeOutcome,
 };
 use crate::scheduler::due_wakes;
 use crate::storage::{EngineStorage, MemStorage, ParkedRow, RunRow};
@@ -97,7 +99,21 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         generation: u64,
         to: EffectState,
     ) -> Result<Option<Row>, EngineError> {
-        self.settle_impl(key, generation, to)
+        match self.settle_checked_impl(key, generation, to)? {
+            SettleOutcome::Settled(row) => Ok(Some(row)),
+            SettleOutcome::Rejected(_) => Ok(None),
+        }
+    }
+
+    /// Settle a journal row, reporting the fence refusal typed.
+    /// See [`DurableEngine::settle_checked`].
+    pub fn settle_checked(
+        &mut self,
+        key: &str,
+        generation: u64,
+        to: EffectState,
+    ) -> Result<SettleOutcome, EngineError> {
+        self.settle_checked_impl(key, generation, to)
     }
 
     /// Claim a journal row (bumps generation), then project the fence onto the
@@ -110,7 +126,29 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         now_ms: i64,
         expected_generation: u64,
     ) -> Result<Option<Row>, EngineError> {
-        self.claim_impl(key, owner, lease_deadline, now_ms, expected_generation)
+        match self.claim_checked_impl(key, owner, lease_deadline, now_ms, expected_generation)? {
+            ClaimOutcome::Claimed(row) => Ok(Some(row)),
+            ClaimOutcome::Rejected(_) => Ok(None),
+        }
+    }
+
+    /// Claim a journal row, reporting the fence refusal typed.
+    /// See [`DurableEngine::claim_checked`].
+    pub fn claim_checked(
+        &mut self,
+        key: &str,
+        owner: &str,
+        lease_deadline: i64,
+        now_ms: i64,
+        expected_generation: u64,
+    ) -> Result<ClaimOutcome, EngineError> {
+        self.claim_checked_impl(key, owner, lease_deadline, now_ms, expected_generation)
+    }
+
+    /// Wake one parked run now, reporting the park generation.
+    /// See [`DurableEngine::wake_checked`].
+    pub fn wake_checked(&mut self, key: &str, now_ms: u64) -> Result<WakeOutcome, EngineError> {
+        self.wake_checked_impl(key, now_ms)
     }
 
     /// Count one provider attempt against the journal fence.
@@ -191,48 +229,101 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         Ok(())
     }
 
-    fn settle_impl(
+    fn settle_checked_impl(
         &mut self,
         key: &str,
         generation: u64,
         to: EffectState,
-    ) -> Result<Option<Row>, EngineError> {
-        let Some(row) = self.journal.settle(key, generation, to)? else {
-            // A concurrent journal update moved the fence. Project the
-            // latest row so storage never stays stale, then report the
-            // stale fence.
-            if let Some(latest) = self.journal.get(key)? {
-                self.project_row(&latest)?;
-            }
-            return Ok(None);
+    ) -> Result<SettleOutcome, EngineError> {
+        if let Some(row) = self.journal.settle(key, generation, to)? {
+            self.project_row(&row)?;
+            return Ok(SettleOutcome::Settled(row));
+        }
+        // A concurrent journal update moved the fence. Project the latest
+        // row so storage never stays stale, then name the refusal.
+        let Some(latest) = self.journal.get(key)? else {
+            return Ok(SettleOutcome::Rejected(SettleRejection::NotFound));
         };
-        self.project_row(&row)?;
-        Ok(Some(row))
+        self.project_row(&latest)?;
+        let rejection = check_settle(Some((latest.state, latest.generation)), generation, to)
+            .err()
+            // A host journal that refuses outside the pure fence; the fence
+            // did not move for the caller.
+            .unwrap_or(SettleRejection::StaleGeneration {
+                expected: generation,
+                actual: latest.generation,
+            });
+        Ok(SettleOutcome::Rejected(rejection))
     }
 
-    fn claim_impl(
+    fn claim_checked_impl(
         &mut self,
         key: &str,
         owner: &str,
         lease_deadline: i64,
         now_ms: i64,
         expected_generation: u64,
-    ) -> Result<Option<Row>, EngineError> {
-        let Some(row) =
+    ) -> Result<ClaimOutcome, EngineError> {
+        if let Some(row) =
             self.journal
                 .claim(key, owner, lease_deadline, now_ms, expected_generation)?
-        else {
-            if let Some(latest) = self.journal.get(key)? {
-                self.project_row(&latest)?;
-            }
-            return Ok(None);
+        {
+            self.project_row(&row)?;
+            return Ok(ClaimOutcome::Claimed(row));
+        }
+        let Some(latest) = self.journal.get(key)? else {
+            return Ok(ClaimOutcome::Rejected(ClaimRejection::NotFound));
         };
-        self.project_row(&row)?;
-        Ok(Some(row))
+        self.project_row(&latest)?;
+        let rejection = check_claim(
+            latest.state,
+            latest.owner.as_deref(),
+            latest.lease_deadline,
+            owner,
+            now_ms,
+            expected_generation,
+            latest.generation,
+        )
+        .err()
+        // A host journal that refuses outside the pure fence; the fence
+        // did not move for the caller.
+        .unwrap_or(ClaimRejection::StaleGeneration {
+            expected: expected_generation,
+            actual: latest.generation,
+        });
+        Ok(ClaimOutcome::Rejected(rejection))
+    }
+
+    fn wake_checked_impl(&mut self, key: &str, now_ms: u64) -> Result<WakeOutcome, EngineError> {
+        let mut row = self.require_live(key)?;
+        if row.phase != RunPhase::Parked {
+            // Already running: idempotent wake. A park row beside it is stale.
+            self.storage.clear_parks(key)?;
+            return Ok(WakeOutcome::NotParked { phase: row.phase });
+        }
+        let park_gen = self
+            .storage
+            .get_park(key)?
+            .map(|p| p.park_generation)
+            .or_else(|| self.next_park_gen.get(key).copied())
+            .unwrap_or(1);
+        let until = row.until_ms.unwrap_or(now_ms);
+        let overdue_ms = now_ms.saturating_sub(until);
+        row.phase = RunPhase::Running;
+        row.until_ms = None;
+        self.storage.commit_run(row)?;
+        Ok(WakeOutcome::Woken {
+            overdue_ms,
+            park_generation: park_gen,
+        })
     }
 
     fn attempt_impl(&mut self, key: &str, generation: u64) -> Result<Option<Row>, EngineError> {
         let Some(row) = self.journal.attempt(key, generation)? else {
+            // A concurrent fence move must not leave storage stale.
+            if let Some(latest) = self.journal.get(key)? {
+                self.project_attempt(&latest)?;
+            }
             return Ok(None);
         };
         self.project_attempt(&row)?;
@@ -297,7 +388,9 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
             }
         } else if current.state != EffectState::ReconcilePending {
             // Only uncertain rows reconcile; settled, failed, running, and
-            // parked rows are not reconcile inputs.
+            // parked rows are not reconcile inputs. Project first so a
+            // host-injected journal never leaves storage stale.
+            self.project_row(&current)?;
             return Ok(None);
         }
         let Some(row) = self.journal.settle(key, generation, outcome)? else {
@@ -567,7 +660,19 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
         generation: u64,
         to: EffectState,
     ) -> Result<Option<Row>, EngineError> {
-        self.settle_impl(key, generation, to)
+        match self.settle_checked_impl(key, generation, to)? {
+            SettleOutcome::Settled(row) => Ok(Some(row)),
+            SettleOutcome::Rejected(_) => Ok(None),
+        }
+    }
+
+    fn settle_checked(
+        &mut self,
+        key: &str,
+        generation: u64,
+        to: EffectState,
+    ) -> Result<SettleOutcome, EngineError> {
+        self.settle_checked_impl(key, generation, to)
     }
 
     fn claim(
@@ -578,7 +683,25 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
         now_ms: i64,
         expected_generation: u64,
     ) -> Result<Option<Row>, EngineError> {
-        self.claim_impl(key, owner, lease_deadline, now_ms, expected_generation)
+        match self.claim_checked_impl(key, owner, lease_deadline, now_ms, expected_generation)? {
+            ClaimOutcome::Claimed(row) => Ok(Some(row)),
+            ClaimOutcome::Rejected(_) => Ok(None),
+        }
+    }
+
+    fn claim_checked(
+        &mut self,
+        key: &str,
+        owner: &str,
+        lease_deadline: i64,
+        now_ms: i64,
+        expected_generation: u64,
+    ) -> Result<ClaimOutcome, EngineError> {
+        self.claim_checked_impl(key, owner, lease_deadline, now_ms, expected_generation)
+    }
+
+    fn wake_checked(&mut self, key: &str, now_ms: u64) -> Result<WakeOutcome, EngineError> {
+        self.wake_checked_impl(key, now_ms)
     }
 
     fn attempt(&mut self, key: &str, generation: u64) -> Result<Option<Row>, EngineError> {
@@ -660,18 +783,10 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
     }
 
     fn wake(&mut self, key: &str, now_ms: u64) -> Result<Option<u64>, EngineError> {
-        let mut row = self.require_live(key)?;
-        if row.phase != RunPhase::Parked {
-            // Already running: idempotent wake. A park row beside it is stale.
-            self.storage.clear_parks(key)?;
-            return Ok(None);
+        match self.wake_checked_impl(key, now_ms)? {
+            WakeOutcome::Woken { overdue_ms, .. } => Ok(Some(overdue_ms)),
+            WakeOutcome::NotParked { .. } => Ok(None),
         }
-        let until = row.until_ms.unwrap_or(now_ms);
-        let overdue = now_ms.saturating_sub(until);
-        row.phase = RunPhase::Running;
-        row.until_ms = None;
-        self.storage.commit_run(row)?;
-        Ok(Some(overdue))
     }
 
     fn cancel(&mut self, key: &str, _now_ms: u64) -> Result<(), EngineError> {

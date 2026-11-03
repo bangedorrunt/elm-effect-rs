@@ -6,9 +6,10 @@
 
 use elm_effect::{ClockImpl, Duration, TestClock};
 use elm_effect_durable::{
-    DurableEngine, EngineError, EngineMsg, EngineStorage, MemStorage, OurEngine, ParkOutcome,
-    ParkedRow, ParseRunPhaseError, RunPhase, RunRow, RunStatus, StartOptions, StartOutcome,
-    child_key, engine_laws, step_key, storage_laws,
+    ClaimOutcome, ClaimRejection, DurableEngine, EngineError, EngineMsg, EngineStorage, MemStorage,
+    OurEngine, ParkOutcome, ParkedRow, ParseRunPhaseError, RunPhase, RunRow, RunStatus,
+    SettleOutcome, SettleRejection, StartOptions, StartOutcome, WakeOutcome, child_key,
+    engine_laws, step_key, storage_laws,
 };
 use elm_effect_journal::EffectState;
 use elm_effect_journal::store::JournalStore;
@@ -877,4 +878,169 @@ fn engine_types_serde_roundtrip() {
     };
     let json = serde_json::to_string(&park).unwrap();
     assert_eq!(serde_json::from_str::<ParkedRow>(&json).unwrap(), park);
+}
+
+#[test]
+fn wake_checked_reports_woken_vs_not_parked() {
+    let mut eng = OurEngine::new();
+    let StartOutcome::Started { .. } = eng.start("wc1", 0).unwrap() else {
+        panic!("expected Started");
+    };
+    // Live but never parked: names the Running phase.
+    assert!(matches!(
+        eng.wake_checked("wc1", 0).unwrap(),
+        WakeOutcome::NotParked {
+            phase: RunPhase::Running
+        }
+    ));
+    // Parked then woken late: names the gap and the live generation.
+    let ParkOutcome::Wait { until_ms, .. } = eng.park_until("wc1", 1_000, 60, 0, None).unwrap()
+    else {
+        panic!("expected Wait");
+    };
+    assert_eq!(until_ms, 1_000);
+    match eng.wake_checked("wc1", 1_250).unwrap() {
+        WakeOutcome::Woken {
+            overdue_ms,
+            park_generation,
+        } => {
+            assert_eq!(overdue_ms, 250);
+            assert!(park_generation >= 1, "park generation is live");
+        }
+        WakeOutcome::NotParked { .. } => panic!("parked wake must be Woken"),
+    }
+    assert_eq!(eng.query("wc1").unwrap().phase, RunPhase::Running);
+}
+
+#[test]
+fn claim_checked_names_every_refusal() {
+    let mut eng = OurEngine::new();
+    // Absent key.
+    assert!(matches!(
+        eng.claim_checked("cc-absent", "w", 10_000, 0, 0).unwrap(),
+        ClaimOutcome::Rejected(ClaimRejection::NotFound)
+    ));
+    // Live claim succeeds; a zombie fence rejects stale.
+    let StartOutcome::Started { generation } = eng.start("cc1", 0).unwrap() else {
+        panic!("expected Started");
+    };
+    let ClaimOutcome::Claimed(row) = eng
+        .claim_checked("cc1", "worker", 10_000, 0, generation)
+        .unwrap()
+    else {
+        panic!("live claim must succeed");
+    };
+    assert!(row.generation > generation);
+    match eng
+        .claim_checked("cc1", "zombie", 10_000, 0, generation)
+        .unwrap()
+    {
+        ClaimOutcome::Rejected(ClaimRejection::StaleGeneration { expected, actual }) => {
+            assert_eq!(expected, generation);
+            assert_eq!(actual, row.generation);
+        }
+        other => panic!("zombie claim must be StaleGeneration: {other:?}"),
+    }
+    // Terminal rows never move.
+    eng.settle("cc1", row.generation, EffectState::Settled)
+        .unwrap()
+        .expect("live settle");
+    assert!(matches!(
+        eng.claim_checked("cc1", "late", 10_000, 0, row.generation)
+            .unwrap(),
+        ClaimOutcome::Rejected(ClaimRejection::Terminal { .. })
+    ));
+    // A live lease under another owner blocks the steal.
+    let opts = StartOptions {
+        max_attempts: 8,
+        lease_ms: 10_000,
+        owner: "holder".into(),
+    };
+    let StartOutcome::Started { generation: leased } =
+        eng.start_with("cc-lease", 0, &opts).unwrap()
+    else {
+        panic!("expected Started");
+    };
+    match eng
+        .claim_checked("cc-lease", "thief", 20_000, 0, leased)
+        .unwrap()
+    {
+        ClaimOutcome::Rejected(ClaimRejection::LeaseLive { owner, .. }) => {
+            assert_eq!(owner, "holder");
+        }
+        other => panic!("leased claim must be LeaseLive: {other:?}"),
+    }
+}
+
+#[test]
+fn settle_checked_names_every_refusal() {
+    let mut eng = OurEngine::new();
+    // Absent key.
+    assert!(matches!(
+        eng.settle_checked("sc-absent", 0, EffectState::Settled)
+            .unwrap(),
+        SettleOutcome::Rejected(SettleRejection::NotFound)
+    ));
+    let StartOutcome::Started { generation } = eng.start("sc1", 0).unwrap() else {
+        panic!("expected Started");
+    };
+    // Illegal edge: the journal has no Parked edge (parks are engine state).
+    match eng
+        .settle_checked("sc1", generation, EffectState::Parked)
+        .unwrap()
+    {
+        SettleOutcome::Rejected(SettleRejection::IllegalTransition { from, to }) => {
+            assert_eq!(from, EffectState::InFlight);
+            assert_eq!(to, EffectState::Parked);
+        }
+        other => panic!("park edge must be IllegalTransition: {other:?}"),
+    }
+    // Stale fence after a claim moves it.
+    let ClaimOutcome::Claimed(claimed) = eng
+        .claim_checked("sc1", "worker", 10_000, 0, generation)
+        .unwrap()
+    else {
+        panic!("live claim must succeed");
+    };
+    match eng
+        .settle_checked("sc1", generation, EffectState::Settled)
+        .unwrap()
+    {
+        SettleOutcome::Rejected(SettleRejection::StaleGeneration { expected, actual }) => {
+            assert_eq!(expected, generation);
+            assert_eq!(actual, claimed.generation);
+        }
+        other => panic!("stale settle must be StaleGeneration: {other:?}"),
+    }
+    // Live settle succeeds; terminal rows never move.
+    let SettleOutcome::Settled(row) = eng
+        .settle_checked("sc1", claimed.generation, EffectState::Settled)
+        .unwrap()
+    else {
+        panic!("live settle must succeed");
+    };
+    assert_eq!(row.state, EffectState::Settled);
+    assert!(matches!(
+        eng.settle_checked("sc1", claimed.generation, EffectState::Failed)
+            .unwrap(),
+        SettleOutcome::Rejected(SettleRejection::Terminal { .. })
+    ));
+}
+
+#[test]
+fn stale_attempt_projects_the_live_row() {
+    let mut eng = OurEngine::new();
+    let StartOutcome::Started { generation } = eng.start("sa1", 0).unwrap() else {
+        panic!("expected Started");
+    };
+    let ClaimOutcome::Claimed(claimed) = eng
+        .claim_checked("sa1", "worker", 10_000, 0, generation)
+        .unwrap()
+    else {
+        panic!("live claim must succeed");
+    };
+    // Zombie attempt on the old fence: refused, but storage carries the
+    // live fence instead of going stale.
+    assert!(eng.attempt("sa1", generation).unwrap().is_none());
+    assert_eq!(eng.query("sa1").unwrap().generation, claimed.generation);
 }

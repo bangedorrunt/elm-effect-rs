@@ -50,9 +50,13 @@ mod storage;
 pub use cron::{
     CronError, CronFire, CronPolicy, CronSchedule, child_key, fire_key, plan_cron_tick, step_key,
 };
+pub use elm_effect_journal::plan::{ClaimRejection, SettleRejection};
+pub use elm_effect_journal::saga::{
+    SagaPlan, SagaStep, SagaStepStatus, compensate_key, plan_saga_rollback,
+};
 pub use engine::{
-    DurableEngine, EngineError, ParkOutcome, ParseRunPhaseError, RunPhase, RunStatus, StartOptions,
-    StartOutcome, StorageError, engine_laws,
+    ClaimOutcome, DurableEngine, EngineError, ParkOutcome, ParseRunPhaseError, RunPhase, RunStatus,
+    SettleOutcome, StartOptions, StartOutcome, StorageError, WakeOutcome, engine_laws,
 };
 pub use runtime::{EngineMsg, OurEngine};
 pub use scheduler::{JoinOutcome, WakeIntent, due_wakes, plan_join};
