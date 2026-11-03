@@ -2,18 +2,21 @@
 name: elm-effect
 description: >
   Use the finished elm-effect framework: call its APIs, build an app or CLI,
-  add a ServiceTag, Program, or DurableLog, or migrate flywheel, toron,
-  beads, or chiebukuro. Use when the user says use, call, guide, API, build,
-  scaffold, add, extend, migrate, rewrite, or integrate elm-effect, the Elm
-  loop, the journal, or a durable log.
+  add a ServiceTag, Program, DurableLog, or EngineStorage/JournalStore, or
+  work in flywheel, toron, beads, or chiebukuro. Use when the user says use,
+  call, guide, API, build, scaffold, add, extend, migrate, rewrite, or
+  integrate elm-effect, the Elm loop, the journal, a durable log, or the
+  durable engine (OurEngine, DurableEngine, park_until, wake, cron, saga,
+  fan-out, join, lease expiry, reconciliation).
   Bend work is the sibling carrier: bend, bendx, bird, elm-effect-bend.
   The skill sends you to docs/guides first. It does not ask you to rebuild
-  the carrier, delete Resonate, or treat a cursor as the resume position.
+  the carrier, restore a vendor adapter, or treat a cursor as the resume
+  position.
 ---
 
 # elm-effect
 
-The carrier is in the crates. ADR-0002 is the carrier law. ADR-0003 is adoption. The calls are `docs/guides/15-use-the-apis.mdx` and the topic guide next to it. This file only picks the branch. Do not copy an API table into a sibling.
+The carrier is in the crates. ADR-0002 is the carrier law. ADR-0003 is adoption. ADR-0005 is the durable engine port and `OurEngine`. The calls are `docs/guides/15-use-the-apis.mdx` and the topic guide next to it. This file only picks the branch. Do not copy an API table into a sibling.
 
 Repo root: `/Users/bangedorrunt/workspace/elm-effect-rs`. The Bend carrier is a
 sibling repo, `/Users/bangedorrunt/workspace/elm-effect-bend`; its branch file is
@@ -23,8 +26,8 @@ sibling repo, `/Users/bangedorrunt/workspace/elm-effect-bend`; its branch file i
 ## Closed
 
 - Do not rebuild what the tests already cover.
-- Do not ask if ADR-0002 is accepted.
-- Resonate stays during a migration.
+- Do not ask if ADR-0002 or ADR-0005 is accepted.
+- A sibling removes Resonate only through its own adoption record. `OurEngine` in `elm-effect-durable` replaces it (ADR-0005); do not restore a vendor adapter or add a new one.
 - The resume field is `offset`. `seq` is not the journal attempt number.
 - Read `crates/elm-effect/Cargo.toml` for features. Do not change them in an application task.
 - Gates are `.beads/gates.jsonl`. Do not rebuild them from the issues log.
@@ -41,11 +44,11 @@ Read `docs/guides/15-use-the-apis.mdx` on every branch. Then the first matching 
 | flywheel | `references/migrate-flywheel.md` | other migrate files |
 | toron | `references/migrate-toron.md` | other migrate files |
 | beads, br, gates | `references/migrate-beads.md` | other migrate files |
-| chiebukuro, resonate pipeline | `references/migrate-chiebukuro.md` | other migrate files |
+| chiebukuro, daemon jobs, cron | `references/migrate-chiebukuro.md` | other migrate files |
 | CLI, argv | `references/build-cli.md` | `build-app.md` |
 | app, long-lived program, fold | `references/build-app.md` | `build-cli.md` |
-| add a service, log, or program type | `docs/guides/13-add-a-capability.mdx` | a new scheduler |
-| crash must resume | `references/durable-log.md` | the state protocol |
+| add a service, log, store, or program type | `docs/guides/13-add-a-capability.mdx` | a new scheduler |
+| durable engine, OurEngine, park, wake, cron, saga, fan-out, join, reconcile, lease, crash must resume | `references/durable-log.md` | the state protocol or a vendor SDK |
 | red test inside elm-effect-rs | `references/write.md` | a sibling |
 
 ## Gate

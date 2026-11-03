@@ -20,8 +20,16 @@ use elm_effect::config_provider::Provider;
 use elm_effect::{Config, ConfigError};
 use elm_effect::{Effect, Exit, Runtime, Schedule, ServiceTag, effect, retry, use_service};
 use elm_effect::{flow, pipe};
+use elm_effect_durable::{CronPolicy, plan_cron_tick};
 use elm_effect_durable::{CronSchedule, fire_key};
+use elm_effect_durable::{
+    DurableEngine, OurEngine, SettleOutcome, StartOptions, StartOutcome, step_key,
+};
+use elm_effect_durable::{EngineMsg, ParkOutcome, WakeOutcome};
+use elm_effect_durable::{JoinOutcome, child_key, plan_join};
+use elm_effect_durable::{SagaStep, SagaStepStatus, compensate_key, plan_saga_rollback};
 use elm_effect_elm::{Boot, Program, Update};
+use elm_effect_journal::EffectState;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -45,8 +53,14 @@ const PUBLISHED: &[&str] = &[
     "use elm_effect::{Config, ConfigError};",
     "use elm_effect::config::Value;",
     "use elm_effect::config_provider::Provider;",
-    // The cron section's import.
+    // The durable engine and cron section's imports.
     "use elm_effect_durable::{CronSchedule, fire_key};",
+    "use elm_effect_durable::{CronPolicy, plan_cron_tick};",
+    "use elm_effect_durable::{DurableEngine, OurEngine, SettleOutcome, StartOptions, StartOutcome, step_key};",
+    "use elm_effect_journal::EffectState;",
+    "use elm_effect_durable::{EngineMsg, ParkOutcome, WakeOutcome};",
+    "use elm_effect_durable::{JoinOutcome, child_key, plan_join};",
+    "use elm_effect_durable::{SagaStep, SagaStepStatus, compensate_key, plan_saga_rollback};",
     "use elm_effect_elm::{Boot, Program, Update};",
 ];
 

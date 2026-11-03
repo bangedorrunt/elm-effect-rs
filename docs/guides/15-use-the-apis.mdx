@@ -4,18 +4,21 @@ import { Flow } from "./components/Flow.jsx"
 
 This page is the call catalog. Each section names the crate, the function, and the value you pass. The other guides explain one topic. This page shows the call.
 
-`elm-effect` is the facade. `elm-effect-elm` is the fold. `elm-effect-journal` is the log and the plans.
+`elm-effect` is the facade. `elm-effect-elm` is the fold. `elm-effect-journal` is the log and the plans. `elm-effect-durable` is the durable engine port, `OurEngine`, and pure cron/join/saga planning.
 
 <Flow
   label="Guide crates"
   nodes={[
     { id: "elm", label: "elm-effect-elm" },
     { id: "journal", label: "elm-effect-journal" },
+    { id: "durable", label: "elm-effect-durable" },
     { id: "facade", label: "elm-effect" },
   ]}
   edges={[
     ["elm", "facade"],
     ["journal", "facade"],
+    ["durable", "journal"],
+    ["durable", "facade"],
   ]}
 />
 
@@ -235,20 +238,129 @@ let park = plan_park(until_ms, max_wait_secs, now_ms, None);
 
 ```rust
 use elm_effect_durable::{CronSchedule, fire_key};
+use elm_effect_durable::{CronPolicy, plan_cron_tick};
 
 let schedule = CronSchedule::parse("30 3 * * 0")?;
 let tick_ms = schedule.next_after_ms(now_ms).expect("a 5-field cron has a next tick");
 let key = fire_key("weekly-review", tick_ms);
 let out = engine.start(&key, now_ms)?;
+
+if let Some(fire) = plan_cron_tick("weekly-review", &schedule, CronPolicy::Latest, last_fired_ms, now_ms) {
+    let _ = engine.start(&fire.key, now_ms)?;
+}
 ```
 
 `CronSchedule` is pure and uses UTC with minute resolution. The fields are `minute hour day-of-month month day-of-week`; lists, ranges, steps, and month or weekday names are accepted. `next_after_ms` is strict. `latest_at_or_before_ms(last_ms, now_ms)` is the one-tick catch-up after downtime. The same `fire_key` starts once: a replay re-attaches instead of dispatching the effect twice. The tick is part of the key, so overlapping firings are distinct runs; choose the overlap policy at the host. Registration, pause/resume, catch-up policy, and the tick loop stay with the host. `child_key(parent, step, attempt)` and `step_key(run_key, step)` build deterministic child and step keys and are re-exported from the crate root alongside `fire_key`.
 
-`OurEngine::with_storage(store)` binds a host `EngineStorage`. Every store read and write returns `Result<_, StorageError>`; the engine propagates it as `EngineError::Storage`. `MemStorage` never fails. `with_journal(store, journal)` also binds a persisted `JournalStore`, so a restart re-attaches to recorded intent. `JournalStore` reads and writes return `Result<_, JournalError>`; `InMemoryStore` never fails. A transactional store overrides `commit_run` and `commit_park` to make the run and park one write. `OurEngine::settle` and `claim` project the journal fence onto the run row when the host completes or retries a run; a stale fence returns `None` after projecting the latest journal row, so storage never stays stale. `start_with(key, now_ms, &StartOptions { max_attempts, lease_ms, owner })` sets the journal attempt budget, claim lease, and claim owner (`start` delegates with `StartOptions::default()`). `attempt` counts one provider retry (past `max_attempts` the row dead-letters to `Failed`); `expire_lease(key, now_ms)` times out a dead claim — an `InFlight` / `Accepted` row whose `lease_deadline <= now_ms` settles to `Unknown` (live leases and non-running rows return `None` untouched) — and `reconcile` steps `Unknown -> ReconcilePending -> outcome`, so an expired run recovers without re-dispatching. `RunPhase` serializes to its lowercase wire name (`as_str` / `FromStr` / `ParseRunPhaseError`); `StartOptions`, `StartOutcome`, `ParkOutcome`, `RunStatus`, `EngineMsg`, `RunRow`, and `ParkedRow` also round-trip through serde. A sibling store verifies the port in one call each: `storage_laws(&mut store)` and `engine_laws(&mut engine)` return `(name, outcome)` per law. `park_until` stores the absolute `until_ms`; `max_wait_secs` caps the reported `wait_ms`, not the stored deadline. `park_until` and `wake` refuse an `Unknown` run with `EngineError::Uncertain`; reconcile or cancel it first.
+`plan_cron_tick(name, &schedule, policy, last_fired, now_ms)` is the unified entry: `CronPolicy::Latest` runs the latest missed tick once (a new schedule anchors at `now - 60s`, so it only fires when the current minute matches and never replays hours of history it was never registered for); `CronPolicy::Skip { grace_ms }` runs the next tick only while it is still fresh, returning `None` for a stale tick instead of firing late (`CronSchedule::plan_skip_tick` is the direct helper). Both return a `CronFire { key, tick_ms }`; `CronSchedule::plan_tick` is the same choice as a method. Start the returned `key` like any other run: the first start dispatches, a replay re-attaches.
 
-`plan_cron_tick(name, &schedule, policy, last_fired, now_ms)` is the unified entry: `CronPolicy::Latest` runs the latest missed tick once (a new schedule anchors at `now - 60s`, so it only fires when the current minute matches and never replays hours of history it was never registered for); `CronPolicy::Skip { grace_ms }` runs the next tick only while it is still fresh, returning `None` for a stale tick instead of firing late. Both return a `CronFire { key, tick_ms }`; `CronSchedule::plan_tick` is the same choice as a method. Start the returned `key` like any other run: the first start dispatches, a replay re-attaches.
+## Durable workflow steps, leases, and reconciliation
+
+```rust
+use elm_effect_durable::{DurableEngine, OurEngine, SettleOutcome, StartOptions, StartOutcome, step_key};
+use elm_effect_journal::EffectState;
+
+let mut engine = OurEngine::new();
+let charge_key = step_key("order-42", "charge");
+let opts = StartOptions {
+    max_attempts: 3,
+    lease_ms: 30_000,
+    owner: "worker-a".into(),
+};
+
+match engine.start_with(&charge_key, now_ms, &opts)? {
+    StartOutcome::Started { generation } => {
+        // Pass `charge_key` as the external System-of-Record idempotency key.
+        let settled = engine.settle_checked(&charge_key, generation, EffectState::Settled)?;
+        assert!(matches!(settled, SettleOutcome::Settled(_)));
+    }
+    StartOutcome::Already { status } => {
+        // Replay or duplicate start: never runs the side effect twice.
+        let _ = status.phase;
+    }
+}
+
+// If a worker dies and its lease expires, fence it to Unknown, check the SoR, and reconcile:
+if let Some(expired) = engine.expire_lease(&charge_key, now_ms + 30_001)? {
+    engine.reconcile(&charge_key, expired.generation, EffectState::Settled)?;
+}
+```
+
+`OurEngine::with_storage(store)` binds a host `EngineStorage`. Every store read and write returns `Result<_, StorageError>`; the engine propagates it as `EngineError::Storage`. `MemStorage` never fails. `with_journal(store, journal)` also binds a persisted `JournalStore`, so a restart re-attaches to recorded intent. `JournalStore` reads and writes return `Result<_, JournalError>`; `InMemoryStore` never fails. A transactional store overrides `commit_run` and `commit_park` to make the run and park one write. `OurEngine::settle` and `claim` project the journal fence onto the run row when the host completes or retries a run; a stale fence returns `None` after projecting the latest journal row, so storage never stays stale. `start_with(key, now_ms, &StartOptions { max_attempts, lease_ms, owner })` sets the journal attempt budget, claim lease, and claim owner (`start` delegates with `StartOptions::default()`). `attempt` counts one provider retry (past `max_attempts` the row dead-letters to `Failed`); `expire_lease(key, now_ms)` times out a dead claim — an `InFlight` / `Accepted` row whose `lease_deadline <= now_ms` settles to `Unknown` (live leases and non-running rows return `None` untouched) — and `reconcile` steps `Unknown -> ReconcilePending -> outcome`, so an expired run recovers without re-dispatching. `RunPhase` serializes to its lowercase wire name (`as_str` / `FromStr` / `ParseRunPhaseError`); `StartOptions`, `StartOutcome`, `ParkOutcome`, `RunStatus`, `EngineMsg`, `RunRow`, and `ParkedRow` also round-trip through serde. A sibling store verifies the port in one call each: `storage_laws(&mut store)` and `engine_laws(&mut engine)` return `(name, outcome)` per law.
+
+## Durable sleep and human-in-the-loop signals
+
+```rust
+use elm_effect_durable::{EngineMsg, ParkOutcome, WakeOutcome};
+
+// 1. Durable timer: park until an absolute deadline (`until_ms`).
+let parked = engine.park_until("order-42", now_ms + 60_000, 86_400, now_ms, None)?;
+assert!(matches!(parked, ParkOutcome::Wait { wait_ms: 60_000, .. }));
+
+// Later, the host advances or reads its clock and drains due timers into Elm Msgs:
+for EngineMsg::Woke { key, overdue_ms, park_generation } in engine.drain_due(now_ms + 61_000)? {
+    let _ = (&key, overdue_ms, park_generation);
+}
+
+// 2. Human-in-the-loop signal / webhook: park with an SLA deadline, wake on external decision.
+let approval_key = step_key("expense-7", "manager-approval");
+let _ = engine.start(&approval_key, now_ms)?;
+let _ = engine.park_until(&approval_key, now_ms + 86_400_000, 86_400, now_ms, None)?;
+
+// When the webhook or operator responds before the timeout, wake the parked run:
+let woke = engine.wake_checked(&approval_key, now_ms + 5_000)?;
+assert!(matches!(woke, WakeOutcome::Woken(_)));
+```
+
+`park_until` stores the absolute `until_ms`; `max_wait_secs` caps the reported `wait_ms`, not the stored deadline. A past `until_ms` returns `ParkOutcome::ResumeNow { overdue_ms }` without writing a park row; a `max_wait_secs` above the ceiling returns `EngineError::OverCeiling`. `park_until` and `wake` refuse an `Unknown` run with `EngineError::Uncertain`; reconcile or cancel it first.
 
 ## Join children, roll back a saga, and read the fence
+
+```rust
+use elm_effect_durable::{JoinOutcome, child_key, plan_join};
+use elm_effect_durable::{SagaStep, SagaStepStatus, compensate_key, plan_saga_rollback};
+
+// 1. Parallel fan-out and join: spawn deterministic child keys and fold their phases.
+let c0 = child_key("batch-9", "enrich", 0);
+let c1 = child_key("batch-9", "enrich", 1);
+let _ = engine.start(&c0, now_ms)?;
+let _ = engine.start(&c1, now_ms)?;
+let children = vec![
+    (c0.clone(), engine.query(&c0)?.phase),
+    (c1.clone(), engine.query(&c1)?.phase),
+];
+match plan_join(&children) {
+    JoinOutcome::Pending { remaining } => { /* still waiting on `remaining` */ }
+    JoinOutcome::AllSettled => { /* all children completed */ }
+    JoinOutcome::Failed { failed, cancelled, unknown } => {
+        let _ = (failed, cancelled, unknown);
+    }
+}
+
+// 2. Multi-step saga: forward steps plus strict LIFO compensation on failure.
+let steps = vec![
+    SagaStep {
+        step_key: step_key("order-42", "reserve"),
+        compensate_key: compensate_key("order-42", "reserve"),
+        status: SagaStepStatus::Completed,
+    },
+    SagaStep {
+        step_key: step_key("order-42", "charge"),
+        compensate_key: compensate_key("order-42", "charge"),
+        status: SagaStepStatus::Completed,
+    },
+    SagaStep {
+        step_key: step_key("order-42", "ship"),
+        compensate_key: compensate_key("order-42", "ship"),
+        status: SagaStepStatus::Failed,
+    },
+];
+let rollback = plan_saga_rollback(&steps);
+// `rollback.compensations` is `["order-42:compensate:charge", "order-42:compensate:reserve"]`.
+for comp_key in &rollback.compensations {
+    let _ = engine.start(comp_key, now_ms)?;
+}
+```
 
 Fan-out keys are data: `child_key(parent, step, attempt)` names one child run, `step_key(run, step)` names one step. Start each child through the engine, then `plan_join` over `(key, phase)` pairs reads the join: `Pending { remaining }` while children run or park, `AllSettled` when every child settles (or when there are no children), `Failed { failed, cancelled, unknown }` when any child fails, cancels, or turns unknown — terminal failure wins over pending, so one bad child short-circuits the join even while siblings still run.
 
@@ -260,7 +372,7 @@ The fence reads typed before it acts. `check_claim` answers `Ok(())` or one `Cla
 
 The engine is a synchronous kernel. The host owns it, provides it through a `ServiceTag` (for example `Arc<Mutex<OurEngine<...>>>`), and calls a verb from `Interpret::interpret_in_env` inside `Effect::sync`. `drain_due(now_ms)` returns `EngineMsg::Woke`; map it into the program's `Msg` and let the fold return the next commands. The host reads its `Clock` or `TestClock` at the edge and passes `now_ms`; the engine does not sleep, spawn, or read the clock.
 
-The run key is the host's durable command key and the `DurableLog` `producer_id`. The loop's log records the message outcome; the engine journal records the run fence; settle both when the effect finishes. Retries, timeouts, and remote policy stay in the host's `Interpret` / `plan_attempt` layer.
+The run key is the host's durable command key and the `DurableLog` `producer_id`. The loop's log records the message outcome; the engine journal records the run fence; settle both when the effect finishes. Retries, timeouts, and remote policy stay in the host's `Interpret` / `plan_attempt` layer. Complete end-to-end witnesses live in `crates/elm-effect-durable/tests/framework_fit.rs`.
 
 ## Where to read next
 

@@ -1,6 +1,6 @@
 # Agents
 
-An agent that writes application code reads [Use the APIs](15-use-the-apis.mdx) and then the guide for that task. It reads ADR-0002 when it changes the carrier. It reads `skills/elm-effect` when the user says migrate or build an app. Extension is [Add a capability](13-add-a-capability.mdx). It is one task, not the whole manual.
+An agent that writes application code reads [Use the APIs](15-use-the-apis.mdx) and then the guide for that task. It reads ADR-0002 when it changes the carrier and ADR-0005 when it changes the durable engine. It reads `skills/elm-effect` when the user says migrate or build an app. Extension is [Add a capability](13-add-a-capability.mdx). It is one task, not the whole manual.
 
 ## Rules that do not change
 
@@ -12,7 +12,7 @@ An agent that writes application code reads [Use the APIs](15-use-the-apis.mdx) 
 * A `Program::update` is pure. Commands are data.
 * A durable append uses one `epoch` and one `seq` for one retry of the same append.
 * Do not rebuild `.beads/gates.jsonl` from the issues log.
-* Do not remove the Resonate dependency during a migration.
+* A sibling removes Resonate only through its own adoption record. `OurEngine` in `elm-effect-durable` replaces it (ADR-0005); do not restore a vendor adapter or add a new one.
 
 ## A new module
 

@@ -97,8 +97,8 @@ loop {
 
 The adapter has no auth, TLS, TTL, delete, fork, `Stream-Seq`, or chunked request body. Bind loopback and put a proxy in front for auth and TLS. Read [Put a proxy in front](16-reverse-proxy.mdx). One thread per connection and a 25 ms tail poll are first-pass choices, not a throughput claim.
 
-## Park
+## Park and durable runs
 
-A park is not a typed failure. The toron store writes a park with `upsert_pending`. The key is `(run_id, promise_id, park_generation)`. A second insert with that key writes nothing. A row that is already `Parked` resumes. It does not dispatch a new call.
+A park is not a typed failure. `PendingStore::upsert_pending` writes one park under `(run_id, promise_id, park_generation)`. A second insert with that key writes nothing. A row that is already `Parked` resumes (`ResumeParked`); it does not dispatch a new call.
 
-The journal row and the stream append for that step commit in one transaction.
+In `elm-effect-durable`, `OurEngine` pairs `EngineStorage` (run and park rows) with `JournalStore` (intent, claim, and settle fences). Override `EngineStorage::commit_run` and `commit_park` when your store can write the run row and park row in one transaction. The journal row and the stream append for that step commit together, and `OurEngine` is driven from the Elm loop edge — read [Use the APIs](15-use-the-apis.mdx) for the workflow, timer, signal, fan-out, saga, cron, and reconciliation calls.

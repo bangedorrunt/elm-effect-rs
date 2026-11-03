@@ -11,16 +11,20 @@ You extend the framework with a value. You do not fork the runtime. ADR-0003 rec
     { id: "tag", label: "ServiceTag" },
     { id: "prog", label: "Program" },
     { id: "log", label: "DurableLog" },
+    { id: "store", label: "EngineStorage + JournalStore" },
     { id: "rt", label: "Runtime" },
     { id: "journal", label: "elm-effect-journal" },
+    { id: "durable", label: "elm-effect-durable" },
   ]}
   edges={[
     ["app", "tag"],
     ["app", "prog"],
     ["app", "log"],
+    ["app", "store"],
     ["tag", "rt"],
     ["prog", "rt"],
     ["log", "journal"],
+    ["store", "durable"],
   ]}
 />
 
@@ -29,7 +33,8 @@ You extend the framework with a value. You do not fork the runtime. ADR-0003 rec
 | A database, a clock, or a client | A `ServiceTag` and a service value. Call `provide` in `main` | `use_service` |
 | A retry policy | A `Schedule` or a `RemotePolicy` | `retry` or `Remote::call` |
 | A process that receives messages | A `Program` and an `Interpret` | The loop |
-| A store that must survive a crash | `DurableLog` for that store | The L16 rules on your type |
+| A stream that must survive a crash | `DurableLog` for that store | `durable_log_laws` (L16) on your type |
+| Durable runs, timers, parks, or cron | `EngineStorage` and `JournalStore` for `OurEngine::with_journal` | `storage_laws`, `engine_laws`, and `journal_store_all` |
 | A pure rule | A function | You call it from `update` or from `map` |
 
 The string `ID` on a tag is unique in the process. Two applications use two ids. The same `Runtime` can run both programs.
