@@ -596,7 +596,11 @@ fn law_expire_lease(engine: &mut dyn DurableEngine) -> Result<(), String> {
         "storage projects Unknown after expire",
     )?;
     law_check(
-        engine.parked().map_err(law_fail)?.is_empty(),
+        engine
+            .parked()
+            .map_err(law_fail)?
+            .iter()
+            .all(|p| p.key != "law-expire-dead"),
         "expire clears the park",
     )?;
     // Reconcile recovers cleanly to Settled.

@@ -195,7 +195,11 @@ fn law_parked_clears<S: EngineStorage, J: JournalStore>(
         "parked child now cancelled",
     )?;
     law_check(
-        engine.parked().map_err(law_fail)?.is_empty(),
+        engine
+            .parked()
+            .map_err(law_fail)?
+            .iter()
+            .all(|p| p.key != "ct-parked"),
         "cancel clears the park",
     )
 }

@@ -158,7 +158,9 @@ pub fn retry_laws<S: EngineStorage, J: JournalStore>(
                         law_check(
                             matches!(park, ParkOutcome::Wait { .. }),
                             "a future instant waits",
-                        )
+                        )?;
+                        let _ = engine.drain_due(500);
+                        Ok(())
                     }
                     other => Err(format!("first failure must park: {other:?}")),
                 }
