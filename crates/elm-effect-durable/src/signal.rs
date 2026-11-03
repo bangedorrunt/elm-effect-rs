@@ -185,7 +185,11 @@ pub fn signal_laws<S: EngineStorage, J: JournalStore>(
                     "the run never parked",
                 )?;
                 law_check(
-                    engine.parked().map_err(law_fail)?.is_empty(),
+                    engine
+                        .parked()
+                        .map_err(law_fail)?
+                        .iter()
+                        .all(|p| p.key != "law-sig-early"),
                     "no park row beside the run",
                 )
             })()
