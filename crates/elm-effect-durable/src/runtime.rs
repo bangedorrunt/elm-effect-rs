@@ -189,7 +189,7 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
     /// host-injected journal arrived first. Active transitions (settle,
     /// claim, reconcile, dead-letter) clear parks: a park beside a moved
     /// run is stale and would block the drain.
-    fn project_row(&mut self, row: &Row) -> Result<(), EngineError> {
+    pub(crate) fn project_row(&mut self, row: &Row) -> Result<(), EngineError> {
         let mut run = self.storage.get_run(&row.key)?.unwrap_or(RunRow {
             key: row.key.clone(),
             phase: phase_of(row.state),
@@ -208,7 +208,7 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
     /// Project a retry counter: a live park survives (the run still waits),
     /// only the fence and the attempt count move. A dead-letter (`Failed`)
     /// is terminal, so it clears the park through [`project_row`](Self::project_row).
-    fn project_attempt(&mut self, row: &Row) -> Result<(), EngineError> {
+    pub(crate) fn project_attempt(&mut self, row: &Row) -> Result<(), EngineError> {
         if row.state.is_terminal() {
             return self.project_row(row);
         }
@@ -294,7 +294,11 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         Ok(ClaimOutcome::Rejected(rejection))
     }
 
-    fn wake_checked_impl(&mut self, key: &str, now_ms: u64) -> Result<WakeOutcome, EngineError> {
+    pub(crate) fn wake_checked_impl(
+        &mut self,
+        key: &str,
+        now_ms: u64,
+    ) -> Result<WakeOutcome, EngineError> {
         let mut row = self.require_live(key)?;
         if row.phase != RunPhase::Parked {
             // Already running: idempotent wake. A park row beside it is stale.
@@ -318,7 +322,11 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         })
     }
 
-    fn attempt_impl(&mut self, key: &str, generation: u64) -> Result<Option<Row>, EngineError> {
+    pub(crate) fn attempt_impl(
+        &mut self,
+        key: &str,
+        generation: u64,
+    ) -> Result<Option<Row>, EngineError> {
         let Some(row) = self.journal.attempt(key, generation)? else {
             // A concurrent fence move must not leave storage stale.
             if let Some(latest) = self.journal.get(key)? {
@@ -556,7 +564,7 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         })
     }
 
-    fn status_of(row: &RunRow) -> RunStatus {
+    pub(crate) fn status_of(row: &RunRow) -> RunStatus {
         RunStatus {
             key: row.key.clone(),
             phase: row.phase,
@@ -567,7 +575,7 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
 
     /// The journal is authoritative for lifecycle; storage contributes the
     /// park (a park is an engine state, not a journal edge).
-    fn status_with_journal(
+    pub(crate) fn status_with_journal(
         &self,
         key: &str,
         journal: &elm_effect_journal::store::Row,
@@ -608,7 +616,7 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         Ok(status)
     }
 
-    fn require_live(&self, key: &str) -> Result<RunRow, EngineError> {
+    pub(crate) fn require_live(&self, key: &str) -> Result<RunRow, EngineError> {
         let row = self
             .storage
             .get_run(key)?
@@ -865,7 +873,7 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
     }
 }
 
-fn phase_of(state: EffectState) -> RunPhase {
+pub(crate) fn phase_of(state: EffectState) -> RunPhase {
     match state {
         EffectState::Prepared | EffectState::InFlight | EffectState::Accepted => RunPhase::Running,
         EffectState::Parked => RunPhase::Parked,
@@ -876,6 +884,6 @@ fn phase_of(state: EffectState) -> RunPhase {
     }
 }
 
-fn journal_ms(now_ms: u64) -> i64 {
+pub(crate) fn journal_ms(now_ms: u64) -> i64 {
     i64::try_from(now_ms).unwrap_or(i64::MAX)
 }
