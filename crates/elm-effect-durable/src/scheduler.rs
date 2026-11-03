@@ -96,6 +96,20 @@ pub fn plan_join(children: &[(String, crate::engine::RunPhase)]) -> JoinOutcome 
     }
 }
 
+/// Keys that still need cancellation: every child whose phase is not terminal.
+///
+/// `Running`, `Parked`, and `Unknown` cancel; `Cancelled`, `Settled`, and
+/// `Failed` are already terminal. Order follows the input slice so a
+/// `cancel_children` report is deterministic.
+#[must_use]
+pub fn plan_cancel_children(children: &[(String, crate::engine::RunPhase)]) -> Vec<String> {
+    children
+        .iter()
+        .filter(|(_, phase)| !phase.is_terminal())
+        .map(|(key, _)| key.clone())
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -197,6 +211,23 @@ mod tests {
                 cancelled: vec!["c1".into()],
                 unknown: vec!["u1".into()],
             }
+        );
+    }
+
+    #[test]
+    fn plan_cancel_children_takes_only_live_phases_in_order() {
+        use crate::engine::RunPhase::{Cancelled, Failed, Parked, Running, Settled, Unknown};
+        assert!(plan_cancel_children(&[]).is_empty());
+        assert_eq!(
+            plan_cancel_children(&[
+                child("run", Running),
+                child("park", Parked),
+                child("unk", Unknown),
+                child("ok", Settled),
+                child("bad", Failed),
+                child("gone", Cancelled),
+            ]),
+            vec!["run".to_string(), "park".to_string(), "unk".to_string()]
         );
     }
 }
