@@ -7,12 +7,14 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use elm_effect_durable::lease::HeartbeatOutcome;
+use elm_effect_durable::retry::RetryOutcome;
 use elm_effect_durable::{
     DurableEngine, EngineError, MemStorage, OurEngine, ParkOutcome, RunPhase, StartOptions,
     StartOutcome,
 };
 use elm_effect_journal::EffectState;
 use elm_effect_journal::plan::HeartbeatRejection;
+use elm_effect_journal::retry::BackoffPolicy;
 use elm_effect_journal::store::{InMemoryStore, JournalError, JournalStore, Read, Row};
 
 /// Shared failure flag: the test flips it, the store reads it.
@@ -416,5 +418,94 @@ fn heartbeat_propagates_get_error_on_the_refusal_path() {
     {
         HeartbeatOutcome::Rejected(HeartbeatRejection::NotFound) => {}
         other => panic!("absent key must be NotFound: {other:?}"),
+    }
+}
+
+#[test]
+fn retry_after_propagates_attempt_error_and_retries_cleanly() {
+    let flag = FailFlag::new();
+    let mut eng = engine(&flag);
+    let opts = StartOptions {
+        max_attempts: 8,
+        ..StartOptions::default()
+    };
+    let StartOutcome::Started { generation } =
+        eng.start_with("jk-rt", 0, &opts).expect("control start")
+    else {
+        panic!("start_with must Start");
+    };
+    flag.set("attempt");
+    let err = eng
+        .retry_after(
+            "jk-rt",
+            generation,
+            &BackoffPolicy::Fixed { delay_ms: 500 },
+            60,
+            0,
+            None,
+        )
+        .expect_err("retry_after must propagate attempt error");
+    assert!(
+        is_journal(&err),
+        "retry_after: expected Journal, got {err:?}"
+    );
+    flag.set("");
+    // The injected failure counted nothing.
+    let row = eng.journal().get("jk-rt").expect("get").expect("row");
+    assert_eq!(row.attempts, 0);
+    match eng
+        .retry_after(
+            "jk-rt",
+            generation,
+            &BackoffPolicy::Fixed { delay_ms: 500 },
+            60,
+            0,
+            None,
+        )
+        .expect("retry after clearing the flag")
+    {
+        RetryOutcome::Parked {
+            attempt, until_ms, ..
+        } => {
+            assert_eq!(attempt, 1);
+            assert_eq!(until_ms, 500);
+        }
+        other => panic!("retry must park: {other:?}"),
+    }
+}
+
+#[test]
+fn retry_after_propagates_get_error_on_the_stale_path() {
+    let flag = FailFlag::new();
+    let mut eng = engine(&flag);
+    flag.set("get");
+    let err = eng
+        .retry_after(
+            "jk-rt-nope",
+            0,
+            &BackoffPolicy::Fixed { delay_ms: 500 },
+            60,
+            0,
+            None,
+        )
+        .expect_err("retry_after must propagate get error");
+    assert!(
+        is_journal(&err),
+        "retry_after: expected Journal, got {err:?}"
+    );
+    flag.set("");
+    match eng
+        .retry_after(
+            "jk-rt-nope",
+            0,
+            &BackoffPolicy::Fixed { delay_ms: 500 },
+            60,
+            0,
+            None,
+        )
+        .expect("retry after clearing the flag")
+    {
+        RetryOutcome::Stale => {}
+        other => panic!("absent key must be Stale: {other:?}"),
     }
 }

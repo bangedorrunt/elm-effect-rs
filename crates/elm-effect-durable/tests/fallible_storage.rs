@@ -7,11 +7,13 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use elm_effect_durable::lease::HeartbeatOutcome;
+use elm_effect_durable::retry::RetryOutcome;
 use elm_effect_durable::{
     DurableEngine, EngineError, EngineStorage, MemStorage, OurEngine, ParkOutcome, ParkedRow,
     RunPhase, RunRow, StartOptions, StartOutcome, StorageError,
 };
 use elm_effect_journal::EffectState;
+use elm_effect_journal::retry::BackoffPolicy;
 
 /// Shared failure flag: the test flips it, the store reads it.
 #[derive(Clone)]
@@ -395,4 +397,45 @@ fn heartbeat_propagates_commit_run_error_and_renews_on_retry() {
         other => panic!("retry must renew: {other:?}"),
     }
     assert_eq!(eng.query("sk-hb").expect("query").phase, RunPhase::Running);
+}
+
+#[test]
+fn retry_after_propagates_storage_error_and_retries_cleanly() {
+    let fixed = BackoffPolicy::Fixed { delay_ms: 500 };
+    for fail_on in ["get_run", "upsert_park", "put_run"] {
+        let flag = FailFlag::new();
+        let mut eng = OurEngine::with_storage(FaultyStore::faulty(&flag));
+        let opts = StartOptions {
+            max_attempts: 8,
+            ..StartOptions::default()
+        };
+        let StartOutcome::Started { generation } =
+            eng.start_with("sk-rt", 0, &opts).expect("control start")
+        else {
+            panic!("start_with must Start");
+        };
+        flag.set(fail_on);
+        let err = eng
+            .retry_after("sk-rt", generation, &fixed, 60, 0, None)
+            .expect_err("retry_after must propagate storage error");
+        assert!(
+            is_storage(&err),
+            "retry_after({fail_on}): expected Storage, got {err:?}"
+        );
+        flag.set("");
+        // The attempt counted before the park failed: the retry earns
+        // attempt two, proving the count is never lost.
+        match eng
+            .retry_after("sk-rt", generation, &fixed, 60, 0, None)
+            .expect("retry after clearing the flag")
+        {
+            RetryOutcome::Parked {
+                attempt, until_ms, ..
+            } => {
+                assert_eq!(attempt, 2, "retry_after({fail_on}): count survives");
+                assert_eq!(until_ms, 500);
+            }
+            other => panic!("retry_after({fail_on}): retry must park: {other:?}"),
+        }
+    }
 }
