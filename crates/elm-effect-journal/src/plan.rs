@@ -14,6 +14,8 @@
 //! non-terminal in the registry vocabulary.
 use std::collections::BTreeMap;
 
+use serde::{Deserialize, Serialize};
+
 /// Default ceiling: 86400 s (one day).
 pub const DEFAULT_CEILING_SECS: u64 = 86_400;
 
@@ -167,7 +169,7 @@ impl PendingStore {
 // A park is interruption, never a terminal return or a blind retry: it
 // resumes with the SAME re-drive key (`ResumeParked`), never `DispatchNew`.
 
-use crate::EffectState;
+use crate::{EffectState, can_transition};
 
 /// The journaled facts one dispatch decision needs (no I/O to build).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -287,6 +289,7 @@ pub fn may_settle(current_token: Option<&str>, presented: &str) -> bool {
 /// presented generation is current, and no live lease under another
 /// owner blocks the steal. Same-owner renew and expired-lease reclaim
 /// pass; a live lease under another owner and any terminal row refuse.
+/// Defined through [`check_claim`]: one fence, two views.
 #[must_use]
 pub fn may_claim(
     state: EffectState,
@@ -297,16 +300,16 @@ pub fn may_claim(
     expected_generation: u64,
     current_generation: u64,
 ) -> bool {
-    if state.is_terminal() {
-        return false;
-    }
-    if expected_generation != current_generation {
-        return false;
-    }
-    !matches!(
-        (current_owner, current_deadline),
-        (Some(current), Some(deadline)) if current != owner && deadline > now_ms
+    check_claim(
+        state,
+        current_owner,
+        current_deadline,
+        owner,
+        now_ms,
+        expected_generation,
+        current_generation,
     )
+    .is_ok()
 }
 
 /// Replay guard: a digest mismatch is a typed error and mints no second
@@ -341,4 +344,120 @@ pub fn terminal_success(state: crate::EffectState) -> Option<bool> {
         S::Failed => Some(false),
         _ => None,
     }
+}
+
+/// Why a claim was refused. The typed form of [`may_claim`]: every `false`
+/// from `may_claim` maps to exactly one variant here, in the same check
+/// order (terminal, then generation, then lease).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ClaimRejection {
+    /// No row for the key; there is nothing to claim.
+    NotFound,
+    /// The row is finished; terminal rows never move.
+    Terminal {
+        /// The finished state that refused the claim.
+        state: EffectState,
+    },
+    /// The presented generation is not current; a zombie claims nothing.
+    StaleGeneration {
+        /// The generation the caller presented.
+        expected: u64,
+        /// The generation the row actually holds.
+        actual: u64,
+    },
+    /// A live lease under another owner blocks the steal.
+    LeaseLive {
+        /// The owner holding the live lease.
+        owner: String,
+        /// The lease deadline in ms.
+        lease_deadline: i64,
+    },
+}
+
+/// Typed claim fence: `Ok(())` claims, `Err` names why not. Agrees with
+/// [`may_claim`] on every input (`Ok` exactly when `may_claim` is true).
+#[must_use]
+#[allow(clippy::double_must_use)]
+pub fn check_claim(
+    state: EffectState,
+    current_owner: Option<&str>,
+    current_deadline: Option<i64>,
+    owner: &str,
+    now_ms: i64,
+    expected_generation: u64,
+    current_generation: u64,
+) -> Result<(), ClaimRejection> {
+    if state.is_terminal() {
+        return Err(ClaimRejection::Terminal { state });
+    }
+    if expected_generation != current_generation {
+        return Err(ClaimRejection::StaleGeneration {
+            expected: expected_generation,
+            actual: current_generation,
+        });
+    }
+    if let (Some(current), Some(deadline)) = (current_owner, current_deadline)
+        && current != owner
+        && deadline > now_ms
+    {
+        return Err(ClaimRejection::LeaseLive {
+            owner: current.to_string(),
+            lease_deadline: deadline,
+        });
+    }
+    Ok(())
+}
+
+/// Why a settle was refused. The typed form of the store's settle fence:
+/// stale generations, illegal edges, and terminal rows settle nothing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SettleRejection {
+    /// No row for the key; there is nothing to settle.
+    NotFound,
+    /// The row is finished; terminal rows never move.
+    Terminal {
+        /// The finished state that refused the settle.
+        state: EffectState,
+    },
+    /// The presented generation is not current; a zombie settles nothing.
+    StaleGeneration {
+        /// The generation the caller presented.
+        expected: u64,
+        /// The generation the row actually holds.
+        actual: u64,
+    },
+    /// The golden table admits no such edge.
+    IllegalTransition {
+        /// The row's current state.
+        from: EffectState,
+        /// The requested target state.
+        to: EffectState,
+    },
+}
+
+/// Typed settle fence: `Ok(())` settles, `Err` names why not. Check order
+/// is absence, then terminal, then generation, then the golden table.
+#[must_use]
+#[allow(clippy::double_must_use)]
+pub fn check_settle(
+    current: Option<(EffectState, u64)>,
+    expected_generation: u64,
+    to: EffectState,
+) -> Result<(), SettleRejection> {
+    let Some((from, generation)) = current else {
+        return Err(SettleRejection::NotFound);
+    };
+    if from.is_terminal() {
+        return Err(SettleRejection::Terminal { state: from });
+    }
+    if generation != expected_generation {
+        return Err(SettleRejection::StaleGeneration {
+            expected: expected_generation,
+            actual: generation,
+        });
+    }
+    if !can_transition(from, to) {
+        return Err(SettleRejection::IllegalTransition { from, to });
+    }
+    Ok(())
 }
