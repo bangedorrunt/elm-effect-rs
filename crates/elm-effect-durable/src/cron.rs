@@ -6,7 +6,7 @@
 //! and the tick loop. This module only answers "which minute is due".
 
 /// Why a cron expression did not parse.
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, thiserror::Error)]
 pub enum CronError {
     /// The expression did not have exactly five whitespace-separated fields.
     #[error("cron expression must have 5 fields, got {0}")]
@@ -143,6 +143,19 @@ impl CronSchedule {
         })
     }
 
+    /// The five field bitmasks: minutes, hours, days-of-month, months,
+    /// days-of-week. Pure inspection for tests and the host tick loop.
+    #[must_use]
+    pub fn fields(&self) -> (u64, u64, u64, u64, u64) {
+        (
+            self.minutes,
+            self.hours,
+            self.days_of_month,
+            self.months,
+            self.days_of_week,
+        )
+    }
+
     /// Next tick strictly after `from_ms`, in Unix milliseconds.
     ///
     /// Returns `None` when the expression names no tick inside the search
@@ -247,6 +260,68 @@ impl CronSchedule {
     fn hour_matches(&self, hour: u64) -> bool {
         self.hours & (1u64 << hour) != 0
     }
+
+    /// Latest-tick policy: the one tick to run after downtime.
+    ///
+    /// A new schedule (`None`) anchors at `now - 60s`, so it only fires
+    /// when the current minute matches and never replays hours of history
+    /// it was never registered for. Returns the [`fire_key`] with the tick.
+    #[must_use]
+    pub fn plan_latest_tick(
+        &self,
+        name: &str,
+        last_fired_ms: Option<u64>,
+        now_ms: u64,
+    ) -> Option<(String, u64)> {
+        let anchor = last_fired_ms.unwrap_or_else(|| now_ms.saturating_sub(MINUTE_MS));
+        self.latest_at_or_before_ms(anchor, now_ms)
+            .map(|tick_ms| (fire_key(name, tick_ms), tick_ms))
+    }
+
+    /// Skip policy: run the next tick only while it is still fresh.
+    ///
+    /// Finds the first tick after the anchor and requires it to be due
+    /// (`tick <= now`) and no older than `grace_ms`. Stale ticks return
+    /// `None` instead of firing late.
+    #[must_use]
+    pub fn plan_skip_tick(
+        &self,
+        name: &str,
+        grace_ms: u64,
+        last_fired_ms: Option<u64>,
+        now_ms: u64,
+    ) -> Option<(String, u64)> {
+        let anchor = last_fired_ms.unwrap_or_else(|| now_ms.saturating_sub(MINUTE_MS));
+        let tick_ms = self.next_after_ms(anchor)?;
+        if tick_ms > now_ms || now_ms.saturating_sub(tick_ms) > grace_ms {
+            return None;
+        }
+        Some((fire_key(name, tick_ms), tick_ms))
+    }
+
+    /// Deterministic child-run key: parent run, step name, attempt number.
+    #[must_use]
+    pub fn child_key(parent: &str, step: &str, attempt: u32) -> String {
+        child_key(parent, step, attempt)
+    }
+
+    /// Deterministic step key inside one run.
+    #[must_use]
+    pub fn step_key(run_key: &str, step: &str) -> String {
+        step_key(run_key, step)
+    }
+}
+
+/// Deterministic child-run key: parent run, step name, attempt number.
+#[must_use]
+pub fn child_key(parent: &str, step: &str, attempt: u32) -> String {
+    format!("{parent}:{step}:{attempt}")
+}
+
+/// Deterministic step key inside one run.
+#[must_use]
+pub fn step_key(run_key: &str, step: &str) -> String {
+    format!("{run_key}:{step}")
 }
 
 /// The run key for one cron firing. `name` is the schedule identity.
@@ -261,7 +336,10 @@ pub fn fire_key(name: &str, tick_ms: u64) -> String {
 
 fn parse_field(text: &str, spec: &FieldSpec) -> Result<(u64, bool), CronError> {
     let mut bits = 0u64;
-    let restricted = text != "*";
+    // Vixie rule: only a bare `*` or a step over the whole range (`*/n`)
+    // leaves the field unrestricted. Explicit values, ranges, and lists
+    // (`1`, `1-5`, `1,15`) restrict day-of-month / day-of-week matching.
+    let restricted = text != "*" && !text.starts_with("*/");
     for item in text.split(',') {
         if item.is_empty() {
             return Err(field_error(spec, text, "empty list item"));
