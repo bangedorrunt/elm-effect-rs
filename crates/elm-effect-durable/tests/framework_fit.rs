@@ -10,10 +10,14 @@ use std::sync::{Arc, Mutex};
 use elm_effect::{Effect, Exit, Runtime, ServiceTag, use_service};
 use elm_effect_durable::MemStorage;
 use elm_effect_durable::{
-    DurableEngine, EngineError, OurEngine, RunPhase, StartOptions, StartOutcome, engine_laws,
-    storage_laws,
+    AwaitOutcome, BackoffPolicy, ContinueOutcome, CronPolicy, CronSchedule, DurableEngine,
+    EngineError, GuardedStart, HeartbeatOutcome, OurEngine, RetryOutcome, RunPhase, SignalOutcome,
+    StartOptions, StartOutcome, cancel_tree_laws, child_key, digest_storage_laws, engine_laws,
+    fire_key, guard_laws, heartbeat_laws, lineage_laws, plan_cancel_children, plan_cron_tick,
+    retry_laws, rollover_key, signal_laws, signal_storage_laws, step_key, storage_laws,
 };
 use elm_effect_journal::EffectState;
+use elm_effect_journal::journal_lease_laws;
 
 struct EngineTag;
 
@@ -82,11 +86,36 @@ fn law_suites_run_from_the_host_edge() {
     for (name, outcome) in storage_laws(&mut store) {
         assert!(outcome.is_ok(), "storage law failed: {name}");
     }
-    let mut engine = OurEngine::new();
-    let laws = engine_laws(&mut engine);
-    assert!(!laws.is_empty(), "engine laws must not be empty");
-    for (name, outcome) in laws {
+    for (name, outcome) in digest_storage_laws(&mut store) {
+        assert!(outcome.is_ok(), "digest storage law failed: {name}");
+    }
+    for (name, outcome) in signal_storage_laws(&mut store) {
+        assert!(outcome.is_ok(), "signal storage law failed: {name}");
+    }
+
+    for (name, outcome) in engine_laws(&mut OurEngine::new()) {
         assert!(outcome.is_ok(), "engine law failed: {name}");
+    }
+    for (name, outcome) in heartbeat_laws(&mut OurEngine::new()) {
+        assert!(outcome.is_ok(), "heartbeat law failed: {name}");
+    }
+    for (name, outcome) in retry_laws(&mut OurEngine::new()) {
+        assert!(outcome.is_ok(), "retry law failed: {name}");
+    }
+    for (name, outcome) in signal_laws(&mut OurEngine::new()) {
+        assert!(outcome.is_ok(), "signal law failed: {name}");
+    }
+    for (name, outcome) in cancel_tree_laws(&mut OurEngine::new()) {
+        assert!(outcome.is_ok(), "cancel tree law failed: {name}");
+    }
+    for (name, outcome) in lineage_laws(&mut OurEngine::new()) {
+        assert!(outcome.is_ok(), "lineage law failed: {name}");
+    }
+    for (name, outcome) in guard_laws(&mut OurEngine::new()) {
+        assert!(outcome.is_ok(), "guard law failed: {name}");
+    }
+    for (name, outcome) in journal_lease_laws(OurEngine::new().journal()) {
+        assert!(outcome.is_ok(), "journal lease law failed: {name}");
     }
 }
 
@@ -182,10 +211,7 @@ fn root_keys_and_serde_at_the_edge() {
 // --- ud08: live Elm Loop + OurEngine + TestClock witnesses ---
 
 use elm_effect::{ClockImpl, Duration, ManagedRuntime, TestClock};
-use elm_effect_durable::{
-    CronPolicy, CronSchedule, EngineMsg, JoinOutcome, ParkOutcome, child_key, fire_key,
-    plan_cron_tick, plan_join, step_key,
-};
+use elm_effect_durable::{EngineMsg, JoinOutcome, ParkOutcome, plan_join};
 use elm_effect_elm::{
     Boot, Cmd, Durability, Failure, Interpret, InterpretError, Loop, Producer, Program, Update,
 };
@@ -536,4 +562,144 @@ fn cron_tick_fires_once_into_elm_loop() {
             RunPhase::Running
         );
     }
+}
+
+#[test]
+fn composed_durable_parity_workflow_in_elm_loop() {
+    use elm_effect::{ClockImpl, TestClock};
+
+    let clock = TestClock::new();
+    let mut engine = OurEngine::new();
+
+    // 1. Guarded start with replay digest
+    let run_key = rollover_key("workflow-comp", 0);
+    let opts = StartOptions {
+        max_attempts: 5,
+        lease_ms: 10_000,
+        owner: "worker-comp".into(),
+    };
+    let generation = match engine
+        .start_guarded(&run_key, clock.now_millis(), &opts, "digest-v1")
+        .expect("start_guarded")
+    {
+        GuardedStart::Started { generation } => generation,
+        other => panic!("expected started, got {other:?}"),
+    };
+    // Replay with same digest re-attaches
+    assert!(matches!(
+        engine
+            .start_guarded(&run_key, clock.now_millis(), &opts, "digest-v1")
+            .expect("replay"),
+        GuardedStart::Already { .. }
+    ));
+
+    // 2. Latched signal before await
+    assert!(matches!(
+        engine
+            .signal(&run_key, "sig-approve", "payload-ok", clock.now_millis())
+            .expect("signal"),
+        SignalOutcome::Latched { wake: None }
+    ));
+    // Await consumes the latched signal without parking
+    match engine
+        .await_signal(&run_key, 60_000, 3600, clock.now_millis(), None)
+        .expect("await_signal")
+    {
+        AwaitOutcome::Signalled(rows) => {
+            assert_eq!(rows.len(), 1);
+            assert_eq!(rows[0].signal_id, "sig-approve");
+            assert_eq!(rows[0].payload, "payload-ok");
+        }
+        AwaitOutcome::Parked(_) => panic!("expected signalled, got parked"),
+    }
+
+    // 3. Lease Heartbeat
+    clock.adjust(elm_effect::Duration::from_millis(5_000));
+    let now_ms = clock.now_millis();
+    let now_i64 = i64::try_from(now_ms).expect("i64 ms");
+    match engine
+        .heartbeat(&run_key, generation, "worker-comp", 10_000, now_i64)
+        .expect("heartbeat")
+    {
+        HeartbeatOutcome::Renewed { lease_deadline, .. } => {
+            assert_eq!(lease_deadline, now_i64 + 10_000);
+        }
+        other => panic!("expected renewed, got {other:?}"),
+    }
+
+    // 4. Retry Backoff through Park
+    let backoff = BackoffPolicy::Exponential {
+        base_ms: 1_000,
+        factor: 2,
+        cap_ms: 8_000,
+    };
+    match engine
+        .retry_after(&run_key, generation, &backoff, 60, clock.now_millis(), None)
+        .expect("retry_after")
+    {
+        RetryOutcome::Parked {
+            attempt, until_ms, ..
+        } => {
+            assert_eq!(attempt, 1);
+            assert_eq!(until_ms, clock.now_millis() + 1_000);
+        }
+        other => panic!("expected parked, got {other:?}"),
+    }
+    assert_eq!(
+        engine.query(&run_key).expect("query").phase,
+        RunPhase::Parked
+    );
+
+    // TestClock advance wakes the parked run
+    clock.adjust(elm_effect::Duration::from_millis(1_000));
+    let wakes = engine.drain_due(clock.now_millis()).expect("drain_due");
+    assert_eq!(wakes.len(), 1);
+    assert!(matches!(&wakes[0], EngineMsg::Woke { key, .. } if key == &run_key));
+    assert_eq!(
+        engine.query(&run_key).expect("query").phase,
+        RunPhase::Running
+    );
+
+    // 5. Child tree fan-out and structured child cancellation
+    let child_a = format!("{run_key}:child:a");
+    let child_b = format!("{run_key}:child:b");
+    engine.start(&child_a, clock.now_millis()).expect("start a");
+    let gen_b = match engine.start(&child_b, clock.now_millis()).expect("start b") {
+        StartOutcome::Started { generation } => generation,
+        _ => panic!("fresh child_b must start"),
+    };
+    engine
+        .settle(&child_b, gen_b, EffectState::Settled)
+        .expect("settle b");
+    let plan = plan_cancel_children(&[
+        (child_a.clone(), RunPhase::Running),
+        (child_b.clone(), RunPhase::Settled),
+    ]);
+    assert_eq!(plan, vec![child_a.clone()]);
+    let report = engine
+        .cancel_children(&[child_a.clone(), child_b.clone()], clock.now_millis())
+        .expect("cancel_children");
+    assert_eq!(report.cancelled, vec![child_a.clone()]);
+    assert_eq!(report.already_terminal, vec![child_b.clone()]);
+
+    // 6. Lineage Rollover (continue_as_new)
+    let next_key = rollover_key("workflow-comp", 1);
+    match engine
+        .continue_as_new(&run_key, generation, &next_key, clock.now_millis(), &opts)
+        .expect("continue_as_new")
+    {
+        ContinueOutcome::Continued { started, closed } => {
+            assert!(matches!(started, StartOutcome::Started { .. }));
+            assert_eq!(closed.state, EffectState::Settled);
+        }
+        ContinueOutcome::Rejected(r) => panic!("expected continued, got {r:?}"),
+    }
+    assert_eq!(
+        engine.query(&run_key).expect("query").phase,
+        RunPhase::Settled
+    );
+    assert_eq!(
+        engine.query(&next_key).expect("query").phase,
+        RunPhase::Running
+    );
 }

@@ -1,6 +1,6 @@
 //! Retry backoff through park (`retry_after`): count the attempt, then wait.
 //!
-//! Extension module of ADR-0005. Inherent methods on [`OurEngine`](crate::OurEngine);
+//! Extension module of ADR-0005. Inherent methods on [`OurEngine`];
 //! the `DurableEngine` port trait is unchanged.
 
 use elm_effect_journal::retry::{BackoffPolicy, RetryPlan, plan_retry};

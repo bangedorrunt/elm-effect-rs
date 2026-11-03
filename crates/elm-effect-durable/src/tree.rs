@@ -1,6 +1,6 @@
 //! Structured child cancellation (`plan_cancel_children`, `cancel_children`): cancel every non-terminal child of a run.
 //!
-//! Extension module of ADR-0005. Inherent methods on [`OurEngine`](crate::OurEngine);
+//! Extension module of ADR-0005. Inherent methods on [`OurEngine`];
 //! the `DurableEngine` port trait is unchanged.
 
 use elm_effect_journal::store::JournalStore;

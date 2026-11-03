@@ -4,7 +4,7 @@
 //! turns a recorded attempt count into either the next [`RetryPlan::Backoff`]
 //! or [`RetryPlan::Exhausted`]. The exhaustion boundary is the journal
 //! dead-letter rule (`attempts > max_attempts`, see
-//! [`InMemoryStore::attempt`](crate::store::InMemoryStore::attempt)): the
+//! [`JournalStore::attempt`](crate::store::JournalStore::attempt)): the
 //! planner exhausts exactly when the journal dead-letters, pinned by test.
 
 use serde::{Deserialize, Serialize};

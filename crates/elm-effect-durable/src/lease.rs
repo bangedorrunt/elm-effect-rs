@@ -1,6 +1,6 @@
 //! Lease heartbeat (`heartbeat`): a live worker extends its claim without moving the fence; a zombie or cancelled holder learns it must stop.
 //!
-//! Extension module of ADR-0005. Inherent methods on [`OurEngine`](crate::OurEngine);
+//! Extension module of ADR-0005. Inherent methods on [`OurEngine`];
 //! the `DurableEngine` port trait is unchanged.
 
 use elm_effect_journal::EffectState;

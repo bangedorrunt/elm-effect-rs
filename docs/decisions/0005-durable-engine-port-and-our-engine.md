@@ -525,6 +525,18 @@ An agent **must not**:
   `cargo clippy -p elm-effect-durable --all-targets -- -D warnings`, and
   `cargo fmt --check` green.
 
+### 2026-11-03 — Temporal & Resonate durable parity features
+
+Following architectural specification `docs/plan/durable-parity.md`, 7 core parity capabilities were implemented as inherent extensions on `OurEngine`:
+- **§1 Lease heartbeat with cancellation piggyback**: `OurEngine::heartbeat` and `JournalStore::renew_lease` extend active holder lease deadlines without moving the fence generation. Heartbeat rejections preserve latest journal rows and return `HeartbeatOutcome::Cancelled` if cancelled in flight. Conformance: `heartbeat_laws`, `journal_lease_laws`.
+- **§2 Durable retry backoff through park**: `BackoffPolicy` (fixed/exponential) and `plan_retry` in `elm-effect-journal::retry`; `OurEngine::retry_after` counts provider attempts in the journal and parks runs until backoff deadlines, cleanly dead-lettering when exhausted. Conformance: `retry_laws`.
+- **§3 Latched durable signals**: `OurEngine::signal` latches payloads and wakes parked runs; `OurEngine::await_signal` consumes latched signals in sequence order or parks if absent; `OurEngine::take_signals` drains unconsumed signals into the host Elm fold. Conformance: `signal_laws`, `signal_storage_laws`.
+- **§4 Structured child cancellation**: `plan_cancel_children` filters live phases; `OurEngine::cancel_children` cancels live runs in child trees, returning deterministic `CancelReport { cancelled, already_terminal, missing }`. Conformance: `cancel_tree_laws`.
+- **§5 Lineage rollover (continue_as_new)**: `rollover_key(base, epoch)` and `OurEngine::continue_as_new` cleanly start the next epoch before settling the previous epoch, ensuring bounded journal histories for long-lived workflows. Conformance: `lineage_laws`.
+- **§6 Replay-digest guarded start**: `OurEngine::start_guarded` verifies replay digests against `EngineStorage::get_digest` / `set_digest` to detect workflow non-determinism (`GuardedStart::Mismatch`). Conformance: `guard_laws`, `digest_storage_laws`.
+- **§7 Long-horizon sleep proof**: Conformance verification in `tests/long_sleep.rs` verifying 30-day sleeps store absolute deadlines with capped waits and wake precisely at the horizon under `TestClock`.
+- **Integration**: Root `pub use` re-exports in `elm-effect-durable` and `elm-effect-journal`; composed live Elm `Loop` witnesses in `tests/framework_fit.rs`; documentation in `docs/guides/15-use-the-apis.mdx` compiled by `crates/elm-effect-elm/tests/guide_imports.rs`.
+
 ### 2026-11-01 — framework fit witness
 
 - `crates/elm-effect-durable/tests/framework_fit.rs` holds `OurEngine` in a

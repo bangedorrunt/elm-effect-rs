@@ -60,6 +60,7 @@ pub use cron::{
     CronError, CronFire, CronPolicy, CronSchedule, child_key, fire_key, plan_cron_tick, step_key,
 };
 pub use elm_effect_journal::plan::{ClaimRejection, SettleRejection};
+pub use elm_effect_journal::retry::{BackoffPolicy, RetryPlan, plan_retry};
 pub use elm_effect_journal::saga::{
     SagaPlan, SagaStep, SagaStepStatus, compensate_key, plan_saga_rollback,
 };
@@ -67,6 +68,12 @@ pub use engine::{
     ClaimOutcome, DurableEngine, EngineError, ParkOutcome, ParseRunPhaseError, RunPhase, RunStatus,
     SettleOutcome, StartOptions, StartOutcome, StorageError, WakeOutcome, engine_laws,
 };
+pub use guard::{GuardedStart, digest_storage_laws, guard_laws};
+pub use lease::{HeartbeatOutcome, heartbeat_laws};
+pub use lineage::{ContinueOutcome, lineage_laws, rollover_key};
+pub use retry::{RetryOutcome, retry_laws};
 pub use runtime::{EngineMsg, OurEngine};
-pub use scheduler::{JoinOutcome, WakeIntent, due_wakes, plan_join};
+pub use scheduler::{JoinOutcome, WakeIntent, due_wakes, plan_cancel_children, plan_join};
+pub use signal::{AwaitOutcome, SignalOutcome, SignalRow, signal_laws, signal_storage_laws};
 pub use storage::{EngineStorage, MemStorage, ParkedRow, RunRow, storage_laws};
+pub use tree::{CancelReport, cancel_tree_laws};

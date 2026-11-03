@@ -368,6 +368,59 @@ A saga is forward steps plus precomputed compensation keys: `compensate_key(run,
 
 The fence reads typed before it acts. `check_claim` answers `Ok(())` or one `ClaimRejection` (`NotFound`, `Terminal`, `StaleGeneration`, `LeaseLive`); `check_settle` answers `Ok(())` or one `SettleRejection` (`NotFound`, `Terminal`, `StaleGeneration`, `IllegalTransition`). The engine's `claim_checked`, `settle_checked`, and `wake_checked` verbs return the same answers as data (`ClaimOutcome::Claimed` / `Rejected`, `SettleOutcome::Settled` / `Rejected`, `WakeOutcome::Woken` / `NotParked`); the plain `claim` / `settle` / `wake` verbs map success to their row and refusal to `None`. `journal_store_all` runs the journal fence suite against any store in one call, the way `engine_laws` and `storage_laws` verify the port.
 
+## Durable parity: heartbeats, backoff, signals, child cancellation, lineage, and replay guards
+
+```rust
+use elm_effect_durable::{AwaitOutcome, BackoffPolicy, CancelReport, ContinueOutcome, GuardedStart, HeartbeatOutcome, RetryOutcome, SignalOutcome, plan_cancel_children, rollover_key};
+
+// 1. Replay-digest guarded start: detects non-determinism before side effects run
+let guarded = engine.start_guarded("job-1", now_ms, &opts, "v1-digest")?;
+assert!(matches!(guarded, GuardedStart::Started { .. } | GuardedStart::Already { .. }));
+
+// 2. Latched durable signals: arrive before or during park without loss
+let _ = engine.signal("job-1", "sig-approve", "operator-token", now_ms)?;
+match engine.await_signal("job-1", now_ms + 60_000, 3600, now_ms, None)? {
+    AwaitOutcome::Signalled(rows) => { /* consumes latched signals in order */ }
+    AwaitOutcome::Parked(_) => { /* parks if no signal latched */ }
+}
+
+// 3. Lease heartbeat with cancellation piggyback
+match engine.heartbeat("job-1", generation, "worker-a", 15_000, now_i64)? {
+    HeartbeatOutcome::Renewed { lease_deadline, .. } => { /* extended */ }
+    HeartbeatOutcome::Cancelled => { /* abort execution: cancelled while in flight */ }
+    HeartbeatOutcome::Rejected(rejection) => { /* lost lease or stale fence */ }
+}
+
+// 4. Retry backoff through park: increments attempt in journal, parks run
+let backoff = BackoffPolicy::Exponential { base_ms: 1000, factor: 2, cap_ms: 30_000 };
+match engine.retry_after("job-1", generation, &backoff, 60, now_ms, None)? {
+    RetryOutcome::Parked { attempt, until_ms, .. } => { /* parked for backoff */ }
+    RetryOutcome::DeadLettered { row } => { /* exceeded max_attempts */ }
+    RetryOutcome::Stale | RetryOutcome::Refused { .. } => {}
+}
+
+// 5. Structured child cancellation on fan-out trees
+let to_cancel = plan_cancel_children(&[("child-1".into(), RunPhase::Running)]);
+let report = engine.cancel_children(&to_cancel, now_ms)?;
+assert_eq!(report.cancelled, vec!["child-1".to_string()]);
+
+// 6. Lineage rollover: continuous execution with bounded journal history
+let next_epoch = rollover_key("job-1", 1);
+match engine.continue_as_new("job-1", generation, &next_epoch, now_ms, &opts)? {
+    ContinueOutcome::Continued { started, closed } => { /* prev settled, next started */ }
+    ContinueOutcome::Rejected(rejection) => { /* fence refused */ }
+}
+```
+
+The parity features bring Temporal and Resonate capabilities into the pure Elm loop and synchronous kernel architecture:
+- `start_guarded(key, now_ms, opts, digest)` detects workflow non-determinism (`GuardedStart::Mismatch`) if logic changed between replays.
+- `signal(key, signal_id, payload, now_ms)` and `await_signal(key, until_ms, max_wait, now_ms, ceiling)` prevent signal race conditions by latching payloads durably; `take_signals` drains them into the Elm fold.
+- `heartbeat(key, gen, owner, lease_ms, now_ms)` keeps worker leases alive without advancing the fence, while detecting workflow cancellations via `HeartbeatOutcome::Cancelled`.
+- `retry_after(key, gen, &policy, max_wait, now_ms, ceiling)` counts attempts in the journal first, then parks the run until the exponential or fixed backoff deadline, dead-lettering when exhausted.
+- `cancel_children(&keys, now_ms)` cancels active child workflows in a fan-out tree deterministically, returning a typed `CancelReport`.
+- `continue_as_new(from_key, gen, to_key, now_ms, opts)` rolls recurring runs into the next deterministic epoch (`rollover_key(base, epoch)`) so event histories stay strictly bounded.
+- Multi-week sleeps (`park_until` with multi-day horizons) store absolute deadlines without clock drift or background timers.
+
 ## Drive the engine from an Elm program
 
 The engine is a synchronous kernel. The host owns it, provides it through a `ServiceTag` (for example `Arc<Mutex<OurEngine<...>>>`), and calls a verb from `Interpret::interpret_in_env` inside `Effect::sync`. `drain_due(now_ms)` returns `EngineMsg::Woke`; map it into the program's `Msg` and let the fold return the next commands. The host reads its `Clock` or `TestClock` at the edge and passes `now_ms`; the engine does not sleep, spawn, or read the clock.

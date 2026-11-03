@@ -20,6 +20,10 @@ use elm_effect::config_provider::Provider;
 use elm_effect::{Config, ConfigError};
 use elm_effect::{Effect, Exit, Runtime, Schedule, ServiceTag, effect, retry, use_service};
 use elm_effect::{flow, pipe};
+use elm_effect_durable::{
+    AwaitOutcome, BackoffPolicy, CancelReport, ContinueOutcome, GuardedStart, HeartbeatOutcome,
+    RetryOutcome, SignalOutcome, plan_cancel_children, rollover_key,
+};
 use elm_effect_durable::{CronPolicy, plan_cron_tick};
 use elm_effect_durable::{CronSchedule, fire_key};
 use elm_effect_durable::{
@@ -56,6 +60,7 @@ const PUBLISHED: &[&str] = &[
     // The durable engine and cron section's imports.
     "use elm_effect_durable::{CronSchedule, fire_key};",
     "use elm_effect_durable::{CronPolicy, plan_cron_tick};",
+    "use elm_effect_durable::{AwaitOutcome, BackoffPolicy, CancelReport, ContinueOutcome, GuardedStart, HeartbeatOutcome, RetryOutcome, SignalOutcome, plan_cancel_children, rollover_key};",
     "use elm_effect_durable::{DurableEngine, OurEngine, SettleOutcome, StartOptions, StartOutcome, step_key};",
     "use elm_effect_journal::EffectState;",
     "use elm_effect_durable::{EngineMsg, ParkOutcome, WakeOutcome};",
