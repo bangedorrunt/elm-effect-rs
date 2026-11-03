@@ -121,7 +121,7 @@ impl std::fmt::Display for RunPhase {
 }
 
 /// Options for [`DurableEngine::start_with`].
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct StartOptions {
     /// Attempts allowed on the journal row before dead-lettering.
     pub max_attempts: u32,
@@ -143,7 +143,7 @@ impl Default for StartOptions {
 }
 
 /// Snapshot returned by [`DurableEngine::query`].
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[must_use]
 pub struct RunStatus {
     /// Run / journal / producer key.
@@ -157,7 +157,7 @@ pub struct RunStatus {
 }
 
 /// Result of [`DurableEngine::start`].
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[must_use]
 pub enum StartOutcome {
     /// Fresh run; first attempt may dispatch.
@@ -174,7 +174,7 @@ pub enum StartOutcome {
 
 /// Result of [`DurableEngine::park_until`], mirroring journal `ParkDecision`
 /// without re-deriving it.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[must_use]
 pub enum ParkOutcome {
     /// Wait until `until_ms` (intent persisted).
@@ -284,6 +284,12 @@ pub trait DurableEngine {
         generation: u64,
         outcome: EffectState,
     ) -> Result<Option<Row>, EngineError>;
+
+    /// Expire a dead lease: when the journal row is `InFlight` / `Accepted`
+    /// with `lease_deadline <= now_ms`, settle it to `Unknown` and project
+    /// `RunPhase::Unknown` onto storage (clearing any parks). A live lease
+    /// or a non-running row returns `None` without mutating anything.
+    fn expire_lease(&mut self, key: &str, now_ms: u64) -> Result<Option<Row>, EngineError>;
 }
 
 fn law_fail(got: impl std::fmt::Debug) -> String {
@@ -317,6 +323,10 @@ pub fn engine_laws(engine: &mut dyn DurableEngine) -> Vec<(&'static str, Result<
         (
             "stale settle projects the live fence",
             law_stale_settle_projects(engine),
+        ),
+        (
+            "expire_lease times out a dead lease",
+            law_expire_lease(engine),
         ),
     ]
 }
@@ -467,6 +477,66 @@ fn law_claim_fences(engine: &mut dyn DurableEngine) -> Result<(), String> {
             .map_err(law_fail)?
             .is_none(),
         "stale claim is refused",
+    )
+}
+
+fn law_expire_lease(engine: &mut dyn DurableEngine) -> Result<(), String> {
+    // A live lease refuses: no mutation, still Running.
+    let live_opts = StartOptions {
+        max_attempts: 8,
+        lease_ms: 10_000,
+        owner: "law-expire".into(),
+    };
+    require_started(
+        engine
+            .start_with("law-expire-live", 0, &live_opts)
+            .map_err(law_fail)?,
+        "live start",
+    )?;
+    law_check(
+        engine
+            .expire_lease("law-expire-live", 0)
+            .map_err(law_fail)?
+            .is_none(),
+        "live lease must refuse expire_lease",
+    )?;
+    law_check(
+        engine.query("law-expire-live").map_err(law_fail)?.phase == RunPhase::Running,
+        "refused expire keeps the run Running",
+    )?;
+    // An expired lease moves InFlight to Unknown, clearing the park.
+    require_started(
+        engine.start("law-expire-dead", 0).map_err(law_fail)?,
+        "start",
+    )?;
+    let _ = engine
+        .park_until("law-expire-dead", 1_000, 60, 0, None)
+        .map_err(law_fail)?;
+    let updated = engine
+        .expire_lease("law-expire-dead", 0)
+        .map_err(law_fail)?
+        .ok_or("expired lease must transition to Unknown")?;
+    law_check(
+        updated.state == EffectState::Unknown,
+        "expired lease settles the journal to Unknown",
+    )?;
+    law_check(
+        engine.query("law-expire-dead").map_err(law_fail)?.phase == RunPhase::Unknown,
+        "storage projects Unknown after expire",
+    )?;
+    law_check(
+        engine.parked().map_err(law_fail)?.is_empty(),
+        "expire clears the park",
+    )?;
+    // Reconcile recovers cleanly to Settled.
+    let row = engine
+        .reconcile("law-expire-dead", updated.generation, EffectState::Settled)
+        .map_err(law_fail)?
+        .ok_or("reconcile must return a row after expire")?;
+    law_check(row.state == EffectState::Settled, "reconciled to Settled")?;
+    law_check(
+        engine.query("law-expire-dead").map_err(law_fail)?.phase == RunPhase::Settled,
+        "run settled after reconcile",
     )
 }
 

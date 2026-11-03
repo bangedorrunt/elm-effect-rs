@@ -5,7 +5,7 @@ use crate::engine::{RunPhase, StorageError};
 /// One parked wait. Idempotent on `(key, until_ms)` at the engine layer:
 /// parking the same key to the same instant keeps one row (ADR-0005 /
 /// journal pending rule).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct ParkedRow {
     /// Run / journal key.
     pub key: String,
@@ -16,7 +16,7 @@ pub struct ParkedRow {
 }
 
 /// Durable run metadata the engine stores.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct RunRow {
     /// Run / journal / producer key.
     pub key: String,

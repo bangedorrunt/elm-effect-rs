@@ -7,8 +7,8 @@
 use elm_effect::{ClockImpl, Duration, TestClock};
 use elm_effect_durable::{
     DurableEngine, EngineError, EngineMsg, EngineStorage, MemStorage, OurEngine, ParkOutcome,
-    ParkedRow, ParseRunPhaseError, RunPhase, RunRow, StartOptions, StartOutcome, engine_laws,
-    storage_laws,
+    ParkedRow, ParseRunPhaseError, RunPhase, RunRow, RunStatus, StartOptions, StartOutcome,
+    child_key, engine_laws, step_key, storage_laws,
 };
 use elm_effect_journal::EffectState;
 use elm_effect_journal::store::JournalStore;
@@ -760,4 +760,121 @@ fn law_suites_pass_on_the_shipped_store_and_engine() {
             outcome.unwrap_err()
         );
     }
+}
+
+#[test]
+fn expire_lease_recovers_through_reconcile() {
+    let mut eng = OurEngine::new();
+
+    // A live lease refuses without mutating anything.
+    let live = StartOptions {
+        max_attempts: 8,
+        lease_ms: 10_000,
+        owner: "live".into(),
+    };
+    let StartOutcome::Started { .. } = eng.start_with("exp-live", 0, &live).unwrap() else {
+        panic!("live start must Start");
+    };
+    assert!(
+        eng.expire_lease("exp-live", 0).unwrap().is_none(),
+        "live lease must refuse"
+    );
+    assert_eq!(eng.query("exp-live").unwrap().phase, RunPhase::Running);
+
+    // Absent keys and settled rows are not expire inputs.
+    assert!(eng.expire_lease("exp-nope", 0).unwrap().is_none());
+
+    // An expired lease moves InFlight to Unknown, clearing the park.
+    let StartOutcome::Started { .. } = eng.start("exp-dead", 0).unwrap() else {
+        panic!("start must Start");
+    };
+    let _ = eng.park_until("exp-dead", 1_000, 60, 0, None).unwrap();
+    let updated = eng
+        .expire_lease("exp-dead", 0)
+        .unwrap()
+        .expect("expired lease must transition");
+    assert_eq!(updated.state, EffectState::Unknown);
+    assert_eq!(eng.query("exp-dead").unwrap().phase, RunPhase::Unknown);
+    assert!(eng.parked().unwrap().is_empty(), "expire clears the park");
+
+    // Reconcile recovers cleanly to Settled.
+    let row = eng
+        .reconcile("exp-dead", updated.generation, EffectState::Settled)
+        .unwrap()
+        .expect("reconcile must return a row");
+    assert_eq!(row.state, EffectState::Settled);
+    assert_eq!(eng.query("exp-dead").unwrap().phase, RunPhase::Settled);
+}
+
+#[test]
+fn root_key_helpers_match_cron() {
+    assert_eq!(child_key("parent", "step", 2), "parent:step:2");
+    assert_eq!(step_key("run", "step"), "run:step");
+}
+
+#[test]
+fn engine_types_serde_roundtrip() {
+    let opts = StartOptions {
+        max_attempts: 3,
+        lease_ms: 5_000,
+        owner: "serde".into(),
+    };
+    let json = serde_json::to_string(&opts).unwrap();
+    assert_eq!(serde_json::from_str::<StartOptions>(&json).unwrap(), opts);
+
+    let started = StartOutcome::Started { generation: 7 };
+    let json = serde_json::to_string(&started).unwrap();
+    assert_eq!(
+        serde_json::from_str::<StartOutcome>(&json).unwrap(),
+        started
+    );
+
+    let status = RunStatus {
+        key: "k".into(),
+        phase: RunPhase::Parked,
+        generation: 2,
+        until_ms: Some(1_000),
+    };
+    let json = serde_json::to_string(&status).unwrap();
+    assert_eq!(serde_json::from_str::<RunStatus>(&json).unwrap(), status);
+
+    let already = StartOutcome::Already { status };
+    let json = serde_json::to_string(&already).unwrap();
+    assert_eq!(
+        serde_json::from_str::<StartOutcome>(&json).unwrap(),
+        already
+    );
+
+    let wait = ParkOutcome::Wait {
+        until_ms: 1_000,
+        wait_ms: 500,
+    };
+    let json = serde_json::to_string(&wait).unwrap();
+    assert_eq!(serde_json::from_str::<ParkOutcome>(&json).unwrap(), wait);
+
+    let woke = EngineMsg::Woke {
+        key: "k".into(),
+        overdue_ms: 3,
+        park_generation: 1,
+    };
+    let json = serde_json::to_string(&woke).unwrap();
+    assert_eq!(serde_json::from_str::<EngineMsg>(&json).unwrap(), woke);
+
+    let run = RunRow {
+        key: "k".into(),
+        phase: RunPhase::Running,
+        generation: 1,
+        until_ms: None,
+        attempt: 0,
+    };
+    let json = serde_json::to_string(&run).unwrap();
+    assert_eq!(serde_json::from_str::<RunRow>(&json).unwrap(), run);
+
+    let park = ParkedRow {
+        key: "k".into(),
+        until_ms: 1_000,
+        park_generation: 1,
+    };
+    let json = serde_json::to_string(&park).unwrap();
+    assert_eq!(serde_json::from_str::<ParkedRow>(&json).unwrap(), park);
 }

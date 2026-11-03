@@ -14,7 +14,7 @@ use crate::scheduler::due_wakes;
 use crate::storage::{EngineStorage, MemStorage, ParkedRow, RunRow};
 
 /// Msg the wake loop feeds back into an Elm fold.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum EngineMsg {
     /// A parked run is due (or overdue).
     Woke {
@@ -117,6 +117,12 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
     /// See [`DurableEngine::attempt`].
     pub fn attempt(&mut self, key: &str, generation: u64) -> Result<Option<Row>, EngineError> {
         self.attempt_impl(key, generation)
+    }
+
+    /// Expire a dead lease, settling `InFlight` / `Accepted` to `Unknown`.
+    /// See [`DurableEngine::expire_lease`].
+    pub fn expire_lease(&mut self, key: &str, now_ms: u64) -> Result<Option<Row>, EngineError> {
+        self.expire_lease_impl(key, now_ms)
     }
 
     /// Step `Unknown -> ReconcilePending -> outcome`.
@@ -231,6 +237,32 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
         };
         self.project_attempt(&row)?;
         Ok(Some(row))
+    }
+
+    fn expire_lease_impl(&mut self, key: &str, now_ms: u64) -> Result<Option<Row>, EngineError> {
+        let Some(row) = self.journal.get(key)? else {
+            return Ok(None);
+        };
+        if !matches!(row.state, EffectState::InFlight | EffectState::Accepted) {
+            return Ok(None);
+        }
+        let Some(deadline) = row.lease_deadline else {
+            return Ok(None);
+        };
+        if deadline > journal_ms(now_ms) {
+            return Ok(None);
+        }
+        let Some(updated) = self
+            .journal
+            .settle(key, row.generation, EffectState::Unknown)?
+        else {
+            if let Some(latest) = self.journal.get(key)? {
+                self.project_row(&latest)?;
+            }
+            return Ok(None);
+        };
+        self.project_row(&updated)?;
+        Ok(Some(updated))
     }
 
     fn reconcile_impl(
@@ -564,6 +596,10 @@ impl<S: EngineStorage, J: JournalStore> DurableEngine for OurEngine<S, J> {
         outcome: EffectState,
     ) -> Result<Option<Row>, EngineError> {
         self.reconcile_impl(key, generation, outcome)
+    }
+
+    fn expire_lease(&mut self, key: &str, now_ms: u64) -> Result<Option<Row>, EngineError> {
+        self.expire_lease_impl(key, now_ms)
     }
 
     fn park_until(

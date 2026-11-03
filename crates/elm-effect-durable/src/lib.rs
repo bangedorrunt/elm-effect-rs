@@ -47,7 +47,7 @@ mod runtime;
 mod scheduler;
 mod storage;
 
-pub use cron::{CronError, CronSchedule, fire_key};
+pub use cron::{CronError, CronSchedule, child_key, fire_key, step_key};
 pub use engine::{
     DurableEngine, EngineError, ParkOutcome, ParseRunPhaseError, RunPhase, RunStatus, StartOptions,
     StartOutcome, StorageError, engine_laws,
