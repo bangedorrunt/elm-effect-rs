@@ -21,6 +21,8 @@
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
+use serde::{Deserialize, Serialize};
+
 use super::{EffectState, can_transition};
 
 /// A host journal could not complete an operation.
@@ -38,7 +40,7 @@ pub enum JournalError {
 }
 
 /// Graph-admission disposition of a dead row, mirroring toron's column.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Disposition {
     /// Keep going.
     Continue,
@@ -58,6 +60,7 @@ pub enum Disposition {
 
 impl Disposition {
     /// Canonical wire spelling, as toron has it.
+    #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Continue => "continue",
@@ -71,8 +74,31 @@ impl Disposition {
     }
 }
 
+impl std::fmt::Display for Disposition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl std::str::FromStr for Disposition {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "continue" => Ok(Self::Continue),
+            "retry" => Ok(Self::Retry),
+            "reroute" => Ok(Self::Reroute),
+            "blocked" => Ok(Self::Blocked),
+            "terminal_failed" => Ok(Self::TerminalFailed),
+            "cancelled" => Ok(Self::Cancelled),
+            "reconcile" => Ok(Self::Reconcile),
+            _ => Err(format!("unknown disposition: {s}")),
+        }
+    }
+}
+
 /// One journal row.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Row {
     /// Stable intent key (retries reuse it).
     pub key: String,
@@ -95,7 +121,7 @@ pub struct Row {
 }
 
 /// Offset read outcome.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Read {
     /// Entry at this offset.
     Entry {
@@ -219,7 +245,7 @@ impl InMemoryStore {
 
 impl JournalStore for InMemoryStore {
     fn record_intent(&self, key: &str, max_attempts: u32) -> Result<Row, JournalError> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().expect("journal lock poisoned");
         if let Some(row) = inner.rows.get(key) {
             return Ok(row.clone());
         }
@@ -246,7 +272,7 @@ impl JournalStore for InMemoryStore {
         now_ms: i64,
         expected_generation: u64,
     ) -> Result<Option<Row>, JournalError> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().expect("journal lock poisoned");
         let Some(row) = inner.rows.get(key).cloned() else {
             return Ok(None);
         };
@@ -275,7 +301,7 @@ impl JournalStore for InMemoryStore {
         generation: u64,
         to: EffectState,
     ) -> Result<Option<Row>, JournalError> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().expect("journal lock poisoned");
         let Some(row) = inner.rows.get(key).cloned() else {
             return Ok(None);
         };
@@ -295,7 +321,7 @@ impl JournalStore for InMemoryStore {
     }
 
     fn attempt(&self, key: &str, generation: u64) -> Result<Option<Row>, JournalError> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().expect("journal lock poisoned");
         let Some(mut row) = inner.rows.get(key).cloned() else {
             return Ok(None);
         };
@@ -314,7 +340,7 @@ impl JournalStore for InMemoryStore {
     }
 
     fn read(&self, offset: i64) -> Result<Option<Read>, JournalError> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().expect("journal lock poisoned");
         if offset == -1 {
             let Some((o, row)) = inner.log.last() else {
                 return Ok(None);
@@ -341,6 +367,12 @@ impl JournalStore for InMemoryStore {
     }
 
     fn get(&self, key: &str) -> Result<Option<Row>, JournalError> {
-        Ok(self.inner.lock().unwrap().rows.get(key).cloned())
+        Ok(self
+            .inner
+            .lock()
+            .expect("journal lock poisoned")
+            .rows
+            .get(key)
+            .cloned())
     }
 }

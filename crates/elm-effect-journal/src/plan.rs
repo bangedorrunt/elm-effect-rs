@@ -12,7 +12,7 @@
 //! builds no intent; [`park_intent`] builds the value before the wait. No
 //! effect-row write to `parked` happens here: `Parked` stays parseable and
 //! non-terminal in the registry vocabulary.
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Default ceiling: 86400 s (one day).
 pub const DEFAULT_CEILING_SECS: u64 = 86_400;
@@ -59,7 +59,11 @@ pub fn park_intent(until_ms: u64, wait_ms: u64) -> ParkIntent {
 ///
 /// - `ceiling_secs` defaults to [`DEFAULT_CEILING_SECS`];
 /// - `max_wait_secs` above the ceiling refuses (typed, no clamping);
+/// - `max_wait_secs == 0` with a future `until_ms` waits the real remaining
+///   duration, fenced by the ceiling on the asked seconds
+///   (`raw_wait_ms.div_ceil(1_000)`), so a zero cap cannot bypass it;
 /// - `until_ms` at or before `now_ms` resumes now with the overdue gap.
+#[must_use]
 pub fn plan_park(
     until_ms: u64,
     max_wait_secs: u64,
@@ -75,10 +79,22 @@ pub fn plan_park(
     }
     if until_ms <= now_ms {
         return ParkDecision::ResumeNow {
-            overdue_ms: now_ms.saturating_sub(until_ms),
+            overdue_ms: now_ms - until_ms,
         };
     }
-    let wait_ms = (until_ms - now_ms).min(max_wait_secs.saturating_mul(1_000));
+    let raw_wait_ms = until_ms - now_ms;
+    let wait_ms = if max_wait_secs == 0 {
+        let asked_secs = raw_wait_ms.div_ceil(1_000);
+        if asked_secs > ceiling {
+            return ParkDecision::RefusedOverCeiling {
+                asked_secs,
+                ceiling_secs: ceiling,
+            };
+        }
+        raw_wait_ms
+    } else {
+        raw_wait_ms.min(max_wait_secs.saturating_mul(1_000))
+    };
     ParkDecision::Wait {
         wait_ms,
         intent: park_intent(until_ms, wait_ms),
@@ -86,7 +102,7 @@ pub fn plan_park(
 }
 
 /// Identity of one parked wait.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PendingKey {
     /// Run the wait belongs to.
     pub run_id: String,
@@ -109,14 +125,14 @@ pub struct PendingRow {
 /// idempotency rule).
 #[derive(Clone, Debug, Default)]
 pub struct PendingStore {
-    rows: HashMap<PendingKey, PendingRow>,
+    rows: BTreeMap<PendingKey, PendingRow>,
 }
 
 impl PendingStore {
     /// Empty store.
     pub fn new() -> Self {
         Self {
-            rows: HashMap::new(),
+            rows: BTreeMap::new(),
         }
     }
 
@@ -179,6 +195,9 @@ pub struct ProviderCapability {
 pub enum DispatchPlan {
     /// No intent or a fresh intent: commit intent, then dispatch attempt one.
     DispatchNew,
+    /// The row is `Prepared` but its dispatch lease is live under another
+    /// owner: do not dispatch over it, say nothing else.
+    SkipLeaseLive,
     /// Uncertainty with an idempotent provider: re-dispatch the SAME
     /// logical key as this next attempt number.
     RetrySameKey {
@@ -209,6 +228,7 @@ pub enum DispatchPlan {
 }
 
 /// Pure dispatch planning: exactly the toron reconcile table.
+#[must_use]
 pub fn plan_attempt(current: Option<&EffectView>, cap: &ProviderCapability) -> DispatchPlan {
     let Some(view) = current else {
         return DispatchPlan::DispatchNew;
@@ -218,7 +238,13 @@ pub fn plan_attempt(current: Option<&EffectView>, cap: &ProviderCapability) -> D
         S::Parked => DispatchPlan::ResumeParked {
             attempt: view.attempt.max(1),
         },
-        S::Prepared => DispatchPlan::DispatchNew,
+        S::Prepared => {
+            if view.lease_live {
+                DispatchPlan::SkipLeaseLive
+            } else {
+                DispatchPlan::DispatchNew
+            }
+        }
         S::ReconcilePending => DispatchPlan::RefuseBlindRetry {
             reason: "reconciliation owns this effect; the dispatcher waits".into(),
         },
@@ -249,6 +275,7 @@ pub fn plan_attempt(current: Option<&EffectView>, cap: &ProviderCapability) -> D
 /// Whether `presented` settles the row holding `current_token`: true only
 /// when both are non-empty and equal. An empty presented token settles
 /// nothing; an unclaimed row (`None`) settles for nobody.
+#[must_use]
 pub fn may_settle(current_token: Option<&str>, presented: &str) -> bool {
     match current_token {
         Some(current) if !current.is_empty() && !presented.is_empty() => current == presented,
@@ -260,6 +287,7 @@ pub fn may_settle(current_token: Option<&str>, presented: &str) -> bool {
 /// presented generation is current, and no live lease under another
 /// owner blocks the steal. Same-owner renew and expired-lease reclaim
 /// pass; a live lease under another owner and any terminal row refuse.
+#[must_use]
 pub fn may_claim(
     state: EffectState,
     current_owner: Option<&str>,
@@ -305,6 +333,7 @@ pub fn check_replay(prepared_digest: &str, redigest: &str) -> Result<(), ReplayM
 
 /// Terminal success, if the state has a default exit at all. `Unknown` (and
 /// every non-terminal state) has none: uncertainty is not an outcome.
+#[must_use]
 pub fn terminal_success(state: crate::EffectState) -> Option<bool> {
     use crate::EffectState as S;
     match state {

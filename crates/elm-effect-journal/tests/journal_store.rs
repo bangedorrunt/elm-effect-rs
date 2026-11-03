@@ -369,3 +369,40 @@ fn no_issue_events_become_gate_rows() {
     let src = include_str!("../src/store.rs");
     assert!(!src.contains("gate"), "store must not know gates");
 }
+
+#[test]
+fn store_laws_hold_for_in_memory() {
+    let db = store();
+    let results = elm_effect_journal::laws::journal_store_all(&db);
+    assert_eq!(results.len(), 4);
+    for (name, result) in &results {
+        assert!(
+            result.is_ok(),
+            "law {name} failed: {:?}",
+            result.as_ref().err()
+        );
+    }
+}
+
+#[test]
+fn disposition_round_trips() {
+    use std::str::FromStr;
+    for d in [
+        Disposition::Continue,
+        Disposition::Retry,
+        Disposition::Reroute,
+        Disposition::Blocked,
+        Disposition::TerminalFailed,
+        Disposition::Cancelled,
+        Disposition::Reconcile,
+    ] {
+        assert_eq!(Disposition::from_str(d.as_str()).expect("parse"), d);
+        assert_eq!(Disposition::from_str(&d.to_string()).expect("parse"), d);
+        let json = serde_json::to_string(&d).expect("serialize");
+        assert_eq!(
+            serde_json::from_str::<Disposition>(&json).expect("deserialize"),
+            d
+        );
+    }
+    assert!(Disposition::from_str("nope").is_err());
+}

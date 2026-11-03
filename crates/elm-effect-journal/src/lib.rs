@@ -63,21 +63,25 @@ pub enum EffectState {
 
 impl EffectState {
     /// True for finished states (settled, failed, cancelled).
+    #[must_use]
     pub const fn is_terminal(self) -> bool {
         matches!(self, Self::Settled | Self::Failed | Self::Cancelled)
     }
 
     /// True for typed failure only.
+    #[must_use]
     pub const fn is_failed(self) -> bool {
         matches!(self, Self::Failed)
     }
 
     /// True for successful settlement only.
+    #[must_use]
     pub const fn is_settled(self) -> bool {
         matches!(self, Self::Settled)
     }
 
     /// True only for the resumable parked state.
+    #[must_use]
     pub const fn is_resumable(self) -> bool {
         matches!(self, Self::Parked)
     }
@@ -121,6 +125,7 @@ impl std::str::FromStr for EffectState {
 
 /// Golden transition table, exactly as toron-core. `const fn` so the
 /// registry and tests share one definition.
+#[must_use]
 pub const fn can_transition(from: EffectState, to: EffectState) -> bool {
     use EffectState as S;
     matches!(
@@ -147,6 +152,7 @@ pub const fn can_transition(from: EffectState, to: EffectState) -> bool {
 }
 
 /// Fold an [`Exit`](elm_effect::Exit) into registry vocabulary.
+#[must_use]
 pub fn settle_from_exit<A, E>(exit: &elm_effect::Exit<A, E>) -> EffectState {
     match exit {
         elm_effect::Exit::Success(_) => EffectState::Settled,
@@ -167,6 +173,6 @@ pub const fn transition(
 }
 
 /// Registry rejection.
-#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("illegal transition")]
 pub struct TransitionError;

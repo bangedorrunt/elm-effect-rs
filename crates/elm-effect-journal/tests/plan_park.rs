@@ -58,6 +58,35 @@ fn plan_park_refusal_no_wrap_due_now() {
 }
 
 #[test]
+fn zero_max_wait_uses_absolute_deadline() {
+    // max_wait_secs == 0 with a future until_ms waits the real duration.
+    match plan_park(10_000, 0, 0, None) {
+        ParkDecision::Wait { wait_ms, intent } => {
+            assert_eq!(wait_ms, 10_000);
+            assert_eq!(intent, park_intent(10_000, 10_000));
+        }
+        other => panic!("expected Wait, got {other:?}"),
+    }
+    // Same under an explicit ceiling the wait fits inside.
+    match plan_park(10_000, 0, 0, Some(60)) {
+        ParkDecision::Wait { wait_ms, .. } => assert_eq!(wait_ms, 10_000),
+        other => panic!("expected Wait, got {other:?}"),
+    }
+}
+
+#[test]
+fn zero_max_wait_cannot_bypass_ceiling() {
+    // 200_000 ms asks ceil(200_000/1000) = 200 s > 60 s: typed refusal.
+    assert_eq!(
+        plan_park(200_000, 0, 0, Some(60)),
+        ParkDecision::RefusedOverCeiling {
+            asked_secs: 200,
+            ceiling_secs: 60
+        }
+    );
+}
+
+#[test]
 fn second_pending_upsert_writes_nothing() {
     let mut store = PendingStore::new();
     assert!(store.is_empty());

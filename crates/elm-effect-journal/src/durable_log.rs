@@ -39,7 +39,7 @@
 //! carries `up_to_date` (caught up, more may arrive) separately from `closed`
 //! (EOF), the same split the stream header uses.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -268,12 +268,12 @@ fn fence_path(path: &Path) -> PathBuf {
 struct Store {
     entries: Vec<Stored>,
     /// Last accepted seq per `(producer_id, epoch)`.
-    last_seq: HashMap<(String, u64), u64>,
+    last_seq: BTreeMap<(String, u64), u64>,
     /// Newest epoch accepted per producer. Lower epochs are fenced.
-    max_epoch: HashMap<String, u64>,
+    max_epoch: BTreeMap<String, u64>,
     /// Offset and accepted payload per accepted triple. The payload lets a
     /// replay with the same triple be checked, not trusted blindly.
-    offsets: HashMap<(String, u64, u64), (u64, String)>,
+    offsets: BTreeMap<(String, u64, u64), (u64, String)>,
     next: u64,
     /// Once true, no append is admitted. Persisted by `FileLog`; `MemLog`
     /// keeps it in process.
@@ -660,7 +660,7 @@ impl Store {
 
 impl DurableLog for MemLog {
     fn append_json(&self, envelope: &str) -> Result<Offset, AppendError> {
-        let mut store = self.store.lock().unwrap();
+        let mut store = self.store.lock().expect("journal lock poisoned");
         let next = store.next;
         let offset = match store.admit(envelope, next)? {
             Admit::Duplicate(offset) => offset,
@@ -674,31 +674,41 @@ impl DurableLog for MemLog {
     }
 
     fn read_from(&self, from: &Offset) -> Result<Vec<(Offset, String)>, AppendError> {
-        self.store.lock().unwrap().read(from)
+        self.store.lock().expect("journal lock poisoned").read(from)
     }
 
     fn read_page(&self, from: &Offset, limit: usize) -> Result<Page, AppendError> {
-        self.store.lock().unwrap().page(from, limit)
+        self.store
+            .lock()
+            .expect("journal lock poisoned")
+            .page(from, limit)
     }
 
     fn compact_before(&self, before: &Offset) -> Result<usize, AppendError> {
-        let mut store = self.store.lock().unwrap();
+        let mut store = self.store.lock().expect("journal lock poisoned");
         let limit = store.compact_limit(before)?;
         Ok(store.compact_to(limit))
     }
 
     fn close(&self) -> Result<(), AppendError> {
-        self.store.lock().unwrap().mark_closed(None);
+        self.store
+            .lock()
+            .expect("journal lock poisoned")
+            .mark_closed(None);
         Ok(())
     }
 
     fn append_json_and_close(&self, envelope: &str) -> Result<Offset, AppendError> {
-        let offset = self.store.lock().unwrap().append_and_close(envelope)?;
+        let offset = self
+            .store
+            .lock()
+            .expect("journal lock poisoned")
+            .append_and_close(envelope)?;
         Ok(Offset::At(mint(offset)))
     }
 
     fn status(&self) -> Status {
-        status_of(&self.store.lock().unwrap())
+        status_of(&self.store.lock().expect("journal lock poisoned"))
     }
 }
 
@@ -722,6 +732,7 @@ impl FileLog {
             .create(true)
             .read(true)
             .write(true)
+            .truncate(false)
             .open(&fence)
             .map_err(storage)?;
         match fence_file.try_lock() {
@@ -828,7 +839,7 @@ impl FileLog {
 
 impl DurableLog for FileLog {
     fn append_json(&self, envelope: &str) -> Result<Offset, AppendError> {
-        let mut store = self.store.lock().unwrap();
+        let mut store = self.store.lock().expect("journal lock poisoned");
         let next = store.next;
         let offset = match store.admit(envelope, next)? {
             Admit::Duplicate(offset) => offset,
@@ -845,15 +856,18 @@ impl DurableLog for FileLog {
     }
 
     fn read_from(&self, from: &Offset) -> Result<Vec<(Offset, String)>, AppendError> {
-        self.store.lock().unwrap().read(from)
+        self.store.lock().expect("journal lock poisoned").read(from)
     }
 
     fn read_page(&self, from: &Offset, limit: usize) -> Result<Page, AppendError> {
-        self.store.lock().unwrap().page(from, limit)
+        self.store
+            .lock()
+            .expect("journal lock poisoned")
+            .page(from, limit)
     }
 
     fn compact_before(&self, before: &Offset) -> Result<usize, AppendError> {
-        let mut store = self.store.lock().unwrap();
+        let mut store = self.store.lock().expect("journal lock poisoned");
         let limit = store.compact_limit(before)?;
         // Rewrite the file before touching memory: if the rewrite fails, the
         // file and memory still agree.
@@ -863,7 +877,7 @@ impl DurableLog for FileLog {
     }
 
     fn close(&self) -> Result<(), AppendError> {
-        let mut store = self.store.lock().unwrap();
+        let mut store = self.store.lock().expect("journal lock poisoned");
         if store.closed {
             return Ok(());
         }
@@ -878,7 +892,7 @@ impl DurableLog for FileLog {
     }
 
     fn append_json_and_close(&self, envelope: &str) -> Result<Offset, AppendError> {
-        let mut store = self.store.lock().unwrap();
+        let mut store = self.store.lock().expect("journal lock poisoned");
         let (id, epoch, seq, _) = parse(envelope)?;
         let next = store.next;
         let offset = match store.admit(envelope, next)? {
@@ -909,7 +923,7 @@ impl DurableLog for FileLog {
     }
 
     fn status(&self) -> Status {
-        status_of(&self.store.lock().unwrap())
+        status_of(&self.store.lock().expect("journal lock poisoned"))
     }
 }
 

@@ -9,7 +9,9 @@
 //! Every law uses its own producer id, so the laws can share one log. Pass a
 //! log that has never seen the `laws/` producer namespace.
 
+use crate::EffectState;
 use crate::durable_log::{AppendError, DurableLog, Offset, SCHEMA_VERSION, Status};
+use crate::store::{Disposition, JournalStore};
 
 /// The JSON envelope every `DurableLog` accepts: schema version, the
 /// all-or-none producer triple, and an opaque payload.
@@ -259,5 +261,133 @@ pub fn closing() -> Vec<(&'static str, ClosingLaw)> {
     vec![
         ("close_contract", close_contract),
         ("append_and_close_contract", append_and_close_contract),
+    ]
+}
+
+// JournalStore laws: one `&dyn JournalStore` drives them all, so a
+// sibling's own store (SQLite, for one) runs exactly the checks
+// [`InMemoryStore`](crate::store::InMemoryStore) runs. Each law uses its
+// own `laws/` key, so the laws can share one store.
+
+/// Recording the same intent key twice returns the same row.
+pub fn intent_is_idempotent(store: &dyn JournalStore) -> Result<(), String> {
+    let first = store
+        .record_intent("laws/intent", 3)
+        .map_err(|e| format!("record_intent failed: {e}"))?;
+    let second = store
+        .record_intent("laws/intent", 3)
+        .map_err(|e| format!("second record_intent failed: {e}"))?;
+    if first != second {
+        return Err(format!(
+            "same key recorded twice diverged: {first:?} vs {second:?}"
+        ));
+    }
+    Ok(())
+}
+
+/// A live lease under another owner cannot be stolen; reclaim after expiry
+/// succeeds and moves the row to the new owner.
+pub fn claim_lease_is_fenced(store: &dyn JournalStore) -> Result<(), String> {
+    store
+        .record_intent("laws/claim", 3)
+        .map_err(|e| format!("record_intent failed: {e}"))?;
+    let row = store
+        .claim("laws/claim", "worker-a", 9_999, 0, 0)
+        .map_err(|e| format!("first claim failed: {e}"))?
+        .ok_or("first claim should succeed")?;
+    if store
+        .claim("laws/claim", "worker-b", 10_000, 0, row.generation)
+        .map_err(|e| format!("steal attempt failed: {e}"))?
+        .is_some()
+    {
+        return Err("stealing a live lease must return None".to_string());
+    }
+    let row = store
+        .claim("laws/claim", "worker-b", 20_000, 10_000, row.generation)
+        .map_err(|e| format!("reclaim after expiry failed: {e}"))?
+        .ok_or("reclaim after expiry should succeed")?;
+    if row.owner.as_deref() != Some("worker-b") {
+        return Err(format!(
+            "reclaim must move the row to worker-b, got {:?}",
+            row.owner
+        ));
+    }
+    Ok(())
+}
+
+/// A stale generation settles nothing; the current generation settles along
+/// a legal edge.
+pub fn settle_generation_is_fenced(store: &dyn JournalStore) -> Result<(), String> {
+    store
+        .record_intent("laws/settle", 3)
+        .map_err(|e| format!("record_intent failed: {e}"))?;
+    let row = store
+        .claim("laws/settle", "worker-a", 9_999, 0, 0)
+        .map_err(|e| format!("claim failed: {e}"))?
+        .ok_or("claim should succeed")?;
+    if store
+        .settle("laws/settle", 0, EffectState::InFlight)
+        .map_err(|e| format!("stale settle failed: {e}"))?
+        .is_some()
+    {
+        return Err("a stale generation must settle nothing".to_string());
+    }
+    let settled = store
+        .settle("laws/settle", row.generation, EffectState::InFlight)
+        .map_err(|e| format!("settle failed: {e}"))?
+        .ok_or("the current generation should settle")?;
+    if settled.state != EffectState::InFlight {
+        return Err(format!(
+            "settle must move Prepared to InFlight, got {:?}",
+            settled.state
+        ));
+    }
+    Ok(())
+}
+
+/// Attempts past `max_attempts` dead-letter: `Failed` plus
+/// [`TerminalFailed`](Disposition::TerminalFailed).
+pub fn attempts_dead_letter(store: &dyn JournalStore) -> Result<(), String> {
+    store
+        .record_intent("laws/dead-letter", 1)
+        .map_err(|e| format!("record_intent failed: {e}"))?;
+    let row = store
+        .claim("laws/dead-letter", "worker-a", 9_999, 0, 0)
+        .map_err(|e| format!("claim failed: {e}"))?
+        .ok_or("claim should succeed")?;
+    let generation = row.generation;
+    let row = store
+        .attempt("laws/dead-letter", generation)
+        .map_err(|e| format!("first attempt failed: {e}"))?
+        .ok_or("the first attempt should note")?;
+    if row.attempts != 1 || row.state != EffectState::Prepared {
+        return Err(format!(
+            "one attempt of one allowed must stay Prepared, got {:?}/{:?}",
+            row.attempts, row.state
+        ));
+    }
+    let row = store
+        .attempt("laws/dead-letter", generation)
+        .map_err(|e| format!("exhausting attempt failed: {e}"))?
+        .ok_or("the exhausting attempt should note")?;
+    if row.state != EffectState::Failed || row.disposition != Some(Disposition::TerminalFailed) {
+        return Err(format!(
+            "exhaustion must dead-letter (Failed + TerminalFailed), got {:?}/{:?}",
+            row.state, row.disposition
+        ));
+    }
+    Ok(())
+}
+
+/// Every [`JournalStore`] law, by name, with its outcome.
+pub fn journal_store_all(store: &dyn JournalStore) -> Vec<(&'static str, Result<(), String>)> {
+    vec![
+        ("intent_is_idempotent", intent_is_idempotent(store)),
+        ("claim_lease_is_fenced", claim_lease_is_fenced(store)),
+        (
+            "settle_generation_is_fenced",
+            settle_generation_is_fenced(store),
+        ),
+        ("attempts_dead_letter", attempts_dead_letter(store)),
     ]
 }

@@ -36,6 +36,20 @@ fn none_and_prepared_dispatch_new() {
 }
 
 #[test]
+fn prepared_live_lease_skips() {
+    // A Prepared row under a live lease is someone else's dispatch: skip,
+    // never DispatchNew over it.
+    assert_eq!(
+        plan_attempt(Some(&view(S::Prepared, 1, true)), &cap(true, true)),
+        DispatchPlan::SkipLeaseLive
+    );
+    assert_eq!(
+        plan_attempt(Some(&view(S::Prepared, 1, true)), &cap(false, false)),
+        DispatchPlan::SkipLeaseLive
+    );
+}
+
+#[test]
 fn reconcile_pending_refuses_blind_retry() {
     assert!(matches!(
         plan_attempt(Some(&view(S::ReconcilePending, 2, false)), &cap(true, true)),
