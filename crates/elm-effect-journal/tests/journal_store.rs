@@ -406,3 +406,50 @@ fn disposition_round_trips() {
     }
     assert!(Disposition::from_str("nope").is_err());
 }
+
+#[test]
+fn row_serde_roundtrip() {
+    let db = store();
+    db.record_intent("serde-1", 3).expect("record intent");
+    let row = db.get("serde-1").expect("get").expect("row");
+    let json = serde_json::to_string(&row).expect("serialize row");
+    assert_eq!(
+        serde_json::from_str::<elm_effect_journal::store::Row>(&json).expect("deserialize row"),
+        row
+    );
+}
+
+#[test]
+fn row_hashes() {
+    use std::collections::HashSet;
+    let db = store();
+    db.record_intent("hash-1", 3).expect("record intent");
+    let row = db.get("hash-1").expect("get").expect("row");
+    let mut set = HashSet::new();
+    set.insert(row);
+    assert_eq!(set.len(), 1);
+}
+
+#[test]
+fn read_serde_roundtrip() {
+    let db = store();
+    db.record_intent("serde-read", 3).expect("record intent");
+    let row = db.get("serde-read").expect("get").expect("row");
+    let entry = Read::Entry {
+        offset: row.offset,
+        row: row.clone(),
+    };
+    let json = serde_json::to_string(&entry).expect("serialize read");
+    assert_eq!(
+        serde_json::from_str::<Read>(&json).expect("deserialize read"),
+        entry
+    );
+    let gone = Read::Gone {
+        first_replayable: 7,
+    };
+    let json = serde_json::to_string(&gone).expect("serialize gone");
+    assert_eq!(
+        serde_json::from_str::<Read>(&json).expect("deserialize gone"),
+        gone
+    );
+}

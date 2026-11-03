@@ -198,3 +198,74 @@ fn check_settle_rejects_all_four_ways() {
         })
     );
 }
+
+fn assert_error<T: std::error::Error>(err: &T) -> String {
+    let displayed = err.to_string();
+    assert!(!displayed.is_empty(), "Display must not be empty");
+    assert!(std::error::Error::source(err).is_none());
+    displayed
+}
+
+#[test]
+fn claim_rejection_display_error_and_serde() {
+    for rejection in [
+        ClaimRejection::NotFound,
+        ClaimRejection::Terminal {
+            state: EffectState::Settled,
+        },
+        ClaimRejection::StaleGeneration {
+            expected: 2,
+            actual: 3,
+        },
+        ClaimRejection::LeaseLive {
+            owner: "w1".to_string(),
+            lease_deadline: 200,
+        },
+    ] {
+        assert_error(&rejection);
+        let json = serde_json::to_string(&rejection).expect("serialize claim rejection");
+        assert_eq!(
+            serde_json::from_str::<ClaimRejection>(&json).expect("deserialize claim rejection"),
+            rejection
+        );
+    }
+}
+
+#[test]
+fn settle_rejection_display_error_and_serde() {
+    for rejection in [
+        SettleRejection::NotFound,
+        SettleRejection::Terminal {
+            state: EffectState::Failed,
+        },
+        SettleRejection::StaleGeneration {
+            expected: 3,
+            actual: 4,
+        },
+        SettleRejection::IllegalTransition {
+            from: EffectState::Prepared,
+            to: EffectState::Settled,
+        },
+    ] {
+        assert_error(&rejection);
+        let json = serde_json::to_string(&rejection).expect("serialize settle rejection");
+        assert_eq!(
+            serde_json::from_str::<SettleRejection>(&json).expect("deserialize settle rejection"),
+            rejection
+        );
+    }
+}
+
+#[test]
+fn saga_plan_serde_roundtrip() {
+    let steps = vec![
+        step("a", SagaStepStatus::Completed),
+        step("b", SagaStepStatus::Completed),
+    ];
+    let plan = plan_saga_rollback(&steps);
+    let json = serde_json::to_string(&plan).expect("serialize saga plan");
+    assert_eq!(
+        serde_json::from_str::<SagaPlan>(&json).expect("deserialize saga plan"),
+        plan
+    );
+}

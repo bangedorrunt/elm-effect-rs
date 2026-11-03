@@ -131,3 +131,24 @@ fn parked_row_is_resumable_not_terminal() {
     assert!(!parked.is_terminal());
     assert!(!parked.is_failed());
 }
+
+#[test]
+fn park_decision_display_and_serde_roundtrip() {
+    for decision in [
+        ParkDecision::ResumeNow { overdue_ms: 150 },
+        ParkDecision::Wait {
+            wait_ms: 10_000,
+            intent: park_intent(10_000, 10_000),
+        },
+        ParkDecision::RefusedOverCeiling {
+            asked_secs: 90_000,
+            ceiling_secs: 86_400,
+        },
+    ] {
+        let json = serde_json::to_string(&decision).expect("serialize park decision");
+        assert_eq!(
+            serde_json::from_str::<ParkDecision>(&json).expect("deserialize park decision"),
+            decision
+        );
+    }
+}

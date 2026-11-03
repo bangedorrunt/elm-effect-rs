@@ -24,7 +24,7 @@ pub enum SagaStepStatus {
 }
 
 /// One forward step plus its precomputed compensation key.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SagaStep {
     /// The forward step's key.
     pub step_key: String,
@@ -35,7 +35,7 @@ pub struct SagaStep {
 }
 
 /// The rollback to run: compensations in the order to execute them.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SagaPlan {
     /// Compensation keys, strict LIFO over the completed steps.
     pub compensations: Vec<String>,

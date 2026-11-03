@@ -137,3 +137,93 @@ fn unknown_has_no_default_exit() {
     assert_eq!(terminal_success(S::Settled), Some(true));
     assert_eq!(terminal_success(S::Failed), Some(false));
 }
+
+fn assert_error<T: std::error::Error>(err: &T) -> String {
+    let displayed = err.to_string();
+    assert!(!displayed.is_empty(), "Display must not be empty");
+    assert!(std::error::Error::source(err).is_none());
+    displayed
+}
+
+#[test]
+fn claim_rejection_display_error_and_serde() {
+    use plan::ClaimRejection;
+    for rejection in [
+        ClaimRejection::NotFound,
+        ClaimRejection::Terminal { state: S::Settled },
+        ClaimRejection::StaleGeneration {
+            expected: 2,
+            actual: 3,
+        },
+        ClaimRejection::LeaseLive {
+            owner: "w1".to_string(),
+            lease_deadline: 200,
+        },
+    ] {
+        assert_error(&rejection);
+        let json = serde_json::to_string(&rejection).expect("serialize claim rejection");
+        assert_eq!(
+            serde_json::from_str::<ClaimRejection>(&json).expect("deserialize claim rejection"),
+            rejection
+        );
+    }
+}
+
+#[test]
+fn settle_rejection_display_error_and_serde() {
+    use plan::SettleRejection;
+    for rejection in [
+        SettleRejection::NotFound,
+        SettleRejection::Terminal { state: S::Failed },
+        SettleRejection::StaleGeneration {
+            expected: 3,
+            actual: 4,
+        },
+        SettleRejection::IllegalTransition {
+            from: S::Prepared,
+            to: S::Settled,
+        },
+    ] {
+        assert_error(&rejection);
+        let json = serde_json::to_string(&rejection).expect("serialize settle rejection");
+        assert_eq!(
+            serde_json::from_str::<SettleRejection>(&json).expect("deserialize settle rejection"),
+            rejection
+        );
+    }
+}
+
+#[test]
+fn replay_mismatch_display_error_and_serde() {
+    use plan::ReplayMismatch;
+    let err = plan::check_replay("abc", "xyz").expect_err("mismatch is typed");
+    assert_error(&err);
+    let json = serde_json::to_string(&err).expect("serialize replay mismatch");
+    assert_eq!(
+        serde_json::from_str::<ReplayMismatch>(&json).expect("deserialize replay mismatch"),
+        err
+    );
+}
+
+#[test]
+fn dispatch_plan_serde_roundtrip() {
+    for plan in [
+        DispatchPlan::DispatchNew,
+        DispatchPlan::SkipLeaseLive,
+        DispatchPlan::RetrySameKey { attempt: 5 },
+        DispatchPlan::ReconcileFirst {
+            reason: "ask first".to_string(),
+        },
+        DispatchPlan::RefuseBlindRetry {
+            reason: "no contract".to_string(),
+        },
+        DispatchPlan::DuplicateTerminal,
+        DispatchPlan::ResumeParked { attempt: 1 },
+    ] {
+        let json = serde_json::to_string(&plan).expect("serialize dispatch plan");
+        assert_eq!(
+            serde_json::from_str::<DispatchPlan>(&json).expect("deserialize dispatch plan"),
+            plan
+        );
+    }
+}

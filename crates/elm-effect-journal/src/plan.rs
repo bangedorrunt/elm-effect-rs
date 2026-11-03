@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 pub const DEFAULT_CEILING_SECS: u64 = 86_400;
 
 /// What a park computation decides.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ParkDecision {
     /// The deadline already passed; resume now, reporting how overdue in ms.
     ResumeNow {
@@ -44,7 +44,7 @@ pub enum ParkDecision {
 }
 
 /// Value built before a wait (never built for `ResumeNow`).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ParkIntent {
     /// Absolute deadline in ms.
     pub until_ms: u64,
@@ -53,6 +53,7 @@ pub struct ParkIntent {
 }
 
 /// Build the pre-wait value.
+#[must_use]
 pub fn park_intent(until_ms: u64, wait_ms: u64) -> ParkIntent {
     ParkIntent { until_ms, wait_ms }
 }
@@ -104,7 +105,7 @@ pub fn plan_park(
 }
 
 /// Identity of one parked wait.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PendingKey {
     /// Run the wait belongs to.
     pub run_id: String,
@@ -115,7 +116,7 @@ pub struct PendingKey {
 }
 
 /// One persisted pending row.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PendingRow {
     /// Idempotency key.
     pub key: PendingKey,
@@ -132,6 +133,7 @@ pub struct PendingStore {
 
 impl PendingStore {
     /// Empty store.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             rows: BTreeMap::new(),
@@ -149,16 +151,19 @@ impl PendingStore {
     }
 
     /// Look up a pending row.
+    #[must_use]
     pub fn get(&self, key: &PendingKey) -> Option<&PendingRow> {
         self.rows.get(key)
     }
 
     /// Stored row count.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.rows.len()
     }
 
     /// `true` with no rows.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.rows.is_empty()
     }
@@ -172,7 +177,7 @@ impl PendingStore {
 use crate::{EffectState, can_transition};
 
 /// The journaled facts one dispatch decision needs (no I/O to build).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct EffectView {
     /// The row's current state.
     pub state: EffectState,
@@ -184,7 +189,7 @@ pub struct EffectView {
 
 /// What the provider offers: an idempotency key, a reconcile query, both,
 /// or neither. A query beats a key: never dispatch blind when asked first.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ProviderCapability {
     /// Redispatching the same key is safe.
     pub supports_idempotency_key: bool,
@@ -193,7 +198,7 @@ pub struct ProviderCapability {
 }
 
 /// What the dispatcher may do next.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DispatchPlan {
     /// No intent or a fresh intent: commit intent, then dispatch attempt one.
     DispatchNew,
@@ -314,7 +319,8 @@ pub fn may_claim(
 
 /// Replay guard: a digest mismatch is a typed error and mints no second
 /// effect key (the caller simply does not proceed).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, thiserror::Error)]
+#[error("replay digest mismatch: prepared {prepared:?} != redigest {redigest:?}")]
 pub struct ReplayMismatch {
     /// The digest recorded at prepare time.
     pub prepared: String,
@@ -349,16 +355,19 @@ pub fn terminal_success(state: crate::EffectState) -> Option<bool> {
 /// Why a claim was refused. The typed form of [`may_claim`]: every `false`
 /// from `may_claim` maps to exactly one variant here, in the same check
 /// order (terminal, then generation, then lease).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, thiserror::Error)]
 pub enum ClaimRejection {
     /// No row for the key; there is nothing to claim.
+    #[error("no row for the key; there is nothing to claim")]
     NotFound,
     /// The row is finished; terminal rows never move.
+    #[error("terminal row {state} never moves")]
     Terminal {
         /// The finished state that refused the claim.
         state: EffectState,
     },
     /// The presented generation is not current; a zombie claims nothing.
+    #[error("stale generation: presented {expected} != current {actual}")]
     StaleGeneration {
         /// The generation the caller presented.
         expected: u64,
@@ -366,6 +375,7 @@ pub enum ClaimRejection {
         actual: u64,
     },
     /// A live lease under another owner blocks the steal.
+    #[error("live lease under {owner} until {lease_deadline} blocks the steal")]
     LeaseLive {
         /// The owner holding the live lease.
         owner: String,
@@ -376,8 +386,6 @@ pub enum ClaimRejection {
 
 /// Typed claim fence: `Ok(())` claims, `Err` names why not. Agrees with
 /// [`may_claim`] on every input (`Ok` exactly when `may_claim` is true).
-#[must_use]
-#[allow(clippy::double_must_use)]
 pub fn check_claim(
     state: EffectState,
     current_owner: Option<&str>,
@@ -410,16 +418,19 @@ pub fn check_claim(
 
 /// Why a settle was refused. The typed form of the store's settle fence:
 /// stale generations, illegal edges, and terminal rows settle nothing.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, thiserror::Error)]
 pub enum SettleRejection {
     /// No row for the key; there is nothing to settle.
+    #[error("no row for the key; there is nothing to settle")]
     NotFound,
     /// The row is finished; terminal rows never move.
+    #[error("terminal row {state} never moves")]
     Terminal {
         /// The finished state that refused the settle.
         state: EffectState,
     },
     /// The presented generation is not current; a zombie settles nothing.
+    #[error("stale generation: presented {expected} != current {actual}")]
     StaleGeneration {
         /// The generation the caller presented.
         expected: u64,
@@ -427,6 +438,7 @@ pub enum SettleRejection {
         actual: u64,
     },
     /// The golden table admits no such edge.
+    #[error("illegal transition from {from} to {to}")]
     IllegalTransition {
         /// The row's current state.
         from: EffectState,
@@ -437,8 +449,6 @@ pub enum SettleRejection {
 
 /// Typed settle fence: `Ok(())` settles, `Err` names why not. Check order
 /// is absence, then terminal, then generation, then the golden table.
-#[must_use]
-#[allow(clippy::double_must_use)]
 pub fn check_settle(
     current: Option<(EffectState, u64)>,
     expected_generation: u64,

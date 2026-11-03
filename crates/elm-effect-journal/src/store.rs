@@ -23,7 +23,7 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
-use super::{EffectState, can_transition};
+use super::EffectState;
 
 /// A host journal could not complete an operation.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
@@ -98,7 +98,7 @@ impl std::str::FromStr for Disposition {
 }
 
 /// One journal row.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Row {
     /// Stable intent key (retries reuse it).
     pub key: String,
@@ -121,7 +121,7 @@ pub struct Row {
 }
 
 /// Offset read outcome.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Read {
     /// Entry at this offset.
     Entry {
@@ -215,6 +215,7 @@ struct Inner {
 
 impl InMemoryStore {
     /// Build keeping the last `retention` offset entries.
+    #[must_use]
     pub fn new(retention: usize) -> Self {
         Self {
             inner: Mutex::new(Inner {
@@ -305,13 +306,7 @@ impl JournalStore for InMemoryStore {
         let Some(row) = inner.rows.get(key).cloned() else {
             return Ok(None);
         };
-        if row.generation != generation {
-            return Ok(None);
-        }
-        if row.state.is_terminal() {
-            return Ok(None);
-        }
-        if !can_transition(row.state, to) {
+        if super::plan::check_settle(Some((row.state, row.generation)), generation, to).is_err() {
             return Ok(None);
         }
         let mut next = row.clone();
