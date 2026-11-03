@@ -6,6 +6,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
+use elm_effect_durable::lease::HeartbeatOutcome;
 use elm_effect_durable::{
     DurableEngine, EngineError, EngineStorage, MemStorage, OurEngine, ParkOutcome, ParkedRow,
     RunPhase, RunRow, StartOptions, StartOutcome, StorageError,
@@ -359,4 +360,39 @@ fn reconcile_and_expire_lease_propagate_storage_error_without_corrupting_state()
             "journal truth must survive a failed projection"
         );
     }
+}
+
+#[test]
+fn heartbeat_propagates_commit_run_error_and_renews_on_retry() {
+    let flag = FailFlag::new();
+    let mut eng = OurEngine::with_storage(FaultyStore::faulty(&flag));
+    let opts = StartOptions {
+        max_attempts: 8,
+        lease_ms: 10_000,
+        owner: "worker".into(),
+    };
+    let StartOutcome::Started { generation } =
+        eng.start_with("sk-hb", 0, &opts).expect("control start")
+    else {
+        panic!("start_with must Start");
+    };
+    let before = eng.query("sk-hb").expect("control query");
+    flag.set("commit_run");
+    let err = eng
+        .heartbeat("sk-hb", generation, "worker", 20_000, 0)
+        .expect_err("heartbeat must propagate commit_run error");
+    assert!(is_storage(&err), "heartbeat: expected Storage, got {err:?}");
+    flag.set("");
+    // The failed projection wrote nothing to storage; the retry renews.
+    assert_eq!(eng.query("sk-hb").expect("run stays queryable"), before);
+    match eng
+        .heartbeat("sk-hb", generation, "worker", 20_000, 0)
+        .expect("retry after clearing the flag")
+    {
+        HeartbeatOutcome::Renewed { lease_deadline, .. } => {
+            assert_eq!(lease_deadline, 20_000);
+        }
+        other => panic!("retry must renew: {other:?}"),
+    }
+    assert_eq!(eng.query("sk-hb").expect("query").phase, RunPhase::Running);
 }

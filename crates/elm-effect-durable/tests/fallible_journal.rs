@@ -6,11 +6,13 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
+use elm_effect_durable::lease::HeartbeatOutcome;
 use elm_effect_durable::{
     DurableEngine, EngineError, MemStorage, OurEngine, ParkOutcome, RunPhase, StartOptions,
     StartOutcome,
 };
 use elm_effect_journal::EffectState;
+use elm_effect_journal::plan::HeartbeatRejection;
 use elm_effect_journal::store::{InMemoryStore, JournalError, JournalStore, Read, Row};
 
 /// Shared failure flag: the test flips it, the store reads it.
@@ -72,6 +74,21 @@ impl JournalStore for FaultyJournal {
         }
         self.inner
             .claim(key, owner, lease_deadline, now_ms, expected_generation)
+    }
+
+    fn renew_lease(
+        &self,
+        key: &str,
+        owner: &str,
+        lease_deadline: i64,
+        now_ms: i64,
+        expected_generation: u64,
+    ) -> Result<Option<Row>, JournalError> {
+        if self.flag.trips("renew_lease") {
+            return Err(Self::injected());
+        }
+        self.inner
+            .renew_lease(key, owner, lease_deadline, now_ms, expected_generation)
     }
 
     fn settle(
@@ -345,5 +362,59 @@ fn reconcile_and_expire_lease_propagate_journal_error_without_corrupting_state()
             .expect("retry after clearing the flag")
             .expect("expired lease must transition");
         assert_eq!(updated.state, EffectState::Unknown);
+    }
+}
+
+#[test]
+fn heartbeat_propagates_renew_lease_error_and_renews_on_retry() {
+    let flag = FailFlag::new();
+    let mut eng = engine(&flag);
+    let opts = StartOptions {
+        max_attempts: 8,
+        lease_ms: 10_000,
+        owner: "worker".into(),
+    };
+    let StartOutcome::Started { generation } =
+        eng.start_with("jk-hb", 0, &opts).expect("control start")
+    else {
+        panic!("start_with must Start");
+    };
+    flag.set("renew_lease");
+    let err = eng
+        .heartbeat("jk-hb", generation, "worker", 20_000, 0)
+        .expect_err("heartbeat must propagate renew_lease error");
+    assert!(is_journal(&err), "heartbeat: expected Journal, got {err:?}");
+    flag.set("");
+    // The injected failure wrote nothing: the deadline is still the start's.
+    let row = eng.journal().get("jk-hb").expect("get").expect("row");
+    assert_eq!(row.lease_deadline, Some(10_000));
+    match eng
+        .heartbeat("jk-hb", generation, "worker", 20_000, 0)
+        .expect("retry after clearing the flag")
+    {
+        HeartbeatOutcome::Renewed { lease_deadline, .. } => {
+            assert_eq!(lease_deadline, 20_000);
+        }
+        other => panic!("retry must renew: {other:?}"),
+    }
+}
+
+#[test]
+fn heartbeat_propagates_get_error_on_the_refusal_path() {
+    let flag = FailFlag::new();
+    let mut eng = engine(&flag);
+    flag.set("get");
+    let err = eng
+        .heartbeat("jk-hb-nope", 0, "nobody", 10_000, 0)
+        .expect_err("heartbeat must propagate get error");
+    assert!(is_journal(&err), "heartbeat: expected Journal, got {err:?}");
+    flag.set("");
+    // Retry finds no row: a typed refusal, not an error.
+    match eng
+        .heartbeat("jk-hb-nope", 0, "nobody", 10_000, 0)
+        .expect("retry after clearing the flag")
+    {
+        HeartbeatOutcome::Rejected(HeartbeatRejection::NotFound) => {}
+        other => panic!("absent key must be NotFound: {other:?}"),
     }
 }

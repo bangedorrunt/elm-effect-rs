@@ -407,6 +407,86 @@ pub fn check_claim(
     Ok(())
 }
 
+/// Why a heartbeat was refused. The typed form of the renew fence: terminal
+/// rows never renew, a zombie generation renews nothing, a non-running row
+/// holds no live lease, a foreign owner steals nothing, and a lapsed
+/// deadline renews nothing.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, thiserror::Error)]
+pub enum HeartbeatRejection {
+    /// No row for the key; there is nothing to renew.
+    #[error("no row for the key; there is nothing to renew")]
+    NotFound,
+    /// The row is finished; terminal rows never renew.
+    #[error("terminal row {state} never renews")]
+    Terminal {
+        /// The finished state that refused the heartbeat.
+        state: EffectState,
+    },
+    /// The presented generation is not current; a zombie renews nothing.
+    #[error("stale generation: presented {expected} != current {actual}")]
+    StaleGeneration {
+        /// The generation the caller presented.
+        expected: u64,
+        /// The generation the row actually holds.
+        actual: u64,
+    },
+    /// The row holds no live lease; only `InFlight` and `Accepted` rows renew.
+    #[error("row is {state}, not a live lease holder")]
+    NotRunning {
+        /// The state that refused the heartbeat.
+        state: EffectState,
+    },
+    /// A live lease under another owner blocks the renew.
+    #[error("lease held by {owner:?}, not the heartbeating worker")]
+    NotOwner {
+        /// The owner that actually holds the lease, if any.
+        owner: Option<String>,
+    },
+    /// The lease already lapsed; a dead lease renews nothing (expire it).
+    #[error("lease already expired (deadline {lease_deadline:?})")]
+    LeaseExpired {
+        /// The deadline that lapsed, if the row ever held one.
+        lease_deadline: Option<i64>,
+    },
+}
+
+/// Typed renew fence: `Ok(())` renews, `Err` names why not. Check order is
+/// terminal, then generation, then running state, then owner, then lease. A
+/// `None` deadline (or one at or before `now_ms`) is already expired.
+pub fn check_heartbeat(
+    state: EffectState,
+    current_owner: Option<&str>,
+    current_deadline: Option<i64>,
+    owner: &str,
+    now_ms: i64,
+    expected_generation: u64,
+    current_generation: u64,
+) -> Result<(), HeartbeatRejection> {
+    if state.is_terminal() {
+        return Err(HeartbeatRejection::Terminal { state });
+    }
+    if expected_generation != current_generation {
+        return Err(HeartbeatRejection::StaleGeneration {
+            expected: expected_generation,
+            actual: current_generation,
+        });
+    }
+    if !matches!(state, EffectState::InFlight | EffectState::Accepted) {
+        return Err(HeartbeatRejection::NotRunning { state });
+    }
+    if current_owner != Some(owner) {
+        return Err(HeartbeatRejection::NotOwner {
+            owner: current_owner.map(str::to_string),
+        });
+    }
+    if current_deadline.is_none_or(|deadline| deadline <= now_ms) {
+        return Err(HeartbeatRejection::LeaseExpired {
+            lease_deadline: current_deadline,
+        });
+    }
+    Ok(())
+}
+
 /// Why a settle was refused. The typed form of the store's settle fence:
 /// stale generations, illegal edges, and terminal rows settle nothing.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, thiserror::Error)]

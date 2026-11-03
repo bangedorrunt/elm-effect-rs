@@ -379,6 +379,121 @@ pub fn attempts_dead_letter(store: &dyn JournalStore) -> Result<(), String> {
     Ok(())
 }
 
+/// A live lease renews without moving the fence; the deadline moves, the
+/// owner and generation stay.
+fn heartbeat_renews_the_lease(store: &dyn JournalStore) -> Result<(), String> {
+    store
+        .record_intent("laws/renew", 3)
+        .map_err(|e| format!("record_intent failed: {e}"))?;
+    let row = store
+        .claim("laws/renew", "worker-a", 9_999, 0, 0)
+        .map_err(|e| format!("claim failed: {e}"))?
+        .ok_or("claim should succeed")?;
+    // A claim leaves the row Prepared; heartbeats need a live lease holder.
+    let row = store
+        .settle("laws/renew", row.generation, EffectState::InFlight)
+        .map_err(|e| format!("settle to InFlight failed: {e}"))?
+        .ok_or("settle to InFlight should succeed")?;
+    let renewed = store
+        .renew_lease("laws/renew", "worker-a", 20_000, 5_000, row.generation)
+        .map_err(|e| format!("renew_lease failed: {e}"))?
+        .ok_or("a live holder must renew")?;
+    if renewed.generation != row.generation {
+        return Err(format!(
+            "a renew must not move the fence: {} vs {}",
+            renewed.generation, row.generation
+        ));
+    }
+    if renewed.lease_deadline != Some(20_000) {
+        return Err(format!(
+            "a renew must move the deadline, got {:?}",
+            renewed.lease_deadline
+        ));
+    }
+    if renewed.owner.as_deref() != Some("worker-a") {
+        return Err(format!(
+            "a renew must keep the owner, got {:?}",
+            renewed.owner
+        ));
+    }
+    Ok(())
+}
+
+/// Every fence the renew refuses: stale generation, foreign owner, lapsed
+/// deadline, terminal row, non-running row, absent key. Each writes nothing.
+fn heartbeat_refusals_renew_nothing(store: &dyn JournalStore) -> Result<(), String> {
+    let refused = |key: &str, owner: &str, deadline: i64, now: i64, fence: u64| {
+        let before = store
+            .get(key)
+            .map_err(|e| format!("get({key}) failed: {e}"))?;
+        let out = store
+            .renew_lease(key, owner, deadline, now, fence)
+            .map_err(|e| format!("renew_lease({key}) failed: {e}"))?;
+        if out.is_some() {
+            return Err(format!("renew_lease({key}) must refuse"));
+        }
+        let after = store
+            .get(key)
+            .map_err(|e| format!("get({key}) failed: {e}"))?;
+        if before != after {
+            return Err(format!("a refused renew must write nothing ({key})"));
+        }
+        Ok(())
+    };
+    // Absent key.
+    refused("laws/renew-nope", "nobody", 9_999, 0, 0)?;
+    // Live row for the fence cases below.
+    store
+        .record_intent("laws/renew-fence", 3)
+        .map_err(|e| format!("record_intent failed: {e}"))?;
+    let row = store
+        .claim("laws/renew-fence", "worker-a", 9_999, 0, 0)
+        .map_err(|e| format!("claim failed: {e}"))?
+        .ok_or("claim should succeed")?;
+    let row = store
+        .settle("laws/renew-fence", row.generation, EffectState::InFlight)
+        .map_err(|e| format!("settle to InFlight failed: {e}"))?
+        .ok_or("settle to InFlight should succeed")?;
+    // Zombie generation.
+    refused("laws/renew-fence", "worker-a", 20_000, 0, 0)?;
+    // Foreign owner.
+    refused("laws/renew-fence", "worker-b", 20_000, 0, row.generation)?;
+    // Lapsed deadline (deadline == now is already expired).
+    refused(
+        "laws/renew-fence",
+        "worker-a",
+        20_000,
+        9_999,
+        row.generation,
+    )?;
+    // Terminal row.
+    store
+        .settle("laws/renew-fence", row.generation, EffectState::Settled)
+        .map_err(|e| format!("settle failed: {e}"))?;
+    refused("laws/renew-fence", "worker-a", 20_000, 0, row.generation)?;
+    // Prepared (non-running) row.
+    store
+        .record_intent("laws/renew-prepared", 3)
+        .map_err(|e| format!("record_intent failed: {e}"))?;
+    refused("laws/renew-prepared", "worker-a", 20_000, 0, 0)?;
+    Ok(())
+}
+
+/// Lease-renewal laws, by name, with outcomes.
+/// [`journal_store_all`] keeps its identical case list.
+pub fn journal_lease_laws(store: &dyn JournalStore) -> Vec<(&'static str, Result<(), String>)> {
+    vec![
+        (
+            "heartbeat_renews_the_lease",
+            heartbeat_renews_the_lease(store),
+        ),
+        (
+            "heartbeat_refusals_renew_nothing",
+            heartbeat_refusals_renew_nothing(store),
+        ),
+    ]
+}
+
 /// Every [`JournalStore`] law, by name, with its outcome.
 pub fn journal_store_all(store: &dyn JournalStore) -> Vec<(&'static str, Result<(), String>)> {
     vec![

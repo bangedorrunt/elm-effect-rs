@@ -162,6 +162,27 @@ pub trait JournalStore {
         now_ms: i64,
         expected_generation: u64,
     ) -> Result<Option<Row>, JournalError>;
+    /// Renew the lease on a live holder without moving the fence: owner and
+    /// generation stay, `lease_deadline` moves, the offset commits like
+    /// every other transition. A refused fence returns `Ok(None)` and writes
+    /// nothing. Stores that cannot hold leases keep the loud default, which
+    /// fails only when a caller actually renews.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`JournalError`] when the host store cannot read or write.
+    fn renew_lease(
+        &self,
+        _key: &str,
+        _owner: &str,
+        _lease_deadline: i64,
+        _now_ms: i64,
+        _expected_generation: u64,
+    ) -> Result<Option<Row>, JournalError> {
+        Err(JournalError::Rejected(
+            "renew_lease unsupported by this store".into(),
+        ))
+    }
     /// Settle toward `to` carrying `generation`; stale generations,
     /// illegal edges, and terminal rows settle nothing.
     ///
@@ -292,6 +313,39 @@ impl JournalStore for InMemoryStore {
         row.owner = Some(owner.to_string());
         row.lease_deadline = Some(lease_deadline);
         row.generation += 1;
+        self.commit(&mut inner, key, &row);
+        Ok(Some(inner.rows[key].clone()))
+    }
+
+    fn renew_lease(
+        &self,
+        key: &str,
+        owner: &str,
+        lease_deadline: i64,
+        now_ms: i64,
+        expected_generation: u64,
+    ) -> Result<Option<Row>, JournalError> {
+        let mut inner = self.inner.lock().expect("journal lock poisoned");
+        let Some(row) = inner.rows.get(key).cloned() else {
+            return Ok(None);
+        };
+        if super::plan::check_heartbeat(
+            row.state,
+            row.owner.as_deref(),
+            row.lease_deadline,
+            owner,
+            now_ms,
+            expected_generation,
+            row.generation,
+        )
+        .is_err()
+        {
+            return Ok(None);
+        }
+        // The fence does not move: the same holder keeps the same
+        // generation under a later deadline. A refusal writes nothing.
+        let mut row = row;
+        row.lease_deadline = Some(lease_deadline);
         self.commit(&mut inner, key, &row);
         Ok(Some(inner.rows[key].clone()))
     }
