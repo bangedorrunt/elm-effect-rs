@@ -125,6 +125,20 @@ pub trait EngineStorage {
     fn clear_signals(&mut self, _key: &str) -> Result<(), StorageError> {
         Ok(())
     }
+    /// Read the replay digest recorded for `key`, if any. A store that
+    /// does not adopt guarded starts fails loudly only when called.
+    fn get_digest(&self, _key: &str) -> Result<Option<String>, StorageError> {
+        Err(StorageError::Rejected(
+            "digests unsupported by this store".into(),
+        ))
+    }
+    /// Record the replay digest for `key`. Called before the start it
+    /// guards, so a crash cannot start an unrecorded run.
+    fn set_digest(&mut self, _key: &str, _digest: &str) -> Result<(), StorageError> {
+        Err(StorageError::Rejected(
+            "digests unsupported by this store".into(),
+        ))
+    }
 }
 
 /// In-memory storage for tests and single-process hosts.
@@ -140,6 +154,8 @@ pub struct MemStorage {
     consumed: std::collections::BTreeSet<(String, String)>,
     /// Next `seq` per key (monotonic; never reset by takes or clears).
     next_seq: std::collections::BTreeMap<String, u64>,
+    /// Replay digests for guarded starts, keyed by run key.
+    digests: std::collections::BTreeMap<String, String>,
 }
 
 impl MemStorage {
@@ -284,6 +300,58 @@ fn law_signal_isolation(store: &mut dyn EngineStorage) -> Result<(), String> {
     law_ok(
         store.pending_signals("sig-k2").map_err(law_err)?.len() == 1,
         "clear touches only its key",
+    )
+}
+
+/// Conformance laws for replay digests on any [`EngineStorage`]. Opt-in
+/// per rule 4; a sibling host runs these against its own store to adopt
+/// guarded starts explicitly.
+///
+/// Returns `(name, outcome)` per law. A host fails the suite when any
+/// outcome is `Err`.
+///
+/// Re-exported through the feature module until the integration bead
+/// adds the crate-root re-export (§8).
+pub fn digest_storage_laws(
+    store: &mut dyn EngineStorage,
+) -> Vec<(&'static str, Result<(), String>)> {
+    vec![
+        ("absent digest reads None", law_digest_absent(store)),
+        ("set then get roundtrips", law_digest_roundtrip(store)),
+        ("overwrite replaces", law_digest_overwrite(store)),
+        ("keys are isolated", law_digest_isolation(store)),
+    ]
+}
+
+fn law_digest_absent(store: &mut dyn EngineStorage) -> Result<(), String> {
+    law_ok(
+        store.get_digest("dig-nope").map_err(law_err)?.is_none(),
+        "absent digest must be None",
+    )
+}
+
+fn law_digest_roundtrip(store: &mut dyn EngineStorage) -> Result<(), String> {
+    store.set_digest("dig-rw", "abc").map_err(law_err)?;
+    law_ok(
+        store.get_digest("dig-rw").map_err(law_err)?.as_deref() == Some("abc"),
+        "digest survives the roundtrip",
+    )
+}
+
+fn law_digest_overwrite(store: &mut dyn EngineStorage) -> Result<(), String> {
+    store.set_digest("dig-ow", "one").map_err(law_err)?;
+    store.set_digest("dig-ow", "two").map_err(law_err)?;
+    law_ok(
+        store.get_digest("dig-ow").map_err(law_err)?.as_deref() == Some("two"),
+        "a crash-after-write recovery overwrites",
+    )
+}
+
+fn law_digest_isolation(store: &mut dyn EngineStorage) -> Result<(), String> {
+    store.set_digest("dig-k1", "1").map_err(law_err)?;
+    law_ok(
+        store.get_digest("dig-k2").map_err(law_err)?.is_none(),
+        "digests touch only their key",
     )
 }
 
@@ -540,6 +608,15 @@ impl EngineStorage for MemStorage {
     fn clear_signals(&mut self, key: &str) -> Result<(), StorageError> {
         self.signals.retain(|(k, _), _| k != key);
         self.consumed.retain(|(k, _)| k != key);
+        Ok(())
+    }
+
+    fn get_digest(&self, key: &str) -> Result<Option<String>, StorageError> {
+        Ok(self.digests.get(key).cloned())
+    }
+
+    fn set_digest(&mut self, key: &str, digest: &str) -> Result<(), StorageError> {
+        self.digests.insert(key.to_string(), digest.to_string());
         Ok(())
     }
 }
