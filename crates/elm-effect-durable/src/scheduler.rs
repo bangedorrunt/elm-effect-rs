@@ -3,7 +3,7 @@
 use crate::storage::ParkedRow;
 
 /// One due wake the runtime should turn into a Msg.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[must_use]
 pub struct WakeIntent {
     /// Run key.
@@ -38,6 +38,61 @@ pub fn due_wakes(parked: &[ParkedRow], now_ms: u64) -> Vec<WakeIntent> {
             overdue_ms: now_ms.saturating_sub(r.until_ms),
         })
         .collect()
+}
+
+/// Pure child fan-out join evaluation: one pass over child phases.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[must_use]
+pub enum JoinOutcome {
+    /// Every child settled (or no children at all).
+    AllSettled,
+    /// Some children still Running or Parked.
+    Pending {
+        /// Keys still outstanding, in slice order.
+        remaining: Vec<String>,
+    },
+    /// At least one child Failed, Cancelled, or Unknown.
+    Failed {
+        /// Keys by terminal kind, each in deterministic slice order.
+        failed: Vec<String>,
+        cancelled: Vec<String>,
+        unknown: Vec<String>,
+    },
+}
+
+/// Evaluate a fan-out join without I/O.
+///
+/// Terminal failure wins over pending: any Failed/Cancelled/Unknown child
+/// short-circuits to [`JoinOutcome::Failed`] even when other children are
+/// still Running or Parked. Otherwise any Running/Parked child yields
+/// [`JoinOutcome::Pending`]; all Settled (or empty) is [`JoinOutcome::AllSettled`].
+#[must_use]
+pub fn plan_join(children: &[(String, crate::engine::RunPhase)]) -> JoinOutcome {
+    use crate::engine::RunPhase;
+    let mut failed = Vec::new();
+    let mut cancelled = Vec::new();
+    let mut unknown = Vec::new();
+    let mut remaining = Vec::new();
+    for (key, phase) in children {
+        match phase {
+            RunPhase::Failed => failed.push(key.clone()),
+            RunPhase::Cancelled => cancelled.push(key.clone()),
+            RunPhase::Unknown => unknown.push(key.clone()),
+            RunPhase::Running | RunPhase::Parked => remaining.push(key.clone()),
+            RunPhase::Settled => {}
+        }
+    }
+    if !failed.is_empty() || !cancelled.is_empty() || !unknown.is_empty() {
+        JoinOutcome::Failed {
+            failed,
+            cancelled,
+            unknown,
+        }
+    } else if remaining.is_empty() {
+        JoinOutcome::AllSettled
+    } else {
+        JoinOutcome::Pending { remaining }
+    }
 }
 
 #[cfg(test)]
@@ -79,5 +134,68 @@ mod tests {
     fn due_wakes_empty_when_none_ready() {
         let parked = vec![row("a", 100, 1)];
         assert!(due_wakes(&parked, 99).is_empty());
+    }
+
+    fn child(key: &str, phase: crate::engine::RunPhase) -> (String, crate::engine::RunPhase) {
+        (key.into(), phase)
+    }
+
+    #[test]
+    fn plan_join_all_settled_and_empty() {
+        use crate::engine::RunPhase::Settled;
+        assert_eq!(plan_join(&[]), JoinOutcome::AllSettled);
+        assert_eq!(
+            plan_join(&[child("a", Settled), child("b", Settled)]),
+            JoinOutcome::AllSettled
+        );
+    }
+
+    #[test]
+    fn plan_join_pending_while_running_or_parked() {
+        use crate::engine::RunPhase::{Parked, Running, Settled};
+        assert_eq!(
+            plan_join(&[child("a", Settled), child("b", Running)]),
+            JoinOutcome::Pending {
+                remaining: vec!["b".into()]
+            }
+        );
+        assert_eq!(
+            plan_join(&[child("a", Parked), child("b", Running)]),
+            JoinOutcome::Pending {
+                remaining: vec!["a".into(), "b".into()]
+            }
+        );
+    }
+
+    #[test]
+    fn plan_join_failed_short_circuits_pending() {
+        use crate::engine::RunPhase::{Cancelled, Failed, Running, Settled, Unknown};
+        // One failure wins even with a pending child present.
+        assert_eq!(
+            plan_join(&[
+                child("ok", Settled),
+                child("slow", Running),
+                child("bad", Failed),
+            ]),
+            JoinOutcome::Failed {
+                failed: vec!["bad".into()],
+                cancelled: vec![],
+                unknown: vec![],
+            }
+        );
+        // Each terminal kind lands in its own bucket, in slice order.
+        assert_eq!(
+            plan_join(&[
+                child("u1", Unknown),
+                child("c1", Cancelled),
+                child("f1", Failed),
+                child("f2", Failed),
+            ]),
+            JoinOutcome::Failed {
+                failed: vec!["f1".into(), "f2".into()],
+                cancelled: vec!["c1".into()],
+                unknown: vec!["u1".into()],
+            }
+        );
     }
 }

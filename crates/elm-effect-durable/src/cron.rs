@@ -299,6 +299,26 @@ impl CronSchedule {
         Some((fire_key(name, tick_ms), tick_ms))
     }
 
+    /// Unified tick planner: Latest delegates to [`plan_latest_tick`](Self::plan_latest_tick),
+    /// Skip delegates to [`plan_skip_tick`](Self::plan_skip_tick).
+    #[must_use]
+    pub fn plan_tick(
+        &self,
+        name: &str,
+        policy: CronPolicy,
+        last_fired_ms: Option<u64>,
+        now_ms: u64,
+    ) -> Option<CronFire> {
+        match policy {
+            CronPolicy::Latest => self
+                .plan_latest_tick(name, last_fired_ms, now_ms)
+                .map(|(key, tick_ms)| CronFire { key, tick_ms }),
+            CronPolicy::Skip { grace_ms } => self
+                .plan_skip_tick(name, grace_ms, last_fired_ms, now_ms)
+                .map(|(key, tick_ms)| CronFire { key, tick_ms }),
+        }
+    }
+
     /// Deterministic child-run key: parent run, step name, attempt number.
     #[must_use]
     pub fn child_key(parent: &str, step: &str, attempt: u32) -> String {
@@ -332,6 +352,41 @@ pub fn step_key(run_key: &str, step: &str) -> String {
 #[must_use]
 pub fn fire_key(name: &str, tick_ms: u64) -> String {
     format!("cron:{name}:{tick_ms}")
+}
+
+/// Which tick to run after downtime or on schedule.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub enum CronPolicy {
+    /// Run the latest missed tick once.
+    Latest,
+    /// Run the next tick only while it is still fresh.
+    Skip {
+        /// Maximum age of a due tick that may still fire.
+        grace_ms: u64,
+    },
+}
+
+/// One planned cron firing: the durable start key plus its tick.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[must_use]
+pub struct CronFire {
+    /// [`fire_key`] for this firing.
+    pub key: String,
+    /// Tick instant in Unix milliseconds.
+    pub tick_ms: u64,
+}
+
+/// Unified tick planner: Latest delegates to
+/// [`CronSchedule::plan_latest_tick`], Skip to [`CronSchedule::plan_skip_tick`].
+#[must_use]
+pub fn plan_cron_tick(
+    name: &str,
+    schedule: &CronSchedule,
+    policy: CronPolicy,
+    last_fired_ms: Option<u64>,
+    now_ms: u64,
+) -> Option<CronFire> {
+    schedule.plan_tick(name, policy, last_fired_ms, now_ms)
 }
 
 fn parse_field(text: &str, spec: &FieldSpec) -> Result<(u64, bool), CronError> {
@@ -742,5 +797,51 @@ mod tests {
             fire_key("weekly-review", 1_234),
             fire_key("weekly-review", 1_235)
         );
+    }
+
+    #[test]
+    fn cron_policy_latest_fires_latest_tick() {
+        let cron = schedule("* * * * *");
+        let tick = ms(2024, 9, 6, 12, 0);
+        let now = tick + 30_000;
+        let fire =
+            plan_cron_tick("beat", &cron, CronPolicy::Latest, None, now).expect("latest fires");
+        assert_eq!(fire.tick_ms, tick);
+        assert_eq!(fire.key, fire_key("beat", tick));
+        // Method delegates identically.
+        assert_eq!(
+            cron.plan_tick("beat", CronPolicy::Latest, None, now),
+            Some(fire)
+        );
+    }
+
+    #[test]
+    fn cron_policy_skip_honors_grace() {
+        let cron = schedule("* * * * *");
+        let tick = ms(2024, 9, 6, 12, 0);
+        let now = tick + 30_000;
+        let fresh = plan_cron_tick(
+            "beat",
+            &cron,
+            CronPolicy::Skip { grace_ms: 60_000 },
+            None,
+            now,
+        )
+        .expect("fresh tick fires");
+        assert_eq!(fresh.tick_ms, tick);
+        assert!(
+            plan_cron_tick(
+                "beat",
+                &cron,
+                CronPolicy::Skip { grace_ms: 10_000 },
+                None,
+                now
+            )
+            .is_none()
+        );
+        // CronFire round-trips through serde.
+        let back: CronFire =
+            serde_json::from_str(&serde_json::to_string(&fresh).expect("json")).expect("back");
+        assert_eq!(back, fresh);
     }
 }
