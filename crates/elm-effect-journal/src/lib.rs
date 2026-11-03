@@ -36,7 +36,6 @@ pub mod durable_log;
 pub mod http;
 pub mod laws;
 pub mod plan;
-/// Pure Saga compensation planner (LIFO rollback over forward steps).
 pub mod saga;
 pub mod store;
 
