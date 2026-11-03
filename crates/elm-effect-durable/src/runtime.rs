@@ -35,11 +35,11 @@ pub enum EngineMsg {
 /// argument). Pair with `elm_effect::TestClock` in tests: advance the clock,
 /// then pass `clock.current_ms()` (or your own `u64`) into these methods.
 pub struct OurEngine<S: EngineStorage = MemStorage, J: JournalStore = InMemoryStore> {
-    storage: S,
+    pub(crate) storage: S,
     /// Journal rows for intent / claim / settle fencing (L14).
-    journal: J,
+    pub(crate) journal: J,
     /// Next park generation per key.
-    next_park_gen: std::collections::BTreeMap<String, u64>,
+    pub(crate) next_park_gen: std::collections::BTreeMap<String, u64>,
 }
 
 impl OurEngine<MemStorage> {

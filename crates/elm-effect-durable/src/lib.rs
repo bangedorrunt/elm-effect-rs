@@ -47,6 +47,15 @@ mod runtime;
 mod scheduler;
 mod storage;
 
+// Extension modules. Each is public so a feature lands without touching this
+// file; root re-exports are added once, by the integration bead.
+pub mod guard;
+pub mod lease;
+pub mod lineage;
+pub mod retry;
+pub mod signal;
+pub mod tree;
+
 pub use cron::{
     CronError, CronFire, CronPolicy, CronSchedule, child_key, fire_key, plan_cron_tick, step_key,
 };

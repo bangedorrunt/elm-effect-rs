@@ -36,6 +36,7 @@ pub mod durable_log;
 pub mod http;
 pub mod laws;
 pub mod plan;
+pub mod retry;
 pub mod saga;
 pub mod store;
 
