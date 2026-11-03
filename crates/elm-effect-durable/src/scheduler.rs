@@ -53,9 +53,11 @@ pub enum JoinOutcome {
     },
     /// At least one child Failed, Cancelled, or Unknown.
     Failed {
-        /// Keys by terminal kind, each in deterministic slice order.
+        /// Keys that settled Failed, in deterministic slice order.
         failed: Vec<String>,
+        /// Keys that settled Cancelled, in deterministic slice order.
         cancelled: Vec<String>,
+        /// Keys that are Unknown, in deterministic slice order.
         unknown: Vec<String>,
     },
 }
@@ -66,7 +68,6 @@ pub enum JoinOutcome {
 /// short-circuits to [`JoinOutcome::Failed`] even when other children are
 /// still Running or Parked. Otherwise any Running/Parked child yields
 /// [`JoinOutcome::Pending`]; all Settled (or empty) is [`JoinOutcome::AllSettled`].
-#[must_use]
 pub fn plan_join(children: &[(String, crate::engine::RunPhase)]) -> JoinOutcome {
     use crate::engine::RunPhase;
     let mut failed = Vec::new();

@@ -47,11 +47,13 @@ mod runtime;
 mod scheduler;
 mod storage;
 
-pub use cron::{CronError, CronSchedule, child_key, fire_key, step_key};
+pub use cron::{
+    CronError, CronFire, CronPolicy, CronSchedule, child_key, fire_key, plan_cron_tick, step_key,
+};
 pub use engine::{
     DurableEngine, EngineError, ParkOutcome, ParseRunPhaseError, RunPhase, RunStatus, StartOptions,
     StartOutcome, StorageError, engine_laws,
 };
 pub use runtime::{EngineMsg, OurEngine};
-pub use scheduler::{WakeIntent, due_wakes};
+pub use scheduler::{JoinOutcome, WakeIntent, due_wakes, plan_join};
 pub use storage::{EngineStorage, MemStorage, ParkedRow, RunRow, storage_laws};
