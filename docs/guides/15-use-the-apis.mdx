@@ -213,6 +213,8 @@ let model = loop_.model();
 
 `boot` calls `Program::init` and runs the first commands. `send` is the only entrance. `model` reads the fold. `intents` lists durable keys in order. A `Subscriber` has `read` and no write method.
 
+`Program::failure_for` receives the command when a failure still belongs to one: a rejected durable append names the intent key the log refused. The default calls `Program::failure`, which carries no command, so a program that needs no context keeps only that hook.
+
 ## A durable log
 
 ```rust

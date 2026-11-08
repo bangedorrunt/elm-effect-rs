@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Program::failure_for(cmd, failure)`: the failure hook now receives the
+  command the loop was running when it still holds one. A durable append
+  rejection is reported with the intent's `Durability::key`, so a fold can
+  attribute the refusal to the send it names instead of guessing from the
+  error text. The default drops the command and calls `Program::failure`, so
+  existing programs are unchanged.
+
 ## [0.4.1] - 2026-11-03
 
 ### Fixed

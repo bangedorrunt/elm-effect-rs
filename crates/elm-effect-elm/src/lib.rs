@@ -158,6 +158,18 @@ pub trait Program {
     /// rendered text. [`Interpret`] and this method change together: the
     /// error type is the one declared on [`Program`].
     fn failure(failure: &Failure<Self::Err>) -> Self::Msg;
+
+    /// [`Self::failure`] with the command the loop was running, when the
+    /// failure still belongs to one. A durable append rejection happens
+    /// before the provider runs, so this is the only place a fold can learn
+    /// which intent the log refused: [`Cmd::durability`] names its key.
+    /// `None` means no command is in hand (a fold-input append, or an
+    /// effect with no command), and the default drops the context and calls
+    /// [`Self::failure`], so an existing program keeps working unchanged.
+    fn failure_for(cmd: Option<&Self::Cmd>, failure: &Failure<Self::Err>) -> Self::Msg {
+        let _ = cmd;
+        Self::failure(failure)
+    }
 }
 
 /// A command outcome that was not success. The three cause kinds stay
@@ -647,12 +659,16 @@ where
                     let step = self.steps;
                     if let Err(error) = self.append_message(&msg, origin) {
                         let failure = append_failure::<P::Err>(error.clone());
-                        let outcomes =
-                            run_effects(vec![Effect::succeed(P::failure(&failure))], &self.rt);
+                        let outcomes = run_effects(
+                            vec![Effect::succeed(P::failure_for(None, &failure))],
+                            &self.rt,
+                        );
                         for outcome in outcomes {
                             let failure_msg = match outcome {
                                 Exit::Success(msg) => msg,
-                                Exit::Failure(cause) => P::failure(&Failure::of_cause(cause)),
+                                Exit::Failure(cause) => {
+                                    P::failure_for(None, &Failure::of_cause(cause))
+                                }
                             };
                             let update = P::update(&self.model, &failure_msg);
                             self.set_model(update.model);
@@ -792,13 +808,6 @@ where
     /// never run. Every outcome carries its origin, so a recovery can tell
     /// which command it answers.
     fn run_window(&mut self, window: Vec<(usize, P::Cmd)>, step: u64) -> Vec<Work<P>> {
-        let origins: Vec<Origin> = window
-            .iter()
-            .map(|(index, _)| Origin {
-                step,
-                index: *index,
-            })
-            .collect();
         let mut effects: Vec<Effect<P::Msg, P::Err>> = Vec::with_capacity(window.len());
         for (index, cmd) in &window {
             if let Durability::Durable { key } = cmd.durability() {
@@ -809,7 +818,10 @@ where
                 match self.append_durable(&key, cmd, origin, 1) {
                     Ok(recorded) => self.intents.push(recorded),
                     Err(error) => {
-                        effects.push(Effect::succeed(P::failure(&append_failure(error))));
+                        effects.push(Effect::succeed(P::failure_for(
+                            Some(cmd),
+                            &append_failure(error),
+                        )));
                         continue;
                     }
                 }
@@ -818,15 +830,15 @@ where
         }
         run_effects(effects, &self.rt)
             .into_iter()
-            .zip(origins)
-            .map(|(outcome, origin)| {
+            .zip(window)
+            .map(|(outcome, (index, cmd))| {
                 let msg = match outcome {
                     Exit::Success(msg) => msg,
-                    Exit::Failure(cause) => P::failure(&Failure::of_cause(cause)),
+                    Exit::Failure(cause) => P::failure_for(Some(&cmd), &Failure::of_cause(cause)),
                 };
                 Work::Msg {
                     msg,
-                    origin: Some(origin),
+                    origin: Some(Origin { step, index }),
                 }
             })
             .collect()
@@ -913,7 +925,9 @@ where
         };
         let msg = match run_effects(vec![effect], &self.rt).pop() {
             Some(Exit::Success(msg)) => msg,
-            Some(Exit::Failure(cause)) => P::failure(&Failure::of_cause(cause)),
+            Some(Exit::Failure(cause)) => {
+                P::failure_for(Some(&entry.cmd), &Failure::of_cause(cause))
+            }
             None => return Ok(None),
         };
         Ok(Some(Work::Msg {
