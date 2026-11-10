@@ -1,0 +1,19 @@
+[package]
+name = "elm-effect-xstate"
+version = "0.4.2"
+edition = "2024"
+license = "MIT"
+publish = false
+description = "Harel statecharts, actor model, and XState v6 behavioral parity for elm-effect (ADR-0007)"
+
+[dependencies]
+elm-effect = { path = "../elm-effect" }
+elm-effect-elm = { path = "../elm-effect-elm" }
+elm-effect-journal = { path = "../elm-effect-journal" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+
+[dev-dependencies]
+elm-effect-test = { path = "../elm-effect-test" }
+elm-effect-lints = { path = "../elm-effect-lints" }

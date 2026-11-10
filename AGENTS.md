@@ -30,6 +30,7 @@ and [skills/verify-lease-fencing/SKILL.md](skills/verify-lease-fencing/SKILL.md)
 | `elm-effect-durable` | Durable engine port, our single-host engine, and pure cron timing (ADR-0005) |
 | `elm-effect-test` | `TestClock` and helpers |
 | `elm-effect-lints` | Optional lints |
+| `elm-effect-xstate` | Statecharts, hierarchical state nodes, eventless micro-steps, and Elm adapter (ADR-0007) |
 
 ## Commands
 

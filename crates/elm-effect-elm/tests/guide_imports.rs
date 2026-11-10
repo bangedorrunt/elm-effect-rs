@@ -32,8 +32,9 @@ use elm_effect_durable::{
 use elm_effect_durable::{EngineMsg, ParkOutcome, WakeOutcome};
 use elm_effect_durable::{JoinOutcome, child_key, plan_join};
 use elm_effect_durable::{SagaStep, SagaStepStatus, compensate_key, plan_saga_rollback};
-use elm_effect_elm::{Boot, Program, Update};
+use elm_effect_elm::{Boot, Cmd, Failure, Program, Update};
 use elm_effect_journal::EffectState;
+use elm_effect_xstate::prelude::*;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -66,7 +67,9 @@ const PUBLISHED: &[&str] = &[
     "use elm_effect_durable::{EngineMsg, ParkOutcome, WakeOutcome};",
     "use elm_effect_durable::{JoinOutcome, child_key, plan_join};",
     "use elm_effect_durable::{SagaStep, SagaStepStatus, compensate_key, plan_saga_rollback};",
+    "use elm_effect_elm::{Boot, Cmd, Failure, Program};",
     "use elm_effect_elm::{Boot, Program, Update};",
+    "use elm_effect_xstate::prelude::*;",
 ];
 
 fn repo_root() -> PathBuf {

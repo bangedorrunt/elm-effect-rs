@@ -6,5 +6,6 @@ members = [
     "crates/elm-effect-elm",
     "crates/elm-effect-journal",
     "crates/elm-effect-durable",
+    "crates/elm-effect-xstate",
 ]
 resolver = "3"

@@ -1,0 +1,177 @@
+import { Flow } from "./components/Flow.jsx"
+
+# Harel statecharts with elm-effect-xstate
+
+This guide explains how to model complex state transitions using Harel statecharts and compile them into pure Elm loop folds with `elm-effect-xstate`.
+
+Statecharts extend finite state machines with:
+- **Hierarchical (compound) states**: Child states inherit and bubble unhandled events to parent states.
+- **Extended context**: Pure data updated deterministically alongside discrete state.
+- **Deterministic action sequence**: State exit actions, transition actions, and target entry actions run in strict topological order.
+- **Eventless (transient) micro-steps**: Transient transitions (`always`) cascade sequentially until the state machine settles in quiescence.
+- **Pure Elm fold compilation**: The entire statechart compiles down to a deterministic `Program::update` function with zero background scheduler.
+
+<Flow
+  label="Statechart transition step"
+  dir="col"
+  nodes={[
+    { id: "e", label: "Event arrives" },
+    { id: "m", label: "Match transition & guard" },
+    { id: "x", label: "Exit source ancestors to LCA" },
+    { id: "a", label: "Run transition actions & assign" },
+    { id: "n", label: "Enter target descendants from LCA" },
+    { id: "w", label: "Evaluate transient always transitions" },
+    { id: "q", label: "Quiescent leaf state reached" },
+  ]}
+  edges={[
+    ["e", "m"],
+    ["m", "x"],
+    ["x", "a"],
+    ["a", "n"],
+    ["n", "w"],
+    ["w", "q"],
+  ]}
+/>
+
+## Add the dependency
+
+In your `Cargo.toml`:
+
+```toml
+[dependencies]
+elm-effect = { version = "0.4.2", path = "../elm-effect" }
+elm-effect-elm = { version = "0.4.2", path = "../elm-effect-elm" }
+elm-effect-xstate = { version = "0.4.2", path = "../elm-effect-xstate" }
+```
+
+## Define states and machine
+
+A machine requires a state key type (implementing `Ord + Clone`), an event type, an extended context type, and a command type:
+
+```rust
+use elm_effect_xstate::prelude::*;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+enum TrafficLightState {
+    Green,
+    Yellow,
+    Red,
+}
+
+#[derive(Debug, Clone)]
+enum TrafficLightEvent {
+    Timer,
+}
+
+#[derive(Debug, Clone, Default)]
+struct LightContext {
+    cycles: u32,
+}
+
+let machine: Machine<TrafficLightState, TrafficLightEvent, LightContext, ()> =
+    Machine::builder(TrafficLightState::Green, LightContext::default())
+        .state(TrafficLightState::Green, |node| {
+            let to_yellow = node
+                .transition(TrafficLightState::Yellow)
+                .on(|e| matches!(e, TrafficLightEvent::Timer));
+            node.on(to_yellow)
+        })
+        .state(TrafficLightState::Yellow, |node| {
+            let to_red = node
+                .transition(TrafficLightState::Red)
+                .on(|e| matches!(e, TrafficLightEvent::Timer));
+            node.on(to_red)
+        })
+        .state(TrafficLightState::Red, |node| {
+            let to_green = node
+                .transition(TrafficLightState::Green)
+                .on(|e| matches!(e, TrafficLightEvent::Timer))
+                .assign(|ctx, _| ctx.cycles += 1);
+            node.on(to_green)
+        })
+        .build();
+```
+
+## Step execution
+
+You process events directly with `machine.step`:
+
+```rust
+let outcome = machine.step(&TrafficLightState::Green, &LightContext::default(), &TrafficLightEvent::Timer);
+assert_eq!(outcome.current_state, TrafficLightState::Yellow);
+assert!(outcome.transitioned);
+```
+
+## Compound states and bubbling
+
+Compound states contain nested child states. When a child state receives an event it does not handle, the statechart bubbles the event up the ancestry path to the parent:
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+enum PlayerState {
+    Active,
+    Idle,
+    Playing,
+    Stopped,
+}
+
+let machine = Machine::builder(PlayerState::Active, ())
+    .compound(PlayerState::Active, PlayerState::Idle, |node| {
+        let to_stopped = node
+            .transition(PlayerState::Stopped)
+            .on(|e| matches!(e, PlayerEvent::Stop));
+        node.on(to_stopped)
+    })
+    .state(PlayerState::Idle, |node| {
+        let to_playing = node
+            .transition(PlayerState::Playing)
+            .on(|e| matches!(e, PlayerEvent::Play));
+        node.with_parent(PlayerState::Active).on(to_playing)
+    })
+    .state(PlayerState::Playing, |node| {
+        node.with_parent(PlayerState::Active)
+    })
+    .final_state(PlayerState::Stopped, |node| node)
+    .build();
+```
+
+When in `Playing`, sending `PlayerEvent::Stop` bubbles to parent `Active`, exiting `Playing` then `Active` before entering `Stopped`.
+
+## Elm loop integration
+
+To run a statechart inside an Elm `Program`, implement `StatechartDefinition` and wrap it with `StatechartProgram`:
+
+```rust
+use elm_effect_elm::{Boot, Cmd, Failure, Program};
+use elm_effect_xstate::prelude::*;
+
+struct MyDef;
+
+impl StatechartDefinition for MyDef {
+    type State = TrafficLightState;
+    type Event = TrafficLightEvent;
+    type Context = LightContext;
+    type Cmd = AppCmd;
+    type Msg = AppMsg;
+    type Err = String;
+
+    fn machine() -> Machine<Self::State, Self::Event, Self::Context, Self::Cmd> {
+        // Build machine here
+    }
+
+    fn extract_event(msg: &Self::Msg) -> Option<Self::Event> {
+        match msg {
+            AppMsg::TimerTick => Some(TrafficLightEvent::Timer),
+            _ => None,
+        }
+    }
+
+    fn failure(_failure: &Failure<Self::Err>) -> Self::Msg {
+        AppMsg::Failed
+    }
+}
+
+type MyProgram = StatechartProgram<MyDef>;
+```
+
+The resulting `MyProgram` satisfies the `Program` trait and can be booted directly in a `Loop`.

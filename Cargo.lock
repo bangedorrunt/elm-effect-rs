@@ -31,6 +31,7 @@ dependencies = [
  "elm-effect-durable",
  "elm-effect-journal",
  "elm-effect-lints",
+ "elm-effect-xstate",
  "serde",
  "serde_json",
  "thiserror",
@@ -55,6 +56,20 @@ name = "elm-effect-test"
 version = "0.4.2"
 dependencies = [
  "elm-effect",
+]
+
+[[package]]
+name = "elm-effect-xstate"
+version = "0.4.2"
+dependencies = [
+ "elm-effect",
+ "elm-effect-elm",
+ "elm-effect-journal",
+ "elm-effect-lints",
+ "elm-effect-test",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]

@@ -429,6 +429,33 @@ The engine is a synchronous kernel. The host owns it, provides it through a `Ser
 
 The run key is the host's durable command key and the `DurableLog` `producer_id`. The loop's log records the message outcome; the engine journal records the run fence; settle both when the effect finishes. Retries, timeouts, and remote policy stay in the host's `Interpret` / `plan_attempt` layer. Complete end-to-end witnesses live in `crates/elm-effect-durable/tests/framework_fit.rs`.
 
+## Harel statecharts with elm-effect-xstate
+
+```rust
+use elm_effect_xstate::prelude::*;
+
+// 1. Build a statechart machine with compound states, guards, and actions
+let machine = Machine::builder(MyState::A, MyContext::default())
+    .state(MyState::A, |node| {
+        let to_b = node
+            .transition(MyState::B)
+            .on(|e| matches!(e, MyEvent::Step))
+            .action(|ctx, e, enq| {
+                ctx.count += 1;
+                enq.raise(MyEvent::Internal);
+            });
+        node.entry(|ctx, enq| ctx.log.push("enter_A".into())).on(to_b)
+    })
+    .state(MyState::B, |node| node)
+    .build();
+
+// 2. Step the machine directly
+let outcome = machine.step(&MyState::A, &MyContext::default(), &MyEvent::Step);
+
+// 3. Adapt machine into a pure Elm Program
+type MyProgram = StatechartProgram<MyStatechartDefinition>;
+```
+
 ## Where to read next
 
 | You are about to | Read |
@@ -440,6 +467,7 @@ The run key is the host's durable command key and the `DurableLog` `producer_id`
 | Write a test | [Tests](09-tests.mdx) |
 | Exit a process | [A command line program](10-cli.mdx) |
 | Fold messages | [A long-lived program](11-application.mdx) |
+| Model hierarchical statecharts | [Harel statecharts](18-xstate.mdx) |
 | Resume after a crash | [The durable log](12-durable-log.mdx) |
 | Put the log behind TLS and auth | [Put a proxy in front](16-reverse-proxy.mdx) |
 | Add a tag, a log, or a program | [Add a capability](13-add-a-capability.mdx) |

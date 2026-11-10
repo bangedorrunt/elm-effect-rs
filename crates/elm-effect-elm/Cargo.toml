@@ -17,3 +17,4 @@ thiserror = "1"
 elm-effect-lints = { path = "../elm-effect-lints" }
 # The guide-import fence compiles the cron call the guide publishes.
 elm-effect-durable = { path = "../elm-effect-durable" }
+elm-effect-xstate = { path = "../elm-effect-xstate" }
