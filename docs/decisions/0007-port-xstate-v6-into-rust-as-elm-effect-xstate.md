@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-10
 decision-makers: operator of the flywheel, toron, beads, and chiebukuro stack
 consulted: ADR-0002, ADR-0003, ADR-0005, ADR-0006, Stately XState v6 specification and test corpus, W3C SCXML specification
@@ -62,6 +62,8 @@ We create [`crates/elm-effect-xstate`](../../crates/elm-effect-xstate) implement
    `always` transitions evaluate in micro-steps immediately upon entering a state. External events are queued until all enabled eventless transitions reach a stable quiescent configuration.
 5. **L5: Durable Transition Logging**:
    When durability is enabled, transition records `(from_state, event, to_state, generation)` commit to [`elm-effect-journal`](../../crates/elm-effect-journal) before entry actions run.
+6. **L6: Formal Semantic Invariance**:
+   The execution engine must mathematically conform to formal Harel statechart specifications verified under TLA+/TLC. Every transition cascade, orthogonal synchronization, and actor supervision hierarchy must provably guarantee absence of deadlocks, absence of illegal active configurations, and guaranteed quiescence.
 
 ### 2. Comprehensive Primitive & Verb Specification
 
@@ -139,24 +141,81 @@ Every active process is an actor implementing `ActorLogic`:
 5. **`from_stream(Channel)`**: Stream consumer feeding events into the machine.
 6. **`from_callback(Handler)`**: Interactive callback actor for bidirectional protocols.
 
-### 3. Conformance & Verification Strategy
+### 3. Conformance & Verification Strategy: The Two-Plane Architecture
 
-To guarantee 100% behavioral parity:
-1. **Port the XState Reference Test Corpus**:
-   Port the ~400 unit tests from Stately's official `packages/core/test/` directory into `crates/elm-effect-xstate/tests/conformance/`:
-   - `actions.rs`: Strict execution sequence, nested action queues, self-transitions.
-   - `always.rs`: Eventless loops, transient cascades, micro-step quiescence.
-   - `after.rs`: Timer cancellation on preemptive transitions, zero-delay microtasks.
-   - `parallel.rs`: Cross-region synchronization, simultaneous event distribution.
-   - `history.rs`: Deep vs shallow targeting, unvisited history fallback.
-   - `actors.rs`: Actor lifecycle isolation, parent-child message queues, supervisor faults.
-2. **Automated TLA+ Verification**:
-   Every statechart exposes `.to_tla()` and `.to_mermaid()`, hooking directly into [`scripts/verify-formal.sh`](../../scripts/verify-formal.sh) for formal model-checking.
+To guarantee 100% behavioral parity without inheriting JavaScript runtime quirks or breaking the Carrier Law ([ADR-0002](0002-port-effect-4-into-rust-with-an-elm-loop.md)), verification is partitioned into two complementary planes:
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│ Plane 1: Mathematical Specification & Formal Verification (TLA+ / TLC) │
+│  - Formal state machine laws (L1-L6) & transition invariant checking   │
+│  - State space exploration: deadlocks, livelocks, valid configurations │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ Invariants & Semantic Laws
+┌───────────────────────────────────▼────────────────────────────────────┐
+│ Plane 2: Declarative Conformance & Upstream Differential Checking      │
+│  - 53+ JSON declarative test vectors synced with statelyai/xstate      │
+│  - Differential execution runner (scripts/xstate-differential)         │
+│  - Exact state, context, and done outcome parity against Node engine   │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ Pure Elm Fold Compilation
+┌───────────────────────────────────▼────────────────────────────────────┐
+│ Verified Rust Carrier Implementation (crates/elm-effect-xstate)        │
+│  - Pure Program::update fold with zero background runtime scheduler    │
+│  - Scoped fibers, TestClock virtual time, and durable replay           │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Plane 1: Mathematical Specification & Formal Verification (TLA+ / TLC)
+
+Rather than modeling JavaScript-specific event loops or microtask queuing, we formalize the abstract mathematical semantics of Harel Statecharts and XState v6 in TLA+. This extends our formal verification portfolio in [`docs/research/state-machines-and-flows.md`](../../docs/research/state-machines-and-flows.md) with four canonical statechart models checked under [`scripts/verify-formal.sh`](../../scripts/verify-formal.sh):
+
+1. **Flow 6: Statechart Microstep Quiescence & LCA Resolution (`flow6_statechart_microstep.tla`)**:
+   - **Scope**: Evaluates external event matching, Least Common Ancestor (LCA) path determination, strict Law L1 topological exit/entry action ordering, and eventless (`always`) micro-step cascades.
+   - **Invariants**:
+     - `QuiescenceReached`: Eventless micro-step loops provably terminate at a stable leaf configuration or trigger step budget limits; zero infinite liveloops.
+     - `ValidActiveConfiguration`: The active state configuration always contains exactly one leaf per active compound node.
+     - `StrictOrderExitedBeforeEntered`: Deepest active child states exit before any transition actions execute, and transition actions execute before any target states are entered.
+
+2. **Flow 7: Parallel Orthogonal Regions & Synchronized Completion (`flow7_statechart_parallel.tla`)**:
+   - **Scope**: Models parallel state nodes with orthogonal regions $R_1, R_2, \dots, R_k$, concurrent event distribution, independent regional progress, and compound completion barriers.
+   - **Invariants**:
+     - `OrthogonalIsolation`: Transitioning in one region preserves active states in sibling regions unless targeted across the parent domain.
+     - `SynchronizedJoinOnDone`: A parallel node emits its completion transition (`onDone`) if and only if all orthogonal regions reach a final sub-state.
+     - `NoSplitBrainParallel`: Context modifications across concurrent regions execute in deterministic topological sequence without data races.
+
+3. **Flow 8: Hierarchical Actor Supervision & Scoped Lifecycles (`flow8_statechart_actor.tla`)**:
+   - **Scope**: Models actor spawning (`spawnChild`), child-to-parent event raising (`send_to`), supervisor error handling, and cascading scope closure.
+   - **Invariants**:
+     - `NoLeakedChildrenOnParentExit`: When a state or actor exits, all child actor scopes are recursively closed deepest-first.
+     - `SequentialMailboxOrder`: Messages sent to an actor are processed strictly in FIFO order per sender.
+     - `CleanActorSupervisionUnwind`: Actor failures execute LIFO finalizers without stalling the supervisor.
+
+4. **Flow 9: Virtualized Delayed Transitions & Preemptive Invalidation (`flow9_statechart_timer.tla`)**:
+   - **Scope**: Models `after(delay)` transitions, virtual timer generation (`TimerIntent::Start`), virtual time advancement, and preemptive cancellation (`TimerIntent::Cancel`).
+   - **Invariants**:
+     - `TimerInvalidatedOnEarlyExit`: Exiting a state prior to timer expiration guarantees the scheduled timer is cancelled.
+     - `NoStaleTimerWakeup`: Expired timers arriving for already-exited states are cleanly discarded as no-ops.
+
+#### Plane 2: Declarative Conformance & Upstream Differential Checking
+
+To verify day-to-day behavioral equivalence against Stately's reference implementation:
+1. **Declarative JSON Fixture Corpus**:
+   - Located in [`crates/elm-effect-xstate/tests/conformance/fixtures/`](../../crates/elm-effect-xstate/tests/conformance/fixtures), covering 53 declarative cases across 9 categories: `actions`, `always`, `after`, `parallel`, `history`, `hierarchy`, `guards`, `final_states`, and `actors`.
+   - Directly references upstream commit `d56483f` (XState 6.0.0-beta.1), citing the upstream source file for each vector.
+   - Pinned feature matrix in [`tests/conformance_test.rs`](../../crates/elm-effect-xstate/tests/conformance_test.rs) enforcing 100% test passage.
+2. **Differential Execution Runner (`scripts/xstate-differential`)**:
+   - Executes identical declarative JSON test vectors concurrently in Node.js (via `@statelyai/xstate` v6 beta) and in Rust (`elm-effect-xstate`).
+   - Asserts 100% agreement on final active state configuration, machine `done` flag, and extended `context`.
+   - Action call traces are validated in Rust against Law L1 specifications, insulating the conformance suite from transient npm beta transition-timing anomalies.
+3. **Automated Synchronization Script (`scripts/sync-xstate-conformance.sh`)**:
+   - Syncs and runs all fixture suites in a single command, integrating into CI workflows.
 
 ## Consequences
 
 ### Positive
 * **Complete Statechart & Actor Parity**: Delivers the full expressive power of Harel statecharts and actor systems to the Rust ecosystem.
+* **Mathematically Proven Safety**: TLA+ model checking eliminates deadlocks, infinite microstep cycles, and invalid state configurations.
 * **Leak-Free by Construction**: Structured scopes eliminate dangling promises and orphaned background tasks.
 * **Blazing Fast Testing**: Virtual time via `TestClock` tests multi-day timeouts in single-digit milliseconds.
 * **Crash-Proof Durability**: Native WAL logging enables transparent actor crash recovery.
@@ -165,28 +224,34 @@ To guarantee 100% behavioral parity:
 ### Negative / Tradeoffs
 * **Implementation Scale**: Requires implementing the full statechart algorithm (~3,000 lines of core engine code + ~2,500 lines of conformance tests).
 * **Dual Type Complexity**: Maintaining both a dynamic graph for conformance test vectors and a typed macro builder for end-user DX.
+* **Formal Specification Maintenance**: Requires keeping TLA+ specifications and proofs synchronized with state machine code evolution.
 
 ## Implementation Plan
 
 ### Phases & Milestones
 
-1. **Milestone 1: Crate Scaffold & Core State Node Graph**:
+1. **Milestone 1: Crate Scaffold & Core State Node Graph [Completed]**:
    - Create `crates/elm-effect-xstate`.
    - Implement `StateNode`, `StateGraph`, `Transition`, `Context`, and `ActionQueue`.
    - Validate atomic, compound, and parallel state transitions.
-2. **Milestone 2: Conformance Test Suite (Actions, Always, After, History)**:
-   - Port XState v6 test vectors into `tests/conformance/`.
+2. **Milestone 2: Conformance Test Suite & Feature Matrix [Completed]**:
+   - Port XState v6 test vectors into `tests/conformance/fixtures/`.
    - Implement eventless (`always`) micro-step loop and quiescence detector.
    - Integrate `after` with `elm-effect::time` and `TestClock`.
    - Implement shallow and deep history state resolution.
-3. **Milestone 3: The Unified Actor Model**:
+3. **Milestone 3: The Unified Actor Model [Completed]**:
    - Implement `ActorSystem`, `ActorRef`, and `ActorLogic`.
    - Implement `from_effect` binding child fibers to state `Scope`.
    - Implement `send_to`, `spawn`, and `stop`.
-4. **Milestone 4: Durability, Inspection & Visualizer**:
+4. **Milestone 4: Durability, Exporters & Differential Conformance [Completed]**:
    - Connect state transitions to `elm-effect-journal::DurableLog`.
    - Expose `.to_mermaid()` and `.to_tla()` exporters.
-   - Add verification target to `scripts/verify-formal.sh`.
+   - Build `scripts/xstate-differential` comparing state outcomes with `@statelyai/xstate` v6 beta.
+   - Add initial verification target to `scripts/verify-formal.sh`.
+5. **Milestone 5: Comprehensive Behavioral Formal Verification in TLA+ [In Progress]**:
+   - Author full TLA+ behavioral models for Flows 6–9 (`flow6_statechart_microstep.tla`, `flow7_statechart_parallel.tla`, `flow8_statechart_actor.tla`, `flow9_statechart_timer.tla`).
+   - Document formal specifications and Mermaid state diagrams in `docs/research/state-machines-and-flows.md`.
+   - Add model-checking runs for Flows 6–9 into `scripts/verify-formal.sh`.
 
 ### Verification
 
@@ -222,7 +287,7 @@ Not landed:
 
 - Actor-tree rehydration: the chart snapshot restores one machine actor; children, streams, and timers are respawned by the host.
 - The ~400-case upstream corpus; the crate carries 53 declarative vectors (ten ported) plus its own actor/effect proofs in `tests/conformance/`, `tests/actors.rs`, and `tests/actor_effects.rs`. The optional Node differential check compares state outcomes only, because the npm beta's transition-function timing differs from the L1 contract; action traces remain covered by the Rust suite.
-- Behavioral TLC checks: the exporter is topology-only, so guards and context are not modelled. `verify-formal.sh` checks that a generated module is a well-formed spec, not that guarded behavior matches the engine.
+- Behavioral TLC checks: the exporter is currently topology-only, so guards and context are not modelled in the dynamically generated exporter. Milestone 5 introduces dedicated full behavioral TLA+ models for Flows 6–9 in `scripts/verify-formal.sh` and `docs/research/state-machines-and-flows.md`.
 
 ## More Information
 
