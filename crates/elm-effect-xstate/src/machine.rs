@@ -97,6 +97,13 @@ where
             .map_or(StateNodeType::Atomic, |node| node.node_type)
     }
 
+    fn is_history(&self, id: &S) -> bool {
+        matches!(
+            self.node_type(id),
+            StateNodeType::HistoryShallow | StateNodeType::HistoryDeep
+        )
+    }
+
     fn parent_of(&self, id: &S) -> Option<S> {
         self.nodes.get(id).and_then(|node| node.parent.clone())
     }
@@ -242,7 +249,11 @@ where
                 matches!(active.as_slice(), [child] if self.node_done(config, child))
             }
             StateNodeType::Parallel => {
-                let children = self.children(id);
+                let children: Vec<S> = self
+                    .children(id)
+                    .into_iter()
+                    .filter(|child| !self.is_history(child))
+                    .collect();
                 !children.is_empty() && children.iter().all(|child| self.node_done(config, child))
             }
         }
@@ -273,7 +284,11 @@ where
                 }
             }
             StateNodeType::Parallel => {
-                for child in self.children(id) {
+                for child in self
+                    .children(id)
+                    .into_iter()
+                    .filter(|child| !self.is_history(child))
+                {
                     self.expand_into(&child, history, visited, out);
                 }
             }
@@ -400,7 +415,7 @@ where
         None
     }
 
-    /// Record history for every compound state this step exits.
+    /// Record history for every compound or parallel state this step exits.
     fn record_history(
         &self,
         before: &Configuration<S>,
@@ -408,7 +423,10 @@ where
         history: &mut BTreeMap<S, Configuration<S>>,
     ) {
         for node_id in exited {
-            if self.node_type(node_id) != StateNodeType::Compound {
+            if !matches!(
+                self.node_type(node_id),
+                StateNodeType::Compound | StateNodeType::Parallel
+            ) {
                 continue;
             }
             for child in self.children(node_id) {
@@ -485,7 +503,11 @@ where
                 }
             }
             StateNodeType::Parallel => {
-                for child in self.children(id) {
+                for child in self
+                    .children(id)
+                    .into_iter()
+                    .filter(|child| !self.is_history(child))
+                {
                     self.enter_target(&child, state, entered, out);
                 }
             }

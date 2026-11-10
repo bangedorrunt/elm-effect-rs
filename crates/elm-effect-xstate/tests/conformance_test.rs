@@ -439,6 +439,11 @@ const FEATURES: &[Feature] = &[
         cases: &["history_default_enters_the_parent_and_its_fallback"],
     },
     Feature {
+        name: "parallel_deep_history",
+        fixture: "history.json",
+        cases: &["deep_history_restores_every_parallel_region"],
+    },
+    Feature {
         name: "parallel_region_entry",
         fixture: "parallel.json",
         cases: &["parallel_regions_enter_and_broadcast"],
@@ -556,9 +561,9 @@ fn conformance_feature_matrix() {
             );
         }
     }
-    assert!(total >= 52, "conformance matrix regressed to {total} cases");
+    assert!(total >= 53, "conformance matrix regressed to {total} cases");
     assert!(
-        FEATURES.len() >= 49,
+        FEATURES.len() >= 50,
         "feature matrix regressed to {} features",
         FEATURES.len()
     );
@@ -588,7 +593,7 @@ fn upstream_derived_vectors_cite_the_pinned_source() {
         }
     }
     assert!(
-        sourced >= 9,
-        "expected at least nine upstream-derived vectors, found {sourced}"
+        sourced >= 10,
+        "expected at least ten upstream-derived vectors, found {sourced}"
     );
 }

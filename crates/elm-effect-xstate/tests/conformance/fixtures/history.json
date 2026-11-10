@@ -287,5 +287,117 @@
       "enter_b1"
     ]
   }
+},
+{
+  "name": "deep_history_restores_every_parallel_region",
+  "description": "Upstream history: deep history on a parallel parent restores each region's remembered leaf",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/history.test.ts: should re-enter each regions of parallel state correctly",
+  "machine": {
+    "initial": "Off",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Off": {
+        "on": {
+          "SWITCH": "On",
+          "DEEP_POWER": "DeepHistory"
+        }
+      },
+      "On": {
+        "type": "parallel",
+        "on": {
+          "POWER": "Off"
+        }
+      },
+      "A": {
+        "type": "compound",
+        "initial": "B",
+        "parent": "On"
+      },
+      "B": {
+        "parent": "A",
+        "on": {
+          "INNER_A": "C"
+        }
+      },
+      "C": {
+        "type": "compound",
+        "initial": "D",
+        "parent": "A"
+      },
+      "D": {
+        "parent": "C",
+        "on": {
+          "INNER_A": "E"
+        }
+      },
+      "E": {
+        "parent": "C"
+      },
+      "K": {
+        "type": "compound",
+        "initial": "L",
+        "parent": "On"
+      },
+      "L": {
+        "parent": "K",
+        "on": {
+          "INNER_K": "M"
+        }
+      },
+      "M": {
+        "type": "compound",
+        "initial": "N",
+        "parent": "K"
+      },
+      "N": {
+        "parent": "M",
+        "on": {
+          "INNER_K": "O"
+        }
+      },
+      "O": {
+        "parent": "M"
+      },
+      "DeepHistory": {
+        "type": "history",
+        "history": "deep",
+        "initial": "A",
+        "parent": "On"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "SWITCH"
+    },
+    {
+      "type": "INNER_A"
+    },
+    {
+      "type": "INNER_A"
+    },
+    {
+      "type": "INNER_K"
+    },
+    {
+      "type": "INNER_K"
+    },
+    {
+      "type": "POWER"
+    },
+    {
+      "type": "DEEP_POWER"
+    }
+  ],
+  "expected": {
+    "final_state": "E",
+    "final_states": [
+      "E",
+      "O"
+    ],
+    "trace": []
+  }
 }
 ]
