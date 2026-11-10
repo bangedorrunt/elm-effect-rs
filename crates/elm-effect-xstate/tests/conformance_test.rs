@@ -258,6 +258,11 @@ const FEATURES: &[Feature] = &[
         cases: &["emitted_payloads_reach_inspection"],
     },
     Feature {
+        name: "raised_event_order",
+        fixture: "actions.json",
+        cases: &["parallel_raised_events_execute_in_order"],
+    },
+    Feature {
         name: "actor_spawn",
         fixture: "actors.json",
         cases: &["entry_action_spawns_a_child"],
@@ -474,6 +479,16 @@ const FEATURES: &[Feature] = &[
         fixture: "parallel.json",
         cases: &["a_finished_region_does_not_complete_the_parallel_early"],
     },
+    Feature {
+        name: "parallel_nested_flat",
+        fixture: "parallel.json",
+        cases: &["nested_flat_parallel_expands_every_region"],
+    },
+    Feature {
+        name: "parallel_final_region_inert",
+        fixture: "parallel.json",
+        cases: &["final_region_under_parallel_ignores_events"],
+    },
 ];
 
 fn fixture_values(name: &str) -> Vec<serde_json::Value> {
@@ -541,9 +556,9 @@ fn conformance_feature_matrix() {
             );
         }
     }
-    assert!(total >= 49, "conformance matrix regressed to {total} cases");
+    assert!(total >= 52, "conformance matrix regressed to {total} cases");
     assert!(
-        FEATURES.len() >= 46,
+        FEATURES.len() >= 49,
         "feature matrix regressed to {} features",
         FEATURES.len()
     );
@@ -573,7 +588,7 @@ fn upstream_derived_vectors_cite_the_pinned_source() {
         }
     }
     assert!(
-        sourced >= 6,
-        "expected at least six upstream-derived vectors, found {sourced}"
+        sourced >= 9,
+        "expected at least nine upstream-derived vectors, found {sourced}"
     );
 }

@@ -11,7 +11,7 @@ npm ci
 npm run check
 ```
 
-`check` compares final active leaves, `done`, and final context for 37 cases.
+`check` compares final active leaves, `done`, and final context for 40 cases.
 It deliberately does not compare action traces. The npm
 `xstate@6.0.0-beta.1` build evaluates inline transition functions during
 selection and queues `enq` effects after entry, while this crate's L1 contract
@@ -26,7 +26,7 @@ Excluded:
 - `emitted_payloads_reach_inspection`: emitted events are not exposed on the
   snapshot the harness reads.
 
-The six upstream-derived vectors cite
+The nine upstream-derived vectors cite
 `xstate@6.0.0-beta.1 commit d56483f` in their `source` field. The npm version
 and the source commit share a version string but are built separately, which
 is why trace ordering is not asserted here.

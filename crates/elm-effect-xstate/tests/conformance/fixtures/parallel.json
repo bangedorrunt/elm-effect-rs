@@ -271,5 +271,89 @@
     ],
     "trace": []
   }
+},
+{
+  "name": "nested_flat_parallel_expands_every_region",
+  "description": "Upstream parallel: entering a flat parallel node activates both atomic regions",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/parallel.test.ts: should represent the flat nested parallel states in the state value",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "on": {
+          "to-B": "B"
+        }
+      },
+      "B": {
+        "type": "parallel"
+      },
+      "C": {
+        "parent": "B"
+      },
+      "D": {
+        "parent": "B"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "to-B"
+    }
+  ],
+  "expected": {
+    "final_state": "C",
+    "final_states": [
+      "C",
+      "D"
+    ],
+    "trace": []
+  }
+},
+{
+  "name": "final_region_under_parallel_ignores_events",
+  "description": "Upstream parallelConformance: an unhandled event leaves a final region and its sibling untouched",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/parallelConformance.test.ts: a final region under a parallel root should ignore events it does not handle",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "RegionA": {
+        "type": "final",
+        "parent": "Root"
+      },
+      "RegionB": {
+        "type": "compound",
+        "initial": "Idle",
+        "parent": "Root"
+      },
+      "Idle": {
+        "parent": "RegionB"
+      },
+      "Other": {
+        "parent": "RegionB"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "GO"
+    }
+  ],
+  "expected": {
+    "final_state": "Idle",
+    "final_states": [
+      "Idle",
+      "RegionA"
+    ],
+    "trace": []
+  }
 }
 ]

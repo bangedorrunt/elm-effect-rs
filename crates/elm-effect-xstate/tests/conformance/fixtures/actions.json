@@ -200,5 +200,96 @@
       "emitted": ["audit"],
       "trace": ["enter_a", "enter_b"]
     }
+  },
+{
+  "name": "parallel_raised_events_execute_in_order",
+  "description": "Upstream transient: both regions raise on entry and the internal queue drains INT1 before INT2",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/transient.test.ts: should execute all internal events one after the other",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "A": {
+        "type": "compound",
+        "initial": "A1",
+        "parent": "Root"
+      },
+      "A1": {
+        "parent": "A",
+        "on": {
+          "E": "A2"
+        }
+      },
+      "A2": {
+        "parent": "A",
+        "entry": [
+          "raise:INT1"
+        ]
+      },
+      "B": {
+        "type": "compound",
+        "initial": "B1",
+        "parent": "Root"
+      },
+      "B1": {
+        "parent": "B",
+        "on": {
+          "E": "B2"
+        }
+      },
+      "B2": {
+        "parent": "B",
+        "entry": [
+          "raise:INT2"
+        ]
+      },
+      "C": {
+        "type": "compound",
+        "initial": "C1",
+        "parent": "Root"
+      },
+      "C1": {
+        "parent": "C",
+        "on": {
+          "INT1": "C2",
+          "INT2": "C3"
+        }
+      },
+      "C2": {
+        "parent": "C",
+        "on": {
+          "INT2": "C4"
+        }
+      },
+      "C3": {
+        "parent": "C",
+        "on": {
+          "INT1": "C4"
+        }
+      },
+      "C4": {
+        "parent": "C"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "E"
+    }
+  ],
+  "expected": {
+    "final_state": "A2",
+    "final_states": [
+      "A2",
+      "B2",
+      "C4"
+    ],
+    "trace": []
   }
+}
 ]
