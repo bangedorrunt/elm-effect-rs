@@ -1,0 +1,246 @@
+[
+  {
+    "name": "entry_action_spawns_a_child",
+    "description": "Proves enq.spawn creates a child under the sending actor",
+    "root": {
+      "initial": "Idle",
+      "states": {
+        "Idle": { "entry": ["spawn:worker"] }
+      }
+    },
+    "children": {
+      "worker": { "initial": "Waiting", "states": { "Waiting": {} } }
+    },
+    "expected": {
+      "final_states": {
+        "root": ["Idle"],
+        "worker": ["Waiting"]
+      }
+    }
+  },
+  {
+    "name": "send_to_reaches_a_child",
+    "description": "Proves enq.send_to delivers an event to a child actor",
+    "root": {
+      "initial": "Idle",
+      "states": {
+        "Idle": {
+          "entry": ["spawn:worker"],
+          "on": {
+            "START": {
+              "target": "Running",
+              "actions": ["send:worker:WORK"]
+            }
+          }
+        },
+        "Running": {}
+      }
+    },
+    "children": {
+      "worker": {
+        "initial": "Idle",
+        "states": {
+          "Idle": { "on": { "WORK": "Working" } },
+          "Working": {}
+        }
+      }
+    },
+    "steps": [
+      {
+        "send": "root",
+        "event": { "type": "START" },
+        "expect": { "worker": ["Working"] }
+      }
+    ],
+    "expected": {
+      "final_states": {
+        "root": ["Running"],
+        "worker": ["Working"]
+      }
+    }
+  },
+  {
+    "name": "stop_directive_removes_the_child",
+    "description": "Proves enq.stop terminates a child actor",
+    "root": {
+      "initial": "Idle",
+      "states": {
+        "Idle": {
+          "entry": ["spawn:worker"],
+          "on": {
+            "STOP": {
+              "target": "Stopped",
+              "actions": ["stop:worker"]
+            }
+          }
+        },
+        "Stopped": {}
+      }
+    },
+    "children": {
+      "worker": { "initial": "Waiting", "states": { "Waiting": {} } }
+    },
+    "steps": [
+      { "send": "root", "event": { "type": "STOP" } }
+    ],
+    "expected": {
+      "final_states": { "root": ["Stopped"] },
+      "absent": ["worker"]
+    }
+  },
+  {
+    "name": "child_completion_notifies_the_parent",
+    "description": "Proves a top-level final child sends xstate.done.actor.<id> to its parent",
+    "root": {
+      "initial": "Waiting",
+      "states": {
+        "Waiting": {
+          "entry": ["spawn:worker"],
+          "on": { "xstate.done.actor.worker": "Finished" }
+        },
+        "Finished": {}
+      }
+    },
+    "children": {
+      "worker": {
+        "initial": "Go",
+        "states": {
+          "Go": { "on": { "FINISH": "End" } },
+          "End": { "type": "final" }
+        }
+      }
+    },
+    "steps": [
+      {
+        "send": "worker",
+        "event": { "type": "FINISH" },
+        "expect": { "root": ["Finished"] }
+      }
+    ],
+    "expected": {
+      "final_states": {
+        "root": ["Finished"],
+        "worker": ["End"]
+      }
+    }
+  },
+  {
+    "name": "peer_actors_exchange_events",
+    "description": "Proves a child can send to a sibling, not only to its parent",
+    "root": {
+      "initial": "Idle",
+      "states": {
+        "Idle": { "entry": ["spawn:sender", "spawn:receiver"] }
+      }
+    },
+    "children": {
+      "sender": {
+        "initial": "Idle",
+        "states": {
+          "Idle": {
+            "on": {
+              "PING": {
+                "target": "Pinged",
+                "actions": ["send:receiver:WORK"]
+              }
+            }
+          },
+          "Pinged": {}
+        }
+      },
+      "receiver": {
+        "initial": "Idle",
+        "states": {
+          "Idle": { "on": { "WORK": "Working" } },
+          "Working": {}
+        }
+      }
+    },
+    "steps": [
+      {
+        "send": "sender",
+        "event": { "type": "PING" },
+        "expect": {
+          "sender": ["Pinged"],
+          "receiver": ["Working"]
+        }
+      }
+    ],
+    "expected": {
+      "final_states": {
+        "sender": ["Pinged"],
+        "receiver": ["Working"]
+      }
+    }
+  },
+  {
+    "name": "unhandled_completion_is_ignored",
+    "description": "Proves a done notification with no parent transition leaves the parent unchanged",
+    "root": {
+      "initial": "Idle",
+      "states": {
+        "Idle": { "entry": ["spawn:worker"] }
+      }
+    },
+    "children": {
+      "worker": {
+        "initial": "Go",
+        "states": {
+          "Go": { "on": { "FINISH": "End" } },
+          "End": { "type": "final" }
+        }
+      }
+    },
+    "steps": [
+      {
+        "send": "worker",
+        "event": { "type": "FINISH" },
+        "expect": {
+          "root": ["Idle"],
+          "worker": ["End"]
+        }
+      }
+    ],
+    "expected": {
+      "final_states": {
+        "root": ["Idle"],
+        "worker": ["End"]
+      }
+    }
+  },
+  {
+    "name": "stopping_a_child_removes_its_descendants",
+    "description": "Proves stop cascades through a spawned supervisor to its worker",
+    "root": {
+      "initial": "Idle",
+      "states": {
+        "Idle": {
+          "entry": ["spawn:supervisor"],
+          "on": {
+            "STOP": {
+              "target": "Stopped",
+              "actions": ["stop:supervisor"]
+            }
+          }
+        },
+        "Stopped": {}
+      }
+    },
+    "children": {
+      "supervisor": {
+        "initial": "Idle",
+        "states": {
+          "Idle": { "entry": ["spawn:worker"] }
+        }
+      },
+      "worker": { "initial": "Waiting", "states": { "Waiting": {} } }
+    },
+    "steps": [
+      { "send": "root", "event": { "type": "STOP" } }
+    ],
+    "expected": {
+      "final_states": { "root": ["Stopped"] },
+      "absent": ["supervisor", "worker"]
+    }
+  }
+]

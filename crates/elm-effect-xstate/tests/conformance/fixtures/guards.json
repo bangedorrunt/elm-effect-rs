@@ -75,5 +75,54 @@
         "mark_failed"
       ]
     }
+  },
+  {
+    "name": "the_first_true_guard_wins",
+    "description": "Proves declaration order decides when two guards both accept",
+    "machine": {
+      "initial": "Idle",
+      "context": { "score": 50, "log": [] },
+      "states": {
+        "Idle": {
+          "on": {
+            "PICK": [
+              { "target": "First", "guard": "score >= 10", "actions": ["first"] },
+              { "target": "Second", "guard": "score >= 10", "actions": ["second"] }
+            ]
+          }
+        },
+        "First": {},
+        "Second": {}
+      }
+    },
+    "events": [{ "type": "PICK" }],
+    "expected": {
+      "final_state": "First",
+      "trace": ["first"]
+    }
+  },
+  {
+    "name": "guarded_self_transition_reenters",
+    "description": "Proves a true guard on a self-transition still exits and re-enters the state",
+    "machine": {
+      "initial": "A",
+      "context": { "score": 50, "log": [] },
+      "states": {
+        "A": {
+          "entry": ["enter_a"],
+          "exit": ["exit_a"],
+          "on": {
+            "RETRY": [
+              { "target": "A", "guard": "score >= 10", "actions": ["retry"] }
+            ]
+          }
+        }
+      }
+    },
+    "events": [{ "type": "RETRY" }],
+    "expected": {
+      "final_state": "A",
+      "trace": ["enter_a", "exit_a", "retry", "enter_a"]
+    }
   }
 ]

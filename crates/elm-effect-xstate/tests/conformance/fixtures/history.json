@@ -1,0 +1,291 @@
+[
+  {
+    "name": "shallow_history_restores_the_child_then_its_initial",
+    "description": "Proves shallow history remembers the immediate child and resolves its initial",
+    "machine": {
+      "initial": "Root",
+      "context": { "log": [] },
+      "states": {
+        "Root": {
+          "type": "compound",
+          "initial": "Active",
+          "on": { "STOP": "Stopped" }
+        },
+        "Active": {
+          "type": "compound",
+          "initial": "Idle",
+          "parent": "Root",
+          "entry": ["enter_active"],
+          "exit": ["exit_active"]
+        },
+        "Idle": { "parent": "Active", "entry": ["enter_idle"], "on": { "PLAY": "Paused" } },
+        "Paused": {
+          "parent": "Active",
+          "entry": ["enter_paused"],
+          "exit": ["exit_paused"]
+        },
+        "Stopped": {
+          "entry": ["enter_stopped"],
+          "on": { "RESUME": "Shallow" }
+        },
+        "Shallow": {
+          "type": "history",
+          "initial": "Idle",
+          "parent": "Root"
+        }
+      }
+    },
+    "events": [
+      { "type": "PLAY" },
+      { "type": "STOP" },
+      { "type": "RESUME" }
+    ],
+    "expected": {
+      "final_state": "Idle",
+      "trace": [
+        "enter_active",
+        "enter_idle",
+        "enter_paused",
+        "exit_paused",
+        "exit_active",
+        "enter_stopped",
+        "enter_active",
+        "enter_idle"
+      ]
+    }
+  },
+  {
+    "name": "deep_history_restores_the_exact_leaf",
+    "description": "Proves deep history restores the nested leaf rather than the child initial",
+    "machine": {
+      "initial": "Root",
+      "context": { "log": [] },
+      "states": {
+        "Root": {
+          "type": "compound",
+          "initial": "Active",
+          "on": { "STOP": "Stopped" }
+        },
+        "Active": {
+          "type": "compound",
+          "initial": "Idle",
+          "parent": "Root",
+          "entry": ["enter_active"],
+          "exit": ["exit_active"]
+        },
+        "Idle": { "parent": "Active", "entry": ["enter_idle"], "on": { "PLAY": "Paused" } },
+        "Paused": {
+          "parent": "Active",
+          "entry": ["enter_paused"],
+          "exit": ["exit_paused"]
+        },
+        "Stopped": {
+          "entry": ["enter_stopped"],
+          "on": { "RESUME": "Deep" }
+        },
+        "Deep": {
+          "type": "history",
+          "history": "deep",
+          "initial": "Idle",
+          "parent": "Root"
+        }
+      }
+    },
+    "events": [
+      { "type": "PLAY" },
+      { "type": "STOP" },
+      { "type": "RESUME" }
+    ],
+    "expected": {
+      "final_state": "Paused",
+      "trace": [
+        "enter_active",
+        "enter_idle",
+        "enter_paused",
+        "exit_paused",
+        "exit_active",
+        "enter_stopped",
+        "enter_active",
+        "enter_paused"
+      ]
+    }
+  },
+  {
+    "name": "history_without_a_record_uses_the_fallback",
+    "description": "Proves an unvisited history target enters its declared fallback",
+    "machine": {
+      "initial": "Stopped",
+      "context": { "log": [] },
+      "states": {
+        "Root": { "type": "compound", "initial": "Active" },
+        "Active": { "type": "compound", "initial": "Idle", "parent": "Root" },
+        "Idle": { "parent": "Active", "entry": ["enter_idle"] },
+        "Stopped": { "on": { "RESUME": "Deep" } },
+        "Deep": { "type": "history", "history": "deep", "initial": "Idle", "parent": "Root" }
+      }
+    },
+    "events": [{ "type": "RESUME" }],
+    "expected": {
+      "final_state": "Idle",
+      "trace": ["enter_idle"]
+    }
+  },
+  {
+    "name": "deep_history_remembers_the_latest_visit",
+    "description": "Proves a second exit overwrites the earlier deep-history record",
+    "machine": {
+      "initial": "Root",
+      "context": { "log": [] },
+      "states": {
+        "Root": { "type": "compound", "initial": "Active", "on": { "STOP": "Stopped" } },
+        "Active": { "type": "compound", "initial": "Idle", "parent": "Root", "entry": ["enter_active"] },
+        "Idle": { "parent": "Active", "entry": ["enter_idle"], "on": { "PLAY": "Paused" } },
+        "Paused": { "parent": "Active", "entry": ["enter_paused"], "on": { "BACK": "Idle" } },
+        "Stopped": { "entry": ["enter_stopped"], "on": { "RESUME": "Deep" } },
+        "Deep": { "type": "history", "history": "deep", "initial": "Idle", "parent": "Root" }
+      }
+    },
+    "events": [
+      { "type": "PLAY" },
+      { "type": "BACK" },
+      { "type": "STOP" },
+      { "type": "RESUME" },
+      { "type": "PLAY" },
+      { "type": "STOP" },
+      { "type": "RESUME" }
+    ],
+    "expected": {
+      "final_state": "Paused",
+      "trace": [
+        "enter_active",
+        "enter_idle",
+        "enter_paused",
+        "enter_idle",
+        "enter_stopped",
+        "enter_active",
+        "enter_idle",
+        "enter_paused",
+        "enter_stopped",
+        "enter_active",
+        "enter_paused"
+      ]
+    }
+  },
+{
+  "name": "transient_reentry_updates_the_history_record",
+  "description": "Upstream history: a transient transition into the parent updates the visited child before the next exit",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/history.test.ts: should go to the most recently visited state by a transient transition",
+  "machine": {
+    "initial": "Idle",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Idle": {
+        "type": "compound",
+        "initial": "Absent"
+      },
+      "Absent": {
+        "parent": "Idle",
+        "on": {
+          "DEPLOY": "Deploy"
+        }
+      },
+      "Present": {
+        "parent": "Idle",
+        "on": {
+          "DEPLOY": "Deploy",
+          "DESTROY": "Destroy"
+        }
+      },
+      "Hist": {
+        "type": "history",
+        "initial": "Absent",
+        "parent": "Idle"
+      },
+      "Deploy": {
+        "on": {
+          "SUCCESS": "Present",
+          "FAILURE": "Hist"
+        }
+      },
+      "Destroy": {
+        "always": [
+          {
+            "target": "Absent"
+          }
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "DEPLOY"
+    },
+    {
+      "type": "SUCCESS"
+    },
+    {
+      "type": "DESTROY"
+    },
+    {
+      "type": "DEPLOY"
+    },
+    {
+      "type": "FAILURE"
+    }
+  ],
+  "expected": {
+    "final_state": "Absent",
+    "trace": []
+  }
+},
+{
+  "name": "history_default_enters_the_parent_and_its_fallback",
+  "description": "Upstream history: targeting an unvisited history state enters parent entry actions before the default child",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/history.test.ts: should execute parent entry actions when a history default is used before its parent was visited",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "on": {
+          "NEXT": "Hist"
+        }
+      },
+      "B": {
+        "type": "compound",
+        "initial": "B1",
+        "entry": [
+          "enter_b"
+        ]
+      },
+      "B1": {
+        "parent": "B",
+        "entry": [
+          "enter_b1"
+        ]
+      },
+      "Hist": {
+        "type": "history",
+        "initial": "B1",
+        "parent": "B"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "NEXT"
+    }
+  ],
+  "expected": {
+    "final_state": "B1",
+    "trace": [
+      "enter_b",
+      "enter_b1"
+    ]
+  }
+}
+]

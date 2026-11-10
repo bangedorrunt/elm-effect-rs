@@ -1,0 +1,275 @@
+[
+  {
+    "name": "parallel_regions_enter_and_broadcast",
+    "description": "Proves a parallel node activates every region and one event reaches all of them",
+    "machine": {
+      "initial": "Root",
+      "context": { "log": [] },
+      "states": {
+        "Root": { "type": "parallel" },
+        "Left": {
+          "type": "compound",
+          "initial": "LeftA",
+          "parent": "Root",
+          "entry": ["enter_left"]
+        },
+        "LeftA": {
+          "parent": "Left",
+          "entry": ["enter_left_a"],
+          "exit": ["exit_left_a"],
+          "on": { "NEXT": "LeftB" }
+        },
+        "LeftB": { "parent": "Left", "entry": ["enter_left_b"] },
+        "Right": {
+          "type": "compound",
+          "initial": "RightA",
+          "parent": "Root",
+          "entry": ["enter_right"]
+        },
+        "RightA": {
+          "parent": "Right",
+          "entry": ["enter_right_a"],
+          "exit": ["exit_right_a"],
+          "on": { "NEXT": "RightB" }
+        },
+        "RightB": { "parent": "Right", "entry": ["enter_right_b"] }
+      }
+    },
+    "events": [{ "type": "NEXT" }],
+    "expected": {
+      "final_state": "LeftB",
+      "final_states": ["LeftB", "RightB"],
+      "trace": [
+        "enter_left",
+        "enter_left_a",
+        "enter_right",
+        "enter_right_a",
+        "exit_left_a",
+        "exit_right_a",
+        "enter_left_b",
+        "enter_right_b"
+      ]
+    }
+  },
+  {
+    "name": "parallel_region_without_a_handler_keeps_its_leaf",
+    "description": "Proves event broadcast leaves a region untouched when no transition matches",
+    "machine": {
+      "initial": "Root",
+      "context": { "log": [] },
+      "states": {
+        "Root": { "type": "parallel" },
+        "Left": { "type": "compound", "initial": "LeftA", "parent": "Root" },
+        "LeftA": { "parent": "Left", "on": { "LEFT_ONLY": "LeftB" } },
+        "LeftB": { "parent": "Left" },
+        "Right": { "type": "compound", "initial": "RightA", "parent": "Root" },
+        "RightA": { "parent": "Right" },
+        "RightB": { "parent": "Right" }
+      }
+    },
+    "events": [{ "type": "LEFT_ONLY" }],
+    "expected": {
+      "final_state": "LeftB",
+      "final_states": ["LeftB", "RightA"],
+      "trace": []
+    }
+  },
+  {
+    "name": "parallel_node_completes_when_all_regions_are_final",
+    "description": "Proves onDone fires only after every region reaches a final child",
+    "machine": {
+      "initial": "Root",
+      "context": { "log": [] },
+      "states": {
+        "Root": { "type": "parallel", "onDone": "Finished" },
+        "Left": { "type": "compound", "initial": "LeftA", "parent": "Root" },
+        "LeftA": { "parent": "Left", "on": { "FINISH": "LeftDone" } },
+        "LeftDone": { "type": "final", "parent": "Left" },
+        "Right": { "type": "compound", "initial": "RightA", "parent": "Root" },
+        "RightA": { "parent": "Right", "on": { "FINISH": "RightDone" } },
+        "RightDone": { "type": "final", "parent": "Right" },
+        "Finished": { "entry": ["finished"] }
+      }
+    },
+    "events": [{ "type": "FINISH" }, { "type": "NOOP" }],
+    "expected": {
+      "final_state": "Finished",
+      "trace": ["finished"]
+    }
+  },
+  {
+    "name": "a_finished_region_does_not_complete_the_parallel_early",
+    "description": "Proves one final region leaves the parallel active until every region finishes",
+    "machine": {
+      "initial": "Root",
+      "context": { "log": [] },
+      "states": {
+        "Root": { "type": "parallel", "onDone": "Finished" },
+        "Left": { "type": "compound", "initial": "LeftA", "parent": "Root" },
+        "LeftA": { "parent": "Left", "on": { "FINISH_LEFT": "LeftDone" } },
+        "LeftDone": { "type": "final", "parent": "Left" },
+        "Right": { "type": "compound", "initial": "RightA", "parent": "Root" },
+        "RightA": { "parent": "Right", "on": { "FINISH_RIGHT": "RightDone" } },
+        "RightDone": { "type": "final", "parent": "Right" },
+        "Finished": { "entry": ["finished"] }
+      }
+    },
+    "events": [{ "type": "FINISH_LEFT" }],
+    "expected": {
+      "final_state": "LeftDone",
+      "final_states": ["LeftDone", "RightA"],
+      "trace": []
+    }
+  },
+  {
+    "name": "parallel_completes_only_after_the_last_region",
+    "description": "Proves onDone fires when the second region reaches its final child",
+    "machine": {
+      "initial": "Root",
+      "context": { "log": [] },
+      "states": {
+        "Root": { "type": "parallel", "onDone": "Finished" },
+        "Left": { "type": "compound", "initial": "LeftA", "parent": "Root" },
+        "LeftA": { "parent": "Left", "on": { "FINISH_LEFT": "LeftDone" } },
+        "LeftDone": { "type": "final", "parent": "Left" },
+        "Right": { "type": "compound", "initial": "RightA", "parent": "Root" },
+        "RightA": { "parent": "Right", "on": { "FINISH_RIGHT": "RightDone" } },
+        "RightDone": { "type": "final", "parent": "Right" },
+        "Finished": { "entry": ["finished"] }
+      }
+    },
+    "events": [{ "type": "FINISH_LEFT" }, { "type": "FINISH_RIGHT" }],
+    "expected": {
+      "final_state": "Finished",
+      "trace": ["finished"]
+    }
+  },
+{
+  "name": "transition_targeting_one_region_keeps_the_sibling",
+  "description": "Upstream parallelConformance: a transition into one region does not reset the sibling region",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/parallelConformance.test.ts: a transition targeting one region should not reset sibling regions",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel",
+        "on": {
+          "EDIT": "Edit",
+          "ARCHIVE": "Archive"
+        }
+      },
+      "Phase": {
+        "type": "compound",
+        "initial": "Inquiry",
+        "parent": "Root"
+      },
+      "Inquiry": {
+        "parent": "Phase"
+      },
+      "Archive": {
+        "parent": "Phase"
+      },
+      "Mode": {
+        "type": "compound",
+        "initial": "New",
+        "parent": "Root"
+      },
+      "New": {
+        "parent": "Mode"
+      },
+      "Edit": {
+        "parent": "Mode"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "EDIT"
+    },
+    {
+      "type": "ARCHIVE"
+    }
+  ],
+  "expected": {
+    "final_state": "Archive",
+    "final_states": [
+      "Archive",
+      "Edit"
+    ],
+    "trace": []
+  }
+},
+{
+  "name": "cross_region_transition_keeps_the_source_region",
+  "description": "Upstream parallelConformance: a transition targeting another region leaves the source leaf in place",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/parallelConformance.test.ts: sibling region events should still be handled after a cross-region transition",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "V1": {
+        "type": "compound",
+        "initial": "V1X",
+        "parent": "Root"
+      },
+      "V1X": {
+        "parent": "V1",
+        "on": {
+          "NEXT": "V2Shown"
+        }
+      },
+      "V2": {
+        "type": "compound",
+        "initial": "V2Hidden",
+        "parent": "Root"
+      },
+      "V2Hidden": {
+        "parent": "V2"
+      },
+      "V2Shown": {
+        "parent": "V2",
+        "on": {
+          "NEXT": "V3Shown"
+        }
+      },
+      "V3": {
+        "type": "compound",
+        "initial": "V3Hidden",
+        "parent": "Root"
+      },
+      "V3Hidden": {
+        "parent": "V3"
+      },
+      "V3Shown": {
+        "type": "final",
+        "parent": "V3"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "NEXT"
+    },
+    {
+      "type": "NEXT"
+    }
+  ],
+  "expected": {
+    "final_state": "V1X",
+    "final_states": [
+      "V1X",
+      "V2Shown",
+      "V3Shown"
+    ],
+    "trace": []
+  }
+}
+]

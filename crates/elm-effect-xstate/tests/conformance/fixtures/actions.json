@@ -30,6 +30,7 @@
     "expected": {
       "final_state": "B",
       "trace": [
+        "enter_A",
         "exit_A",
         "action_A_to_B",
         "assign_ctx",
@@ -63,6 +64,7 @@
     "expected": {
       "final_state": "A",
       "trace": [
+        "enter_A",
         "exit_A",
         "action_self",
         "enter_A"
@@ -98,6 +100,8 @@
     "expected": {
       "final_state": "B",
       "trace": [
+        "enter_A_1",
+        "enter_A_2",
         "exit_A_1",
         "exit_A_2",
         "trans_1",
@@ -105,6 +109,96 @@
         "enter_B_1",
         "enter_B_2"
       ]
+    }
+  },
+  {
+    "name": "nested_exit_and_entry_are_topological",
+    "description": "Proves a parent exit runs after its child and a parent entry runs before its child",
+    "machine": {
+      "initial": "Root",
+      "context": { "log": [] },
+      "states": {
+        "Root": {
+          "type": "compound",
+          "initial": "A",
+          "entry": ["enter_root"],
+          "exit": ["exit_root"],
+          "on": { "STOP": "Stopped" }
+        },
+        "A": { "parent": "Root", "entry": ["enter_a"], "exit": ["exit_a"] },
+        "Stopped": { "entry": ["enter_stopped"] }
+      }
+    },
+    "events": [{ "type": "STOP" }],
+    "expected": {
+      "final_state": "Stopped",
+      "trace": ["enter_root", "enter_a", "exit_a", "exit_root", "enter_stopped"]
+    }
+  },
+  {
+    "name": "internal_target_keeps_source_active",
+    "description": "Proves a target strictly inside the source does not exit the source",
+    "machine": {
+      "initial": "Root",
+      "context": { "log": [] },
+      "states": {
+        "Root": {
+          "type": "compound",
+          "initial": "A",
+          "entry": ["enter_root"],
+          "exit": ["exit_root"],
+          "on": { "NEXT": "B" }
+        },
+        "A": { "parent": "Root", "entry": ["enter_a"], "exit": ["exit_a"] },
+        "B": { "parent": "Root", "entry": ["enter_b"] }
+      }
+    },
+    "events": [{ "type": "NEXT" }],
+    "expected": {
+      "final_state": "B",
+      "trace": ["enter_root", "enter_a", "exit_a", "enter_b"]
+    }
+  },
+  {
+    "name": "a_raised_event_is_consumed_in_the_same_macrostep",
+    "description": "Proves enq.raise feeds the internal queue before the step returns",
+    "machine": {
+      "initial": "A",
+      "context": { "log": [] },
+      "states": {
+        "A": {
+          "entry": ["enter_a"],
+          "on": { "GO": { "target": "B", "actions": ["raise:PING"] } }
+        },
+        "B": { "entry": ["enter_b"], "on": { "PING": "C" } },
+        "C": { "entry": ["enter_c"] }
+      }
+    },
+    "events": [{ "type": "GO" }],
+    "expected": {
+      "final_state": "C",
+      "trace": ["enter_a", "enter_b", "enter_c"]
+    }
+  },
+  {
+    "name": "emitted_payloads_reach_inspection",
+    "description": "Proves enq.emit exposes its payload on the step outcome",
+    "machine": {
+      "initial": "A",
+      "context": { "log": [] },
+      "states": {
+        "A": {
+          "entry": ["enter_a"],
+          "on": { "GO": { "target": "B", "actions": ["emit:audit"] } }
+        },
+        "B": { "entry": ["enter_b"] }
+      }
+    },
+    "events": [{ "type": "GO" }],
+    "expected": {
+      "final_state": "B",
+      "emitted": ["audit"],
+      "trace": ["enter_a", "enter_b"]
     }
   }
 ]

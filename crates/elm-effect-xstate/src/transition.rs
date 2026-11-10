@@ -1,8 +1,11 @@
 use crate::action::ActionQueue;
 use std::sync::Arc;
 
+/// A pure guard over context and the event being processed.
 pub type GuardFn<C, E> = Arc<dyn Fn(&C, &E) -> bool + Send + Sync>;
+/// An action that may read the event, mutate context, and enqueue work.
 pub type ActionFn<C, E, CMD> = Arc<dyn Fn(&mut C, &E, &mut ActionQueue<CMD, E>) + Send + Sync>;
+/// A predicate that decides whether an event selects this transition.
 pub type EventMatcherFn<E> = Arc<dyn Fn(&E) -> bool + Send + Sync>;
 
 /// Declarative state transition rule.
@@ -12,6 +15,7 @@ pub struct Transition<S, E, C, CMD> {
     pub(crate) matcher: Option<EventMatcherFn<E>>,
     pub(crate) guard: Option<GuardFn<C, E>>,
     pub(crate) actions: Vec<ActionFn<C, E, CMD>>,
+    pub(crate) label: Option<String>,
 }
 
 impl<S: Clone, E: 'static, C: 'static, CMD: Send + Sync + 'static> Transition<S, E, C, CMD> {
@@ -22,12 +26,19 @@ impl<S: Clone, E: 'static, C: 'static, CMD: Send + Sync + 'static> Transition<S,
             matcher: None,
             guard: None,
             actions: Vec::new(),
+            label: None,
         }
     }
 
     /// Match specific events that trigger this transition.
     pub fn on(mut self, predicate: impl Fn(&E) -> bool + Send + Sync + 'static) -> Self {
         self.matcher = Some(Arc::new(predicate));
+        self
+    }
+
+    /// Give the edge the name a diagram should print.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
         self
     }
 
@@ -65,19 +76,33 @@ impl<S: Clone, E: 'static, C: 'static, CMD: Send + Sync + 'static> Transition<S,
         self
     }
 
-    /// Evaluate whether this transition is enabled for `event` and `ctx`.
+    /// Whether the event matches this transition.
+    #[must_use]
+    pub fn matches(&self, event: &E) -> bool {
+        self.matcher.as_ref().is_none_or(|matcher| matcher(event))
+    }
+
+    /// Whether the guard admits this event and context.
+    #[must_use]
+    pub fn guard_passes(&self, ctx: &C, event: &E) -> bool {
+        self.guard.as_ref().is_none_or(|guard| guard(ctx, event))
+    }
+
+    /// Whether this transition is enabled: the event matches and the guard passes.
     #[must_use]
     pub fn is_enabled(&self, ctx: &C, event: &E) -> bool {
-        if let Some(ref matcher) = self.matcher
-            && !matcher(event)
-        {
-            return false;
-        }
-        if let Some(ref guard) = self.guard
-            && !guard(ctx, event)
-        {
-            return false;
-        }
-        true
+        self.matches(event) && self.guard_passes(ctx, event)
+    }
+
+    /// The state this transition enters.
+    #[must_use]
+    pub fn destination(&self) -> &S {
+        &self.target
+    }
+
+    /// The diagram label, when one was set.
+    #[must_use]
+    pub fn edge_label(&self) -> Option<&str> {
+        self.label.as_deref()
     }
 }

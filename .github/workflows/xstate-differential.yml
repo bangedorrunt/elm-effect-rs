@@ -1,0 +1,28 @@
+name: xstate-differential
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "crates/elm-effect-xstate/tests/conformance/**"
+      - "scripts/xstate-differential/**"
+      - ".github/workflows/xstate-differential.yml"
+
+jobs:
+  differential:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/xstate-differential
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scripts/xstate-differential/package-lock.json
+
+      - run: npm ci
+      - run: npm run check

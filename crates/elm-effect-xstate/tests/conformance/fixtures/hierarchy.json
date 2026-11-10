@@ -68,6 +68,8 @@
     "expected": {
       "final_state": "Child2",
       "trace": [
+        "enter_parent",
+        "enter_child1",
         "exit_child1",
         "enter_child2"
       ]
@@ -105,9 +107,138 @@
     "expected": {
       "final_state": "Cancelled",
       "trace": [
+        "enter_parent",
+        "enter_child",
         "exit_child",
         "exit_parent",
         "enter_cancelled"
+      ]
+    }
+  },
+  {
+    "name": "three_level_event_bubbling",
+    "description": "Proves an event bubbles through two compound ancestors",
+    "machine": {
+      "initial": "Root",
+      "context": { "log": [] },
+      "states": {
+        "Root": {
+          "type": "compound",
+          "initial": "Mid",
+          "entry": ["enter_root"],
+          "exit": ["exit_root"],
+          "on": { "STOP": "Stopped" }
+        },
+        "Mid": {
+          "type": "compound",
+          "initial": "Leaf",
+          "parent": "Root",
+          "entry": ["enter_mid"],
+          "exit": ["exit_mid"]
+        },
+        "Leaf": {
+          "parent": "Mid",
+          "entry": ["enter_leaf"],
+          "exit": ["exit_leaf"]
+        },
+        "Stopped": { "entry": ["enter_stopped"] }
+      }
+    },
+    "events": [{ "type": "STOP" }],
+    "expected": {
+      "final_state": "Stopped",
+      "trace": [
+        "enter_root",
+        "enter_mid",
+        "enter_leaf",
+        "exit_leaf",
+        "exit_mid",
+        "exit_root",
+        "enter_stopped"
+      ]
+    }
+  },
+  {
+    "name": "sibling_compound_transition_stays_under_the_lca",
+    "description": "Proves a cross-branch transition exits to the LCA without re-entering it",
+    "machine": {
+      "initial": "Root",
+      "context": { "log": [] },
+      "states": {
+        "Root": {
+          "type": "compound",
+          "initial": "Left",
+          "entry": ["enter_root"],
+          "exit": ["exit_root"]
+        },
+        "Left": {
+          "type": "compound",
+          "initial": "LeftA",
+          "parent": "Root",
+          "entry": ["enter_left"],
+          "exit": ["exit_left"]
+        },
+        "LeftA": {
+          "parent": "Left",
+          "entry": ["enter_left_a"],
+          "exit": ["exit_left_a"],
+          "on": { "SWITCH": "RightB" }
+        },
+        "Right": {
+          "type": "compound",
+          "initial": "RightA",
+          "parent": "Root",
+          "entry": ["enter_right"]
+        },
+        "RightA": { "parent": "Right", "entry": ["enter_right_a"] },
+        "RightB": { "parent": "Right", "entry": ["enter_right_b"] }
+      }
+    },
+    "events": [{ "type": "SWITCH" }],
+    "expected": {
+      "final_state": "RightB",
+      "trace": [
+        "enter_root",
+        "enter_left",
+        "enter_left_a",
+        "exit_left_a",
+        "exit_left",
+        "enter_right",
+        "enter_right_b"
+      ]
+    }
+  },
+  {
+    "name": "parent_self_transition_reenters_its_child",
+    "description": "Proves a compound self-transition exits and re-enters the whole subtree",
+    "machine": {
+      "initial": "Root",
+      "context": { "log": [] },
+      "states": {
+        "Root": {
+          "type": "compound",
+          "initial": "A",
+          "entry": ["enter_root"],
+          "exit": ["exit_root"],
+          "on": { "RESET": "Root" }
+        },
+        "A": {
+          "parent": "Root",
+          "entry": ["enter_a"],
+          "exit": ["exit_a"]
+        }
+      }
+    },
+    "events": [{ "type": "RESET" }],
+    "expected": {
+      "final_state": "A",
+      "trace": [
+        "enter_root",
+        "enter_a",
+        "exit_a",
+        "exit_root",
+        "enter_root",
+        "enter_a"
       ]
     }
   }

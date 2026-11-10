@@ -1,3 +1,4 @@
+use elm_effect::Duration;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -6,7 +7,7 @@ use crate::action::ActionQueue;
 use crate::machine::{Machine, MachineBuilder};
 use crate::state_node::StateNode;
 use crate::transition::Transition;
-use crate::types::StepOutcome;
+use crate::types::{MachineState, StepOutcome};
 
 /// Dynamic JSON-compatible event for schema-driven statecharts.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -126,15 +127,19 @@ impl TransitionRule {
 /// Declarative state node schema definition.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StateNodeConfig {
-    /// Node type: "atomic", "compound", or "final".
+    /// Node type: "atomic", "compound", "parallel", "history", or "final".
     #[serde(default)]
     pub r#type: Option<String>,
-    /// Initial child state when node is compound.
+    /// Initial child state when node is compound, and the fallback target of a
+    /// history node when nothing is remembered.
     #[serde(default)]
     pub initial: Option<String>,
-    /// Parent compound state identifier.
+    /// Parent compound or parallel state identifier.
     #[serde(default)]
     pub parent: Option<String>,
+    /// History depth of a `"history"` node: `"shallow"` (default) or `"deep"`.
+    #[serde(default)]
+    pub history: Option<String>,
     /// Actions executed upon entering this state.
     #[serde(default)]
     pub entry: ActionList,
@@ -144,9 +149,15 @@ pub struct StateNodeConfig {
     /// Event transitions mapped by event type.
     #[serde(default)]
     pub on: BTreeMap<String, TransitionRule>,
+    /// Delayed transitions mapped by a millisecond delay.
+    #[serde(default)]
+    pub after: BTreeMap<String, TransitionRule>,
     /// Eventless (transient) transitions evaluated upon entering this state.
     #[serde(default)]
     pub always: Vec<TransitionConfig>,
+    /// Transition taken when this node completes.
+    #[serde(rename = "onDone", default)]
+    pub on_done: Option<TransitionRule>,
 }
 
 /// Root declarative statechart schema definition.
@@ -190,9 +201,38 @@ impl DynamicMachine {
     }
 
     /// Parse a JSON schema string and compile a dynamic machine with default handlers.
+    ///
+    /// # Errors
+    ///
+    /// Returns the parse error when the schema is not valid JSON or does not
+    /// match [`MachineConfig`].
     pub fn from_json_str(json: &str) -> Result<Self, serde_json::Error> {
         let config: MachineConfig = serde_json::from_str(json)?;
         Ok(Self::builder(config).build())
+    }
+
+    /// The configuration the machine starts in, with compound and parallel
+    /// nodes expanded to their leaves.
+    #[must_use]
+    pub fn initial_configuration(&self) -> crate::Configuration<String> {
+        self.inner.initial_configuration()
+    }
+
+    /// Enter the initial configuration, running entry actions and arming timers.
+    pub fn enter(
+        &self,
+        context: &DynamicContext,
+    ) -> StepOutcome<String, DynamicContext, String, DynamicEvent> {
+        self.inner.enter(context)
+    }
+
+    /// Step a full run state, including recorded history.
+    pub fn step_state(
+        &self,
+        state: &MachineState<String, DynamicContext>,
+        event: &DynamicEvent,
+    ) -> StepOutcome<String, DynamicContext, String, DynamicEvent> {
+        self.inner.step_state(state, event)
     }
 
     /// Step the statechart with an incoming dynamic event.
@@ -202,7 +242,11 @@ impl DynamicMachine {
         context: &DynamicContext,
         event: &DynamicEvent,
     ) -> StepOutcome<String, DynamicContext, String, DynamicEvent> {
-        self.inner.step(&current_state.to_string(), context, event)
+        let state = MachineState::new(
+            self.inner.resolve_configuration(&current_state.to_string()),
+            context.clone(),
+        );
+        self.inner.step_state(&state, event)
     }
 
     /// Access the initial root state.
@@ -221,6 +265,12 @@ impl DynamicMachine {
     #[must_use]
     pub fn resolve_leaf(&self, state: &str) -> String {
         self.inner.resolve_leaf(&state.to_string())
+    }
+
+    /// Render the compiled chart as a Mermaid diagram.
+    #[must_use]
+    pub fn to_mermaid(&self) -> String {
+        self.inner.to_mermaid()
     }
 }
 
@@ -374,6 +424,23 @@ impl DynamicMachineBuilder {
         op(curr, limit)
     }
 
+    /// Attach the schema's guards and actions to one transition.
+    fn decorate(
+        &self,
+        mut transition: Transition<String, DynamicEvent, DynamicContext, String>,
+        config: &TransitionConfig,
+    ) -> Transition<String, DynamicEvent, DynamicContext, String> {
+        if let Some(guard_name) = &config.guard {
+            let guard_fn = Self::build_guard_fn(guard_name.clone(), &self.guards);
+            transition = transition.guard(move |ctx, e| guard_fn(ctx, e));
+        }
+        for action_name in config.actions.clone().into_vec() {
+            let action_fn = Self::build_action_fn(action_name, &self.actions);
+            transition = transition.action(move |ctx, e, enq| action_fn(ctx, e, enq));
+        }
+        transition
+    }
+
     /// Compile into an immutable [`DynamicMachine`].
     #[must_use]
     pub fn build(self) -> DynamicMachine {
@@ -382,12 +449,27 @@ impl DynamicMachineBuilder {
             Machine::builder(self.config.initial.clone(), initial_context);
 
         for (state_id, state_cfg) in &self.config.states {
+            let is_history = state_cfg.r#type.as_deref() == Some("history");
+            let is_parallel = state_cfg.r#type.as_deref() == Some("parallel");
+            let is_final = state_cfg.r#type.as_deref() == Some("final");
             let is_compound =
                 state_cfg.r#type.as_deref() == Some("compound") || state_cfg.initial.is_some();
-            let is_final = state_cfg.r#type.as_deref() == Some("final");
 
             let mut node = if is_final {
                 StateNode::final_state(state_id.clone())
+            } else if is_history {
+                let fallback = state_cfg
+                    .initial
+                    .clone()
+                    .or_else(|| state_cfg.parent.clone())
+                    .unwrap_or_else(|| state_id.clone());
+                StateNode::history(
+                    state_id.clone(),
+                    state_cfg.history.as_deref() == Some("deep"),
+                    fallback,
+                )
+            } else if is_parallel {
+                StateNode::parallel(state_id.clone())
             } else if is_compound {
                 let init = state_cfg
                     .initial
@@ -421,37 +503,40 @@ impl DynamicMachineBuilder {
             for (event_type, transition_rule) in &state_cfg.on {
                 for trans_cfg in transition_rule.clone().into_configs() {
                     let event_matcher = event_type.clone();
-                    let mut transition = Transition::target(trans_cfg.target.clone())
-                        .on(move |e: &DynamicEvent| e.r#type == event_matcher);
+                    let transition = Transition::target(trans_cfg.target.clone())
+                        .on(move |e: &DynamicEvent| e.r#type == event_matcher)
+                        .label(event_type.clone());
+                    node = node.on(self.decorate(transition, &trans_cfg));
+                }
+            }
 
-                    if let Some(guard_name) = trans_cfg.guard {
-                        let guard_fn = Self::build_guard_fn(guard_name, &self.guards);
-                        transition = transition.guard(move |ctx, e| guard_fn(ctx, e));
-                    }
-
-                    for action_name in trans_cfg.actions.into_vec() {
-                        let action_fn = Self::build_action_fn(action_name, &self.actions);
-                        transition = transition.action(move |ctx, e, enq| action_fn(ctx, e, enq));
-                    }
-
-                    node = node.on(transition);
+            for (delay_ms, transition_rule) in &state_cfg.after {
+                let Ok(millis) = delay_ms.trim().parse::<u64>() else {
+                    continue;
+                };
+                let timer_event = format!("xstate.after.{millis}.{state_id}");
+                for trans_cfg in transition_rule.clone().into_configs() {
+                    let matcher = timer_event.clone();
+                    let transition = Transition::target(trans_cfg.target.clone())
+                        .on(move |e: &DynamicEvent| e.r#type == matcher)
+                        .label(timer_event.clone());
+                    node = node.after(
+                        Duration::from_millis(millis),
+                        self.decorate(transition, &trans_cfg),
+                    );
                 }
             }
 
             for trans_cfg in &state_cfg.always {
-                let mut transition = Transition::target(trans_cfg.target.clone());
+                let transition = Transition::target(trans_cfg.target.clone());
+                node = node.always(self.decorate(transition, trans_cfg));
+            }
 
-                if let Some(ref guard_name) = trans_cfg.guard {
-                    let guard_fn = Self::build_guard_fn(guard_name.clone(), &self.guards);
-                    transition = transition.guard(move |ctx, e| guard_fn(ctx, e));
+            if let Some(rule) = &state_cfg.on_done {
+                for trans_cfg in rule.clone().into_configs() {
+                    let transition = Transition::target(trans_cfg.target.clone()).label("done");
+                    node = node.on_done(self.decorate(transition, &trans_cfg));
                 }
-
-                for action_name in trans_cfg.actions.clone().into_vec() {
-                    let action_fn = Self::build_action_fn(action_name, &self.actions);
-                    transition = transition.action(move |ctx, e, enq| action_fn(ctx, e, enq));
-                }
-
-                node = node.always(transition);
             }
 
             builder = builder.node(node);

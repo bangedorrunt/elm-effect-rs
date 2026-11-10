@@ -84,16 +84,16 @@ fn statechart_program_runs_in_elm_fold() {
 
     let boot = Boot::default();
     let init_update = ProgramType::init(&boot);
-    assert_eq!(init_update.model.state, GateState::Closed);
+    assert_eq!(init_update.model.state(), Some(&GateState::Closed));
     assert_eq!(init_update.model.context.coins_collected, 0);
 
     let update1 = ProgramType::update(&init_update.model, &AppMsg::UserEvent(GateEvent::Coin));
-    assert_eq!(update1.model.state, GateState::Open);
+    assert_eq!(update1.model.state(), Some(&GateState::Open));
     assert_eq!(update1.model.context.coins_collected, 1);
     assert_eq!(update1.commands, vec![AppCmd::UnlockTurnstile]);
 
     let update2 = ProgramType::update(&update1.model, &AppMsg::UserEvent(GateEvent::Push));
-    assert_eq!(update2.model.state, GateState::Closed);
+    assert_eq!(update2.model.state(), Some(&GateState::Closed));
     assert_eq!(update2.model.context.coins_collected, 1);
     assert_eq!(update2.commands, vec![AppCmd::LockTurnstile]);
 }

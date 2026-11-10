@@ -1,0 +1,93 @@
+[
+  {
+    "name": "delayed_transition_fires_on_its_timer_event",
+    "description": "Proves an after transition is selected by the XState timer event",
+    "machine": {
+      "initial": "Idle",
+      "context": { "log": [] },
+      "states": {
+        "Idle": { "on": { "START": "Waiting" } },
+        "Waiting": {
+          "entry": ["enter_waiting"],
+          "exit": ["exit_waiting"],
+          "after": { "1000": "TimedOut" },
+          "on": { "CANCEL": "Idle" }
+        },
+        "TimedOut": { "entry": ["enter_timed_out"] }
+      }
+    },
+    "events": [
+      { "type": "START" },
+      { "type": "xstate.after.1000.Waiting" }
+    ],
+    "expected": {
+      "final_state": "TimedOut",
+      "trace": ["enter_waiting", "exit_waiting", "enter_timed_out"]
+    }
+  },
+  {
+    "name": "delayed_transition_ignored_after_the_state_is_left",
+    "description": "Proves a timer that fires for an exited state changes nothing",
+    "machine": {
+      "initial": "Idle",
+      "context": { "log": [] },
+      "states": {
+        "Idle": { "on": { "START": "Waiting" } },
+        "Waiting": {
+          "entry": ["enter_waiting"],
+          "exit": ["exit_waiting"],
+          "after": { "1000": "TimedOut" },
+          "on": { "CANCEL": "Idle" }
+        },
+        "TimedOut": { "entry": ["enter_timed_out"] }
+      }
+    },
+    "events": [
+      { "type": "START" },
+      { "type": "CANCEL" },
+      { "type": "xstate.after.1000.Waiting" }
+    ],
+    "expected": {
+      "final_state": "Idle",
+      "trace": ["enter_waiting", "exit_waiting"]
+    }
+  },
+  {
+    "name": "a_stale_timer_from_an_exited_state_is_ignored",
+    "description": "Proves a delay that fires after its state exited changes nothing",
+    "machine": {
+      "initial": "A",
+      "context": { "log": [] },
+      "states": {
+        "A": { "after": { "100": "TimedOut" }, "on": { "GO": "B" } },
+        "B": { "entry": ["enter_b"], "after": { "200": "TimedOut" } },
+        "TimedOut": { "entry": ["enter_timed_out"] }
+      }
+    },
+    "events": [
+      { "type": "GO" },
+      { "type": "xstate.after.100.A" }
+    ],
+    "expected": {
+      "final_state": "B",
+      "trace": ["enter_b"]
+    }
+  },
+  {
+    "name": "a_zero_delay_fires_on_its_timer_event",
+    "description": "Proves a zero-millisecond delay produces a selectable timer event",
+    "machine": {
+      "initial": "A",
+      "context": { "log": [] },
+      "states": {
+        "A": { "after": { "0": "Done" } },
+        "Done": { "entry": ["enter_done"] }
+      }
+    },
+    "events": [{ "type": "xstate.after.0.A" }],
+    "expected": {
+      "final_state": "Done",
+      "trace": ["enter_done"]
+    }
+  }
+]

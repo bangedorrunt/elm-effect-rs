@@ -6,10 +6,13 @@ This guide explains how to model complex state transitions using Harel statechar
 
 Statecharts extend finite state machines with:
 - **Hierarchical (compound) states**: Child states inherit and bubble unhandled events to parent states.
+- **Parallel (orthogonal) regions**: A parallel state activates every child region at once, and one event reaches all of them.
+- **History states**: Shallow and deep history remember where an interrupted compound state was, and restore it on re-entry.
+- **Delayed transitions (`after`)**: The engine arms a timer intent; the host owns the clock and the intent is data.
 - **Extended context**: Pure data updated deterministically alongside discrete state.
 - **Deterministic action sequence**: State exit actions, transition actions, and target entry actions run in strict topological order (Law L1).
 - **Eventless (transient) micro-steps**: Transient transitions (`always`) cascade sequentially until the state machine settles in quiescence (Law L2).
-- **Unified action enqueue**: Actions enqueue commands (`exec`), internal events (`raise`), or telemetry emissions (`emit`) via [`ActionQueue`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-xstate/src/action.rs), replacing legacy action creators.
+- **Unified action enqueue**: Actions enqueue commands (`exec`), internal events (`raise`), telemetry emissions (`emit`), or actor work (`spawn`, `send_to`, `stop`) via [`ActionQueue`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-xstate/src/action.rs), replacing legacy action creators.
 - **Pure Elm fold compilation**: The entire statechart compiles down to a deterministic `Program::update` function with zero background scheduler.
 
 <Flow
@@ -93,15 +96,198 @@ let machine: Machine<TrafficLightState, TrafficLightEvent, LightContext, ()> =
         .build();
 ```
 
-## Step execution
+## Start the machine and step it
 
-You process events directly with `machine.step`:
+`Machine::enter` is the start edge: it runs the entry actions of every state it enters and arms their `after` delays. `Machine::step_state` takes the whole run state, so recorded history survives between events:
 
 ```rust
-let outcome = machine.step(&TrafficLightState::Green, &LightContext::default(), &TrafficLightEvent::Timer);
+let started = machine.enter(&LightContext::default());
+let state = MachineState::new(started.configuration, started.context);
+let outcome = machine.step_state(&state, &TrafficLightEvent::Timer);
 assert_eq!(outcome.current_state, TrafficLightState::Yellow);
 assert!(outcome.transitioned);
 ```
+
+`machine.step(&LightState::Green, &ctx, &event)` is the short form for a chart with one region and no history.
+
+A `Configuration` is the set of active leaf states. `outcome.configuration.leaves()` lists them in a stable order. `outcome.current_state` is the first leaf, which is the whole answer when a chart has one region.
+
+`MachineState` carries three fields: the active `configuration`, the `history` each history node remembers, and the extended `context`.
+
+## Parallel regions
+
+A parallel node enters every child region. Each region keeps its own active leaf, and one event is offered to every region:
+
+```rust
+let machine = Machine::builder(Region::Root, ())
+    .parallel(Region::Root, |node| node)
+    .compound(Region::Left, Region::LeftIdle, |node| node.with_parent(Region::Root))
+    .state(Region::LeftIdle, |node| {
+        let busy = node
+            .transition(Region::LeftBusy)
+            .on(|e| matches!(e, Signal::Work));
+        node.with_parent(Region::Left).on(busy)
+    })
+    .state(Region::LeftBusy, |node| node.with_parent(Region::Left))
+    .compound(Region::Right, Region::RightReady, |node| node.with_parent(Region::Root))
+    .state(Region::RightReady, |node| node.with_parent(Region::Right))
+    .build();
+
+let started = machine.enter(&());
+assert_eq!(
+    started.configuration.leaves().copied().collect::<Vec<_>>(),
+    [Region::LeftIdle, Region::RightReady]
+);
+
+// One event advances each region that handles it, and leaves the others alone.
+let next = machine.step(&Region::Root, &(), &Signal::Work);
+assert_eq!(
+    next.configuration.leaves().copied().collect::<Vec<_>>(),
+    [Region::LeftBusy, Region::RightReady]
+);
+```
+
+A selection on a shared ancestor is taken once. When a deeper state and an ancestor both select for the same event, the deeper state wins.
+
+## History states
+
+A history node remembers the configuration its parent had when the parent was exited. Shallow history restores the immediate child and resolves its initial; deep history restores the exact leaf:
+
+```rust
+let machine = Machine::builder(Spot::Root, ())
+    .compound(Spot::Root, Spot::Active, |node| {
+        let stop = node.transition(Spot::Stopped).on(|e| matches!(e, Signal::Stop));
+        node.on(stop)
+    })
+    .compound(Spot::Active, Spot::Idle, |node| node.with_parent(Spot::Root))
+    .state(Spot::Idle, |node| {
+        let play = node.transition(Spot::Paused).on(|e| matches!(e, Signal::Play));
+        node.with_parent(Spot::Active).on(play)
+    })
+    .state(Spot::Paused, |node| node.with_parent(Spot::Active))
+    .state(Spot::Stopped, |node| {
+        let resume = node.transition(Spot::Deep).on(|e| matches!(e, Signal::Resume));
+        node.on(resume)
+    })
+    // fallback is Idle when nothing is remembered
+    .deep_history(Spot::Deep, Spot::Idle, |node| node.with_parent(Spot::Root))
+    .build();
+```
+
+`.history(id, fallback, ...)` is the shallow form. A history node that has no record enters its fallback.
+
+## Delayed transitions
+
+The engine does not read a clock. Entering a state that declares `after` returns a `TimerIntent::Start`; leaving it returns `TimerIntent::Cancel`. The host schedules the delay and calls `step_timer` when it elapses:
+
+```rust
+let machine = Machine::builder(Phase::Idle, ())
+    .state(Phase::Idle, |node| {
+        let start = node.transition(Phase::Waiting).on(|e| matches!(e, Signal::Start));
+        node.on(start)
+    })
+    .state(Phase::Waiting, |node| {
+        let timeout = node.transition(Phase::TimedOut);
+        let cancel = node.transition(Phase::Idle).on(|e| matches!(e, Signal::Cancel));
+        node.after(Duration::from_millis(500), timeout).on(cancel)
+    })
+    .state(Phase::TimedOut, |node| node)
+    .build();
+
+let started = machine.step(&Phase::Idle, &(), &Signal::Start);
+assert_eq!(started.state(), Some(&Phase::Waiting));
+assert!(matches!(started.timers[0], TimerIntent::Start { .. }));
+
+let fired = machine.step_timer(
+    &MachineState::new(started.configuration, started.context),
+    &TimerFired::new(Phase::Waiting, Duration::from_millis(500)),
+    &Signal::Start,
+);
+assert_eq!(fired.state(), Some(&Phase::TimedOut));
+```
+
+A timer that fires for a state that is no longer active does nothing, so cancelling a delay without reaching the state is safe. In an Elm program, implement `StatechartDefinition::timer_cmd` to turn an intent into a command the host can run, and have the delay message map back through `extract_event`. The default `timer_cmd` returns `None`, which is correct for a chart with no `after`.
+
+## Completion
+
+A compound state completes when its child reaches a final state. A parallel state completes when every region does. `on_done` takes the completion transition, and `outcome.done` reports a completed root:
+
+```rust
+let machine = Machine::builder(Task::Work, ())
+    .compound(Task::Work, Task::StepOne, |node| {
+        let finished = node.transition(Task::Finished);
+        node.on_done(finished)
+    })
+    .state(Task::StepOne, |node| {
+        let finish = node.transition(Task::StepDone).on(|e| matches!(e, Signal::Finish));
+        node.with_parent(Task::Work).on(finish)
+    })
+    .final_state(Task::StepDone, |node| node.with_parent(Task::Work))
+    .state(Task::Finished, |node| node)
+    .build();
+```
+
+## Actors
+
+An `ActorSystem` runs a tree of machine and reducer actors in one process, with no second runtime. It is still pure: `run` delivers queued events, applies the directives actions produced, and returns.
+
+```rust
+let root = DynamicMachine::builder(root_config)
+    .action("spawn_worker", |_context, _event, enq| {
+        enq.spawn("worker", ActorLogic::from_machine(worker_machine()));
+    })
+    .build();
+
+let mut system = ActorSystem::new("root", ActorLogic::from_machine(root));
+system.run()?;                                    // applies the spawn directive
+
+system.send("root", DynamicEvent::new("START"))?;
+system.run()?;                                    // walks parent and child
+```
+
+Actions on a schema-driven chart reach the actor system through `ActionQueue`:
+
+- `enq.spawn(id, logic)` creates a child of the sending actor.
+- `enq.send_to(target, event)` queues an event for another actor.
+- `enq.stop(id)` stops an actor and its descendants.
+
+`ActorLogic::from_transition(initial, reduce)` is the reducer form. `ActorSystem::state`, `configuration`, `context`, and `value` inspect an actor without stepping it.
+
+A child that reaches a final state sends `xstate.done.actor.<id>` to its parent, so a parent chart declares that event like any other transition:
+
+```json
+{"initial":"Waiting","states":{
+  "Waiting":{"on":{"xstate.done.actor.worker":"Finished"}},
+  "Finished":{}
+}}
+```
+
+### Lifetimes
+
+Every actor owns a `Scope` forked from its parent's. `stop` closes the descendant scopes deepest-first; each close interrupts its members and runs finalizers last-in-first-out. `on_stop(id, f)` registers one. `ActorSystem::defects` returns finalizer failures instead of dropping them.
+
+`run` refuses to wait forever: it stops at its step budget and returns `ActorError::StepBudget`, which turns a directive cycle into an error instead of a hang.
+
+Actor verbs exist on `ActionQueue<CMD, DynamicEvent>`; a typed chart keeps its own event type and does not use them.
+
+### Host-run actors
+
+`ActorLogic::from_effect` and `from_promise` produce one-shot tasks. `from_stream` forwards each received value to the parent, and `from_callback` invokes a handler once at spawn with a `CallbackSender`. These actors keep their lifetime in the system and their work at the host edge:
+
+```rust
+for task in system.take_tasks() {
+    match Runtime::run(task.effect) {
+        Exit::Success(event) => {
+            system.complete(&task.actor, event.payload)?;
+        }
+        Exit::Failure(_) => {
+            system.fail(&task.actor, "effect failed")?;
+        }
+    }
+}
+```
+
+`system.scope(&task.actor)` returns the actor's `Scope`. Run host work inside it, so `stop` interrupts the fiber and runs finalizers LIFO. `from_promise` has the same completion contract as `from_effect`: this carrier has no separate `Future`, so an `Effect` is the async description a promise resolves to.
 
 ## Compound states and bubbling
 
@@ -186,9 +372,33 @@ node.state(LoopState::Counting, |node| {
 
 The engine cascades these micro-steps until reaching quiescence (or a safe iteration bound of 100), all within a single `machine.step` invocation.
 
+## Diagrams and durable records
+
+`Machine::to_mermaid` prints a `stateDiagram-v2` with nested blocks for compound and parallel states. `Machine::to_tla()` renders a topology-only TLA+ module (`States`, `Init`, `Next`); guards are Rust closures, so every edge is modelled as enabled; `scripts/verify-formal.sh` generates a module from `examples/emit_tla.rs` and model-checks it with TLC. Set `Transition::label` when the edge name matters, because an event matcher is a closure and carries no name:
+
+```rust
+let diagram = machine.to_mermaid();
+```
+
+`TransitionRecord` turns one step into a journal entry. Append it before the entry actions run, so a crash replays the transition rather than part of its effects. `TransitionRecord::replay` walks a continuous record chain back to a configuration and never runs actions, so replaying does not repeat side effects. Attach run state with `.with_snapshot(serde_json::to_string(&state)?)`; `ActorSystem::resume(root, machine, state)` restores it without re-running the active states' entry actions. Children and timers are the host's to respawn.
+
+```rust
+let before = machine.initial_configuration();
+let outcome = machine.step(&TrafficLightState::Green, &LightContext::default(), &TrafficLightEvent::Timer);
+let record = TransitionRecord::from_outcome(&before, &outcome, "TIMER", generation);
+record.append(
+    &log,
+    TransitionStamp {
+        producer_id: "traffic-light",
+        epoch: 0,
+        seq: 4,
+    },
+)?;
+```
+
 ## Elm loop integration
 
-To run a statechart inside an Elm `Program`, implement `StatechartDefinition` and wrap it with `StatechartProgram`:
+To run a statechart inside an Elm `Program`, implement `StatechartDefinition` and wrap it with `StatechartProgram`. A definition whose chart declares `after` also implements `timer_cmd`:
 
 ```rust
 use elm_effect_elm::{Boot, Cmd, Failure, Program};
@@ -246,4 +456,4 @@ let outcome = machine.step("Green", machine.initial_context(), &DynamicEvent::ne
 assert_eq!(outcome.current_state, "Yellow");
 ```
 
-Upstream behavioral conformance test vectors live in `crates/elm-effect-xstate/tests/conformance/fixtures/*.json` and are executed via `cargo test -p elm-effect-xstate --test conformance_test` or `scripts/sync-xstate-conformance.sh`.
+Behavioral conformance vectors live in `crates/elm-effect-xstate/tests/conformance/fixtures/*.json`: 49 cases across actions, always, after, parallel, history, hierarchy, guards, final states, and actors, including six ported from XState 6.0.0-beta.1 (commit d56483f) whose `source` field names the upstream test. `tests/conformance_actors.rs` runs the actor scenarios (`spawn:`, `send:`, and `stop:` actions); `tests/conformance_test.rs` runs the machine suite and enforces a feature matrix naming the cases that prove each behavior. Run both with `cargo test -p elm-effect-xstate --test conformance_test --test conformance_actors` or `scripts/sync-xstate-conformance.sh`. This is the crate's matrix plus six upstream vectors, not a vendored copy of the ~400-case suite. An optional Node check (`scripts/xstate-differential`, `npm run check`) compares final state, `done`, and context against XState for 37 of the vectors; it is not part of the cargo gate.

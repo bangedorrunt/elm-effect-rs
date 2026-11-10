@@ -22,9 +22,48 @@
     ],
     "expected": {
       "final_state": "Completed",
+      "done": true,
       "trace": [
         "enter_completed"
       ]
+    }
+  },
+  {
+    "name": "compound_final_takes_on_done",
+    "description": "Proves a final child completes its compound parent and fires onDone",
+    "machine": {
+      "initial": "Root",
+      "context": { "log": [] },
+      "states": {
+        "Root": { "type": "compound", "initial": "Step", "onDone": "Finished" },
+        "Step": { "parent": "Root", "entry": ["enter_step"], "on": { "DONE": "StepDone" } },
+        "StepDone": { "type": "final", "parent": "Root", "entry": ["enter_step_done"] },
+        "Finished": { "entry": ["enter_finished"] }
+      }
+    },
+    "events": [{ "type": "DONE" }],
+    "expected": {
+      "final_state": "Finished",
+      "done": false,
+      "trace": ["enter_step", "enter_step_done", "enter_finished"]
+    }
+  },
+  {
+    "name": "final_state_ignores_later_events",
+    "description": "Proves a completed machine stays in its final state",
+    "machine": {
+      "initial": "Running",
+      "context": { "log": [] },
+      "states": {
+        "Running": { "on": { "COMPLETE": "Completed" } },
+        "Completed": { "type": "final", "entry": ["enter_completed"] }
+      }
+    },
+    "events": [{ "type": "COMPLETE" }, { "type": "NOOP" }],
+    "expected": {
+      "final_state": "Completed",
+      "done": true,
+      "trace": ["enter_completed"]
     }
   }
 ]

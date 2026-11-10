@@ -5,10 +5,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 UPSTREAM_REPO="https://github.com/statelyai/xstate"
-PINNED_REF="v6.0.0-beta"
+PINNED_REF="d56483f"
 FIXTURES_DIR="crates/elm-effect-xstate/tests/conformance/fixtures"
 
-echo "=== Syncing and Validating XState v6 Conformance Vectors ==="
+echo "=== Validating the XState v6 Conformance Matrix (local vectors) ==="
 echo "Upstream Reference: ${UPSTREAM_REPO} (${PINNED_REF})"
 echo "Fixtures Directory: ${FIXTURES_DIR}"
 echo ""
@@ -23,8 +23,8 @@ done
 echo ""
 echo "Total declarative behavioral test vectors: ${TOTAL_CASES}"
 echo ""
-echo "=== Executing Rust Conformance Test Runner ==="
-cargo test -p elm-effect-xstate --test conformance_test
+echo "=== Executing Rust Conformance Test Runners ==="
+cargo test -p elm-effect-xstate --test conformance_test --test conformance_actors
 
 echo ""
 echo "All XState v6 conformance test vectors verified successfully."

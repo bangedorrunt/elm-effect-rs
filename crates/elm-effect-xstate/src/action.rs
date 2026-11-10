@@ -1,3 +1,6 @@
+use crate::actor::{ActorDirective, ActorId, ActorLogic};
+use crate::dynamic::DynamicEvent;
+
 /// Action queue provided to transition, entry, and exit handlers.
 ///
 /// Implements XState v6's unified enqueue discipline (`enq`), replacing
@@ -7,6 +10,7 @@ pub struct ActionQueue<CMD, E> {
     pub(crate) commands: Vec<CMD>,
     pub(crate) raised: Vec<E>,
     pub(crate) emitted: Vec<serde_json::Value>,
+    pub(crate) directives: Vec<ActorDirective>,
 }
 
 impl<CMD, E> ActionQueue<CMD, E> {
@@ -17,6 +21,7 @@ impl<CMD, E> ActionQueue<CMD, E> {
             commands: Vec::new(),
             raised: Vec::new(),
             emitted: Vec::new(),
+            directives: Vec::new(),
         }
     }
 
@@ -48,5 +53,38 @@ impl<CMD, E> ActionQueue<CMD, E> {
     /// Drain all enqueued inspection emissions.
     pub fn take_emitted(&mut self) -> Vec<serde_json::Value> {
         std::mem::take(&mut self.emitted)
+    }
+
+    /// Drain all enqueued actor directives.
+    pub fn take_directives(&mut self) -> Vec<ActorDirective> {
+        std::mem::take(&mut self.directives)
+    }
+}
+
+/// Actor verbs on a schema-driven action queue (ADR-0007 `enq.spawn`, `enq.send_to`, `enq.stop`).
+///
+/// These live on `ActionQueue<CMD, DynamicEvent>` because an [`ActorSystem`](crate::ActorSystem)
+/// routes [`DynamicEvent`] values. A typed chart keeps its own event type and
+/// does not use the actor verbs.
+impl<CMD> ActionQueue<CMD, DynamicEvent> {
+    /// Ask the host to create a child actor under the sending actor.
+    pub fn spawn(&mut self, id: impl Into<ActorId>, logic: ActorLogic) {
+        self.directives.push(ActorDirective::Spawn {
+            id: id.into(),
+            logic,
+        });
+    }
+
+    /// Ask the host to deliver an event to another actor.
+    pub fn send_to(&mut self, target: impl Into<ActorId>, event: DynamicEvent) {
+        self.directives.push(ActorDirective::Send {
+            target: target.into(),
+            event,
+        });
+    }
+
+    /// Ask the host to stop another actor and its descendants.
+    pub fn stop(&mut self, id: impl Into<ActorId>) {
+        self.directives.push(ActorDirective::Stop { id: id.into() });
     }
 }

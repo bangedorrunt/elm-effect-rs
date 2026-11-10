@@ -371,8 +371,19 @@ type MyProgram = StatechartProgram<MyStatechartDef>;
 
 ---
 
-## 6. Testing & Conformance Verification
+## 6. Parallel regions, history, delays, completion
 
-- **Pure Step Testing**: Test statecharts synchronously using `machine.step(...)`. No mock threads, sockets, or clocks required.
-- **Delayed Transitions**: Use [`elm-effect-test::TestClock`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-test/src/clock.rs) to advance virtual time deterministically.
-- **Upstream Conformance Vectors**: Execute `scripts/sync-xstate-conformance.sh` to run the reference test suites under `crates/elm-effect-xstate/tests/conformance/fixtures/`.
+- **Parallel**: `.parallel(id, ...)`; children with `parent = id` are regions. Entering activates one leaf per region. One event is offered to every region, and a deeper selection preempts an ancestor selection.
+- **History**: `.history(id, fallback, ...)` and `.deep_history(id, fallback, ...)`; the parent must be a compound state. History is recorded when that parent exits. A history node with no record enters its fallback.
+- **Delays**: `node.after(Duration, transition)` arms a `TimerIntent::Start` on entry and a `TimerIntent::Cancel` on exit. Nothing reads a clock. Call `machine.step_timer(&state, &TimerFired::new(id, duration), &event)`; a fire for an exited state is a no-op.
+- **Completion**: a final child completes its compound parent; a parallel node completes when every region does. `node.on_done(transition)` takes the completion edge. `outcome.done` reports a completed root, including a top-level final sibling.
+- **Actors**: `ActorSystem` runs machine and reducer actors in-process with no extra runtime. Actions reach it through `enq.spawn`, `enq.send_to`, and `enq.stop`; `run` applies directives and is bounded (`ActorError::StepBudget`). Each actor owns a `Scope` forked from its parent's, so `stop` closes descendants deepest-first and runs finalizers LIFO. A child that reaches a top-level final sends `xstate.done.actor.<id>` to its parent.
+- **Actor logic**: `from_machine`, `from_transition`, `from_effect`, `from_promise`, `from_stream`, and `from_callback`. Effect and promise actors emit `ActorTask` values for the host; a stream forwards values to its parent; a callback receives a `CallbackSender` at spawn. Run host tasks inside `system.scope(&task.actor)` so `stop` interrupts the fiber.
+- **Run state**: `Machine::enter` starts; `Machine::step_state` takes a `MachineState` (configuration, history, context). `Machine::step(&leaf, &ctx, &event)` is the one-region short form.
+- **Export**: `machine.to_mermaid()`, topology-only `machine.to_tla()` (model-checked by `scripts/verify-formal.sh` via `examples/emit_tla.rs`), and `TransitionRecord::from_outcome(...).append(&log, stamp)`. The stamp is the host's `(producer_id, epoch, seq)`; this crate never mints one. `TransitionRecord::replay` rebuilds a configuration from a continuous chain without running actions. `TransitionRecord::with_snapshot` plus `ActorSystem::resume` restore a machine actor without re-running the active states' entry actions.
+
+## 7. Testing & Conformance Verification
+
+- **Pure Step Testing**: Test statecharts synchronously using `machine.step(...)` or `machine.step_state(...)`. No mock threads, sockets, or clocks required.
+- **Delayed Transitions**: The engine returns `TimerIntent` values. A host that runs on [`elm-effect-test::TestClock`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-test/src/clock.rs) schedules them as commands, so virtual time still needs no wall-clock sleep.
+- **Conformance Matrix**: `crates/elm-effect-xstate/tests/conformance/fixtures/` holds 49 declarative vectors across actions, always, after, parallel, history, hierarchy, guards, final states, and actors, including six ported from XState 6.0.0-beta.1 (commit d56483f) with a `source` field. `conformance_actors.rs` drives actor scenarios through `spawn:`, `send:`, and `stop:` actions; the machine runner supports `raise:` and `emit:`. `conformance_test.rs` enforces a feature matrix naming the proving cases. Run `scripts/sync-xstate-conformance.sh`. The optional `scripts/xstate-differential` Node check compares state outcomes for 37 vectors; it is not the full ~400-case upstream suite.

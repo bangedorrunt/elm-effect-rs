@@ -1,0 +1,13 @@
+{
+  "name": "xstate-differential",
+  "private": true,
+  "type": "module",
+  "description": "Runs the elm-effect-xstate conformance fixtures through upstream XState v6.",
+  "dependencies": {
+    "xstate": "6.0.0-beta.1"
+  },
+  "scripts": {
+    "check": "node run.mjs",
+    "check:traces": "node run.mjs --trace"
+  }
+}

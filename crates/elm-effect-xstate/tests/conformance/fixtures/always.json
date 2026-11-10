@@ -92,5 +92,149 @@
         "enter_destination"
       ]
     }
+  },
+  {
+    "name": "a_false_guard_falls_through_to_the_next_always",
+    "description": "Proves eventless transitions are evaluated in declaration order",
+    "machine": {
+      "initial": "A",
+      "context": { "count": 0, "log": [] },
+      "states": {
+        "A": { "on": { "TRIGGER": "Intermediate" } },
+        "Intermediate": {
+          "entry": ["enter_intermediate"],
+          "always": [
+            { "target": "Wrong", "guard": "count > 10" },
+            { "target": "Done", "actions": ["fallthrough"] }
+          ]
+        },
+        "Wrong": {},
+        "Done": { "entry": ["enter_done"] }
+      }
+    },
+    "events": [{ "type": "TRIGGER" }],
+    "expected": {
+      "final_state": "Done",
+      "trace": ["enter_intermediate", "fallthrough", "enter_done"]
+    }
+  },
+{
+  "name": "eventless_transition_actions_run_after_exit_actions",
+  "description": "Upstream transient: exit actions, transition actions, and the eventless target entry run in one ordered step",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/transient.test.ts: should carry actions from previous transitions within same step",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "exit": [
+          "exit_a"
+        ],
+        "on": {
+          "TIMER": {
+            "target": "T",
+            "actions": [
+              "timer"
+            ]
+          }
+        }
+      },
+      "T": {
+        "always": [
+          {
+            "target": "B"
+          }
+        ]
+      },
+      "B": {
+        "entry": [
+          "enter_b"
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "TIMER"
+    }
+  ],
+  "expected": {
+    "final_state": "B",
+    "trace": [
+      "exit_a",
+      "timer",
+      "enter_b"
+    ]
   }
+},
+{
+  "name": "eventless_transition_stays_inside_its_parallel_region",
+  "description": "Upstream transient: an eventless microstep in one region leaves the sibling region untouched",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/transient.test.ts: eventless transitions are scoped to the active region",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "Left": {
+        "type": "compound",
+        "initial": "L1",
+        "parent": "Root"
+      },
+      "L1": {
+        "parent": "Left",
+        "on": {
+          "EVENT": "L2"
+        }
+      },
+      "L2": {
+        "parent": "Left",
+        "always": [
+          {
+            "target": "L3",
+            "actions": [
+              "left_always"
+            ]
+          }
+        ]
+      },
+      "L3": {
+        "parent": "Left",
+        "entry": [
+          "enter_l3"
+        ]
+      },
+      "Right": {
+        "type": "compound",
+        "initial": "R1",
+        "parent": "Root"
+      },
+      "R1": {
+        "parent": "Right"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "EVENT"
+    }
+  ],
+  "expected": {
+    "final_state": "L3",
+    "final_states": [
+      "L3",
+      "R1"
+    ],
+    "trace": [
+      "left_always",
+      "enter_l3"
+    ]
+  }
+}
 ]
