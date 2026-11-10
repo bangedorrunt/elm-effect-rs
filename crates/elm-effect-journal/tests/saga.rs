@@ -275,10 +275,19 @@ fn saga_coordinator_tracks_forward_and_reverses_lifo() {
     use elm_effect_journal::saga::SagaCoordinator;
 
     let mut coord = SagaCoordinator::new("order-123");
+    assert_eq!(coord.run_key(), "order-123");
+    assert!(!coord.has_step("charge"));
+
     coord.record_completed("charge");
     coord.record_completed("reserve");
     coord.record_failed("ship");
     coord.record_skipped("notify");
+
+    assert!(coord.has_step("charge"));
+    assert!(coord.has_step("reserve"));
+    assert!(coord.has_step("ship"));
+    assert!(coord.has_step("notify"));
+    assert!(!coord.has_step("unknown"));
 
     let plan = coord.rollback_plan();
     assert_eq!(
@@ -290,15 +299,42 @@ fn saga_coordinator_tracks_forward_and_reverses_lifo() {
     );
     assert!(!plan.all_compensated);
 
-    coord.mark_compensated("order-123:compensate:reserve");
+    assert!(coord.mark_compensated("order-123:compensate:reserve"));
+    assert!(!coord.mark_compensated("order-123:compensate:reserve"));
+
     let plan2 = coord.rollback_plan();
     assert_eq!(
         plan2.compensations,
         vec!["order-123:compensate:charge".to_string()]
     );
 
-    coord.mark_compensated("order-123:compensate:charge");
+    assert!(coord.mark_compensated("order-123:compensate:charge"));
+    assert!(!coord.mark_compensated("order-123:compensate:unknown"));
+
     let plan3 = coord.rollback_plan();
     assert!(plan3.compensations.is_empty());
     assert!(plan3.all_compensated);
+}
+
+#[test]
+fn saga_coordinator_handles_repeated_step_names_lifo() {
+    use elm_effect_journal::saga::SagaCoordinator;
+
+    let mut coord = SagaCoordinator::new("batch-456");
+    coord.record_completed("retryable_subtask");
+    coord.record_completed("retryable_subtask");
+
+    let plan = coord.rollback_plan();
+    assert_eq!(plan.compensations.len(), 2);
+
+    assert!(coord.mark_compensated("batch-456:compensate:retryable_subtask"));
+    let plan2 = coord.rollback_plan();
+    assert_eq!(plan2.compensations.len(), 1);
+
+    assert!(coord.mark_compensated("batch-456:compensate:retryable_subtask"));
+    let plan3 = coord.rollback_plan();
+    assert!(plan3.compensations.is_empty());
+    assert!(plan3.all_compensated);
+
+    assert!(!coord.mark_compensated("batch-456:compensate:retryable_subtask"));
 }

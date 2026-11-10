@@ -84,7 +84,22 @@ impl SagaCoordinator {
         }
     }
 
+    /// Access the run key associated with this coordinator.
+    #[must_use]
+    pub fn run_key(&self) -> &str {
+        &self.run_key
+    }
+
+    /// Check whether a step with `step_name` has been recorded.
+    #[must_use]
+    pub fn has_step(&self, step_name: &str) -> bool {
+        let key = format!("{}:{}", self.run_key, step_name);
+        self.steps.iter().any(|s| s.step_key == key)
+    }
+
     /// Record a forward step in [`SagaStepStatus::Completed`] status.
+    ///
+    /// Step names should be distinct within a run to ensure unique compensation keys.
     pub fn record_completed(&mut self, step_name: &str) {
         self.steps.push(SagaStep {
             step_key: format!("{}:{}", self.run_key, step_name),
@@ -94,6 +109,8 @@ impl SagaCoordinator {
     }
 
     /// Record a forward step in [`SagaStepStatus::Failed`] status.
+    ///
+    /// Step names should be distinct within a run.
     pub fn record_failed(&mut self, step_name: &str) {
         self.steps.push(SagaStep {
             step_key: format!("{}:{}", self.run_key, step_name),
@@ -103,6 +120,8 @@ impl SagaCoordinator {
     }
 
     /// Record a forward step in [`SagaStepStatus::Skipped`] status.
+    ///
+    /// Step names should be distinct within a run.
     pub fn record_skipped(&mut self, step_name: &str) {
         self.steps.push(SagaStep {
             step_key: format!("{}:{}", self.run_key, step_name),
@@ -111,13 +130,18 @@ impl SagaCoordinator {
         });
     }
 
-    /// Mark a compensation key as [`SagaStepStatus::Compensated`].
-    pub fn mark_compensated(&mut self, comp_key: &str) {
-        for step in &mut self.steps {
-            if step.compensate_key == comp_key {
+    /// Mark the most recent uncompensated completed step matching `comp_key` as [`SagaStepStatus::Compensated`].
+    ///
+    /// Evaluates in reverse (LIFO) order to mirror the rollback plan.
+    /// Returns `true` if a completed step was marked, or `false` if none matched.
+    pub fn mark_compensated(&mut self, comp_key: &str) -> bool {
+        for step in self.steps.iter_mut().rev() {
+            if step.compensate_key == comp_key && step.status == SagaStepStatus::Completed {
                 step.status = SagaStepStatus::Compensated;
+                return true;
             }
         }
+        false
     }
 
     /// Plan the LIFO rollback over currently completed steps.
