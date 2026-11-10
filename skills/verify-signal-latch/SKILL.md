@@ -9,7 +9,7 @@ This skill formally model-checks the concurrent interactions between signal latc
 
 ## Code Covered & Sync Commit
 
-- **Sync Commit**: `cf8abd2eab05fb69950140d875ea16cada96d2fe`
+- **Sync Commit**: `2537305d233157db6c1e11462057d605332f7a81`
 - **Files & Functions**:
   - [`crates/elm-effect-durable/src/signal.rs`](../../crates/elm-effect-durable/src/signal.rs):
     - `OurEngine::await_signal`
@@ -21,7 +21,7 @@ This skill formally model-checks the concurrent interactions between signal latc
   - [`crates/elm-effect-durable/tests/signal.rs`](../../crates/elm-effect-durable/tests/signal.rs):
     - `await_signal_gap_wake_checks_liveness`
 
-If any of these files are modified after `cf8abd2eab05fb69950140d875ea16cada96d2fe`, rerun this check before merging.
+If any of these files are modified after `2537305d233157db6c1e11462057d605332f7a81`, rerun this check before merging.
 
 ## Invariants Formally Verified
 

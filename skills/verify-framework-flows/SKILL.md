@@ -12,7 +12,7 @@ This skill model-checks and visualizes the three primary runtime flows of `elm-e
 
 ## Code Covered & Sync Commit
 
-- **Sync Commit**: `cf8abd2eab05fb69950140d875ea16cada96d2fe`
+- **Sync Commit**: `2537305d233157db6c1e11462057d605332f7a81`
 - **Crates Covered**:
   - [`crates/elm-effect-elm`](../../crates/elm-effect-elm) (`Loop`, `Program`, `Update`)
   - [`crates/elm-effect`](../../crates/elm-effect) (`Fiber`, `Scope`, `Supervisor`)

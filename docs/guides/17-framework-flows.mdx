@@ -2,7 +2,9 @@
 
 This guide describes the state machines and execution flows of `elm-effect`.
 
-Full formal proofs and TLA+ models live in [`docs/research/state-machines-and-flows.md`](../research/state-machines-and-flows.md) and [`skills/verify-framework-flows`](../../skills/verify-framework-flows).
+Full formal proofs and TLA+ models live in [`docs/research/state-machines-and-flows.md`](../research/state-machines-and-flows.md), [`skills/verify-framework-flows`](../../skills/verify-framework-flows), [`skills/verify-signal-latch`](../../skills/verify-signal-latch), and [`skills/verify-lease-fencing`](../../skills/verify-lease-fencing).
+
+All models run via `scripts/verify-formal.sh`.
 
 ## 1. The Elm loop (UX)
 
@@ -53,3 +55,12 @@ In `OurEngine`, `await_signal` checks for latched signals before parking:
 2. A signal that arrives in the commit gap re-checks run liveness. Cancelled or terminal runs refuse resurrecting into `Signalled`.
 
 For runtime diagnostics, `OurEngine::query_lease(key, now_ms)` reports [`LeaseStatus`](../../crates/elm-effect-durable/src/lease.rs) (`Active`, `Expired`, or `Unheld`) without mutating storage or fences.
+
+## 5. Execution lease reclaim, generation fencing, and split-brain elimination
+
+Under [ADR-0005](../decisions/0005-single-host-engine.md), execution leases enforce single-writer mutual exclusion:
+1. When a worker claims a lease, the journal increments `generation` monotonically and binds the deadline.
+2. If a worker stalls across its deadline, another worker may reclaim the lease with generation $G+1$.
+3. When the stalled worker unpauses and attempts to settle, heartbeat, or write to storage, the storage fence rejects it with `StaleGeneration`, eliminating split-brain execution.
+
+Formally verified in [`skills/verify-lease-fencing`](../../skills/verify-lease-fencing).

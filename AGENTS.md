@@ -17,7 +17,8 @@ Migrate/build skill: [skills/elm-effect/SKILL.md](skills/elm-effect/SKILL.md)
 repo's Rust practice pointer for this workspace.
 Formal flows & statecharts: [docs/research/state-machines-and-flows.md](docs/research/state-machines-and-flows.md),
 [skills/verify-framework-flows/SKILL.md](skills/verify-framework-flows/SKILL.md),
-and [skills/verify-signal-latch/SKILL.md](skills/verify-signal-latch/SKILL.md).
+[skills/verify-signal-latch/SKILL.md](skills/verify-signal-latch/SKILL.md),
+and [skills/verify-lease-fencing/SKILL.md](skills/verify-lease-fencing/SKILL.md) (`scripts/verify-formal.sh`).
 
 ## Crates
 

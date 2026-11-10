@@ -25,7 +25,7 @@ This document serves as the permanent architectural reference for all implicit a
 
 ## 2. Crucial Framework Flows (Formally Verified Statecharts)
 
-All four statecharts below have been verified with TLA+ model checking via the `/statechart` skill.
+All five statecharts below have been verified with TLA+ model checking via the `/statechart` skill and `scripts/verify-formal.sh`.
 
 ### Flow 1 (UX): The Elm Loop Reactive Cycle
 - **Crate**: [`crates/elm-effect-elm`](../../crates/elm-effect-elm)
@@ -208,6 +208,54 @@ stateDiagram-v2
       s9 --> s10: external signal arrives
       s10 --> s9: runner consumes latched signal early
       s10 --> s9: runner consumes gap signal & wakes
+    }
+  }
+```
+
+### Flow 5: Execution Lease Reclaim, Generation Fencing, and Split-Brain Elimination
+- **Crates**: [`crates/elm-effect-durable`](../../crates/elm-effect-durable) and [`crates/elm-effect-journal`](../../crates/elm-effect-journal)
+- **Model**: [`skills/verify-lease-fencing/lease_fencing.tla`](../../skills/verify-lease-fencing/lease_fencing.tla)
+- **Invariants**: `NoSplitBrain`, `MutualExclusionActiveLease`, `StaleWorkerFenced`, `MonotonicGeneration`
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  state "At the same time" as all {
+    state "Journal" as r0 {
+      s0: None[G1:InFlight]
+      s1: WorkerA[G2:InFlight]
+      s2: WorkerA[G2:Settled]
+      s3: WorkerB[G3:InFlight]
+      s4: WorkerB[G3:Settled]
+      [*] --> s0
+      s0 --> s1: WorkerA claims lease at gen 2
+      s1 --> s2: WorkerA commits settlement
+      s1 --> s3: WorkerB reclaims expired lease at gen 3
+      s3 --> s4: WorkerB commits settlement
+    }
+    --
+    state "WorkerA" as r1 {
+      s5: Unclaimed[G0]
+      s6: Holding[G2]
+      s7: Stalled[G2]
+      s8: Committed[G2]
+      s9: Fenced[G2]
+      [*] --> s5
+      s5 --> s6: WorkerA claims lease at gen 2
+      s6 --> s7: WorkerA stalls (thread freeze/network lag)
+      s6 --> s8: WorkerA commits settlement [ValidGeneration]
+      s7 --> s8: WorkerA commits settlement [ValidGeneration]
+      s6 --> s9: WorkerA rejected with StaleGeneration (fenced) [when Reclaimed by WorkerB]
+      s7 --> s9: WorkerA rejected with StaleGeneration (fenced) [when Reclaimed by WorkerB]
+    }
+    --
+    state "WorkerB" as r2 {
+      s10: Unclaimed[G0]
+      s11: Holding[G3]
+      s12: Committed[G3]
+      [*] --> s10
+      s10 --> s11: WorkerB reclaims expired lease at gen 3
+      s11 --> s12: WorkerB commits settlement
     }
   }
 ```
