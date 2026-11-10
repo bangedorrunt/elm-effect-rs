@@ -28,6 +28,31 @@ pub enum HeartbeatOutcome {
     Rejected(HeartbeatRejection),
 }
 
+/// Diagnostic view of an execution lease.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub enum LeaseStatus {
+    /// Active lease held by `owner` until `deadline_ms`.
+    Active {
+        /// Owner holding the lease.
+        owner: String,
+        /// Generation counter of the lease.
+        generation: u64,
+        /// Milliseconds remaining before the lease lapses.
+        ttl_remaining_ms: u64,
+    },
+    /// Expired lease: deadline has elapsed without renewal.
+    Expired {
+        /// Last owner who claimed the lease.
+        owner: String,
+        /// Generation counter when the lease was claimed.
+        generation: u64,
+        /// Milliseconds since the deadline elapsed.
+        overdue_ms: u64,
+    },
+    /// No lease currently held (absent, un-claimed, terminal, or zero-lease).
+    Unheld,
+}
+
 impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
     /// Extend the lease on a live holder without moving the fence.
     ///
@@ -92,6 +117,39 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
             actual: latest.generation,
         });
         Ok(HeartbeatOutcome::Rejected(rejection))
+    }
+
+    /// Query the status of the execution lease for `key`.
+    ///
+    /// Non-mutating diagnostic query: evaluates `lease_deadline` against `now_ms`.
+    /// Terminal, absent, zero-lease, or un-claimed runs return [`LeaseStatus::Unheld`].
+    pub fn query_lease(&self, key: &str, now_ms: u64) -> Result<LeaseStatus, EngineError> {
+        let Some(row) = self.journal.get(key)? else {
+            return Ok(LeaseStatus::Unheld);
+        };
+        if row.state.is_terminal() {
+            return Ok(LeaseStatus::Unheld);
+        }
+        let (Some(owner), Some(deadline)) = (row.owner, row.lease_deadline) else {
+            return Ok(LeaseStatus::Unheld);
+        };
+        if deadline <= 0 {
+            return Ok(LeaseStatus::Unheld);
+        }
+        let deadline = deadline as u64;
+        if deadline > now_ms {
+            Ok(LeaseStatus::Active {
+                owner,
+                generation: row.generation,
+                ttl_remaining_ms: deadline - now_ms,
+            })
+        } else {
+            Ok(LeaseStatus::Expired {
+                owner,
+                generation: row.generation,
+                overdue_ms: now_ms.saturating_sub(deadline),
+            })
+        }
     }
 }
 

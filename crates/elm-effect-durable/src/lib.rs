@@ -62,14 +62,14 @@ pub use cron::{
 pub use elm_effect_journal::plan::{ClaimRejection, SettleRejection};
 pub use elm_effect_journal::retry::{BackoffPolicy, RetryPlan, plan_retry};
 pub use elm_effect_journal::saga::{
-    SagaPlan, SagaStep, SagaStepStatus, compensate_key, plan_saga_rollback,
+    SagaCoordinator, SagaPlan, SagaStep, SagaStepStatus, compensate_key, plan_saga_rollback,
 };
 pub use engine::{
     ClaimOutcome, DurableEngine, EngineError, ParkOutcome, ParseRunPhaseError, RunPhase, RunStatus,
     SettleOutcome, StartOptions, StartOutcome, StorageError, WakeOutcome, engine_laws,
 };
 pub use guard::{GuardedStart, digest_storage_laws, guard_laws};
-pub use lease::{HeartbeatOutcome, heartbeat_laws};
+pub use lease::{HeartbeatOutcome, LeaseStatus, heartbeat_laws};
 pub use lineage::{ContinueOutcome, lineage_laws, rollover_key};
 pub use retry::{RetryOutcome, retry_laws};
 pub use runtime::{EngineMsg, OurEngine};

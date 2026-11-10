@@ -43,6 +43,7 @@ pub mod store;
 pub use laws::journal_lease_laws;
 pub use plan::{HeartbeatRejection, check_heartbeat};
 pub use retry::{BackoffPolicy, RetryPlan, plan_retry};
+pub use saga::{SagaCoordinator, SagaPlan, SagaStep, SagaStepStatus};
 
 /// Lifecycle state of one effect row. No `Absent`: absence is no row.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -491,3 +491,39 @@ fn long_work_heartbeats_on_test_clock_and_stops_on_cancel() {
         RunPhase::Cancelled
     );
 }
+
+#[test]
+fn query_lease_reports_active_expired_and_unheld() {
+    use elm_effect_durable::lease::LeaseStatus;
+
+    let mut engine = OurEngine::new();
+    assert_eq!(
+        engine.query_lease("missing", 0).expect("query"),
+        LeaseStatus::Unheld
+    );
+
+    let generation = leased(&mut engine, "lease-test");
+    assert_eq!(
+        engine.query_lease("lease-test", 2_000).expect("query"),
+        LeaseStatus::Active {
+            owner: "worker".into(),
+            generation,
+            ttl_remaining_ms: 8_000,
+        }
+    );
+
+    assert_eq!(
+        engine.query_lease("lease-test", 15_000).expect("query"),
+        LeaseStatus::Expired {
+            owner: "worker".into(),
+            generation,
+            overdue_ms: 5_000,
+        }
+    );
+
+    engine.cancel("lease-test", 15_000).expect("cancel");
+    assert_eq!(
+        engine.query_lease("lease-test", 15_000).expect("query"),
+        LeaseStatus::Unheld
+    );
+}

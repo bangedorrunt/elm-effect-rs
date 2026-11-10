@@ -66,3 +66,69 @@ pub fn plan_saga_rollback(steps: &[SagaStep]) -> SagaPlan {
         all_compensated,
     }
 }
+
+/// Coordinator for tracking and rolling back compensable saga workflow steps.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SagaCoordinator {
+    run_key: String,
+    steps: Vec<SagaStep>,
+}
+
+impl SagaCoordinator {
+    /// Create a new coordinator for `run_key`.
+    #[must_use]
+    pub fn new(run_key: impl Into<String>) -> Self {
+        Self {
+            run_key: run_key.into(),
+            steps: Vec::new(),
+        }
+    }
+
+    /// Record a forward step in [`SagaStepStatus::Completed`] status.
+    pub fn record_completed(&mut self, step_name: &str) {
+        self.steps.push(SagaStep {
+            step_key: format!("{}:{}", self.run_key, step_name),
+            compensate_key: compensate_key(&self.run_key, step_name),
+            status: SagaStepStatus::Completed,
+        });
+    }
+
+    /// Record a forward step in [`SagaStepStatus::Failed`] status.
+    pub fn record_failed(&mut self, step_name: &str) {
+        self.steps.push(SagaStep {
+            step_key: format!("{}:{}", self.run_key, step_name),
+            compensate_key: compensate_key(&self.run_key, step_name),
+            status: SagaStepStatus::Failed,
+        });
+    }
+
+    /// Record a forward step in [`SagaStepStatus::Skipped`] status.
+    pub fn record_skipped(&mut self, step_name: &str) {
+        self.steps.push(SagaStep {
+            step_key: format!("{}:{}", self.run_key, step_name),
+            compensate_key: compensate_key(&self.run_key, step_name),
+            status: SagaStepStatus::Skipped,
+        });
+    }
+
+    /// Mark a compensation key as [`SagaStepStatus::Compensated`].
+    pub fn mark_compensated(&mut self, comp_key: &str) {
+        for step in &mut self.steps {
+            if step.compensate_key == comp_key {
+                step.status = SagaStepStatus::Compensated;
+            }
+        }
+    }
+
+    /// Plan the LIFO rollback over currently completed steps.
+    #[must_use]
+    pub fn rollback_plan(&self) -> SagaPlan {
+        plan_saga_rollback(&self.steps)
+    }
+
+    /// Access the underlying step manifest.
+    #[must_use]
+    pub fn steps(&self) -> &[SagaStep] {
+        &self.steps
+    }
+}

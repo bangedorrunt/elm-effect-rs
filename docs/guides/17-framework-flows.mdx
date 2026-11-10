@@ -44,8 +44,12 @@ A saga coordinates compensable workflow steps:
 2. When a step fails, compensation plans run in strict reverse (LIFO) order over completed steps only.
 3. The saga settles as failed with a generation fence.
 
+Use [`SagaCoordinator`](../../crates/elm-effect-journal/src/saga.rs) to track forward milestones (`record_completed`, `record_failed`, `record_skipped`) and generate strict LIFO [`SagaPlan`](../../crates/elm-effect-journal/src/saga.rs) manifests.
+
 ## 4. Signal latching and park-commit gap
 
 In `OurEngine`, `await_signal` checks for latched signals before parking:
 1. A signal that arrives before parking resumes immediately.
 2. A signal that arrives in the commit gap re-checks run liveness. Cancelled or terminal runs refuse resurrecting into `Signalled`.
+
+For runtime diagnostics, `OurEngine::query_lease(key, now_ms)` reports [`LeaseStatus`](../../crates/elm-effect-durable/src/lease.rs) (`Active`, `Expired`, or `Unheld`) without mutating storage or fences.

@@ -269,3 +269,36 @@ fn saga_plan_serde_roundtrip() {
         plan
     );
 }
+
+#[test]
+fn saga_coordinator_tracks_forward_and_reverses_lifo() {
+    use elm_effect_journal::saga::SagaCoordinator;
+
+    let mut coord = SagaCoordinator::new("order-123");
+    coord.record_completed("charge");
+    coord.record_completed("reserve");
+    coord.record_failed("ship");
+    coord.record_skipped("notify");
+
+    let plan = coord.rollback_plan();
+    assert_eq!(
+        plan.compensations,
+        vec![
+            "order-123:compensate:reserve".to_string(),
+            "order-123:compensate:charge".to_string(),
+        ]
+    );
+    assert!(!plan.all_compensated);
+
+    coord.mark_compensated("order-123:compensate:reserve");
+    let plan2 = coord.rollback_plan();
+    assert_eq!(
+        plan2.compensations,
+        vec!["order-123:compensate:charge".to_string()]
+    );
+
+    coord.mark_compensated("order-123:compensate:charge");
+    let plan3 = coord.rollback_plan();
+    assert!(plan3.compensations.is_empty());
+    assert!(plan3.all_compensated);
+}
