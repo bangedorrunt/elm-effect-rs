@@ -7,8 +7,9 @@ This guide explains how to model complex state transitions using Harel statechar
 Statecharts extend finite state machines with:
 - **Hierarchical (compound) states**: Child states inherit and bubble unhandled events to parent states.
 - **Extended context**: Pure data updated deterministically alongside discrete state.
-- **Deterministic action sequence**: State exit actions, transition actions, and target entry actions run in strict topological order.
-- **Eventless (transient) micro-steps**: Transient transitions (`always`) cascade sequentially until the state machine settles in quiescence.
+- **Deterministic action sequence**: State exit actions, transition actions, and target entry actions run in strict topological order (Law L1).
+- **Eventless (transient) micro-steps**: Transient transitions (`always`) cascade sequentially until the state machine settles in quiescence (Law L2).
+- **Unified action enqueue**: Actions enqueue commands (`exec`), internal events (`raise`), or telemetry emissions (`emit`) via [`ActionQueue`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-xstate/src/action.rs), replacing legacy action creators.
 - **Pure Elm fold compilation**: The entire statechart compiles down to a deterministic `Program::update` function with zero background scheduler.
 
 <Flow
@@ -112,6 +113,7 @@ enum PlayerState {
     Active,
     Idle,
     Playing,
+    Paused,
     Stopped,
 }
 
@@ -129,6 +131,12 @@ let machine = Machine::builder(PlayerState::Active, ())
         node.with_parent(PlayerState::Active).on(to_playing)
     })
     .state(PlayerState::Playing, |node| {
+        let to_paused = node
+            .transition(PlayerState::Paused)
+            .on(|e| matches!(e, PlayerEvent::Pause));
+        node.with_parent(PlayerState::Active).on(to_paused)
+    })
+    .state(PlayerState::Paused, |node| {
         node.with_parent(PlayerState::Active)
     })
     .final_state(PlayerState::Stopped, |node| node)
@@ -136,6 +144,47 @@ let machine = Machine::builder(PlayerState::Active, ())
 ```
 
 When in `Playing`, sending `PlayerEvent::Stop` bubbles to parent `Active`, exiting `Playing` then `Active` before entering `Stopped`.
+
+## Guards, Actions, and ActionQueue
+
+Transitions support conditional guards and unified action execution:
+
+```rust
+let transition = node
+    .transition(TargetState)
+    .on(|e| matches!(e, Event::Submit))
+    .guard(|ctx, e| ctx.is_valid())
+    .assign(|ctx, e| ctx.update_from(e))
+    .action(|ctx, e, enq| {
+        enq.exec(AppCmd::PersistData);
+        enq.emit("audit:form_submitted");
+    });
+```
+
+- `assign(|ctx, e| ...)`: Mutates extended context directly.
+- `action(|ctx, e, enq| ...)`: Receives mutable context, the event, and the [`ActionQueue`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-xstate/src/action.rs).
+- `exec(cmd)`: Convenience helper for emitting a runtime command.
+
+## Transient Eventless Microsteps (`always`)
+
+Eventless transitions evaluate immediately upon entering a state:
+
+```rust
+node.state(LoopState::Counting, |node| {
+    let loop_step = node
+        .transition(LoopState::Counting)
+        .guard(|ctx, _| ctx.count < 3)
+        .assign(|ctx, _| ctx.count += 1);
+
+    let to_done = node
+        .transition(LoopState::Done)
+        .guard(|ctx, _| ctx.count >= 3);
+
+    node.always(loop_step).always(to_done)
+})
+```
+
+The engine cascades these micro-steps until reaching quiescence (or a safe iteration bound of 100), all within a single `machine.step` invocation.
 
 ## Elm loop integration
 
@@ -174,7 +223,7 @@ impl StatechartDefinition for MyDef {
 type MyProgram = StatechartProgram<MyDef>;
 ```
 
-The resulting `MyProgram` satisfies the `Program` trait and can be booted directly in a `Loop`.
+The resulting `MyProgram` satisfies the `Program` trait and can be booted directly in an [`elm_effect_elm::Loop`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-elm/src/lib.rs).
 
 ## Schema-driven dynamic statecharts and conformance
 

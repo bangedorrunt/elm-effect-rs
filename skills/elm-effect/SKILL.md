@@ -5,9 +5,9 @@ description: >
   add a ServiceTag, Program, DurableLog, or EngineStorage/JournalStore, or
   work in flywheel, toron, beads, or chiebukuro. Use when the user says use,
   call, guide, API, build, scaffold, add, extend, migrate, rewrite, or
-  integrate elm-effect, the Elm loop, the journal, a durable log, or the
-  durable engine (OurEngine, DurableEngine, park_until, wake, cron, saga,
-  fan-out, join, lease expiry, reconciliation).
+  integrate elm-effect, the Elm loop, statecharts, XState, StateNode, Machine,
+  the journal, a durable log, or the durable engine (OurEngine, DurableEngine,
+  park_until, wake, cron, saga, fan-out, join, lease expiry, reconciliation).
   Bend work is the sibling carrier: bend, bendx, bird, elm-effect-bend.
   The skill sends you to docs/guides first. It does not ask you to rebuild
   the carrier, restore a vendor adapter, or treat a cursor as the resume
@@ -16,7 +16,7 @@ description: >
 
 # elm-effect
 
-The carrier is in the crates. ADR-0002 is the carrier law. ADR-0003 is adoption. ADR-0005 is the durable engine port and `OurEngine`. The calls are `docs/guides/15-use-the-apis.mdx` and the topic guide next to it. This file only picks the branch. Do not copy an API table into a sibling.
+The carrier is in the crates. ADR-0002 is the carrier law. ADR-0003 is adoption. ADR-0005 is the durable engine port and `OurEngine`. ADR-0006/0007 are Harel statecharts and XState v6 parity. The calls are `docs/guides/15-use-the-apis.mdx` and the topic guide next to it. This file only picks the branch. Do not copy an API table into a sibling.
 
 Repo root: `/Users/bangedorrunt/workspace/elm-effect-rs`. The Bend carrier is a
 sibling repo, `/Users/bangedorrunt/workspace/elm-effect-bend`; its branch file is
@@ -40,6 +40,7 @@ Read `docs/guides/15-use-the-apis.mdx` on every branch. Then the first matching 
 | Utterance | Then read | Do not read |
 | --- | --- | --- |
 | how to call, example, API, guide | the topic file under `docs/guides/` | migrate files |
+| statechart, xstate, machine, compound state, microstep, actor, hierarchy | `references/statechart.md` | a second scheduler |
 | bend, bendx, bird, `.bend` files | `references/bend-carrier.md` | the Rust crate docs until that file is done |
 | flywheel | `references/migrate-flywheel.md` | other migrate files |
 | toron | `references/migrate-toron.md` | other migrate files |
