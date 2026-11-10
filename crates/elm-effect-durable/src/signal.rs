@@ -103,9 +103,31 @@ impl<S: EngineStorage, J: JournalStore> OurEngine<S, J> {
                 if self.storage.pending_signals(key)?.is_empty() {
                     Ok(AwaitOutcome::Parked(wait))
                 } else {
-                    let _ = self.wake_checked_impl(key, now_ms)?;
-                    let rows = self.storage.take_signals(key)?;
-                    Ok(AwaitOutcome::Signalled(rows))
+                    self.require_live(key)?;
+                    match self.wake_checked_impl(key, now_ms)? {
+                        WakeOutcome::Woken { .. }
+                        | WakeOutcome::NotParked {
+                            phase: RunPhase::Running,
+                        } => {
+                            let rows = self.storage.take_signals(key)?;
+                            Ok(AwaitOutcome::Signalled(rows))
+                        }
+                        WakeOutcome::NotParked {
+                            phase:
+                                phase @ (RunPhase::Cancelled | RunPhase::Settled | RunPhase::Failed),
+                        } => Err(EngineError::Terminal {
+                            key: key.into(),
+                            phase,
+                        }),
+                        WakeOutcome::NotParked {
+                            phase: RunPhase::Unknown,
+                        } => Err(EngineError::Uncertain { key: key.into() }),
+                        WakeOutcome::NotParked {
+                            phase: RunPhase::Parked,
+                        } => Err(EngineError::Storage(crate::engine::StorageError::Corrupt(
+                            "wake did not resume parked run".into(),
+                        ))),
+                    }
                 }
             }
             other => Ok(AwaitOutcome::Parked(other)),

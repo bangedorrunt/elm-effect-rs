@@ -15,6 +15,9 @@ Agent path: [docs/guides/14-agents.mdx](docs/guides/14-agents.mdx) →
 Migrate/build skill: [skills/elm-effect/SKILL.md](skills/elm-effect/SKILL.md)
 (also linked from `~/.agents/skills/elm-effect`). That skill is also the
 repo's Rust practice pointer for this workspace.
+Formal flows & statecharts: [docs/research/state-machines-and-flows.md](docs/research/state-machines-and-flows.md),
+[skills/verify-framework-flows/SKILL.md](skills/verify-framework-flows/SKILL.md),
+and [skills/verify-signal-latch/SKILL.md](skills/verify-signal-latch/SKILL.md).
 
 ## Crates
 
@@ -50,6 +53,7 @@ ADR-0002 — do not ask whether it is accepted.
 - I/O belongs at the edge. When an effect finishes, its outcome comes back as a
   `Msg` into the fold — never mutate the model from inside an effect.
 - Keep `Fail`, `Die`, `Interrupt`, and park apart.
+- The `can_transition` table has exactly 18 directed edges; `Parked` has 0 table edges.
 - Put services in tags. Call `provide` at the edge.
 - Use `policy` or `Schedule` for retry — do not sleep in a loop.
 - `TestClock` order: fork → adjust → join.

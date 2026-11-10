@@ -4,7 +4,7 @@
 //! `Accepted`, `Settled`, `Failed`, `Unknown`, `ReconcilePending`,
 //! `Cancelled`, `Parked`. `Absent` is "no row", NOT a variant: there is no
 //! second enum and no boundary mirror. [`can_transition`] is the golden
-//! table exactly as toron-core has it (20 pairs); in particular `Parked`
+//! table exactly as toron-core has it (18 directed edges); in particular `Parked`
 //! has NO effect-row edge, so nothing enters or leaves `Parked` through
 //! this table. `Parked` is resumable: not terminal, not a failure, not
 //! settled, which keeps park, success, and typed failure three distinct

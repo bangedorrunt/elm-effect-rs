@@ -697,3 +697,17 @@ fn signal_before_park_reaches_the_elm_fold() {
         "the witnessed run never parked and never hangs"
     );
 }
+
+#[test]
+fn await_signal_gap_wake_checks_liveness() {
+    let mut engine = OurEngine::new();
+    started(&mut engine, "gap-cancel");
+    engine.signal("gap-cancel", "s1", "hi", 0).expect("signal");
+    engine.cancel("gap-cancel", 0).expect("cancel");
+    match engine.await_signal("gap-cancel", 5_000, 60, 0, None) {
+        Err(EngineError::Terminal { phase, .. }) => {
+            assert_eq!(phase, RunPhase::Cancelled);
+        }
+        other => panic!("cancelled run must fail terminal, got: {other:?}"),
+    }
+}

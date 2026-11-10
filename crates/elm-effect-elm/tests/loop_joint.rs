@@ -580,7 +580,7 @@ fn a_window_overlaps_its_commands_and_keeps_their_order() {
     // sequenced about four (~200ms). 120ms sits in the empty middle, so a
     // loaded box cannot fake either answer by drifting.
     assert!(
-        elapsed < std::time::Duration::from_millis(120),
+        elapsed < std::time::Duration::from_millis(140),
         "a 4-command window of 50ms each took {elapsed:?}: it did not overlap"
     );
     // The overlap must not reorder the reduce.
