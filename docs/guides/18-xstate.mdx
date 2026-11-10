@@ -175,3 +175,26 @@ type MyProgram = StatechartProgram<MyDef>;
 ```
 
 The resulting `MyProgram` satisfies the `Program` trait and can be booted directly in a `Loop`.
+
+## Schema-driven dynamic statecharts and conformance
+
+For CMS-driven workflows or validating behavior against XState JSON specifications, use `DynamicMachine`:
+
+```rust
+use elm_effect_xstate::prelude::*;
+
+let json_spec = r#"{
+    "initial": "Green",
+    "states": {
+        "Green": { "on": { "TIMER": "Yellow" } },
+        "Yellow": { "on": { "TIMER": "Red" } },
+        "Red": { "on": { "TIMER": "Green" } }
+    }
+}"#;
+
+let machine = DynamicMachine::from_json_str(json_spec)?;
+let outcome = machine.step("Green", machine.initial_context(), &DynamicEvent::new("TIMER"));
+assert_eq!(outcome.current_state, "Yellow");
+```
+
+Upstream behavioral conformance test vectors live in `crates/elm-effect-xstate/tests/conformance/fixtures/*.json` and are executed via `cargo test -p elm-effect-xstate --test conformance_test` or `scripts/sync-xstate-conformance.sh`.

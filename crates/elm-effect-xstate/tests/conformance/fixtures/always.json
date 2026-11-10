@@ -1,0 +1,96 @@
+[
+  {
+    "name": "cascading_microsteps_to_quiescence",
+    "description": "Proves eventless always transitions cascade sequentially until condition holds",
+    "machine": {
+      "initial": "Start",
+      "context": { "count": 0, "log": [] },
+      "states": {
+        "Start": {
+          "on": {
+            "BEGIN": {
+              "target": "Counting",
+              "actions": ["start->counting"]
+            }
+          }
+        },
+        "Counting": {
+          "entry": ["enter_count"],
+          "always": [
+            {
+              "target": "Counting",
+              "guard": "count < 3",
+              "actions": ["assign:count+=1", "increment"]
+            },
+            {
+              "target": "Done",
+              "guard": "count >= 3",
+              "actions": ["counting->done"]
+            }
+          ]
+        },
+        "Done": {
+          "type": "final",
+          "entry": ["enter_done"]
+        }
+      }
+    },
+    "events": [
+      { "type": "BEGIN" }
+    ],
+    "expected": {
+      "final_state": "Done",
+      "final_data": { "count": 3 },
+      "trace": [
+        "start->counting",
+        "enter_count",
+        "increment",
+        "enter_count",
+        "increment",
+        "enter_count",
+        "increment",
+        "enter_count",
+        "counting->done",
+        "enter_done"
+      ]
+    }
+  },
+  {
+    "name": "immediate_transient_transition_on_entry",
+    "description": "Proves state with unconditional always immediately transitions forward",
+    "machine": {
+      "initial": "A",
+      "context": { "log": [] },
+      "states": {
+        "A": {
+          "on": {
+            "TRIGGER": "Intermediate"
+          }
+        },
+        "Intermediate": {
+          "entry": ["enter_intermediate"],
+          "always": [
+            {
+              "target": "FinalDestination",
+              "actions": ["passthrough"]
+            }
+          ]
+        },
+        "FinalDestination": {
+          "entry": ["enter_destination"]
+        }
+      }
+    },
+    "events": [
+      { "type": "TRIGGER" }
+    ],
+    "expected": {
+      "final_state": "FinalDestination",
+      "trace": [
+        "enter_intermediate",
+        "passthrough",
+        "enter_destination"
+      ]
+    }
+  }
+]

@@ -1,0 +1,114 @@
+[
+  {
+    "name": "initial_compound_state_resolution",
+    "description": "Proves transition to compound state resolves directly to initial sub-state",
+    "machine": {
+      "initial": "A",
+      "context": { "log": [] },
+      "states": {
+        "A": {
+          "on": {
+            "ENTER_PARENT": "Parent"
+          }
+        },
+        "Parent": {
+          "type": "compound",
+          "initial": "Child1",
+          "entry": ["enter_parent"],
+          "states": {}
+        },
+        "Child1": {
+          "parent": "Parent",
+          "entry": ["enter_child1"]
+        }
+      }
+    },
+    "events": [
+      { "type": "ENTER_PARENT" }
+    ],
+    "expected": {
+      "final_state": "Child1",
+      "trace": [
+        "enter_parent",
+        "enter_child1"
+      ]
+    }
+  },
+  {
+    "name": "transition_within_same_compound_preserves_parent",
+    "description": "Proves transition between sibling child states does not exit or re-enter common parent",
+    "machine": {
+      "initial": "Parent",
+      "context": { "log": [] },
+      "states": {
+        "Parent": {
+          "type": "compound",
+          "initial": "Child1",
+          "entry": ["enter_parent"],
+          "exit": ["exit_parent"]
+        },
+        "Child1": {
+          "parent": "Parent",
+          "entry": ["enter_child1"],
+          "exit": ["exit_child1"],
+          "on": {
+            "STEP": "Child2"
+          }
+        },
+        "Child2": {
+          "parent": "Parent",
+          "entry": ["enter_child2"],
+          "exit": ["exit_child2"]
+        }
+      }
+    },
+    "events": [
+      { "type": "STEP" }
+    ],
+    "expected": {
+      "final_state": "Child2",
+      "trace": [
+        "exit_child1",
+        "enter_child2"
+      ]
+    }
+  },
+  {
+    "name": "event_bubbling_to_compound_parent",
+    "description": "Proves unhandled event in child bubbles up to parent transition",
+    "machine": {
+      "initial": "Parent",
+      "context": { "log": [] },
+      "states": {
+        "Parent": {
+          "type": "compound",
+          "initial": "Child",
+          "entry": ["enter_parent"],
+          "exit": ["exit_parent"],
+          "on": {
+            "CANCEL": "Cancelled"
+          }
+        },
+        "Child": {
+          "parent": "Parent",
+          "entry": ["enter_child"],
+          "exit": ["exit_child"]
+        },
+        "Cancelled": {
+          "entry": ["enter_cancelled"]
+        }
+      }
+    },
+    "events": [
+      { "type": "CANCEL" }
+    ],
+    "expected": {
+      "final_state": "Cancelled",
+      "trace": [
+        "exit_child",
+        "exit_parent",
+        "enter_cancelled"
+      ]
+    }
+  }
+]

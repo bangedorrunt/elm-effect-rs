@@ -1,0 +1,110 @@
+[
+  {
+    "name": "strict_l1_execution_order",
+    "description": "Proves exit(source) -> transition actions -> entry(target) order",
+    "machine": {
+      "initial": "A",
+      "context": { "log": [] },
+      "states": {
+        "A": {
+          "type": "atomic",
+          "entry": ["enter_A"],
+          "exit": ["exit_A"],
+          "on": {
+            "STEP": {
+              "target": "B",
+              "actions": ["action_A_to_B", "assign_ctx"]
+            }
+          }
+        },
+        "B": {
+          "type": "atomic",
+          "entry": ["enter_B"],
+          "exit": ["exit_B"]
+        }
+      }
+    },
+    "events": [
+      { "type": "STEP" }
+    ],
+    "expected": {
+      "final_state": "B",
+      "trace": [
+        "exit_A",
+        "action_A_to_B",
+        "assign_ctx",
+        "enter_B"
+      ]
+    }
+  },
+  {
+    "name": "self_transition_exits_and_reenters",
+    "description": "Proves self-transition exits source and re-enters target",
+    "machine": {
+      "initial": "A",
+      "context": { "log": [] },
+      "states": {
+        "A": {
+          "type": "atomic",
+          "entry": ["enter_A"],
+          "exit": ["exit_A"],
+          "on": {
+            "REFRESH": {
+              "target": "A",
+              "actions": ["action_self"]
+            }
+          }
+        }
+      }
+    },
+    "events": [
+      { "type": "REFRESH" }
+    ],
+    "expected": {
+      "final_state": "A",
+      "trace": [
+        "exit_A",
+        "action_self",
+        "enter_A"
+      ]
+    }
+  },
+  {
+    "name": "multiple_entry_and_exit_actions_declaration_order",
+    "description": "Proves multiple entry and exit actions execute in exact declaration order",
+    "machine": {
+      "initial": "A",
+      "context": { "log": [] },
+      "states": {
+        "A": {
+          "entry": ["enter_A_1", "enter_A_2"],
+          "exit": ["exit_A_1", "exit_A_2"],
+          "on": {
+            "NEXT": {
+              "target": "B",
+              "actions": ["trans_1", "trans_2"]
+            }
+          }
+        },
+        "B": {
+          "entry": ["enter_B_1", "enter_B_2"],
+          "exit": []
+        }
+      }
+    },
+    "events": [
+      { "type": "NEXT" }
+    ],
+    "expected": {
+      "final_state": "B",
+      "trace": [
+        "exit_A_1",
+        "exit_A_2",
+        "trans_1",
+        "trans_2",
+        "enter_B_1",
+        "enter_B_2"
+      ]
+    }
+  }
+]

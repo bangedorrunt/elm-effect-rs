@@ -1,0 +1,30 @@
+[
+  {
+    "name": "final_state_is_terminal",
+    "description": "Proves reaching final state leaves the machine in terminal quiescence",
+    "machine": {
+      "initial": "Running",
+      "context": { "log": [] },
+      "states": {
+        "Running": {
+          "on": {
+            "COMPLETE": "Completed"
+          }
+        },
+        "Completed": {
+          "type": "final",
+          "entry": ["enter_completed"]
+        }
+      }
+    },
+    "events": [
+      { "type": "COMPLETE" }
+    ],
+    "expected": {
+      "final_state": "Completed",
+      "trace": [
+        "enter_completed"
+      ]
+    }
+  }
+]

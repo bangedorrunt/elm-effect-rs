@@ -1,0 +1,79 @@
+[
+  {
+    "name": "guarded_transition_matching_branch",
+    "description": "Proves first matching guard branch takes effect",
+    "machine": {
+      "initial": "Idle",
+      "context": { "score": 85, "log": [] },
+      "states": {
+        "Idle": {
+          "on": {
+            "EVALUATE": [
+              {
+                "target": "GradeA",
+                "guard": "score >= 90",
+                "actions": ["reward_A"]
+              },
+              {
+                "target": "GradeB",
+                "guard": "score >= 80",
+                "actions": ["reward_B"]
+              },
+              {
+                "target": "Fail",
+                "actions": ["reward_fail"]
+              }
+            ]
+          }
+        },
+        "GradeA": {},
+        "GradeB": {},
+        "Fail": {}
+      }
+    },
+    "events": [
+      { "type": "EVALUATE" }
+    ],
+    "expected": {
+      "final_state": "GradeB",
+      "trace": [
+        "reward_B"
+      ]
+    }
+  },
+  {
+    "name": "guarded_transition_fallback",
+    "description": "Proves transition falls back to unconditional branch when all guards fail",
+    "machine": {
+      "initial": "Idle",
+      "context": { "score": 50, "log": [] },
+      "states": {
+        "Idle": {
+          "on": {
+            "EVALUATE": [
+              {
+                "target": "Pass",
+                "guard": "score >= 70"
+              },
+              {
+                "target": "Fail",
+                "actions": ["mark_failed"]
+              }
+            ]
+          }
+        },
+        "Pass": {},
+        "Fail": {}
+      }
+    },
+    "events": [
+      { "type": "EVALUATE" }
+    ],
+    "expected": {
+      "final_state": "Fail",
+      "trace": [
+        "mark_failed"
+      ]
+    }
+  }
+]
