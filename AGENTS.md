@@ -9,6 +9,8 @@ This repository depends on **no** sibling (flywheel / toron / beads /
 chiebukuro). They adopt it later through their own records. Carrier law:
 [ADR-0002](docs/decisions/0002-port-effect-4-into-rust-with-an-elm-loop.md).
 Adoption/extension: [ADR-0003](docs/decisions/0003-make-elm-effect-a-first-class-rust-framework.md).
+Durable engine: [ADR-0005](docs/decisions/0005-durable-engine-port-and-our-engine.md).
+Harel statecharts & actors: [ADR-0007](docs/decisions/0007-port-xstate-v6-into-rust-as-elm-effect-xstate.md) (superseding ADR-0006).
 
 Agent path: [docs/guides/14-agents.mdx](docs/guides/14-agents.mdx) →
 [15-use-the-apis.mdx](docs/guides/15-use-the-apis.mdx) → the topic guide.
@@ -30,7 +32,7 @@ and [skills/verify-lease-fencing/SKILL.md](skills/verify-lease-fencing/SKILL.md)
 | `elm-effect-durable` | Durable engine port, our single-host engine, and pure cron timing (ADR-0005) |
 | `elm-effect-test` | `TestClock` and helpers |
 | `elm-effect-lints` | Optional lints |
-| `elm-effect-xstate` | Statecharts, hierarchical state nodes, eventless micro-steps, and Elm adapter (ADR-0007) |
+| `elm-effect-xstate` | Harel statecharts, orthogonal parallel regions, actor lifecycles, and Elm adapter (ADR-0007) |
 
 ## Commands
 
@@ -69,6 +71,15 @@ ADR-0002 — do not ask whether it is accepted.
 - Extension from an app: add a `ServiceTag`, a `Program`, or a `DurableLog` —
   not a second scheduler. Full rule:
   [13-add-a-capability.mdx](docs/guides/13-add-a-capability.mdx).
+- Compile statecharts into pure `Program::update` folds via `StatechartProgram`.
+  Never spawn a background runtime scheduler or detached actor thread.
+- Statechart transitions execute strictly in Law L1 order:
+  `Exit(source) -> Actions & Assigns -> Entry(target)`.
+- Eventless `always` transitions cascade in micro-steps until reaching quiescence (Law L2).
+- An actor's lifecycle equals its `Scope` lifetime. Stopping an actor closes
+  child scopes deepest-first and runs finalizers LIFO.
+- Delayed transitions (`after`) emit `TimerIntent` data; virtual time advances
+  on `TestClock` without real sleep or reading wall clocks.
 
 ## Effect law for tests
 
@@ -78,6 +89,6 @@ typed failure, hang, and cancellation without real sleep or live network.
 ## Do not resurrect
 
 Tokio is a plain dependency (no `tokio` feature flag). Do not bring back
-`elm-effect-unstable`, the conformance ledger, or the `schema` / `stm`
-features from ADR historical text without a new decision. Proofs live under
-`crates/*/tests/`.
+`elm-effect-unstable`, the conformance ledger, the `schema` / `stm`
+features from ADR historical text, or ADR-0006's trait adapter without
+a new decision. Proofs live under `crates/*/tests/`.
