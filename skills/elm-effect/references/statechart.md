@@ -1,6 +1,6 @@
 # Statecharts and Harel Actor Lifecycles in `elm-effect-rs`
 
-This reference guides AI agents and developers implementing statecharts in `elm-effect-rs` using the `elm-effect-xstate` crate (ADR-0006, ADR-0007).
+This reference guides AI agents and developers implementing statecharts in `elm-effect-rs` using the `elm-effect-xstate` crate ([ADR-0007](file:///Users/bangedorrunt/workspace/elm-effect-rs/docs/decisions/0007-port-xstate-v6-into-rust-as-elm-effect-xstate.md), which supersedes ADR-0006).
 
 ---
 

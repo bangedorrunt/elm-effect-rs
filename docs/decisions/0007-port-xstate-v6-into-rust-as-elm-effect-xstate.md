@@ -13,6 +13,8 @@ informed: Rust programmers and agents that use elm-effect
 
 [ADR-0006](0006-integrate-harel-statecharts-into-the-elm-loop.md) established the need for Harel statecharts to resolve state space explosion, message delegation boilerplate, and background command leakage in the Elm loop.
 
+This record supersedes ADR-0006: the problem statement is retained, while the proposed trait-based wrapper in `elm-effect-elm` is replaced by the first-class `elm-effect-xstate` design below.
+
 However, complex distributed multi-agent swarms (such as the flywheel x toron ecosystem), rich terminal interfaces, and resilient backend workflows demand more than a simple state machine helper. They require the full expressive power of the **Harel Statechart formalism** and the **Actor Model**:
 - **Compound (Hierarchical) States**: Inheritance of transitions, localized contexts, and automatic bubbling.
 - **Parallel (Orthogonal) Regions**: Concurrent sub-states running simultaneously with synchronized join conditions.

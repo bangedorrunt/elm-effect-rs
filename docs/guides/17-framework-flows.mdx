@@ -64,3 +64,40 @@ Under [ADR-0005](../decisions/0005-single-host-engine.md), execution leases enfo
 3. When the stalled worker unpauses and attempts to settle, heartbeat, or write to storage, the storage fence rejects it with `StaleGeneration`, eliminating split-brain execution.
 
 Formally verified in [`skills/verify-lease-fencing`](../../skills/verify-lease-fencing).
+
+## 6. Statechart microstep quiescence and LCA resolution
+
+In [`elm-effect-xstate`](../../crates/elm-effect-xstate), state transitions execute in strict topological order:
+1. Active states exit from deepest descendant up to the Least Common Ancestor (LCA).
+2. Transition actions and context assignments execute in declaration order (Law L1).
+3. Target states enter from LCA down to leaves, resolving initial compound states.
+4. Eventless (`always`) transitions cascade in micro-steps until reaching quiescence (Law L2).
+
+Formally verified in [`flow6_statechart_microstep.tla`](../../skills/verify-framework-flows/flow6_statechart_microstep.tla).
+
+## 7. Parallel orthogonal regions and synchronized join
+
+Parallel state nodes maintain independent active leaves across orthogonal regions:
+1. An event is offered to every region simultaneously.
+2. A transition in one region preserves active states in sibling regions.
+3. The parallel state emits `onDone` and completes if and only if all regions reach final states.
+
+Formally verified in [`flow7_statechart_parallel.tla`](../../skills/verify-framework-flows/flow7_statechart_parallel.tla).
+
+## 8. Actor supervision and scoped lifecycles
+
+Every actor in [`ActorSystem`](../../crates/elm-effect-xstate/src/actor.rs) owns an [`elm-effect::Scope`](../../crates/elm-effect/src/scope.rs) forked from its parent:
+1. Stopping an actor recursively stops its descendants deepest-first.
+2. Child fibers are cancelled and LIFO finalizers execute cleanly.
+3. Mailbox messages are delivered in deterministic FIFO order.
+
+Formally verified in [`flow8_statechart_actor.tla`](../../skills/verify-framework-flows/flow8_statechart_actor.tla).
+
+## 9. Virtualized delayed transitions and preemptive cancellation
+
+Delayed transitions (`after`) generate `TimerIntent` data without sleeping:
+1. `TimerIntent::Start` schedules a virtual timer on the active clock.
+2. Early transitions away from the state issue `TimerIntent::Cancel`, invalidating the timer.
+3. Stale timer wakeups arriving after state exit are discarded as harmless no-ops.
+
+Formally verified in [`flow9_statechart_timer.tla`](../../skills/verify-framework-flows/flow9_statechart_timer.tla). For full guide see [Harel statecharts](18-xstate.mdx).

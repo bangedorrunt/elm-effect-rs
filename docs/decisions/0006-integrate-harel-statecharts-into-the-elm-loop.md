@@ -209,19 +209,19 @@ This guarantees zero drift between written code, visual documentation, and TLA+ 
   - Mutable global machine registries.
   - Action creators like `assign()` or `raise()` wrappers.
 
-### Implementation status (2026-11-10)
+### Supersession status (2026-11-10)
 
-Reviewed against the completed XState v6 port. The related capabilities landed under [ADR-0007](0007-port-xstate-v6-into-rust-as-elm-effect-xstate.md), but this ADR's proposal is **not implemented as written**:
+This record was superseded by [ADR-0007](0007-port-xstate-v6-into-rust-as-elm-effect-xstate.md) before the proposed `elm-effect-statechart` adapter was implemented. The delivered design is the first-class `crates/elm-effect-xstate` crate:
 
-- There is no `Statechart` trait or `elm-effect-statechart` adapter in `elm-effect-elm`. The delivered statechart API lives in `crates/elm-effect-xstate` and uses `StatechartDefinition`, `StatechartProgram<D>`, `Machine`, and `ActorSystem`.
-- There is no `ActionQueue<Msg>` in the Elm crate. The delivered enqueue buffer is `elm-effect-xstate::ActionQueue<CMD, E>`, with a different generic shape.
-- The proposed `StatechartProgram<M>` type and its `to_mermaid` method are not on an Elm-loop adapter. `to_mermaid` and `to_tla` are exporters on the xstate machine types.
-- Scope-bound effects and actor lifecycles landed through `ActorLogic::from_effect` and `ActorSystem::scope`, not through the `Statechart` entry/exit hooks proposed here.
-- Journaling and replay landed as `TransitionRecord` and `ActorSystem::resume` in `elm-effect-xstate`, not as the proposed `StatechartProgram` transition append.
+- `StatechartDefinition` and `StatechartProgram<D>` are the Elm-loop adapter.
+- `Machine`, `ActionQueue<CMD, E>`, and `StatechartDefinition::timer_cmd` are the runtime and timer boundary.
+- `ActorLogic::from_effect` and `ActorSystem::scope` bind effect and actor lifetimes to scopes.
+- `TransitionRecord` and `ActorSystem::resume` provide journaling and replay.
+- `Machine::to_mermaid` and `Machine::to_tla` provide the exporters.
 
-The verification checklist below remains unchecked. Satisfying this record requires either implementing the proposed adapter or revising or superseding the record to adopt the delivered `elm-effect-xstate` design.
+The checklist below is the historical verification list for the superseded proposal. It is intentionally unchecked and is not open work; ADR-0007's verification section is authoritative for the delivered design.
 
-### Verification
+### Verification (superseded proposal)
 
 - [ ] `Statechart` trait defined with pure `transition`, `entry`, and `exit` methods.
 - [ ] `ActionQueue` provides `exec(Cmd<Msg>)` and `raise(Msg)` methods.
@@ -239,4 +239,5 @@ The verification checklist below remains unchecked. Satisfying this record requi
 - [ADR-0002: Port Effect 4.0.0 into a Rust Carrier with an Elm Loop](0002-port-effect-4-into-rust-with-an-elm-loop.md)
 - [ADR-0003: Make elm-effect a First-Class Rust Framework](0003-make-elm-effect-a-first-class-rust-framework.md)
 - [ADR-0005: Durable Engine Port and Our Single-Host Engine](0005-durable-engine-port-and-our-engine.md)
+- [ADR-0007: Port XState v6 into Rust as elm-effect-xstate](0007-port-xstate-v6-into-rust-as-elm-effect-xstate.md)
 - [State Machines and Framework Flows Research Document](../research/state-machines-and-flows.md)
