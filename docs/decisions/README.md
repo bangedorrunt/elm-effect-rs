@@ -11,5 +11,5 @@ Numeric prefixes are stable. A superseded record keeps its number. The new recor
 | [0003](0003-make-elm-effect-a-first-class-rust-framework.md) | proposed | Make elm-effect a first-class Rust framework, with effect-native extension |
 | [0004](0004-reconcile-and-file-backed-log.md) | proposed | Reconcile uncertain outcomes with the journal planner, and back the loop log with a file |
 | [0005](0005-durable-engine-port-and-our-engine.md) | proposed | Durable engine port (scheduling verbs) plus our own single-host engine; it replaces Resonate, with no vendor adapters |
-| [0006](0006-integrate-harel-statecharts-into-the-elm-loop.md) | proposed | Integrate Harel statecharts and actor lifecycles into the Elm loop, binding state lifetimes to structured scopes without a second scheduler |
-| [0007](0007-port-xstate-v6-into-rust-as-elm-effect-xstate.md) | proposed | Port XState v6 into Rust as elm-effect-xstate with 100% behavioral conformance, virtual-clock testing, and scope-bound actor lifecycles |
+| [0006](0006-integrate-harel-statecharts-into-the-elm-loop.md) | superseded | Integrate Harel statecharts and actor lifecycles into the Elm loop, binding state lifetimes to structured scopes without a second scheduler (superseded by ADR-0007) |
+| [0007](0007-port-xstate-v6-into-rust-as-elm-effect-xstate.md) | accepted | Port XState v6 into Rust as elm-effect-xstate with 100% behavioral conformance, virtual-clock testing, and scope-bound actor lifecycles |

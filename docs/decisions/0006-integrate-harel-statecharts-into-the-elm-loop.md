@@ -1,5 +1,6 @@
 ---
-status: proposed
+status: superseded
+superseded-by: 0007-port-xstate-v6-into-rust-as-elm-effect-xstate.md
 date: 2026-11-10
 decision-makers: operator of the flywheel, toron, beads, and chiebukuro stack
 consulted: ADR-0002, ADR-0003, ADR-0005, XState v6 architecture, elm-effect crates, effect-oriented laws
@@ -7,6 +8,8 @@ informed: Rust programmers and agents that use elm-effect
 ---
 
 # Integrate Harel Statecharts and Actor Lifecycles into the Elm Loop
+
+**Superseded (2026-11-10):** Superseded by [ADR-0007](0007-port-xstate-v6-into-rust-as-elm-effect-xstate.md). The original proposed trait-based wrapper in `elm-effect-elm` is superseded by the first-class `elm-effect-xstate` crate delivering complete XState v6 behavioral parity, the Actor model, and formal TLA+ verification.
 
 ## Context and Problem Statement
 
@@ -205,6 +208,18 @@ This guarantees zero drift between written code, visual documentation, and TLA+ 
   - Unscoped background threads (`tokio::spawn` without `Scope`).
   - Mutable global machine registries.
   - Action creators like `assign()` or `raise()` wrappers.
+
+### Implementation status (2026-11-10)
+
+Reviewed against the completed XState v6 port. The related capabilities landed under [ADR-0007](0007-port-xstate-v6-into-rust-as-elm-effect-xstate.md), but this ADR's proposal is **not implemented as written**:
+
+- There is no `Statechart` trait or `elm-effect-statechart` adapter in `elm-effect-elm`. The delivered statechart API lives in `crates/elm-effect-xstate` and uses `StatechartDefinition`, `StatechartProgram<D>`, `Machine`, and `ActorSystem`.
+- There is no `ActionQueue<Msg>` in the Elm crate. The delivered enqueue buffer is `elm-effect-xstate::ActionQueue<CMD, E>`, with a different generic shape.
+- The proposed `StatechartProgram<M>` type and its `to_mermaid` method are not on an Elm-loop adapter. `to_mermaid` and `to_tla` are exporters on the xstate machine types.
+- Scope-bound effects and actor lifecycles landed through `ActorLogic::from_effect` and `ActorSystem::scope`, not through the `Statechart` entry/exit hooks proposed here.
+- Journaling and replay landed as `TransitionRecord` and `ActorSystem::resume` in `elm-effect-xstate`, not as the proposed `StatechartProgram` transition append.
+
+The verification checklist below remains unchecked. Satisfying this record requires either implementing the proposed adapter or revising or superseding the record to adopt the delivered `elm-effect-xstate` design.
 
 ### Verification
 

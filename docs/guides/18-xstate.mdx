@@ -457,3 +457,18 @@ assert_eq!(outcome.current_state, "Yellow");
 ```
 
 Behavioral conformance vectors live in `crates/elm-effect-xstate/tests/conformance/fixtures/*.json`: 53 cases across actions, always, after, parallel, history, hierarchy, guards, final states, and actors, including ten ported from XState 6.0.0-beta.1 (commit d56483f) whose `source` field names the upstream test. `tests/conformance_actors.rs` runs the actor scenarios (`spawn:`, `send:`, and `stop:` actions); `tests/conformance_test.rs` runs the machine suite and enforces a feature matrix naming the cases that prove each behavior. Run both with `cargo test -p elm-effect-xstate --test conformance_test --test conformance_actors` or `scripts/sync-xstate-conformance.sh`. This is the crate's matrix plus six upstream vectors, not a vendored copy of the ~400-case suite. An optional Node check (`scripts/xstate-differential`, `npm run check`) compares final state, `done`, and context against XState for 41 of the vectors; it is not part of the cargo gate.
+
+## Formal verification (TLA+ / TLC)
+
+In addition to test fixtures, `elm-effect-xstate` is verified against four mathematical state machine models in TLA+ under [`scripts/verify-formal.sh`](../../scripts/verify-formal.sh), documented in [`docs/research/state-machines-and-flows.md`](../research/state-machines-and-flows.md):
+
+- **Flow 6 (`flow6_statechart_microstep.tla`)**: Statechart microstep quiescence, LCA resolution, and Law L1 ordering. Proves `QuiescenceReached`, `StrictOrderExitedBeforeEntered`, and `ValidActiveConfiguration`.
+- **Flow 7 (`flow7_statechart_parallel.tla`)**: Parallel orthogonal regions and synchronized join. Proves `OrthogonalIsolation`, `SynchronizedJoinOnDone`, and `NoPrematureCompletion`.
+- **Flow 8 (`flow8_statechart_actor.tla`)**: Actor supervision, FIFO mailbox delivery, and recursive scope teardown. Proves `NoLeakedChildrenOnParentExit` and `FinalizersSettledBeforeClosed`.
+- **Flow 9 (`flow9_statechart_timer.tla`)**: Delayed transitions (`after`) and preemptive timer invalidation. Proves `TimerInvalidatedOnEarlyExit` and `NoStaleTimerWakeup`.
+
+Run all 11 formal verification models anytime with:
+
+```bash
+./scripts/verify-formal.sh
+```

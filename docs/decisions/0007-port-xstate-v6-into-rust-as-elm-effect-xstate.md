@@ -1,5 +1,6 @@
 ---
 status: accepted
+supersedes: 0006-integrate-harel-statecharts-into-the-elm-loop.md
 date: 2026-11-10
 decision-makers: operator of the flywheel, toron, beads, and chiebukuro stack
 consulted: ADR-0002, ADR-0003, ADR-0005, ADR-0006, Stately XState v6 specification and test corpus, W3C SCXML specification

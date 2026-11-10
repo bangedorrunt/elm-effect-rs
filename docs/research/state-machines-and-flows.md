@@ -262,7 +262,174 @@ stateDiagram-v2
 
 ---
 
-## 3. Catalog of All 15 State Machines
+### Flow 6: Statechart Microstep Quiescence & LCA Resolution
+- **Crate**: [`crates/elm-effect-xstate`](../../crates/elm-effect-xstate)
+- **Model**: [`skills/verify-framework-flows/flow6_statechart_microstep.tla`](../../skills/verify-framework-flows/flow6_statechart_microstep.tla)
+- **Invariants**: `QuiescenceReached`, `StrictOrderExitedBeforeEntered`, `ValidActiveConfiguration`, `NoDeadlock`
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  state "At the same time" as all {
+    state "MicrostepPhase" as r0 {
+      s0: Idle
+      s1: ExitSource
+      s2: TransitionAction
+      s3: EnterTarget
+      s4: CheckAlways
+      s5: Quiescent
+      [*] --> s0
+      s0 --> s1: external TurnOn event matched
+      s1 --> s2: LCA resolution: exit source state deepest-first
+      s2 --> s3: execute transition actions & context assigns
+      s3 --> s4: enter target state and resolve initial child
+      s4 --> s4: eval always transition: cascade microstep
+      s4 --> s5: all transient conditions false: settle at quiescence
+    }
+    --
+    state "ActiveLeaf" as r1 {
+      s6: Off
+      s7: Starting
+      s8: Running_Idle
+      [*] --> s6
+      s6 --> s7: enter target state and resolve initial child
+      s7 --> s8: eval always transition: cascade microstep
+    }
+    --
+    state "MicrostepCount" as r2 {
+      s9: Count_0
+      s10: Count_1
+      [*] --> s9
+      s9 --> s10: eval always transition: cascade microstep
+    }
+  }
+```
+
+---
+
+### Flow 7: Parallel Orthogonal Regions & Synchronized Completion
+- **Crate**: [`crates/elm-effect-xstate`](../../crates/elm-effect-xstate)
+- **Model**: [`skills/verify-framework-flows/flow7_statechart_parallel.tla`](../../skills/verify-framework-flows/flow7_statechart_parallel.tla)
+- **Invariants**: `OrthogonalIsolation`, `SynchronizedJoinOnDone`, `NoPrematureCompletion`, `NoDeadlock`
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  state "At the same time" as all {
+    state "ParentState" as r0 {
+      s0: MediaActive
+      s1: PlaybackComplete
+      [*] --> s0
+      s0 --> s1: all parallel regions completed: bubble onDone to parent
+    }
+    --
+    state "RegionAudio" as r1 {
+      s2: AudioPlaying
+      s3: AudioMuted
+      s4: AudioFinal
+      s5: None
+      [*] --> s2
+      s2 --> s3: audio region handles mute independently
+      s2 --> s4: audio region reaches final state
+      s3 --> s4: audio region reaches final state
+      s4 --> s5: all parallel regions completed: bubble onDone to parent
+    }
+    --
+    state "RegionVideo" as r2 {
+      s6: VideoPlaying
+      s7: VideoFinal
+      s8: None
+      [*] --> s6
+      s6 --> s7: video region reaches final state
+      s7 --> s8: all parallel regions completed: bubble onDone to parent
+    }
+  }
+```
+
+---
+
+### Flow 8: Hierarchical Actor Supervision & Scoped Lifecycles
+- **Crate**: [`crates/elm-effect-xstate`](../../crates/elm-effect-xstate)
+- **Model**: [`skills/verify-framework-flows/flow8_statechart_actor.tla`](../../skills/verify-framework-flows/flow8_statechart_actor.tla)
+- **Invariants**: `NoLeakedChildrenOnParentExit`, `FinalizersSettledBeforeClosed`, `NoDeadlock`
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  state "At the same time" as all {
+    state "ParentActor" as r0 {
+      s0: Running
+      s1: Stopping
+      s2: Stopped
+      [*] --> s0
+      s0 --> s1: parent state exit triggers recursive stop
+      s1 --> s2: all descendants stopped cleanly: parent closes
+    }
+    --
+    state "ChildActor" as r1 {
+      s3: Unspawned
+      s4: Running
+      s5: Stopped
+      [*] --> s3
+      s3 --> s4: parent spawns child actor in child scope
+      s4 --> s5: child executes LIFO finalizers and closes scope
+    }
+    --
+    state "ChildScope" as r2 {
+      s6: Closed
+      s7: Open
+      s8: Closing
+      [*] --> s6
+      s6 --> s7: parent spawns child actor in child scope
+      s7 --> s8: parent state exit triggers recursive stop
+      s8 --> s6: child executes LIFO finalizers and closes scope
+    }
+  }
+```
+
+---
+
+### Flow 9: Virtualized Delayed Transitions & Preemptive Invalidation
+- **Crate**: [`crates/elm-effect-xstate`](../../crates/elm-effect-xstate)
+- **Model**: [`skills/verify-framework-flows/flow9_statechart_timer.tla`](../../skills/verify-framework-flows/flow9_statechart_timer.tla)
+- **Invariants**: `TimerInvalidatedOnEarlyExit`, `NoStaleTimerWakeup`, `ExclusiveTargetResolution`, `NoDeadlock`
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  state "At the same time" as all {
+    state "MachineState" as r0 {
+      s0: Waiting
+      s1: TimedOut
+      s2: Interrupted
+      [*] --> s0
+      s0 --> s1: timer dwell met: execute delayed transition
+      s0 --> s2: early event preempts state: cancel timer intent
+    }
+    --
+    state "TimerStatus" as r1 {
+      s3: Active
+      s4: Fired
+      s5: Cancelled
+      [*] --> s3
+      s3 --> s4: timer dwell met: execute delayed transition
+      s3 --> s5: early event preempts state: cancel timer intent
+    }
+    --
+    state "VirtualTicks" as r2 {
+      s6: Tick_0
+      s7: Tick_1
+      s8: Tick_2
+      [*] --> s6
+      s6 --> s7: virtual clock advances via TestClock
+      s7 --> s8: virtual clock advances via TestClock
+    }
+  }
+```
+
+---
+
+## 3. Catalog of All 19 State Machines
 
 | # | Machine | Subsystem | Code Location | Key Transitions |
 |---|---|---|---|---|
@@ -281,3 +448,7 @@ stateDiagram-v2
 | 13 | Lease Heartbeat | `elm-effect-durable` | `runtime.rs` | `Claimed(Gen)` -> `Renew(Gen)` -> `Expired(Reconcile)` |
 | 14 | Signal Latching | `elm-effect-durable` | `signal.rs` | Pre-check -> Park -> Gap check -> Wake (Liveness checked) |
 | 15 | Lineage Rollover | `elm-effect-durable` | `lineage.rs` | `Epoch(N)` -> `Rollover` -> `Epoch(N+1)` (`law_next_terminal`) |
+| 16 | Microstep Engine | `elm-effect-xstate` | `machine.rs` | `Idle` -> `Exit(LCA)` -> `Actions` -> `Enter(Target)` -> `Always` -> `Quiescent` |
+| 17 | Parallel Coordinator | `elm-effect-xstate` | `configuration.rs` | `RegionalLeaves(R1..Rn)` -> `Advance` -> `AllFinal` -> `Emit(onDone)` |
+| 18 | Actor Hierarchy System | `elm-effect-xstate` | `actor.rs` | `Spawn` -> `Mailbox(FIFO)` -> `ParentExit` -> `LIFO(ScopeTeardown)` |
+| 19 | Delayed Transition Scheduler | `elm-effect-xstate` | `dynamic.rs`, `types.rs` | `Start(Intent)` -> `TestClock(Advance)` -> `Fire` vs `Cancel(EarlyExit)` |
