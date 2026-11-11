@@ -1015,6 +1015,11 @@ const FEATURES: &[Feature] = &[
         fixture: "actors.json",
         cases: &["invoke_error_routes_to_the_matching_actor"],
     },
+    Feature {
+        name: "invoke_dual_routes",
+        fixture: "actors.json",
+        cases: &["invoke_done_and_error_routes_coexist"],
+    },
 ];
 
 fn fixture_values(name: &str) -> Vec<serde_json::Value> {

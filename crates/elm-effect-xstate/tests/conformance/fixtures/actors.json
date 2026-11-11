@@ -483,5 +483,71 @@
       "absent": ["worker"],
       "context": { "root": { "seen": { "result": 42 } } }
     }
+  },
+  {
+    "name": "invoke_done_and_error_routes_coexist",
+    "description": "Proves one invoke can declare both onDone and onError, and each child routes only its own outcome",
+    "root": {
+      "initial": "Running",
+      "context": { "done_seen": null, "error_seen": null },
+      "states": {
+        "Running": {
+          "invoke": [
+            {
+              "id": "a",
+              "src": "worker",
+              "onDone": { "actions": ["assign_payload:done_seen"] },
+              "onError": { "actions": ["assign_payload:error_seen"] }
+            },
+            {
+              "id": "b",
+              "src": "worker",
+              "onDone": { "actions": ["assign_payload:done_seen"] },
+              "onError": { "actions": ["assign_payload:error_seen"] }
+            }
+          ]
+        }
+      }
+    },
+    "children": {
+      "worker": {
+        "initial": "Go",
+        "states": {
+          "Go": { "on": { "FINISH": "Done" } },
+          "Done": { "type": "final", "output": { "result": 42 } }
+        }
+      }
+    },
+    "steps": [
+      {
+        "send": "a",
+        "event": { "type": "FINISH" },
+        "expect": { "root": ["Running"], "a": ["Done"], "b": ["Go"] },
+        "context": {
+          "root": { "done_seen": { "result": 42 }, "error_seen": null }
+        }
+      },
+      {
+        "fail": "b",
+        "error": "boom",
+        "expect": { "root": ["Running"], "a": ["Done"] },
+        "context": {
+          "root": {
+            "done_seen": { "result": 42 },
+            "error_seen": { "error": "boom" }
+          }
+        }
+      }
+    ],
+    "expected": {
+      "final_states": { "root": ["Running"], "a": ["Done"] },
+      "absent": ["b"],
+      "context": {
+        "root": {
+          "done_seen": { "result": 42 },
+          "error_seen": { "error": "boom" }
+        }
+      }
+    }
   }
 ]

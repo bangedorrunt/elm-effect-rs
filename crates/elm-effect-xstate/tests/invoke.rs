@@ -258,3 +258,102 @@ fn a_reentering_transition_restarts_the_invoke() {
     assert_eq!(stopped.load(std::sync::atomic::Ordering::SeqCst), 1);
     assert!(system.exists(&id("worker")));
 }
+
+#[test]
+fn invoked_machine_resolves_final_output_from_context() {
+    let root_config: MachineConfig = serde_json::from_str(
+        r#"{"initial":"Waiting","context":{"seen":null},"states":{
+            "Waiting":{
+                "invoke":{
+                    "id":"worker",
+                    "src":"worker",
+                    "input":{"n":7},
+                    "onDone":{"target":"Finished","actions":["capture"]}
+                }
+            },
+            "Finished":{}
+        }}"#,
+    )
+    .expect("root schema");
+    let worker_config: MachineConfig = serde_json::from_str(
+        r#"{"initial":"Go","states":{
+            "Go":{"on":{"FINISH":"Done"}},
+            "Done":{"type":"final"}
+        }}"#,
+    )
+    .expect("worker schema");
+    let worker = DynamicMachine::builder(worker_config)
+        .output(
+            "Done",
+            |context, _event| serde_json::json!({ "result": context.data["n"] }),
+        )
+        .build();
+    let root = DynamicMachine::builder(root_config)
+        .actor("worker", ActorLogic::from_machine(worker))
+        .action("capture", |context, event, _enq| {
+            context.data["seen"] = event.payload.clone();
+        })
+        .build();
+
+    let mut system = ActorSystem::new("root", ActorLogic::from_machine(root));
+    system.run().expect("system settles");
+    system
+        .send("worker", DynamicEvent::new("FINISH"))
+        .expect("finish worker");
+    system.run().expect("system settles");
+
+    assert_eq!(
+        system.context(&id("root")).expect("root context").data["seen"],
+        serde_json::json!({ "result": 7 })
+    );
+    assert!(!system.exists(&id("worker")));
+}
+
+#[test]
+fn root_output_resolver_wins_over_final_state_output() {
+    let root_config: MachineConfig = serde_json::from_str(
+        r#"{"initial":"Waiting","context":{"seen":null},"states":{
+            "Waiting":{
+                "invoke":{
+                    "id":"worker",
+                    "src":"worker",
+                    "input":{"n":7},
+                    "onDone":{"target":"Finished","actions":["capture"]}
+                }
+            },
+            "Finished":{}
+        }}"#,
+    )
+    .expect("root schema");
+    let worker_config: MachineConfig = serde_json::from_str(
+        r#"{"initial":"Go","states":{
+            "Go":{"on":{"FINISH":"Done"}},
+            "Done":{"type":"final","output":{"source":"final"}}
+        }}"#,
+    )
+    .expect("worker schema");
+    let worker = DynamicMachine::builder(worker_config)
+        .root_output(
+            |context, _event| serde_json::json!({ "source": "root", "n": context.data["n"] }),
+        )
+        .build();
+    let root = DynamicMachine::builder(root_config)
+        .actor("worker", ActorLogic::from_machine(worker))
+        .action("capture", |context, event, _enq| {
+            context.data["seen"] = event.payload.clone();
+        })
+        .build();
+
+    let mut system = ActorSystem::new("root", ActorLogic::from_machine(root));
+    system.run().expect("system settles");
+    system
+        .send("worker", DynamicEvent::new("FINISH"))
+        .expect("finish worker");
+    system.run().expect("system settles");
+
+    assert_eq!(
+        system.context(&id("root")).expect("root context").data["seen"],
+        serde_json::json!({ "source": "root", "n": 7 })
+    );
+    assert!(!system.exists(&id("worker")));
+}
