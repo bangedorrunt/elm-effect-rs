@@ -242,6 +242,38 @@ impl ActorLogic {
     }
 }
 
+fn start_host_actor(
+    id: &ActorId,
+    logic: &ActorLogic,
+    input: &serde_json::Value,
+    callback_tx: &Sender<(ActorId, DynamicEvent)>,
+    tasks: &mut Vec<ActorTask>,
+) -> bool {
+    match logic {
+        ActorLogic::Effect(effect) => {
+            tasks.push(ActorTask {
+                actor: id.clone(),
+                effect: (effect.start)(input),
+            });
+            true
+        }
+        ActorLogic::Stream(_) => true,
+        ActorLogic::Callback(callback) => {
+            (callback.start)(
+                CallbackSender {
+                    actor: id.clone(),
+                    tx: callback_tx.clone(),
+                },
+                input,
+            );
+            true
+        }
+        ActorLogic::Machine(_)
+        | ActorLogic::Transition { .. }
+        | ActorLogic::InputTransition { .. } => false,
+    }
+}
+
 impl fmt::Debug for ActorLogic {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -293,7 +325,8 @@ pub enum ActorState {
     Machine(MachineState<String, crate::DynamicContext>),
     /// A reducer value.
     Transition(serde_json::Value),
-    /// An effect, stream, or callback actor. The host holds its value.
+    /// An effect, stream, or callback actor. The host holds its value; the
+    /// actor-tree snapshot records its spawn input so restore can reattach it.
     External,
 }
 
@@ -333,8 +366,12 @@ pub struct ActorSnapshotEntry {
     pub id: ActorId,
     /// Parent name, or `None` for the root.
     pub parent: Option<ActorId>,
-    /// Machine or reducer state. Host-driven actors have no restorable state.
+    /// Machine or reducer state. Host-driven actors are reattached from
+    /// [`ActorSnapshotEntry::input`].
     pub state: ActorState,
+    /// Input the actor observed at spawn.
+    #[serde(default)]
+    pub input: serde_json::Value,
     /// Whether this actor already reported completion to its parent.
     pub done_reported: bool,
 }
@@ -351,6 +388,7 @@ struct Actor {
     parent: Option<ActorId>,
     logic: ActorLogic,
     state: ActorState,
+    input: serde_json::Value,
     scope: Arc<Scope>,
     done_reported: bool,
 }
@@ -375,9 +413,6 @@ pub enum ActorError {
     /// No logic was supplied for an actor named by a snapshot.
     #[error("no logic supplied to restore actor {0}")]
     MissingLogic(ActorId),
-    /// A host-driven actor has no restorable machine or reducer state.
-    #[error("actor {0} is host-driven and cannot be restored from a snapshot")]
-    UnsupportedActor(ActorId),
     /// The snapshot's parent links are not a tree.
     #[error("invalid actor snapshot: {0}")]
     InvalidSnapshot(String),
@@ -465,6 +500,7 @@ impl ActorSystem {
                 parent: None,
                 logic: ActorLogic::Machine(Arc::new(machine)),
                 state: ActorState::Machine(state),
+                input: serde_json::Value::Null,
                 scope: Arc::new(Scope::new(0)),
                 done_reported: false,
             },
@@ -482,10 +518,8 @@ impl ActorSystem {
         }
     }
 
-    /// A serializable snapshot of every actor's machine or reducer state.
-    ///
-    /// Host-driven actors carry [`ActorState::External`] and cannot be restored;
-    /// they must be respawned by the host.
+    /// A serializable snapshot of every actor's machine or reducer state and
+    /// host-actor spawn input. Restore reattaches host-driven actors.
     #[must_use]
     pub fn snapshot(&self) -> ActorTreeSnapshot {
         ActorTreeSnapshot {
@@ -496,6 +530,7 @@ impl ActorSystem {
                     id: actor.id.clone(),
                     parent: actor.parent.clone(),
                     state: actor.state.clone(),
+                    input: actor.input.clone(),
                     done_reported: actor.done_reported,
                 })
                 .collect(),
@@ -506,13 +541,15 @@ impl ActorSystem {
     ///
     /// `resolve` supplies the logic for each actor name. Machine snapshots
     /// re-arm their serialized timers; reducer snapshots restore their values.
-    /// Host-driven actors are rejected because their work lives at the host
-    /// edge.
+    /// Host-driven actors are reattached from their recorded spawn input:
+    /// effects and promises re-emit a task, callbacks run again, and streams
+    /// reconnect to the receiver supplied by `resolve`. Work in flight at
+    /// snapshot time may repeat, so exactly-once effects belong in a journal.
     ///
     /// # Errors
     ///
-    /// Returns [`ActorError::MissingLogic`], [`ActorError::UnsupportedActor`],
-    /// or [`ActorError::InvalidSnapshot`] when the tree cannot be rebuilt.
+    /// Returns [`ActorError::MissingLogic`] when `resolve` has no logic, or
+    /// [`ActorError::InvalidSnapshot`] when the tree cannot be rebuilt.
     pub fn restore(
         snapshot: ActorTreeSnapshot,
         resolve: impl Fn(&ActorId) -> Option<ActorLogic>,
@@ -548,9 +585,11 @@ impl ActorSystem {
         let mut actors = BTreeMap::new();
         let mut scopes: BTreeMap<ActorId, Arc<Scope>> = BTreeMap::new();
         let mut timers = Vec::new();
+        let mut tasks = Vec::new();
         for entry in entries {
             let logic =
                 resolve(&entry.id).ok_or_else(|| ActorError::MissingLogic(entry.id.clone()))?;
+            let input = entry.input;
             let scope = match &entry.parent {
                 Some(parent) => scopes
                     .get(parent)
@@ -579,7 +618,12 @@ impl ActorSystem {
                     ActorState::Transition(_),
                 ) => {}
                 (_, ActorState::External) => {
-                    return Err(ActorError::UnsupportedActor(entry.id));
+                    if !start_host_actor(&entry.id, &logic, &input, &callback_tx, &mut tasks) {
+                        return Err(ActorError::InvalidSnapshot(format!(
+                            "logic does not match the host state of {}",
+                            entry.id
+                        )));
+                    }
                 }
                 _ => {
                     return Err(ActorError::InvalidSnapshot(format!(
@@ -596,6 +640,7 @@ impl ActorSystem {
                     parent: entry.parent,
                     logic,
                     state,
+                    input,
                     scope,
                     done_reported: entry.done_reported,
                 },
@@ -606,7 +651,7 @@ impl ActorSystem {
             actors,
             inbox: VecDeque::new(),
             pending: VecDeque::new(),
-            tasks: Vec::new(),
+            tasks,
             timers,
             callback_tx,
             callback_rx,
@@ -948,22 +993,8 @@ impl ActorSystem {
             ActorLogic::InputTransition { initial, .. } => {
                 (ActorState::Transition(initial(&input)), Vec::new(), false)
             }
-            ActorLogic::Effect(effect) => {
-                self.tasks.push(ActorTask {
-                    actor: id.clone(),
-                    effect: (effect.start)(&input),
-                });
-                (ActorState::External, Vec::new(), false)
-            }
-            ActorLogic::Stream(_) => (ActorState::External, Vec::new(), false),
-            ActorLogic::Callback(callback) => {
-                (callback.start)(
-                    CallbackSender {
-                        actor: id.clone(),
-                        tx: self.callback_tx.clone(),
-                    },
-                    &input,
-                );
+            _ => {
+                start_host_actor(&id, &logic, &input, &self.callback_tx, &mut self.tasks);
                 (ActorState::External, Vec::new(), false)
             }
         };
@@ -974,6 +1005,7 @@ impl ActorSystem {
                 parent,
                 logic,
                 state,
+                input: input.clone(),
                 scope,
                 done_reported: false,
             },

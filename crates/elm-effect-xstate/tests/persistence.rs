@@ -1,4 +1,4 @@
-use elm_effect::Duration;
+use elm_effect::{Duration, Effect, Exit, Runtime};
 use elm_effect_xstate::prelude::*;
 use std::collections::BTreeMap;
 
@@ -124,6 +124,127 @@ fn actor_tree_snapshot_restores_children_without_reentry() {
         "active entry actions do not run again"
     );
     restored.run().expect("restored system settles");
+}
+
+#[test]
+fn actor_tree_snapshot_restarts_a_host_effect_from_recorded_input() {
+    let root_config: MachineConfig = serde_json::from_str(
+        r#"{"initial":"Running","states":{
+            "Running":{
+                "invoke":{
+                    "id":"worker",
+                    "src":"worker",
+                    "input":{"n":5},
+                    "onDone":"Finished"
+                }
+            },
+            "Finished":{}
+        }}"#,
+    )
+    .expect("root schema");
+    let worker = || {
+        ActorLogic::from_effect_with_input(|input| {
+            let n = input.get("n").cloned().unwrap_or(serde_json::Value::Null);
+            Effect::<DynamicEvent, String>::sync(move || {
+                DynamicEvent::with_payload("READY", serde_json::json!({ "n": n }))
+            })
+        })
+    };
+    let root = DynamicMachine::builder(root_config)
+        .actor("worker", worker())
+        .build();
+
+    let mut system = ActorSystem::new("root", ActorLogic::from_machine(root.clone()));
+    system.run().expect("system settles");
+    assert_eq!(system.take_tasks().len(), 1);
+
+    let encoded = serde_json::to_string(&system.snapshot()).expect("serialize actor tree");
+    let decoded: ActorTreeSnapshot = serde_json::from_str(&encoded).expect("decode actor tree");
+    let worker_entry = decoded
+        .actors
+        .iter()
+        .find(|entry| entry.id == ActorId::new("worker"))
+        .expect("worker snapshot");
+    assert_eq!(worker_entry.input, serde_json::json!({"n": 5}));
+
+    let mut logic = BTreeMap::new();
+    logic.insert(ActorId::new("root"), ActorLogic::from_machine(root));
+    logic.insert(ActorId::new("worker"), worker());
+    let mut restored =
+        ActorSystem::restore(decoded, |id| logic.get(id).cloned()).expect("restore actor tree");
+
+    let tasks = restored.take_tasks();
+    assert_eq!(tasks.len(), 1, "restore re-emits the host task");
+    let task = tasks.into_iter().next().expect("one task");
+    let event = match Runtime::run(task.effect) {
+        Exit::Success(event) => event,
+        Exit::Failure(cause) => panic!("effect failed: {cause:?}"),
+    };
+    assert_eq!(event.payload, serde_json::json!({"n": 5}));
+    restored
+        .complete(&task.actor, event.payload)
+        .expect("complete worker");
+    restored.run().expect("restored system settles");
+
+    assert_eq!(
+        restored
+            .configuration(&ActorId::new("root"))
+            .expect("root configuration")
+            .leaves()
+            .cloned()
+            .collect::<Vec<_>>(),
+        ["Finished"]
+    );
+}
+
+#[test]
+fn actor_tree_snapshot_restarts_a_callback_with_recorded_input() {
+    let root_config: MachineConfig = serde_json::from_str(
+        r#"{"initial":"Running","context":{"count":0},"states":{
+            "Running":{"on":{"PING":{"actions":["bump"]}}}
+        }}"#,
+    )
+    .expect("root schema");
+    let root = DynamicMachine::builder(root_config)
+        .action("bump", |context, _event, _enq| {
+            if let Some(data) = context.data.as_object_mut() {
+                let count = data
+                    .get("count")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0);
+                data.insert("count".into(), serde_json::json!(count + 1));
+            }
+        })
+        .build();
+    let callback = || {
+        ActorLogic::from_callback(|sender| {
+            assert!(sender.send(DynamicEvent::new("PING")));
+        })
+    };
+
+    let mut system = ActorSystem::new("root", ActorLogic::from_machine(root.clone()));
+    system
+        .spawn(&ActorId::new("root"), "callback", callback())
+        .expect("spawn callback");
+    system.run().expect("system settles");
+
+    let encoded = serde_json::to_string(&system.snapshot()).expect("serialize actor tree");
+    let decoded: ActorTreeSnapshot = serde_json::from_str(&encoded).expect("decode actor tree");
+    let mut logic = BTreeMap::new();
+    logic.insert(ActorId::new("root"), ActorLogic::from_machine(root));
+    logic.insert(ActorId::new("callback"), callback());
+    let mut restored =
+        ActorSystem::restore(decoded, |id| logic.get(id).cloned()).expect("restore actor tree");
+    restored.run().expect("restored system settles");
+
+    assert_eq!(
+        restored
+            .context(&ActorId::new("root"))
+            .expect("root context")
+            .data["count"],
+        serde_json::json!(2),
+        "restore runs the callback again"
+    );
 }
 
 #[test]
