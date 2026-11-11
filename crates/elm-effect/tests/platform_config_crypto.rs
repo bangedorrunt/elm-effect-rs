@@ -1,29 +1,36 @@
 //! Config descriptors and providers, and the Crypto service.
-//! Modules load via `#[path]` includes: no facade touch. The service
-//! trait keeps tests deterministic; the OS backend is exercised once.
+//! The service trait keeps tests deterministic; the OS backend is exercised
+//! once. Everything here imports through the facade.
 
-#[allow(dead_code, clippy::type_complexity)]
-#[path = "../src/config.rs"]
-mod config;
-#[allow(dead_code, clippy::type_complexity)]
-#[path = "../src/config_provider.rs"]
-mod config_provider;
-#[allow(dead_code, clippy::type_complexity)]
-#[path = "../src/log_level.rs"]
-mod log_level;
-// The path-included config modules name `crate::Defect`, so the host has to
-// provide that name; the library's own root re-exports the same type.
-pub use elm_effect::Defect;
-#[allow(clippy::type_complexity)]
-#[path = "../src/crypto.rs"]
-mod crypto;
-
-use config::{Config, ConfigError, Value};
-use config_provider::{EnvProvider, Lookup, Provider, ProviderError};
-use crypto::{Crypto, DigestAlgorithm, SystemCrypto, TestCrypto};
+use elm_effect::config::{self, Config, ConfigError, Value};
+use elm_effect::config_provider::{self, EnvProvider, Lookup, Provider, ProviderError};
+use elm_effect::crypto::{
+    self, Crypto, CryptoError, DigestAlgorithm, SystemCrypto, TestCrypto, sha256,
+};
 
 fn provider(pairs: &[(&str, &str)]) -> Provider {
     Provider::from_pairs(pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())))
+}
+
+struct DefaultDigest;
+
+impl Crypto for DefaultDigest {
+    fn random_bytes(&self, n: usize) -> Result<Vec<u8>, CryptoError> {
+        Ok(vec![0; n])
+    }
+}
+
+#[test]
+fn crypto_default_digest_implements_sha256_and_rejects_the_rest() {
+    let crypto = DefaultDigest;
+    assert_eq!(
+        crypto.digest(DigestAlgorithm::Sha256, b"abc").unwrap(),
+        sha256(b"abc").to_vec()
+    );
+    assert!(matches!(
+        crypto.digest(DigestAlgorithm::Sha1, b"abc"),
+        Err(CryptoError::Unsupported(_))
+    ));
 }
 
 #[test]

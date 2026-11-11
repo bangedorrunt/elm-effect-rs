@@ -29,7 +29,7 @@ A CLI parses arguments, runs one effect, and exits. A process that stays up for 
 4. Build the layer in `main`.
 5. Call `Runtime::run_main` on one effect.
 
-`Runtime::exit_code` is 0, 1, 2, or 130. Read [Two error types](04-two-error-types.mdx). Stdout is the success value. Logs go to stderr through `tracing`.
+`Runtime::exit_code` is 0, 1, 2, or 130. Read [Two error types](04-two-error-types.mdx). Stdout is the success value. Logs go to stderr through the configured `Logger` sink; the kernel has no `tracing` dependency.
 
 Join or scope each fiber before `main` returns. `fork_detach` keeps the process up after you print the result.
 

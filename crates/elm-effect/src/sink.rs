@@ -4,7 +4,8 @@
 
 use super::pull::Pull;
 use super::take::Take;
-use elm_effect::{ClockImpl, Duration};
+use crate as elm_effect;
+use crate::{ClockImpl, Duration};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 

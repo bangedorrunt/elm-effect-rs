@@ -15,10 +15,16 @@
 #![allow(unused_imports)]
 
 // Every line in `PUBLISHED`, in the same order.
+use elm_effect::FiberRef;
 use elm_effect::config::Value;
 use elm_effect::config_provider::Provider;
+use elm_effect::prelude::*;
+use elm_effect::{Cache, TimeToLive};
+use elm_effect::{
+    Cause, Deferred, Effect, Exit, Runtime, Schedule, ServiceTag, Stream, SubscriptionRef, effect,
+    retry, use_service,
+};
 use elm_effect::{Config, ConfigError};
-use elm_effect::{Effect, Exit, Runtime, Schedule, ServiceTag, effect, retry, use_service};
 use elm_effect::{flow, pipe};
 use elm_effect_durable::{
     AwaitOutcome, BackoffPolicy, CancelReport, ContinueOutcome, GuardedStart, HeartbeatOutcome,
@@ -44,12 +50,23 @@ use std::path::{Path, PathBuf};
 /// Adding a snippet to a guide means adding its import line here; the test
 /// fails until the two agree.
 const PUBLISHED: &[&str] = &[
+    "use elm_effect::prelude::*;",
     "use elm_effect::{Effect, Exit, Runtime};",
     "use elm_effect::{Effect, Runtime};",
     "use elm_effect::{retry, Effect, Schedule, Runtime};",
     "use elm_effect::{retry, Schedule};",
     "use elm_effect::effect;",
     "use elm_effect::{use_service, Effect, Runtime, ServiceTag};",
+    // The cache section's import.
+    "use elm_effect::{Cache, TimeToLive};",
+    // The fiber-local section's imports. `Exit` and `Runtime` are the
+    // existing pair above; only the new name is separate.
+    "use elm_effect::{Exit, Runtime};",
+    "use elm_effect::FiberRef;",
+    // The Deferred section's import.
+    "use elm_effect::{Cause, Deferred, Exit};",
+    // The stream bridge section's import.
+    "use elm_effect::{Exit, Stream, SubscriptionRef};",
     // The metric section's import.
     "use elm_effect::{Attributes, Counter, Metrics};",
     // The combinator section's import. `pipe` and `flow` are macros.

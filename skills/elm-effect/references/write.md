@@ -19,5 +19,6 @@ The carrier from ADR-0002 and the adoption rules in ADR-0003 are in the crates. 
 ## Done
 
 - [ ] `cargo test -p elm-effect` passes.
+- [ ] If a guide or skill snippet changed, `cargo test -p elm-effect-elm --test guide_imports` passes.
 - [ ] You did not flip feature defaults in `Cargo.toml`.
 - [ ] The report names the test that was red and the test that is green.

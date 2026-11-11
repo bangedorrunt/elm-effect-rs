@@ -23,7 +23,7 @@ Eight dedicated machine models cover the remaining catalog entries: `schedule_st
 
 ## Code Covered & Sync Commit
 
-- **Sync Commit**: `14574bf`
+- **Sync Commit**: `b4216c3`
 - **Crates Covered**:
   - [`crates/elm-effect-elm`](../../crates/elm-effect-elm) (`Loop`, `Program`, `Update`)
   - [`crates/elm-effect`](../../crates/elm-effect) (`Effect`, `Step`, `Drive`, `Fiber`, `Scope`, `Supervisor`)

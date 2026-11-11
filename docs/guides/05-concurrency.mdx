@@ -31,6 +31,14 @@ Structured concurrency means a parent fiber owns its children. The parent waits 
 
 A child from `fork` stops when the parent stops. `fork_detach` attaches the child to the runtime root. The child stops when the runtime stops. Do not detach a fiber in a CLI that must exit.
 
+## Fiber-local values
+
+`FiberRef` uses the same fork boundary. A child gets a copy of the parent's value at fork. Later changes stay in the fiber that makes them. Use `Reference` for read-only ambient configuration and `Ref` for state shared across fibers.
+
+## Wait for one outcome
+
+`Deferred::wait_exit` waits for a one-shot handoff and returns the whole `Exit`. On a fiber, an interrupt ends the wait with that interrupt. `wait_exit_interruptible` accepts an external predicate, and `wait` keeps the success-only shape.
+
 The attempt timeout starts after bulkhead admission. A wait in the queue does not consume the attempt timeout.
 
 ## Do a test of the order

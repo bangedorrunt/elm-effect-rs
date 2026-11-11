@@ -554,6 +554,7 @@ mod tests {
         let control = Arc::new(FiberControl::new(
             crate::FiberId(999),
             None,
+            std::collections::HashMap::new(),
             Vec::new(),
             false,
             Arc::new(StartLatch::default()),

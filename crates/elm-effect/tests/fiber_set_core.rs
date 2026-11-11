@@ -2,12 +2,7 @@
 //! outside the set is recorded on the fiber that owns the work.
 //! Modules load via `#[path]` like fiber_sets.rs: no facade touch.
 
-#[allow(clippy::type_complexity)]
-#[path = "../src/fiber_set.rs"]
-mod fiber_set;
-
-use elm_effect::{Cause, Ctx, Exit, Runtime, is_interrupt_reason};
-use fiber_set::FiberSet;
+use elm_effect::{Cause, Ctx, Exit, FiberSet, Runtime, is_interrupt_reason};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 

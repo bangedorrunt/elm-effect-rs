@@ -5,16 +5,81 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.3] - 2026-11-11
 
 ### Added
 
+- `FiberRef`: mutable state scoped to one fiber, with `get`, `set`, `update`,
+  `modify`, and `locally`. A child inherits the parent's value at fork,
+  including a detached child; later changes stay local to the fiber that makes
+  them. `locally` restores the previous value on both success and typed
+  failure. Use `Reference` for read-only ambient configuration and `Ref` for
+  shared state.
+- `Deferred::wait_exit` and `Deferred::wait_exit_interruptible`. The full
+  recorded `Exit` is available without conflating a typed failure, defect, or
+  interrupt with success, and a waiting fiber can be interrupted instead of
+  parking until a completion that may never arrive.
+- `Stream::from_change_stream` and `Stream::from_pubsub`: pull-stream bridges
+  over the existing `ChangeStream` and `PubSub` primitives. The
+  `ChangeStream` lease unsubscribes on drop; the `PubSub` bridge unsubscribes
+  when the subscription ends or the stream is dropped.
+- `Cache` and `ScopedCache` with single-flight lookups, TTL, LRU eviction,
+  explicit set/invalidate, and scope-cleared entries. `Cache::cache_errors`
+  opts a caller into storing failures.
+- `Pool` with bounded reuse and an RAII `Pooled` guard, plus `Latch` with
+  release/open wait semantics and fiber-interrupt observation.
+- `Request`, `Resolver` (`RequestResolver`), `Entry`, `RequestStore`,
+  `MemoryRequestStore`, `request`, and `request_unchecked`: batched requests
+  with grouping, bounded batches, delay, cache, persistence, and cancellation.
+- `RcMap`, `RcRef`, `RcMapOptions`, and `LookupFailure`: keyed,
+  reference-counted resources with idle TTL, capacity, and generation-safe
+  invalidation.
+- `FiberMap`, `FiberSet`, and `Sink` are public at the crate root. The
+  `prelude` re-exports the core carrier, the policy module, and `effect!`.
 - `Program::failure_for(cmd, failure)`: the failure hook now receives the
   command the loop was running when it still holds one. A durable append
   rejection is reported with the intent's `Durability::key`, so a fold can
   attribute the refusal to the send it names instead of guessing from the
   error text. The default drops the command and calls `Program::failure`, so
   existing programs are unchanged.
+- The accepted [kernel envelope](docs/parity/kernel-envelope.md): 16 laws,
+  32 curated verbs, and 21 machines, with 11 Effect-sourced and 5 native laws.
+  It replaces the withdrawn 100% upstream-parity claim.
+
+### Changed
+
+- The cache, crypto, fiber-map, fiber-ref, fiber-set, latch, policy, pool,
+  pub-sub, rc-map, request, and sink modules are public at the crate root.
+- `observability::Counter`, `Gauge`, and `MetricRegistry` are now
+  `AtomicCounter`, `AtomicGauge`, and `AtomicMetricRegistry`, so the
+  service-backed helper cannot be mistaken for the canonical `metric` API.
+- `Crypto::digest` now returns `CryptoError::Unsupported` for algorithms other
+  than SHA-256 instead of silently producing a SHA-256 digest.
+- Workspace crates bumped 0.4.2 to 0.4.3.
+- Guides, skills, and parity docs were revised for this release: current
+  versions, the new primitive sections, corrected relative links, and the
+  kernel-envelope boundary.
+
+### Fixed
+
+- `Deferred::wait` now ends with the waiting fiber's interrupt instead of
+  parking forever when the deferred is never completed. It still panics on a
+  non-success outcome; use `wait_exit` to inspect the whole outcome.
+- A guide link to the statechart reference and a lease-fencing link to ADR-0005
+  no longer point at nonexistent paths.
+
+[0.4.3]: https://github.com/bangedorrunt/elm-effect-rs/compare/v0.4.2...v0.4.3
+
+## [0.4.2] - 2026-11-10
+
+### Added
+
+- `OurEngine::query_lease` and `LeaseStatus` for read-only lease diagnostics
+  (`Active`, `Expired`, or `Unheld`) without mutating storage or fences.
+- `SagaCoordinator` for recording completed, failed, and skipped saga steps
+  and emitting a strict LIFO `SagaPlan`. Duplicate step keys are refused.
+
+[0.4.2]: https://github.com/bangedorrunt/elm-effect-rs/compare/v0.4.1...v0.4.2
 
 ## [0.4.1] - 2026-11-03
 

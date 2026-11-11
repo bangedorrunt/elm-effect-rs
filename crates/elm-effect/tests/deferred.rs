@@ -5,7 +5,7 @@
 //! tell a success from a failure. These tests cover the four outcomes and the
 //! accessors that distinguish them.
 
-use elm_effect::{Cause, Deferred, Exit};
+use elm_effect::{Cause, Deferred, Exit, ForkOpts, Runtime};
 use std::convert::Infallible;
 use std::sync::Arc;
 
@@ -75,6 +75,44 @@ fn is_done_is_true_only_once_completed() {
     assert!(!cell.is_done(), "empty means not done");
     cell.complete(7);
     assert!(cell.is_done());
+}
+
+#[test]
+fn wait_exit_returns_the_whole_outcome() {
+    let cell: Deferred<u32, String> = Deferred::new();
+    cell.complete_exit(Exit::Failure(Cause::fail("boom".to_string())));
+    match cell.wait_exit() {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"boom".to_string())),
+        Exit::Success(value) => panic!("expected the recorded failure, got {value}"),
+    }
+}
+
+#[test]
+fn wait_exit_ends_when_the_waiting_fiber_is_interrupted() {
+    let cell: Arc<Deferred<u32, String>> = Arc::new(Deferred::new());
+    let started: Arc<Deferred<(), String>> = Arc::new(Deferred::new());
+    let runtime = Runtime::new();
+    let handle = {
+        let cell = Arc::clone(&cell);
+        let started = Arc::clone(&started);
+        runtime.fork_detach_with(
+            move |_ctx| {
+                started.complete(());
+                match cell.wait_exit() {
+                    Exit::Failure(cause) if cause.is_interrupted() => Exit::succeed(()),
+                    other => Exit::fail(format!("expected an interrupt, got {other:?}")),
+                }
+            },
+            ForkOpts::immediate(),
+        )
+    };
+
+    assert_eq!(started.wait_exit(), Exit::Success(()));
+    handle.interrupt();
+    match handle.join() {
+        Exit::Failure(cause) => assert!(cause.is_interrupted(), "the wait must end interrupted"),
+        Exit::Success(()) => panic!("the fiber must not succeed after an interrupt"),
+    }
 }
 
 #[test]

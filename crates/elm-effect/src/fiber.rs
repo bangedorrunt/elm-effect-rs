@@ -195,6 +195,9 @@ pub(crate) struct FiberControl {
     /// Condvar notifiers registered by interrupt-aware waits that wait on
     /// their own lock. Fired on interrupt, so those waits need no poll.
     wakers: Mutex<Vec<(u64, Arc<dyn Fn() + Send + Sync>)>>,
+    /// Mutable values keyed by `FiberRef` id. Cloned from the spawning
+    /// context at fork, so a child's updates stay local to the child.
+    refs: Mutex<HashMap<u64, Arc<dyn Any + Send + Sync>>>,
     depth: AtomicUsize,
     /// Start gate: a completing parent fires its children's gates so a
     /// deferred child that never ran still ends (preempted) instead of
@@ -216,6 +219,7 @@ impl FiberControl {
     pub(crate) fn new(
         id: FiberId,
         parent: Option<Arc<FiberControl>>,
+        refs: HashMap<u64, Arc<dyn Any + Send + Sync>>,
         bound: Vec<ScopeHandle>,
         masked: bool,
         start: Arc<StartLatch>,
@@ -228,6 +232,7 @@ impl FiberControl {
             signal: Arc::new(Signal::new()),
             parent_signal,
             wakers: Mutex::new(Vec::new()),
+            refs: Mutex::new(refs),
             depth: AtomicUsize::new(usize::from(masked)),
             start,
             scope: Scope::new(id.0),
@@ -300,6 +305,50 @@ impl FiberControl {
 
     pub(crate) fn masked_now(&self) -> bool {
         self.depth.load(Ordering::SeqCst) > 0
+    }
+
+    pub(crate) fn fiber_refs(&self) -> HashMap<u64, Arc<dyn Any + Send + Sync>> {
+        self.refs.lock().unwrap().clone()
+    }
+
+    pub(crate) fn fiber_ref_get<A>(&self, id: u64, default: &A) -> A
+    where
+        A: Clone + Send + Sync + 'static,
+    {
+        self.fiber_ref_get_option(id)
+            .unwrap_or_else(|| default.clone())
+    }
+
+    pub(crate) fn fiber_ref_get_option<A>(&self, id: u64) -> Option<A>
+    where
+        A: Clone + Send + Sync + 'static,
+    {
+        self.refs
+            .lock()
+            .unwrap()
+            .get(&id)
+            .and_then(|value| value.downcast_ref::<A>().cloned())
+    }
+
+    pub(crate) fn fiber_ref_set<A>(&self, id: u64, value: A)
+    where
+        A: Clone + Send + Sync + 'static,
+    {
+        self.refs.lock().unwrap().insert(id, Arc::new(value));
+    }
+
+    pub(crate) fn fiber_ref_restore<A>(&self, id: u64, previous: Option<A>)
+    where
+        A: Clone + Send + Sync + 'static,
+    {
+        match previous {
+            Some(value) => {
+                self.refs.lock().unwrap().insert(id, Arc::new(value));
+            }
+            None => {
+                self.refs.lock().unwrap().remove(&id);
+            }
+        }
     }
 
     /// Raise the interruptibility depth (L7: releases run masked).
@@ -476,6 +525,16 @@ pub(crate) fn subscribe_current_interrupt(
     let control = CURRENT_FIBER.with(|c| c.borrow().clone())?;
     Some(control.subscribe_interrupt(Arc::new(waker)))
 }
+
+/// The current fiber's id, interrupt flag, and mask state.
+pub(crate) fn current_interrupt_state() -> Option<(FiberId, bool, bool)> {
+    CURRENT_FIBER.with(|current| {
+        current
+            .borrow()
+            .as_ref()
+            .map(|control| (control.id, control.is_interrupted(), control.masked_now()))
+    })
+}
 /// The fiber running an effect, as [`Effect::with_fiber`] hands it over:
 /// identity plus the cooperative interrupt flag. Wider control (finalizers,
 /// spawning) stays on [`Ctx`], which a fiber body owns.
@@ -534,7 +593,7 @@ impl Fiber {
         R: crate::effect::Requirement,
     {
         let mask = opts.resolve_mask(self.control.masked_now());
-        self.driver.spawn(
+        self.driver.spawn_with_context(
             move |ctx| {
                 let mut maps = (*ambient).clone();
                 maps.replace_tag(<FiberTag as crate::ServiceTag>::ID, Arc::new(ctx.fiber()));
@@ -545,6 +604,7 @@ impl Fiber {
                 }
             },
             parented.then(|| Arc::clone(&self.control)),
+            Some(Arc::clone(&self.control)),
             scopes,
             opts.start,
             mask,
@@ -585,6 +645,34 @@ impl Fiber {
     /// [`Ctx::is_interrupted`] does.
     pub fn is_interrupted(&self) -> bool {
         self.control.is_interrupted()
+    }
+
+    pub(crate) fn fiber_ref_get<A>(&self, id: u64, default: &A) -> A
+    where
+        A: Clone + Send + Sync + 'static,
+    {
+        self.control.fiber_ref_get(id, default)
+    }
+
+    pub(crate) fn fiber_ref_get_option<A>(&self, id: u64) -> Option<A>
+    where
+        A: Clone + Send + Sync + 'static,
+    {
+        self.control.fiber_ref_get_option(id)
+    }
+
+    pub(crate) fn fiber_ref_set<A>(&self, id: u64, value: A)
+    where
+        A: Clone + Send + Sync + 'static,
+    {
+        self.control.fiber_ref_set(id, value)
+    }
+
+    pub(crate) fn fiber_ref_restore<A>(&self, id: u64, previous: Option<A>)
+    where
+        A: Clone + Send + Sync + 'static,
+    {
+        self.control.fiber_ref_restore(id, previous)
     }
 
     /// Park until `predicate` holds or this fiber is woken by an interrupt or
@@ -785,9 +873,10 @@ impl Ctx {
         E: Send + 'static,
         F: FnOnce(&Ctx) -> Exit<A, E> + Send + 'static,
     {
-        self.driver.spawn(
+        self.driver.spawn_with_context(
             body,
             None,
+            Some(Arc::clone(&self.control)),
             Vec::new(),
             opts.start,
             opts.resolve_mask(self.control.masked_now()),

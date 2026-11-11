@@ -1046,6 +1046,60 @@ impl<A: Send + 'static> Stream<A, String, ()> {
     }
 }
 
+/// Unsubscribes a change stream when the stream's last clone is dropped.
+struct ChangeStreamLease<A: Clone> {
+    stream: crate::ChangeStream<A>,
+}
+
+impl<A: Clone> ChangeStreamLease<A> {
+    fn next(&self) -> Option<A> {
+        self.stream.next()
+    }
+}
+
+impl<A: Clone> Drop for ChangeStreamLease<A> {
+    fn drop(&mut self) {
+        self.stream.unsubscribe();
+    }
+}
+
+impl<A: Clone + Send + 'static, E: Send + 'static> Stream<A, E, ()> {
+    /// `Stream.fromSubscriptionRef`: pull the current value and every later
+    /// update from a [`SubscriptionRef`](crate::SubscriptionRef) change stream.
+    ///
+    /// The subscription is ended when the stream is dropped or takes its last
+    /// element, so a short consumer does not leave a live queue behind. The
+    /// pull blocks, like the change stream it wraps.
+    pub fn from_change_stream(stream: crate::ChangeStream<A>) -> Self {
+        let lease = Arc::new(ChangeStreamLease { stream });
+        Stream::from_pull(move || {
+            let lease = Arc::clone(&lease);
+            Effect::<Option<Vec<A>>, E, ()>::sync(move || lease.next().map(|item| vec![item]))
+        })
+    }
+}
+
+impl<A: Send + 'static, E: Send + 'static> Stream<A, E, ()> {
+    /// Pull from a [`PubSub`](crate::PubSub) subscription.
+    ///
+    /// The subscription is a thread primitive: the pull blocks in
+    /// [`Subscription::take`](crate::PubSubSubscription::take). Dropping the
+    /// stream drops the subscription and unsubscribes it; shutdown or an
+    /// explicit unsubscribe ends the stream.
+    pub fn from_pubsub(subscription: Arc<crate::PubSubSubscription<A>>) -> Self {
+        Stream::from_pull(move || {
+            let subscription = Arc::clone(&subscription);
+            Effect::<Option<Vec<A>>, E, ()>::sync(move || {
+                let item = subscription.take();
+                if item.is_none() {
+                    subscription.unsubscribe();
+                }
+                item.map(|item| vec![item])
+            })
+        })
+    }
+}
+
 pub fn normalize(n: f64) -> usize {
     if n > 0.0 { n.floor() as usize } else { 0 }
 }

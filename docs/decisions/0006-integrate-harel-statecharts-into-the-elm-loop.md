@@ -48,7 +48,7 @@ How should `elm-effect-rs` incorporate Harel statecharts and actor lifecycles fo
 
 Chosen option: **Option 3 ("Pure Statechart Abstraction Compiling to `Program` with Scoped Effect Invocations")**.
 
-We introduce statechart capabilities into the framework through a dedicated module or crate ([`elm-effect-statechart`](../../crates/elm-effect-elm)). It provides a declarative, type-safe statechart specification that compiles directly down to an [`elm-effect-elm::Program`](../../crates/elm-effect-elm/src/program.rs).
+We introduce statechart capabilities into the framework through a dedicated module or crate ([`elm-effect-statechart`](../../crates/elm-effect-elm)). It provides a declarative, type-safe statechart specification that compiles directly down to an [`elm-effect-elm::Program`](../../crates/elm-effect-elm/src/lib.rs).
 
 ### 1. The Core Architecture
 

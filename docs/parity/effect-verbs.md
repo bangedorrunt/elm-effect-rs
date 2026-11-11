@@ -6,6 +6,12 @@ upstream citation stays under `packages/effect/test/` at the pin
 `effect@4.0.0` (`67ba4e46...`), and every verb names a law and a witness.
 This page is the readable view of that table; update both in one change.
 
+The table is a **curated envelope**, not the full API. It tracks 32 verbs;
+`Effect` exposes roughly 70 public functions and `Stream` roughly 55 methods.
+Five of the sixteen laws are native (L3, L12, L14, L15, L16), so they are
+framework laws rather than upstream Effect claims. The boundary is recorded in
+[`kernel-envelope.md`](kernel-envelope.md).
+
 ## Laws
 
 | Law | Claim | Witness |
@@ -68,6 +74,21 @@ retention miss. The matrix carries the exact reasons.
 | `DurableLog` | `DurableLog` | L16 |
 | `Program` | `Program` | L12 |
 | `Interpret` | `Interpret` | L12 |
+
+## Envelope boundary
+
+Out of scope: `Schema`, `STM`, the full verb vocabulary, the full `Stream`
+surface, and the unstable platform crates. `Cache`, `ScopedCache`, `Pool`, and
+`Latch` are public synchronous kernel primitives, but they are not counted among
+the 32 curated effect verbs. `Request`, `Resolver`, and `Entry` are the
+`RequestResolver` batching surface; `RcMap` and `RcRef` are the reference-counted
+resource surface. They are public primitives, not additional curated verbs.
+`PubSub` is public as a blocking thread primitive, not as a fiber-native effect
+primitive. `FiberRef` is the fiber-local mutable primitive; `Deferred` is the
+one-shot exit handoff; `Stream::from_change_stream` and `Stream::from_pubsub` are
+native bridges. They are public primitives, not additional curated verbs. The
+last ledger snapshot recorded 109 unported rows; they are excluded, not tracked
+by CI. Upstream parity is not claimed.
 
 ## State machines
 

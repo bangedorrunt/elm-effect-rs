@@ -7,11 +7,7 @@
 //! [`clear`](FiberSet::clear) interrupts everything and drains.
 //!
 //! Out of scope: attempt telemetry and scope-replacement hooks.
-// A test reaches this module through a `#[path]` include, so one test target
-// does not exercise its whole surface. The dead-code allowance covers the
-// unexercised remainder, not a defect in the crate.
-#![allow(dead_code)]
-use elm_effect::{Ctx, Deferred, Exit, FiberHandle, ForkOpts, Runtime, Scope};
+use crate::{Ctx, Deferred, Exit, FiberHandle, ForkOpts, Runtime, Scope};
 use std::sync::{Arc, Mutex};
 
 type Shared<A, E> = Arc<Mutex<Option<FiberHandle<A, E>>>>;

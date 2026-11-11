@@ -26,6 +26,7 @@
 /// `race_deadline`'s clock deadline, which has no notification channel.
 pub(crate) const COOPERATIVE_QUANTUM: std::time::Duration = std::time::Duration::from_millis(10);
 
+pub mod cache;
 pub mod cause;
 pub mod channel;
 // `Logger.console*` writes through this crate, so it is part of the surface.
@@ -41,25 +42,33 @@ pub mod attempt_plan;
 mod config_effect;
 pub mod config_provider;
 mod context;
-mod crypto;
+pub mod crypto;
 pub mod effect;
 pub use attempt_plan::{AttemptPlan, NoAttempts, Planned};
 mod executor;
 mod exit;
 pub mod fiber;
+pub mod fiber_map;
+pub mod fiber_ref;
+pub mod fiber_set;
 mod foundation;
+pub mod latch;
 mod layer;
 mod log_level;
 mod metric;
 mod mock;
 pub mod observability;
-mod policy;
-mod pubsub;
+pub mod policy;
+pub mod pool;
+pub mod pubsub;
 pub mod pull;
+pub mod rc_map;
+pub mod request;
 mod runtime;
 mod schedule;
 mod scope;
 mod service;
+pub mod sink;
 mod stream;
 pub mod subscription_ref;
 pub use subscription_ref::{ChangeStream, SubscriptionRef};
@@ -71,6 +80,7 @@ mod time;
 // The span model shared with `observability`.
 pub mod tracer;
 
+pub use cache::{Cache, Release, ScopedCache, TimeToLive};
 pub use cause::{
     Cause, CauseError, Defect, Done, FiberId, Reason, Squash, is_die_reason, is_done,
     is_exceeded_capacity_error, is_fail_reason, is_illegal_argument_error, is_interrupt_reason,
@@ -85,16 +95,24 @@ pub use concurrency::{
 pub use config::{Config, ConfigError};
 pub use config_provider::{Provider, ProviderError};
 pub use context::{Context, ContextReference, Tag};
+pub use crypto::{
+    Crypto, CryptoError, DigestAlgorithm, SystemCrypto, TestCrypto, random_between,
+    random_int_between, sha256, ulid, uuid_v4, uuid_v7,
+};
 pub use effect::{Effect, Requirement};
 pub use effect::{Restore, Resume};
 pub use executor::{BoxFuture, Executor, TokioExecutor};
 pub use exit::Exit;
 pub use fiber::{Ctx, Fiber, FiberHandle, ForkOpts, Mask, StartMode};
+pub use fiber_map::FiberMap;
+pub use fiber_ref::FiberRef;
+pub use fiber_set::{FiberSet, FiberSetRuntime, FiberSetTag};
 pub use foundation::{
     Combiner, Equal, Equivalence, Hash, Order, Reducer, array_equivalence, boolean_equivalence,
     boolean_order, combine_hash, combine_ordering, hash_f64, hash_str, number_equivalence,
     number_order, ord_order, string_equivalence, string_order, tuple_equivalence,
 };
+pub use latch::{Latch, LatchInterrupted};
 pub use layer::{BuiltServices, Cycle, Layer, LayerMemo, LayerSpanOptions, RequirementIds};
 pub use log_level::LogLevel;
 pub use metric::{
@@ -104,6 +122,13 @@ pub use metric::{
 };
 pub use mock::{Mock, Unimplemented, UnimplementedError};
 pub use policy::{BreakerConfig, Bulkhead, RateLimiter, Remote, RemoteError, RemotePolicy, hedge};
+pub use pool::{IdlePolicy, Pool, Pooled};
+pub use pubsub::{PubSub, Strategy as PubSubStrategy, Subscription as PubSubSubscription};
+pub use rc_map::{LookupFailure, RcMap, RcMapError, RcMapOptions, RcRef};
+pub use request::{
+    BATCH_WINDOW, Cancel, Entry, MemoryRequestStore, Request, RequestResolver, RequestStore,
+    Resolver, TaggedResolver, request, request_unchecked,
+};
 pub use runtime::{
     ManagedRuntime, Runtime, SHUTDOWN_DEADLINE, race, race_all, race_all_first, race_first,
     timeout, timeout_fail,
@@ -114,6 +139,7 @@ pub use schedule::{
 };
 pub use scope::{Scope, ScopeExit, ScopeOutcome, ScopeTag};
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};
+pub use sink::Sink;
 pub use stream::{Stream, from_iter, from_iterator_succeed};
 pub use sync::{
     Deferred, MutableRef, PartitionedSemaphore, Queue, QueueError, Ref, Semaphore, Strategy,
@@ -124,3 +150,16 @@ pub use time::{
     Clock, ClockImpl, Duration, DurationJson, Parts, SleepOutcome, SystemClock, TestClock,
     is_duration,
 };
+
+/// Common imports for applications. The root remains the canonical path;
+/// the prelude only removes ceremony at call sites.
+pub mod prelude {
+    pub use crate::effect;
+    pub use crate::policy;
+    pub use crate::{
+        Cache, Cause, Clock, Config, Deferred, Duration, Effect, Exit, Fiber, FiberHandle,
+        FiberRef, Latch, Layer, LogLevel, Pool, Queue, RcMap, RcRef, Ref, Request, RequestResolver,
+        Requirement, Resolver, Runtime, Schedule, Scope, Semaphore, ServiceTag, Stream, TestClock,
+        use_service,
+    };
+}

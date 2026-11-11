@@ -12,7 +12,7 @@ Statecharts extend finite state machines with:
 - **Extended context**: Pure data updated deterministically alongside discrete state.
 - **Deterministic action sequence**: State exit actions, transition actions, and target entry actions run in strict topological order (Law L1).
 - **Eventless (transient) micro-steps**: Transient transitions (`always`) cascade sequentially until the state machine settles in quiescence (Law L2).
-- **Unified action enqueue**: Actions enqueue commands (`exec`), internal events (`raise`), telemetry emissions (`emit`), or actor work (`spawn`, `send_to`, `stop`) via [`ActionQueue`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-xstate/src/action.rs), replacing legacy action creators.
+- **Unified action enqueue**: Actions enqueue commands (`exec`), internal events (`raise`), telemetry emissions (`emit`), or actor work (`spawn`, `send_to`, `stop`) via [`ActionQueue`](../../crates/elm-effect-xstate/src/action.rs), replacing legacy action creators.
 - **Pure Elm fold compilation**: The entire statechart compiles down to a deterministic `Program::update` function with zero background scheduler.
 
 <Flow
@@ -43,9 +43,9 @@ In your `Cargo.toml`:
 
 ```toml
 [dependencies]
-elm-effect = { version = "0.4.2", path = "../elm-effect" }
-elm-effect-elm = { version = "0.4.2", path = "../elm-effect-elm" }
-elm-effect-xstate = { version = "0.4.2", path = "../elm-effect-xstate" }
+elm-effect = { version = "0.4.3", path = "../elm-effect" }
+elm-effect-elm = { version = "0.4.3", path = "../elm-effect-elm" }
+elm-effect-xstate = { version = "0.4.3", path = "../elm-effect-xstate" }
 ```
 
 ## Define states and machine
@@ -358,7 +358,7 @@ let transition = node
 ```
 
 - `assign(|ctx, e| ...)`: Mutates extended context directly.
-- `action(|ctx, e, enq| ...)`: Receives mutable context, the event, and the [`ActionQueue`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-xstate/src/action.rs).
+- `action(|ctx, e, enq| ...)`: Receives mutable context, the event, and the [`ActionQueue`](../../crates/elm-effect-xstate/src/action.rs).
 - `exec(cmd)`: Convenience helper for emitting a runtime command.
 
 A target whose state is the source defaults to a non-reentering self-transition in XState v6: the transition actions run, but the source's exit and entry actions do not. Add `.reenter()` to exit and re-enter the source, or `"reenter": true` in a schema. A transition to a descendant keeps the source active unless it reenters.
@@ -467,7 +467,7 @@ impl StatechartDefinition for MyDef {
 type MyProgram = StatechartProgram<MyDef>;
 ```
 
-The resulting `MyProgram` satisfies the `Program` trait and can be booted directly in an [`elm_effect_elm::Loop`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-elm/src/lib.rs).
+The resulting `MyProgram` satisfies the `Program` trait and can be booted directly in an [`elm_effect_elm::Loop`](../../crates/elm-effect-elm/src/lib.rs).
 
 ## Schema-driven dynamic statecharts and conformance
 

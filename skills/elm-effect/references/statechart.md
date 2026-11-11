@@ -1,6 +1,6 @@
 # Statecharts and Harel Actor Lifecycles in `elm-effect-rs`
 
-This reference guides AI agents and developers implementing statecharts in `elm-effect-rs` using the `elm-effect-xstate` crate ([ADR-0007](file:///Users/bangedorrunt/workspace/elm-effect-rs/docs/decisions/0007-port-xstate-v6-into-rust-as-elm-effect-xstate.md), which supersedes ADR-0006).
+This reference guides AI agents and developers implementing statecharts in `elm-effect-rs` using the `elm-effect-xstate` crate ([ADR-0007](../../../docs/decisions/0007-port-xstate-v6-into-rust-as-elm-effect-xstate.md), which supersedes ADR-0006).
 
 ---
 
@@ -12,8 +12,8 @@ This reference guides AI agents and developers implementing statecharts in `elm-
 **Never spawn a secondary background scheduler or runtime thread for statecharts.**
 
 - A statechart is a purely functional transition machine.
-- All state transitions, guards, context updates, and eventless micro-steps compile directly into a deterministic Elm loop reducer: [`elm_effect_elm::Program::update`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-elm/src/lib.rs).
-- Side-effect commands returned from transitions are executed at the process edge through [`elm_effect_elm::Interpret`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-elm/src/lib.rs).
+- All state transitions, guards, context updates, and eventless micro-steps compile directly into a deterministic Elm loop reducer: [`elm_effect_elm::Program::update`](../../../crates/elm-effect-elm/src/lib.rs).
+- Side-effect commands returned from transitions are executed at the process edge through [`elm_effect_elm::Interpret`](../../../crates/elm-effect-elm/src/lib.rs).
 
 ---
 
@@ -32,7 +32,7 @@ Statechart evaluation in `elm-effect-xstate` strictly follows the five fundament
 4. **Law L4 (Deterministic Guard Priority)**:
    Transitions for a given event are evaluated in declaration order. The first transition whose guard evaluates to `true` is taken; subsequent branches are ignored.
 5. **Law L5 (Unified Action Enqueue)**:
-   Handlers receive an [`ActionQueue`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-xstate/src/action.rs#L5-L52) (`enq`), following XState v6's action discipline:
+   Handlers receive an [`ActionQueue`](../../../crates/elm-effect-xstate/src/action.rs) (`enq`), following XState v6's action discipline:
    - `enq.exec(cmd)`: Emits a managed command to the host runtime.
    - `enq.raise(event)`: Emits an internal event to re-enter the machine fold.
    - `enq.emit(payload)`: Emits telemetry/inspection data.
@@ -334,9 +334,9 @@ assert_eq!(outcome.context.log, vec!["award_diploma"]);
 
 To drive a statechart inside an application loop:
 
-1. Define a marker struct implementing [`StatechartDefinition`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-xstate/src/adapter.rs#L14-L37).
-2. Wrap it with [`StatechartProgram`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-xstate/src/adapter.rs#L39-L74).
-3. Boot directly in a [`elm_effect_elm::Loop`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-elm/src/lib.rs):
+1. Define a marker struct implementing [`StatechartDefinition`](../../../crates/elm-effect-xstate/src/adapter.rs).
+2. Wrap it with [`StatechartProgram`](../../../crates/elm-effect-xstate/src/adapter.rs).
+3. Boot directly in a [`elm_effect_elm::Loop`](../../../crates/elm-effect-elm/src/lib.rs):
 
 ```rust
 use elm_effect_elm::{Boot, Cmd, Failure, Program};
@@ -393,7 +393,7 @@ type MyProgram = StatechartProgram<MyStatechartDef>;
 ## 7. Testing & Conformance Verification
 
 - **Pure Step Testing**: Test statecharts synchronously using `machine.step(...)` or `machine.step_state(...)`. No mock threads, sockets, or clocks required.
-- **Delayed Transitions**: The engine returns `TimerIntent` values. A host that runs on [`elm-effect-test::TestClock`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-test/src/clock.rs) schedules them as commands, so virtual time still needs no wall-clock sleep.
+- **Delayed Transitions**: The engine returns `TimerIntent` values. A host that runs on [`elm-effect-test::TestClock`](../../../crates/elm-effect-test/src/lib.rs) schedules them as commands, so virtual time still needs no wall-clock sleep.
 - **Conformance Matrix**: `crates/elm-effect-xstate/tests/conformance/fixtures/` holds 147 declarative vectors across actions, always, after, events, parallel, history, hierarchy, guards, final states, and actors, including ninety-two ported from XState 6.0.0-beta.1 (commit d56483f) with a `source` field. `conformance_actors.rs` drives actor scenarios through `spawn:`, `send:`, `stop:`, and `assign_payload:` actions, plus `fail` steps, including dynamic invoke input resolution, invoke input/output/error routing, and dual done/error routes and context assertions; the machine runner supports `raise:` and `emit:`. `conformance_test.rs` enforces a feature matrix naming the proving cases. Snapshot resume re-arms active timers, and completed machine actors report `done` once. Run `scripts/sync-xstate-conformance.sh`. The optional `scripts/xstate-differential` Node check compares state outcomes for 119 vectors (118 agree, 1 skipped); it is not the full ~400-case upstream suite.
 - **Formal Verification (TLA+ / TLC)**: Four dedicated statechart models in `skills/verify-framework-flows/` are model-checked via `scripts/verify-formal.sh` and documented in `docs/research/state-machines-and-flows.md`:
   - Flow 6: `flow6_statechart_microstep.tla` (Quiescence, LCA resolution, Law L1 ordering)

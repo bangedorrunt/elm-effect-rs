@@ -7,10 +7,6 @@
 //! timestamp, so formatting is pure and separately testable. Digest
 //! algorithms are the spec literals (`SHA-256` implemented; the rest
 //! report [`CryptoError::Unsupported`] instead of pretending).
-// A test reaches this module through a `#[path]` include, so one test target
-// does not exercise its whole surface. The dead-code allowance covers the
-// unexercised remainder, not a defect in the crate.
-#![allow(dead_code)]
 use std::sync::{Arc, Mutex};
 
 /// Digest algorithm literals from the spec.
@@ -76,10 +72,16 @@ pub const TYPE_ID: &str = "elm-effect/Crypto";
 pub trait Crypto: Send + Sync {
     /// Fill with random bytes.
     fn random_bytes(&self, n: usize) -> Result<Vec<u8>, CryptoError>;
-    /// Digest data (default: SHA-256).
+    /// Digest data with `algorithm`. SHA-256 is implemented; every other
+    /// algorithm reports [`CryptoError::Unsupported`].
     fn digest(&self, algorithm: DigestAlgorithm, data: &[u8]) -> Result<Vec<u8>, CryptoError> {
-        let _ = algorithm;
-        Ok(sha256(data).to_vec())
+        match algorithm {
+            DigestAlgorithm::Sha256 => Ok(sha256(data).to_vec()),
+            other => Err(CryptoError::Unsupported(format!(
+                "{}: only SHA-256 here",
+                other.name()
+            ))),
+        }
     }
 }
 

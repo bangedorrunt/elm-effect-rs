@@ -2,11 +2,8 @@
 //! change streams, and PartitionedSemaphore pools. Threads stand in for
 //! fibers; Effect scopes and interruption are not covered.
 
-#[allow(clippy::type_complexity)]
-#[path = "../src/pubsub.rs"]
-mod pubsub;
-use elm_effect::{PartitionedSemaphore, SubscriptionRef};
-use pubsub::{PubSub, Strategy};
+use elm_effect::pubsub::Strategy;
+use elm_effect::{PartitionedSemaphore, PubSub, SubscriptionRef};
 
 // ----------------------------------------------------------------- PubSub ---
 

@@ -1,5 +1,11 @@
 # Minimalism audit: elm-effect-rs framework surface
 
+> **2026-11-11 update.** This page is the historical snapshot after the cut.
+> ADR-0002 and ADR-0003 now point to
+> [`docs/parity/kernel-envelope.md`](../parity/kernel-envelope.md). The 109
+> `unported` rows below are declared outside the kernel envelope and have no
+> CI tracker. The `conformance/` paths are historical.
+
 Date: 2026-10-24 (updated after the cut landed). Bead: `elm-effect-rs-9sw5` (audit), `elm-effect-rs-rali`, `elm-effect-rs-qqxu`, `elm-effect-rs-9j8k`, `elm-effect-rs-t5nx` (implementation). Method: `reduce` + `effect-oriented` law card, cross-checked against ADR-0002 (the parity law) and ADR-0003 (the adoption law, status `proposed`). Evidence is repo-local; no sibling repository was read.
 
 **Outcome: the workspace went from 240,488 LOC / 8 crates to 65,250 LOC / 6 crates (-73%).** `elm-effect-schema` and `elm-effect-unstable` are removed outright (operator decision: no extraction), the Effect-TS standard-library ports are gone, and the conformance ledger is at kernel scope. Every one of the five vision elements below survives.
@@ -9,7 +15,7 @@ Date: 2026-10-24 (updated after the cut landed). Bead: `elm-effect-rs-9sw5` (aud
 - In scope: the workspace crates, `conformance/`, `docs/guides/`, `skills/elm-effect`, workspace dependency weight.
 - Out of scope: flywheel, toron, beads, chiebukuro. **No adoption record for any consumer exists in this repo**, so the cut carried no compatibility debt.
 - Constraints discovered:
-  - ADR-0002 defines the mission as "100% feature and test parity" with `effect@4.0.0`. That mission generated the deleted bulk.
+  - ADR-0002 originally defined the mission as "100% feature and test parity" with `effect@4.0.0`. That mission generated the deleted bulk. It is superseded by the kernel envelope (2026-11-11).
   - ADR-0003 (status `proposed`) already demanded the opposite shape: "Version 1.0 must name a small stable surface", 1.0 = "the kernel, `policy`, `Scope`, and `TestClock`".
   - The durable streams concept (DurableLog, L16, `elm-effect-journal`) is product vision and is kept. A future durable-function/execution integration (Temporal-style) is anticipated: the deterministic fold, the journal's settle-once states, and `attempt_plan.rs` (`AttemptPlan` as a value) are the seam, and that seam is preserved.
 
@@ -19,7 +25,7 @@ Date: 2026-10-24 (updated after the cut landed). Bead: `elm-effect-rs-9sw5` (aud
 2. **Elm/Redux fold**: `Program` + `Cmd` + `Interpret` + replay (`elm-effect-elm`): pure `update`, commands as data.
 3. **TypeScript Effect idioms**: `ServiceTag` + `Layer`/`provide` (typed `R`), `Schedule`/`RemotePolicy`, scoped acquire/release, laws L1–L16.
 4. **Extensibility on demand**: applications add values (a service, a layer, a schedule, a program, a log); they never fork the runtime.
-5. **Easy integration**: small semver surface, `Result`/`Future`/`tracing` doors, two mandatory deps (`thiserror`, optional `tokio`).
+5. **Easy integration**: small semver surface, the `Result` door, in-process observability, and two dependencies (`thiserror`, unconditional `tokio`). `Future` and `tracing` remain host concerns.
 
 ## 2) What was cut, and where it went
 
@@ -38,8 +44,8 @@ Date: 2026-10-24 (updated after the cut landed). Bead: `elm-effect-rs-9sw5` (aud
 - **Durable-execution seam**: `attempt_plan.rs` (`AttemptPlan` as a value), `elm-effect-elm` (deterministic fold, replay), `elm-effect-journal` (`DurableLog`, settle-once states). This is where a Temporal-style durable-function layer would sit: as a `Layer`/program over values, not a kernel fork.
 - **Services kept** (the substitution surface, effect-oriented principle 8): `time.rs` (Clock/L8 + `TestClock`), `crypto.rs` (Random service + `TestCrypto`), `config` + `config_provider` + `config_effect` (startup read), `console` (Logger), `mock` (`Layer.mock`).
 - **Observation law kept**: `metric`, `tracer`, `observability` (principle 11: logs/traces/metrics observe an effect). Only the OTLP wire exporter went.
-- **Streams kept**: `stream`, `sink`, `channel`, `pubsub`, `pull`, `take`, `subscription_ref` (principle 14), behind `tokio`.
-- **STM kept** behind the `stm` feature (unchanged posture from ADR-0003).
+- **Streams kept**: `stream`, `sink`, `channel`, `pubsub`, `pull`, `take`, `subscription_ref` (principle 14), with no feature gate. `Sink`, `FiberSet`, `FiberMap`, `PubSub`, and `Crypto` are now public; `PubSub` is documented as a thread primitive, not fiber-native.
+- **STM is not in the workspace.** The earlier keep-line was stale; Schema and STM were removed by the cut.
 - Cut despite earlier keep-candidates: `chunk`/`nonempty`/`byte_size` (islands; no surviving consumer), `Schedule::cron` + `cron.rs` + `datetime.rs` (dropped `jiff`), `Duration::from_input*` (kept `from_input_string`).
 
 ## 4) Ledger outcome (kernel scope)
@@ -54,6 +60,10 @@ Date: 2026-10-24 (updated after the cut landed). Bead: `elm-effect-rs-9sw5` (aud
 | `skipped-upstream` | 56 | unchanged |
 
 `modules.toml`: 143 modules `matched` → `excused` (every linked row excused), 9 → `unmatched` (rows left unported). `inventory.sh` preserves status/reason on regen. 162 rotten reason citations (into deleted files) were repaired in place, keeping the curated per-row narratives.
+
+The 109 `unported` rows are now declared outside the kernel envelope in
+`docs/parity/kernel-envelope.md`. That is a scope decision, not a pass. They
+have no CI tracker after the ledger retirement.
 
 Report-only (pre-existing, deferred): 2,464 narrative reasons name no API or line; 5 absence-claims name colliding definitions.
 
@@ -74,12 +84,12 @@ Report-only (pre-existing, deferred): 2,464 narrative reasons name no API or lin
 - `elm-effect-test` — deterministic executor/TestClock, 277 src.
 - `elm-effect-lints` — 4 rules, 404 src.
 - `elm-effect-conformance` — ledger gate, 292 src.
-- Consumer weight: `thiserror` + optional `tokio` (was `jiff`, `num-bigint`, `num-traits` mandatory).
+- Consumer weight: `thiserror` + unconditional `tokio` (was `jiff`, `num-bigint`, `num-traits`, and an optional `tokio` feature).
 
 ## 7) Risks and follow-ups
 
-- The 109 `unported` rows are a real coverage gap on carried modules; restoring witnesses is follow-up work, recorded honestly rather than papered over with excuses.
-- ADR-0002 still describes the parity mission as open. The ledger now records the shrink, but the record itself should be amended (an ADR-0005 rescoping parity to kernel/streams/journal) by the operator.
+- The 109 `unported` rows are outside the kernel envelope. Restoring any of them requires a named witness in the law or machine matrix; the retired ledger is not proof.
+- Resolved 2026-11-11: ADR-0002 and ADR-0003 are accepted as the kernel envelope, and the 109-row disposition is recorded in `docs/parity/kernel-envelope.md`.
 - `modules.toml` edits are regen-safe (status/reason preserved), but a regen from the upstream tag will restore the `class` fields of cut modules (`port`); the `excused` status still holds the ledger gates.
 - Narrative-reason cleanup (2,464 rows) and the 5 absence-claim name collisions are report-only debt in the audits.
 - One flaky first run of the gate battery showed a transient test failure in the build-cache layer that did not reproduce; the clean re-run exits 0.

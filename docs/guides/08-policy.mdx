@@ -49,6 +49,6 @@ The bulkhead allows 8 calls in flight and 32 calls in the queue. The queue wait 
 
 `call` admits the call in this order: filter, cache, rate limit, bulkhead. Then it runs attempts. The attempt timeout starts after the bulkhead admits the call. A full bulkhead is `RemoteError::BulkheadFull`. It is a typed error.
 
-Cache stores a success. It does not store a failure unless you set that in the policy.
+The remote policy's cache stores a success. It does not store a failure unless you set that in the policy. This is `RemotePolicy`'s own success slot, not the general [`Cache`](15-use-the-apis.mdx#cache-pool-and-latch) primitive; use `Cache` when you need single-flight lookups, TTL, or invalidation.
 
 Do not hedge a call that is not safe to run twice.

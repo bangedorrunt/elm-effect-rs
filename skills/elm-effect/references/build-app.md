@@ -20,11 +20,11 @@ src/services.rs    service tags and the trait each tag's Shape is
 
 1. Write `update` as a pure function. The same model and message produce the same model and the same command list. No `SystemTime`, `std::env`, or `thread_rng` in that function. Time and randomness arrive as messages. Parsed config arrives as `Boot`.
 2. Commands are an enum that implements `Serialize` and `Deserialize`. A command the fold did not return does not run.
-3. Each service the domain needs is a zero-sized tag with its own string id. Two capabilities are two tags, even when one client could do both. The layer that builds them is composed in `main`, once.
+3. Each service the domain needs is a zero-sized tag with its own string id. Two capabilities are two tags, even when one client could do both. The layer that builds them is composed in `main`, once. Use a `FiberRef` for mutable state that belongs to one fiber and is inherited by its children, such as a request id. Use `Reference` for read-only ambient configuration and `Ref` for state shared across fibers.
 4. `interpret` turns one command into one `Effect`. Remote calls go through `policy::remote` around that call, not around the whole fold.
 5. A command that must survive a restart returns `Durability::Durable { key }`. The key is stable across a retry. Then read `references/durable-log.md`. One JSON stream per program run. The snapshot stored beside it is `{model, offset}`. When the application schedules durable runs, timers, human-in-the-loop waits, cron ticks, fan-out joins, or sagas, provide `OurEngine` through a `ServiceTag`, pass `now_ms` from `Clock` / `TestClock` at the edge, and map `drain_due(now_ms)` (`EngineMsg::Woke`) into `Program::Msg`.
 6. A command that is a pure in-memory read stays `Durability::Ephemeral` and is not journaled.
-7. Subscriptions receive model snapshots. The handle has no way to write the model.
+7. Subscriptions receive model snapshots. The handle has no way to write the model. A `ChangeStream` or `PubSub` may be adapted with `Stream::from_change_stream` or `Stream::from_pubsub`; keep that bridge at the interpretation edge, not in the fold.
 8. Tests construct the program, feed a message log, and assert the next model and the command list. Clock tests fork the sleeper, adjust `TestClock`, then join. They do not sleep on the live clock.
 
 ## Done

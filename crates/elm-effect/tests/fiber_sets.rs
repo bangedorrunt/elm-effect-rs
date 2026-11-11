@@ -6,18 +6,9 @@
 //! is_done); these tests pin the set/map/plan/scheduler layer above it.
 //! Out-of-scope behavior is named beside the test that would have covered it.
 
-#[allow(dead_code, clippy::type_complexity)]
-#[path = "../src/fiber_map.rs"]
-mod fiber_map;
-#[allow(clippy::type_complexity)]
-#[path = "../src/fiber_set.rs"]
-mod fiber_set;
-
 use std::time::Duration;
 
-use elm_effect::{AttemptPlan, Cause, Exit, Runtime};
-use fiber_map::FiberMap;
-use fiber_set::FiberSet;
+use elm_effect::{AttemptPlan, Cause, Exit, FiberMap, FiberSet, Runtime};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 

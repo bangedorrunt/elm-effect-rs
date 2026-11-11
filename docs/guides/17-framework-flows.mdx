@@ -58,7 +58,7 @@ For runtime diagnostics, `OurEngine::query_lease(key, now_ms)` reports [`LeaseSt
 
 ## 5. Execution lease reclaim, generation fencing, and split-brain elimination
 
-Under [ADR-0005](../decisions/0005-single-host-engine.md), execution leases enforce single-writer mutual exclusion:
+Under [ADR-0005](../decisions/0005-durable-engine-port-and-our-engine.md), execution leases enforce single-writer mutual exclusion:
 1. When a worker claims a lease, the journal increments `generation` monotonically and binds the deadline.
 2. If a worker stalls across its deadline, another worker may reclaim the lease with generation $G+1$.
 3. When the stalled worker unpauses and attempts to settle, heartbeat, or write to storage, the storage fence rejects it with `StaleGeneration`, eliminating split-brain execution.

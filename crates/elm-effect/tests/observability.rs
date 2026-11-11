@@ -8,7 +8,8 @@ use elm_effect::observability;
 use std::sync::{Arc, Mutex};
 
 use observability::{
-    Counter, Gauge, LogLevel, Logger, Redacted, SpanRecorder, is_enabled, record_span, tap,
+    AtomicCounter, AtomicGauge, LogLevel, Logger, Redacted, SpanRecorder, is_enabled, record_span,
+    tap,
 };
 
 #[test]
@@ -116,12 +117,12 @@ fn tap_does_not_change_result() {
     // Levels order; metrics count and gauge.
     assert!(!is_enabled(LogLevel::Info, LogLevel::Warn));
     assert!(is_enabled(LogLevel::Error, LogLevel::Warn));
-    let counter = Counter::new("hits");
+    let counter = AtomicCounter::new("hits");
     counter.inc();
     counter.inc_by(2);
     assert_eq!(counter.get(), 3);
     assert_eq!(counter.name(), "hits");
-    let gauge = Gauge::new("temp");
+    let gauge = AtomicGauge::new("temp");
     gauge.set(-4);
     assert_eq!(gauge.get(), -4);
     assert_eq!(gauge.name(), "temp");
@@ -183,7 +184,7 @@ fn log_level_gates_and_info_effect() {
     assert!(matches!(exit, elm_effect::Exit::Success(())));
     assert_eq!(seen.lock().unwrap().len(), 1);
 
-    let registry = observability::MetricRegistry::new();
+    let registry = observability::AtomicMetricRegistry::new();
     registry.counter("hits").inc_by(2);
     assert_eq!(registry.counter("hits").get(), 2);
     let use_registry = elm_effect::use_service::<observability::MetricTag>()

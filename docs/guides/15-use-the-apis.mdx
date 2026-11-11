@@ -4,7 +4,20 @@ import { Flow } from "./components/Flow.jsx"
 
 This page is the call catalog. Each section names the crate, the function, and the value you pass. The other guides explain one topic. This page shows the call.
 
-`elm-effect` is the facade. `elm-effect-elm` is the fold. `elm-effect-journal` is the log and the plans. `elm-effect-durable` is the durable engine port, `OurEngine`, and pure cron/join/saga planning.
+`elm-effect` is the facade. `elm-effect-elm` is the fold. `elm-effect-journal` is the log and the plans. `elm-effect-durable` is the durable engine port, `OurEngine`, and pure cron/join/saga planning. `elm-effect-xstate` is the statechart and actor surface.
+
+## Prelude
+
+`elm_effect::prelude` re-exports the core carrier, the policy module, and the
+`effect!` macro. The root remains the canonical path; use the prelude to remove
+import noise at a call site.
+
+```rust
+use elm_effect::prelude::*;
+
+let exit = Runtime::run(Effect::succeed(1));
+assert!(matches!(exit, Exit::Success(1)));
+```
 
 <Flow
   label="Guide crates"
@@ -144,6 +157,18 @@ let exit = stream.map(|n| n + 1).take(10).run_collect();
 
 `run_fold` consumes the stream. `map_effect` runs an effect per chunk. The `bound` argument is the maximum number of chunks in flight. `cancel` stops the pull.
 
+`Stream::from_change_stream` turns a `ChangeStream` into a pull stream. The initial snapshot is the first item, and each later update follows. `Stream::from_pubsub` does the same for a `PubSub` subscription. Both are native bridges to the existing event primitives; neither starts a scheduler. Drop ends the `ChangeStream` lease, and the `PubSub` bridge ends when the subscription ends or the stream is dropped.
+
+```rust
+use elm_effect::{Exit, Stream, SubscriptionRef};
+
+let cell = SubscriptionRef::new(1i32);
+let stream: Stream<i32, std::convert::Infallible, ()> =
+    Stream::from_change_stream(cell.subscribe());
+cell.set(2);
+assert_eq!(stream.take(2.0).run_collect(), Exit::Success(vec![1, 2]));
+```
+
 ## A metric
 
 `Metrics` is in the default build. A `Counter`, `Gauge`, `Frequency`, `Histogram`, or `Summary` describes the series; the registry holds the state.
@@ -202,6 +227,58 @@ The constructors are `string`, `non_empty_string`, `number`, `finite`, `integer`
 `Ref::new(value)` stores a cloneable value. `get` returns a clone. `update` applies a pure function. The function must not call a service.
 
 `MutableRef` has `set`. `SynchronizedRef::update_effect` runs an effect one time under the permit. `Queue::new(capacity)` is the bound for two tasks. `Semaphore::new(permits)` limits in-flight work.
+
+## Fiber-local values
+
+`FiberRef::make(default)` is mutable state scoped to one fiber. `get` reads it, `set` and `update` change it, and `modify` returns a projection while storing the next value. A child inherits the parent's value at fork; a child's later changes stay local to that child. `locally(value, effect)` installs a value for one region and restores the previous value when the region exits, including a typed failure.
+
+```rust
+use elm_effect::{Exit, Runtime};
+use elm_effect::FiberRef;
+
+let request_id = FiberRef::make(0i32);
+let read = request_id
+    .locally(42, request_id.get())
+    .flat_map(move |inside| request_id.get().map(move |after| (inside, after)));
+assert_eq!(Runtime::run(read), Exit::Success((42, 0)));
+```
+
+Use `Reference` for read-only ambient configuration. `FiberRef` is the mutable sibling; every runtime edge runs the effect on a fiber, so a bare `run_sync` cannot use it.
+
+### Wait for one outcome
+
+`Deferred::wait_exit` waits for the whole recorded `Exit` and observes the current fiber's interrupt. `wait_exit_interruptible` takes an external predicate, so a host can supply its own cancellation source. `wait` keeps the success-only shape and now ends with the interrupt instead of parking forever.
+
+```rust
+use elm_effect::{Cause, Deferred, Exit};
+
+let gate: Deferred<u32, String> = Deferred::new();
+gate.complete_exit(Exit::Failure(Cause::fail("closed".to_string())));
+assert!(matches!(gate.wait_exit(), Exit::Failure(_)));
+```
+
+## Cache, pool, and latch
+
+`Cache::new(capacity, lookup)` stores successful lookups. Concurrent misses for one key share one lookup; a failure is not stored unless `cache_errors(true)` says so. `with_ttl` and `with_ttl_fn` read expiry from the clock you pass. `set`, `get_option`, `has`, `invalidate`, `invalidate_when`, `refresh`, `keys`, `values`, and `entries` operate without a lookup where the name says so. `ScopedCache` clears its entries when its scope closes.
+
+```rust
+use elm_effect::{Cache, TimeToLive};
+
+let clock = Arc::new(TestClock::new());
+let cache = Cache::new(128, |key: &String| load_user(key))
+    .with_ttl(TimeToLive::For(Duration::from_minutes(5)), clock);
+let user = cache.get(&"alice".to_string())?;
+```
+
+`Pool::new(max, IdlePolicy::default(), make)` blocks when all slots are checked out. The `Pooled` guard returns its value on drop. Call `invalidate` when the value is broken. `reserve` takes a value out of circulation permanently.
+
+`Latch::new_closed()` parks waiters. `release` admits the waiters parked at that moment and keeps the latch closed; `open` admits current and future waiters. `await_open(&|| false)` blocks, and observes the current fiber's interrupt. `Cache` and `Pool` are synchronous handles: call them at the edge or inside `Effect::sync` when the work blocks.
+
+## Batch requests and keep keyed resources
+
+Implement `Request` for a value with a `tag`, `Success`, and `Error`. `Resolver` is also exported as `RequestResolver`. `Resolver::make` takes an effect body that answers a whole batch; `make_sync` is the synchronous form. `request(&resolver, value)` submits one entry and waits for its answer. `batch_n(n)` caps a batch, `grouped(key)` gives each group its own batch, and `set_delay_effect` delays the batch while it collects. `with_cache` coalesces equal requests and replays completed failures; `persisted` and `persisted_stale_while_revalidate` use a `RequestStore`. `request_unchecked` returns a `Cancel` handle, and a caller interrupted while waiting withdraws its entry without stopping the rest of the batch.
+
+`RcMap::make(lookup, release)` ties a value to a key and a reference count. `get` returns an `RcRef` lease; `get_option` reads only a retained entry, and `get_value`/`get_option_value` copy the outcome and release the temporary lease. The `RcRef` drop returns one reference, and the release hook runs on the last one. `RcMapOptions` sets the clock, idle TTL, and capacity. `invalidate` retires a generation that a lease still holds, so an old lease cannot release the replacement; `touch` restarts the idle clock, `expire_idle` sweeps expired entries, and `close` releases everything. Both `Resolver` and `RcMap` are synchronous handles: call them at the edge or inside `Effect::sync`.
 
 ## A long-lived program
 

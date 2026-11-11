@@ -10,7 +10,7 @@
 //! across effect interpretation, except [`SynchronizedRef`]'s decision step,
 //! which runs its update computation under the permit.
 
-use crate::Exit;
+use crate::{Cause, Exit};
 use std::any::Any;
 use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
@@ -439,16 +439,16 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
 /// `Option<A>` shape could only record success, so every failure/interrupt
 /// row was unreachable.
 pub struct Deferred<A, E> {
-    inner: Mutex<Option<Exit<A, E>>>,
-    ready: Condvar,
+    inner: Arc<Mutex<Option<Exit<A, E>>>>,
+    ready: Arc<Condvar>,
 }
 
-impl<A: Clone + Send, E: Clone + Send> Deferred<A, E> {
+impl<A: Clone + Send + 'static, E: Clone + Send + 'static> Deferred<A, E> {
     /// An empty handoff.
     pub fn new() -> Self {
         Self {
-            inner: Mutex::new(None),
-            ready: Condvar::new(),
+            inner: Arc::new(Mutex::new(None)),
+            ready: Arc::new(Condvar::new()),
         }
     }
 
@@ -493,8 +493,66 @@ impl<A: Clone + Send, E: Clone + Send> Deferred<A, E> {
         self.inner.recover().is_some()
     }
 
+    /// Wait for the whole recorded outcome. On a fiber, an interrupt request
+    /// ends the wait and returns that interrupt instead of hanging until a
+    /// completion that may never arrive.
+    pub fn wait_exit(&self) -> Exit<A, E> {
+        let interrupted = || {
+            crate::fiber::current_interrupt_state()
+                .is_some_and(|(_, interrupted, masked)| interrupted && !masked)
+        };
+        match self.wait_exit_interruptible(&interrupted) {
+            Some(exit) => exit,
+            None => Exit::Failure(Cause::interrupt(
+                crate::fiber::current_interrupt_state().map(|(id, _, _)| id),
+            )),
+        }
+    }
+
+    /// Wait for the whole recorded outcome while watching an external
+    /// interruption predicate. `None` means the wait was interrupted; the
+    /// deferred itself is unchanged and can still be completed later.
+    ///
+    /// `interrupted` runs on the waiting thread while the deferred's lock is
+    /// held, so it must not call back into this deferred.
+    pub fn wait_exit_interruptible(&self, interrupted: &dyn Fn() -> bool) -> Option<Exit<A, E>> {
+        let mut guard = self.inner.recover();
+        loop {
+            if let Some(exit) = guard.as_ref() {
+                return Some(exit.clone());
+            }
+            if interrupted() {
+                return None;
+            }
+            let hook = crate::fiber::subscribe_current_interrupt({
+                let inner = Arc::clone(&self.inner);
+                let ready = Arc::clone(&self.ready);
+                move || {
+                    let _guard = inner.lock().unwrap();
+                    ready.notify_all();
+                }
+            });
+            // Subscribe before the re-check: an interrupt between the check
+            // above and the subscription is caught here, and one after the
+            // subscription wakes the condvar.
+            if interrupted() {
+                return None;
+            }
+            guard = if hook.is_some() {
+                self.ready.wait(guard).unwrap()
+            } else {
+                self.ready
+                    .wait_timeout(guard, crate::COOPERATIVE_QUANTUM)
+                    .unwrap()
+                    .0
+            };
+        }
+    }
+
     /// Block until completed, then return the value. Panics only when the
-    /// recorded outcome was not a success: use [`poll`] to inspect why.
+    /// recorded outcome was not a success: use [`poll`] or [`wait_exit`] to
+    /// inspect why. An interrupt on the waiting fiber returns here as a
+    /// non-success outcome rather than parking forever.
     ///
     /// `E: Debug` is required by the failure message only, and is declared on
     /// this method rather than the `impl` so the rest of the type stays free
@@ -504,18 +562,14 @@ impl<A: Clone + Send, E: Clone + Send> Deferred<A, E> {
         E: std::fmt::Debug,
         A: std::fmt::Debug,
     {
-        let mut guard = self.inner.recover();
-        while guard.is_none() {
-            guard = self.ready.wait(guard).unwrap();
-        }
-        match guard.clone().expect("checked") {
+        match self.wait_exit() {
             Exit::Success(value) => value,
             other => panic!("deferred did not complete with a success: {other:?}"),
         }
     }
 }
 
-impl<A: Clone + Send, E: Clone + Send> Default for Deferred<A, E> {
+impl<A: Clone + Send + 'static, E: Clone + Send + 'static> Default for Deferred<A, E> {
     fn default() -> Self {
         Self::new()
     }

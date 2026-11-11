@@ -5,7 +5,7 @@ description: "Formally verify execution lease claims, heartbeat renewals, genera
 
 # Formal Verification: Lease Reclaim, Generation Fencing, and Split-Brain Elimination
 
-This skill formally model-checks execution leases, generation fences, and concurrent worker settlement under [ADR-0005](../../docs/decisions/0005-single-host-engine.md) across [`elm-effect-durable`](../../crates/elm-effect-durable) and [`elm-effect-journal`](../../crates/elm-effect-journal).
+This skill formally model-checks execution leases, generation fences, and concurrent worker settlement under [ADR-0005](../../docs/decisions/0005-durable-engine-port-and-our-engine.md) across [`elm-effect-durable`](../../crates/elm-effect-durable) and [`elm-effect-journal`](../../crates/elm-effect-journal).
 
 ## Code Covered & Sync Commit
 

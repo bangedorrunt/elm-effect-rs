@@ -7,7 +7,7 @@
 //!
 //! Out of scope: `runtimePromise`, per-key join handles, attempt telemetry.
 
-use elm_effect::{Ctx, Exit, FiberHandle, ForkOpts, Runtime, Scope};
+use crate::{Ctx, Exit, FiberHandle, ForkOpts, Runtime, Scope};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::sync::{Arc, Mutex};

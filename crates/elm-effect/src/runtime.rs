@@ -119,11 +119,36 @@ impl Shared {
         E: Send + 'static,
         F: FnOnce(&Ctx) -> Exit<A, E> + Send + 'static,
     {
+        let inherit = parent.as_ref().map(Arc::clone);
+        self.spawn_with_context(body, parent, inherit, bound, start, masked)
+    }
+
+    /// Spawn with a separate context source: a detached fiber has no parent
+    /// link, but it still inherits the spawning fiber's `FiberRef` values.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn spawn_with_context<A, E, F>(
+        self: &Arc<Self>,
+        body: F,
+        parent: Option<Arc<FiberControl>>,
+        inherit: Option<Arc<FiberControl>>,
+        bound: Vec<Arc<Scope>>,
+        start: StartMode,
+        masked: bool,
+    ) -> FiberHandle<A, E>
+    where
+        A: Send + 'static,
+        E: Send + 'static,
+        F: FnOnce(&Ctx) -> Exit<A, E> + Send + 'static,
+    {
         let latch = Arc::new(StartLatch::default());
         let parent_id = parent.as_ref().map(|control| control.id);
+        let refs = inherit
+            .map(|control| control.fiber_refs())
+            .unwrap_or_default();
         let control = Arc::new(FiberControl::new(
             next_id(),
             parent,
+            refs,
             bound.clone(),
             masked,
             Arc::clone(&latch),

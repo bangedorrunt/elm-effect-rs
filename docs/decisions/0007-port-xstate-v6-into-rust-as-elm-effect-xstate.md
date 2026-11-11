@@ -35,7 +35,7 @@ How should `elm-effect-rs` deliver a **100% behaviorally conformant port of XSta
 * **Zero Blast Radius to Existing Kernel**: The port lives in a dedicated, additive crate ([`crates/elm-effect-xstate`](../../crates/elm-effect-xstate)). The 6 kernel crates remain lean, pristine, and independently usable.
 * **Carrier Integration ([ADR-0002](0002-port-effect-4-into-rust-with-an-elm-loop.md))**: All async operations, delays, and background tasks run as managed `Effect<A, E, R>` descriptions.
 * **Leak-Free Concurrency ([ADR-0003](0003-make-elm-effect-a-first-class-rust-framework.md))**: Actor and state lifetimes are strictly bound to [`elm-effect::Scope`](../../crates/elm-effect/src/scope.rs). Exiting a state or stopping an actor immediately cancels child fibers and runs LIFO finalizers.
-* **Deterministic Virtual Time**: Delayed transitions (`after`) run natively on [`elm-effect-test::TestClock`](../../crates/elm-effect-test/src/clock.rs), enabling instant simulation of long delays with zero wall-clock sleep.
+* **Deterministic Virtual Time**: Delayed transitions (`after`) run natively on [`elm-effect-test::TestClock`](../../crates/elm-effect-test/src/lib.rs), enabling instant simulation of long delays with zero wall-clock sleep.
 * **Crash-Proof Durability ([ADR-0005](0005-durable-engine-port-and-our-engine.md))**: Statechart transitions seamlessly log to [`elm-effect-journal::DurableLog`](../../crates/elm-effect-journal/src/durable_log.rs) for deterministic crash recovery.
 * **Dual Type Strategy**: Strongly typed algebraic enums for end-user DX (zero-cost, compile-time verified) alongside a dynamic graph representation for W3C/SCXML test suite conformance.
 
@@ -60,7 +60,7 @@ We create [`crates/elm-effect-xstate`](../../crates/elm-effect-xstate) implement
 2. **L2: Scope-Bound Lifecycles**:
    Every state node that invokes an effect or spawns an actor opens a child [`Scope`](../../crates/elm-effect/src/scope.rs). When the state node is exited (or preempted by an ancestor transition), the scope closes immediately, interrupting the child fibers and executing LIFO finalizers.
 3. **L3: Virtualized Time Determinism**:
-   Delayed transitions (`after`) register with the active [`Clock`](../../crates/elm-effect/src/time.rs). In test targets, [`TestClock`](../../crates/elm-effect-test/src/clock.rs) advances time programmatically, eliminating flaky timers and thread sleeps.
+   Delayed transitions (`after`) register with the active [`Clock`](../../crates/elm-effect/src/time.rs). In test targets, [`TestClock`](../../crates/elm-effect-test/src/lib.rs) advances time programmatically, eliminating flaky timers and thread sleeps.
 4. **L4: Eventless Run-to-Completion**:
    `always` transitions evaluate in micro-steps immediately upon entering a state. External events are queued until all enabled eventless transitions reach a stable quiescent configuration.
 5. **L5: Durable Transition Logging**:

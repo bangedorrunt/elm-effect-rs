@@ -6,23 +6,11 @@
 //! yield bounded chunks; an unbounded source stays a pull loop, never a
 //! materialized `Vec`.
 
-#[allow(dead_code, clippy::type_complexity)]
-#[path = "../src/channel.rs"]
-mod channel;
-#[allow(dead_code, clippy::type_complexity)]
-#[path = "../src/pull.rs"]
-mod pull;
-#[allow(dead_code, clippy::type_complexity)]
-#[path = "../src/sink.rs"]
-mod sink;
-#[allow(dead_code, clippy::type_complexity)]
-#[path = "../src/take.rs"]
-mod take;
-
-// The `#[path]` includes reach `Cause`/`Defect` through `super`, so this
-// crate root has to name them.
+use elm_effect::channel;
+use elm_effect::pull;
+use elm_effect::sink;
+use elm_effect::take::Take;
 use elm_effect::{Cause, Defect};
-use take::Take;
 
 fn items<T>(values: Vec<T>) -> Take<T, String> {
     Take::Items(values)
@@ -143,16 +131,16 @@ fn channel_filter_map_recovers() {
     let source = pull::Pull::<i32, String>::of(vec![1, 2, 3]);
     let piped = channel::filter_map(|a: i32| (a % 2 == 1).then_some(a * 10)).run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::Items(vec![10, 30]));
-    assert_eq!(piped.pull(), take::Take::End);
+    assert_eq!(piped.pull(), Take::Items(vec![10, 30]));
+    assert_eq!(piped.pull(), Take::End);
     let source = pull::Pull::<i32, String>::fail("no".to_string());
     let piped = channel::recover(|e: &String| e == "no").run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::End);
+    assert_eq!(piped.pull(), Take::End);
     let source = pull::Pull::<i32, String>::fail("other".to_string());
     let piped = channel::recover(|e: &String| e == "no").run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::fail("other".to_string()));
+    assert_eq!(piped.pull(), Take::fail("other".to_string()));
 }
 
 #[test]
@@ -173,25 +161,25 @@ fn sink_take_while_stops() {
 #[test]
 fn pull_constructors() {
     let mut p = pull::Pull::<i32, String>::single(7);
-    assert_eq!(p.pull(), take::Take::Items(vec![7]));
-    assert_eq!(p.pull(), take::Take::End);
+    assert_eq!(p.pull(), Take::Items(vec![7]));
+    assert_eq!(p.pull(), Take::End);
     let mut p = pull::Pull::<i32, String>::from_slice(&[1, 2]);
-    assert_eq!(p.pull(), take::Take::Items(vec![1, 2]));
-    assert_eq!(p.pull(), take::Take::End);
+    assert_eq!(p.pull(), Take::Items(vec![1, 2]));
+    assert_eq!(p.pull(), Take::End);
     let mut p = pull::Pull::<i32, String>::from_iter(0..5, 2);
-    assert_eq!(p.pull(), take::Take::Items(vec![0, 1]));
-    assert_eq!(p.pull(), take::Take::Items(vec![2, 3]));
-    assert_eq!(p.pull(), take::Take::Items(vec![4]));
-    assert_eq!(p.pull(), take::Take::End);
+    assert_eq!(p.pull(), Take::Items(vec![0, 1]));
+    assert_eq!(p.pull(), Take::Items(vec![2, 3]));
+    assert_eq!(p.pull(), Take::Items(vec![4]));
+    assert_eq!(p.pull(), Take::End);
     // Unbounded input stays chunked.
     let mut p = pull::Pull::<i32, String>::from_iter(0.., 3);
-    assert_eq!(p.pull(), take::Take::Items(vec![0, 1, 2]));
+    assert_eq!(p.pull(), Take::Items(vec![0, 1, 2]));
     // Zero chunk size normalizes to one.
     let mut p = pull::Pull::<i32, String>::from_iter(0..3, 0);
-    assert_eq!(p.pull(), take::Take::Items(vec![0]));
-    assert_eq!(p.pull(), take::Take::Items(vec![1]));
-    assert_eq!(p.pull(), take::Take::Items(vec![2]));
-    assert_eq!(p.pull(), take::Take::End);
+    assert_eq!(p.pull(), Take::Items(vec![0]));
+    assert_eq!(p.pull(), Take::Items(vec![1]));
+    assert_eq!(p.pull(), Take::Items(vec![2]));
+    assert_eq!(p.pull(), Take::End);
 }
 
 #[test]
@@ -206,12 +194,12 @@ fn channel_map_effect_short_circuits() {
     })
     .run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::fail("big".to_string()));
+    assert_eq!(piped.pull(), Take::fail("big".to_string()));
     let source = pull::Pull::<i32, String>::of(vec![1]);
     let piped = channel::map_effect(|a: i32| Ok::<i32, String>(a + 1)).run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::Items(vec![2]));
-    assert_eq!(piped.pull(), take::Take::End);
+    assert_eq!(piped.pull(), Take::Items(vec![2]));
+    assert_eq!(piped.pull(), Take::End);
 }
 
 #[test]
@@ -238,19 +226,19 @@ fn pull_bracket_releases_once() {
         vec![1, 2],
         |rest: &mut Vec<i32>| {
             if rest.is_empty() {
-                take::Take::<i32, String>::End
+                Take::<i32, String>::End
             } else {
-                take::Take::<i32, String>::Items(vec![rest.remove(0)])
+                Take::<i32, String>::Items(vec![rest.remove(0)])
             }
         },
         move |_| {
             probe.fetch_add(1, Ordering::SeqCst);
         },
     );
-    assert_eq!(p.pull(), take::Take::Items(vec![1]));
-    assert_eq!(p.pull(), take::Take::Items(vec![2]));
-    assert_eq!(p.pull(), take::Take::End);
-    assert_eq!(p.pull(), take::Take::End);
+    assert_eq!(p.pull(), Take::Items(vec![1]));
+    assert_eq!(p.pull(), Take::Items(vec![2]));
+    assert_eq!(p.pull(), Take::End);
+    assert_eq!(p.pull(), Take::End);
     assert_eq!(released.load(Ordering::SeqCst), 1);
 }
 
@@ -260,18 +248,18 @@ fn pull_bracket_release_failure_surfaces() {
         vec![1],
         |rest: &mut Vec<i32>| {
             if rest.is_empty() {
-                take::Take::<i32, String>::End
+                Take::<i32, String>::End
             } else {
-                take::Take::<i32, String>::Items(vec![rest.remove(0)])
+                Take::<i32, String>::Items(vec![rest.remove(0)])
             }
         },
         |_| Err::<(), String>("release blew up".to_string()),
     );
     // The stream's own ending is delivered first...
-    assert_eq!(p.pull(), take::Take::Items(vec![1]));
-    assert_eq!(p.pull(), take::Take::End);
+    assert_eq!(p.pull(), Take::Items(vec![1]));
+    assert_eq!(p.pull(), Take::End);
     // ...then the release failure surfaces.
-    assert_eq!(p.pull(), take::Take::fail("release blew up".to_string()));
+    assert_eq!(p.pull(), Take::fail("release blew up".to_string()));
 }
 
 #[test]
@@ -279,19 +267,19 @@ fn channel_flat_map_concatenates() {
     let source = pull::Pull::<i32, String>::of(vec![1, 2]);
     let piped = channel::flat_map(|a: i32| pull::Pull::of(vec![a, a * 10])).run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::Items(vec![1, 10, 2, 20]));
-    assert_eq!(piped.pull(), take::Take::End);
+    assert_eq!(piped.pull(), Take::Items(vec![1, 10, 2, 20]));
+    assert_eq!(piped.pull(), Take::End);
     // Empty input: empty output.
     let source = pull::Pull::<i32, String>::empty();
     let piped = channel::flat_map(|a: i32| pull::Pull::of(vec![a])).run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::End);
+    assert_eq!(piped.pull(), Take::End);
     // Inner failure fails the output.
     let source = pull::Pull::<i32, String>::of(vec![1]);
     let piped = channel::flat_map(|_: i32| pull::Pull::<i32, String>::fail("inner".to_string()))
         .run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::fail("inner".to_string()));
+    assert_eq!(piped.pull(), Take::fail("inner".to_string()));
 }
 
 #[test]
@@ -301,9 +289,9 @@ fn channel_catch_if_recovers_matching() {
     let source = pull::Pull::<i32, String>::from_fn(move || {
         if first {
             first = false;
-            take::Take::fail("retry".to_string())
+            Take::fail("retry".to_string())
         } else {
-            take::Take::End
+            Take::End
         }
     });
     let piped = channel::catch_if(
@@ -312,8 +300,8 @@ fn channel_catch_if_recovers_matching() {
     )
     .run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::Items(vec![99]));
-    assert_eq!(piped.pull(), take::Take::End);
+    assert_eq!(piped.pull(), Take::Items(vec![99]));
+    assert_eq!(piped.pull(), Take::End);
     // Non-matching failure: passes through.
     let source = pull::Pull::<i32, String>::fail("fatal".to_string());
     let piped = channel::catch_if(
@@ -322,7 +310,7 @@ fn channel_catch_if_recovers_matching() {
     )
     .run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::fail("fatal".to_string()));
+    assert_eq!(piped.pull(), Take::fail("fatal".to_string()));
 }
 
 #[test]
@@ -337,9 +325,9 @@ fn channel_catch_if_refines() {
     let source = pull::Pull::<i32, Problem>::from_fn(move || {
         if first {
             first = false;
-            take::Take::fail(Problem::Retryable)
+            Take::fail(Problem::Retryable)
         } else {
-            take::Take::End
+            Take::End
         }
     });
     let piped = channel::catch_if(
@@ -348,8 +336,8 @@ fn channel_catch_if_refines() {
     )
     .run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::Items(vec![7]));
-    assert_eq!(piped.pull(), take::Take::End);
+    assert_eq!(piped.pull(), Take::Items(vec![7]));
+    assert_eq!(piped.pull(), Take::End);
     // The Fatal subset passes through untouched.
     let source = pull::Pull::<i32, Problem>::fail(Problem::Fatal);
     let piped = channel::catch_if(
@@ -358,7 +346,7 @@ fn channel_catch_if_refines() {
     )
     .run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::fail(Problem::Fatal));
+    assert_eq!(piped.pull(), Take::fail(Problem::Fatal));
 }
 
 #[test]
@@ -369,21 +357,21 @@ fn channel_decode_text_reassembles_split_characters() {
         move || {
             step += 1;
             match step {
-                1 => take::Take::Items(vec![0xC3]),
-                2 => take::Take::Items(vec![0xA9]),
-                _ => take::Take::End,
+                1 => Take::Items(vec![0xC3]),
+                2 => Take::Items(vec![0xA9]),
+                _ => Take::End,
             }
         }
     });
     let piped = channel::decode_text().run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::Items(vec!["é".to_string()]));
-    assert_eq!(piped.pull(), take::Take::End);
+    assert_eq!(piped.pull(), Take::Items(vec!["é".to_string()]));
+    assert_eq!(piped.pull(), Take::End);
     // Invalid bytes fail (the driver skips the empty prefix internally).
     let source = pull::Pull::<u8, std::string::FromUtf8Error>::of(vec![0xFF]);
     let piped = channel::decode_text().run(source);
     let mut piped = piped;
-    assert!(matches!(piped.pull(), take::Take::Fail(_)));
+    assert!(matches!(piped.pull(), Take::Fail(_)));
 }
 
 #[test]
@@ -915,7 +903,7 @@ fn channel_filter_map_effect_short_circuits() {
     })
     .run(source);
     let mut piped = piped;
-    assert_eq!(piped.pull(), take::Take::fail("big".to_string()));
+    assert_eq!(piped.pull(), Take::fail("big".to_string()));
     // After error, subsequent pull is End (channel already terminated? re-run source)
     // Re-run fresh to check short-circuit fail:
     let source = pull::Pull::<i32, String>::of(vec![1, 2, 3]);
@@ -927,7 +915,7 @@ fn channel_filter_map_effect_short_circuits() {
         }
     })
     .run(source);
-    assert_eq!(piped.pull(), take::Take::fail("big".to_string()));
+    assert_eq!(piped.pull(), Take::fail("big".to_string()));
 }
 
 #[test]
@@ -938,9 +926,9 @@ fn channel_catch_defect_routes_the_defect_and_leaves_typed_failures() {
     let source = pull::Pull::from_fn(move || {
         if first {
             first = false;
-            take::Take::<u32, String>::die(Defect::new("boom"))
+            Take::<u32, String>::die(Defect::new("boom"))
         } else {
-            take::Take::End
+            Take::End
         }
     });
     let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
@@ -950,19 +938,19 @@ fn channel_catch_defect_routes_the_defect_and_leaves_typed_failures() {
         pull::Pull::of(vec![42])
     });
     let mut piped = piped.run(source);
-    assert_eq!(piped.pull(), take::Take::Items(vec![42]));
-    assert_eq!(piped.pull(), take::Take::End);
+    assert_eq!(piped.pull(), Take::Items(vec![42]));
+    assert_eq!(piped.pull(), Take::End);
     assert_eq!(&*seen.lock().unwrap(), &["boom".to_string()]);
 
     // A typed failure is not caught by `catchDefect`.
     let source = pull::Pull::<u32, String>::fail("typed".to_string());
     let mut piped = channel::catch_defect(|_: Defect| pull::Pull::of(vec![1])).run(source);
-    assert_eq!(piped.pull(), take::Take::fail("typed".to_string()));
+    assert_eq!(piped.pull(), Take::fail("typed".to_string()));
 
     // Non-failing pass-through on an empty source:
     let mut piped = channel::catch_defect(|_: Defect| pull::Pull::<u32, String>::of(vec![1]))
         .run(pull::Pull::empty());
-    assert_eq!(piped.pull(), take::Take::End);
+    assert_eq!(piped.pull(), Take::End);
 }
 
 #[test]

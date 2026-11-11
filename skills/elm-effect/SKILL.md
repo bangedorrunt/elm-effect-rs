@@ -16,7 +16,7 @@ description: >
 
 # elm-effect
 
-The carrier is in the crates. ADR-0002 is the carrier law. ADR-0003 is adoption. ADR-0005 is the durable engine port and `OurEngine`. ADR-0007 is Harel statecharts and XState v6 parity (superseding ADR-0006). The calls are `docs/guides/15-use-the-apis.mdx` and the topic guide next to it. This file only picks the branch. Do not copy an API table into a sibling.
+The carrier is in the crates. Current release: `0.4.3`. ADR-0002 is the carrier law and the [kernel envelope](../../docs/parity/kernel-envelope.md) is its boundary. ADR-0003 is adoption. ADR-0005 is the durable engine port and `OurEngine`. ADR-0007 is Harel statecharts and XState v6 parity (superseding ADR-0006). The calls are `docs/guides/15-use-the-apis.mdx` and the topic guide next to it. This file only picks the branch. Do not copy an API table into a sibling.
 
 Repo root: `/Users/bangedorrunt/workspace/elm-effect-rs`. The Bend carrier is a
 sibling repo, `/Users/bangedorrunt/workspace/elm-effect-bend`; its branch file is
@@ -40,6 +40,7 @@ Read `docs/guides/15-use-the-apis.mdx` on every branch. Then the first matching 
 | Utterance | Then read | Do not read |
 | --- | --- | --- |
 | how to call, example, API, guide | the topic file under `docs/guides/` | migrate files |
+| fiber-local, request context, `FiberRef`, `Deferred`, `ChangeStream`, `PubSub`, stream bridge | `docs/guides/05-concurrency.mdx`, then `docs/guides/15-use-the-apis.mdx` | a second context model |
 | statechart, xstate, machine, compound state, microstep, actor, hierarchy | `references/statechart.md` | a second scheduler |
 | bend, bendx, bird, `.bend` files | `references/bend-carrier.md` | the Rust crate docs until that file is done |
 | flywheel | `references/migrate-flywheel.md` | other migrate files |
@@ -54,7 +55,7 @@ Read `docs/guides/15-use-the-apis.mdx` on every branch. Then the first matching 
 
 ## Gate
 
-A sibling edit waits until `cargo test -p elm-effect` is green. A guide edit is not done until `cargo test -p elm-effect-elm --test guide_imports` is green: it compiles the `use` lines the guides print and fails on a line it does not have, so a new snippet needs its import added to that list.
+A sibling edit waits until `cargo test --workspace` is green. A guide edit is not done until `cargo test -p elm-effect-elm --test guide_imports` is green: it compiles the `use` lines the guides print and fails on a line it does not have, so a new snippet needs its import added to that list. Run clippy with `-D warnings` and `cargo fmt --check` before a release.
 
 ## Done
 
@@ -68,6 +69,7 @@ The branch file's checklist is true, and the `cargo test` it names passed. Repor
 - `or_die` after retry. `catch_cause` outside the supervisor.
 - `tokio::time::sleep` or `tokio::time::pause` inside an effect.
 - A hand-built offset. A `seq` gap. A producer id with only epoch or only seq.
+- A third context model. `Reference` is read-only ambient configuration, `FiberRef` is fiber-local mutable state, and `Ref` is shared state.
 - `UpToDate` treated as EOF.
 - In Bend: `IO.now` read as nanoseconds, a row codec that refuses a field with a
   tab or a line end, or `IO.die` raised inside the walk (it skips the claim

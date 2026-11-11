@@ -6,7 +6,9 @@
 //! ([`Redacted`] hides bytes in `Debug` and in span fields). Spans wrap
 //! effects ([`record_span`]) and record in-process: no socket, no exporter.
 //! Fiber-local references (`CurrentLogLevel` and friends) are explicit
-//! config values here, not implicit context.
+//! config values here, not implicit context. The atomic counter registry below
+//! is a service-backed helper; the canonical Effect metric surface is
+//! [`crate::metric`].
 
 use std::sync::{Arc, Mutex};
 
@@ -252,14 +254,17 @@ where
 
 // Metric
 
-/// A monotonically increasing counter.
+/// A monotonically increasing atomic counter used by [`AtomicMetricRegistry`].
+///
+/// This is not Effect 4's metric description. The canonical metric API is
+/// [`crate::metric::Counter`] plus [`crate::MetricRegistry`].
 #[derive(Debug)]
-pub struct Counter {
+pub struct AtomicCounter {
     name: String,
     count: std::sync::atomic::AtomicU64,
 }
 
-impl Counter {
+impl AtomicCounter {
     /// A counter with this name, starting at zero.
     pub fn new(name: impl Into<String>) -> Self {
         Self {
@@ -289,14 +294,16 @@ impl Counter {
     }
 }
 
-/// A settable gauge.
+/// A settable atomic gauge used by tests of the observability service.
+///
+/// The canonical metric API is [`crate::metric::Gauge`].
 #[derive(Debug)]
-pub struct Gauge {
+pub struct AtomicGauge {
     name: String,
     value: Mutex<i64>,
 }
 
-impl Gauge {
+impl AtomicGauge {
     /// A gauge with this name, starting at zero.
     pub fn new(name: impl Into<String>) -> Self {
         Self {
@@ -321,24 +328,27 @@ impl Gauge {
     }
 }
 
-/// A named metric registry backing the [`MetricTag`] service.
+/// A named atomic counter registry backing the [`MetricTag`] service.
+///
+/// This is not Effect 4's metric registry. The canonical metric API is
+/// [`crate::MetricRegistry`] and [`crate::Metrics`].
 #[derive(Clone, Debug, Default)]
-pub struct MetricRegistry {
-    counters: Arc<Mutex<std::collections::HashMap<String, Arc<Counter>>>>,
+pub struct AtomicMetricRegistry {
+    counters: Arc<Mutex<std::collections::HashMap<String, Arc<AtomicCounter>>>>,
 }
 
-impl MetricRegistry {
+impl AtomicMetricRegistry {
     /// An empty registry.
     pub fn new() -> Self {
         Self::default()
     }
 
     /// The named counter, creating it on first use.
-    pub fn counter(&self, name: &str) -> Arc<Counter> {
+    pub fn counter(&self, name: &str) -> Arc<AtomicCounter> {
         let mut guard = self.counters.lock().unwrap();
         guard
             .entry(name.to_string())
-            .or_insert_with(|| Arc::new(Counter::new(name)))
+            .or_insert_with(|| Arc::new(AtomicCounter::new(name)))
             .clone()
     }
 }
@@ -347,7 +357,7 @@ impl MetricRegistry {
 pub struct MetricTag;
 
 impl ServiceTag for MetricTag {
-    type Service = MetricRegistry;
+    type Service = AtomicMetricRegistry;
     const ID: &'static str = "elm-effect/metric";
 }
 

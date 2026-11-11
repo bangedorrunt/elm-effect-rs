@@ -1,5 +1,10 @@
 //! Broadcast with per-subscriber queues.
 //!
+//! **Thread primitive.** A [`PubSub`] blocks a thread in [`Subscription::take`]
+//! and does not close with an `Effect` scope or observe interruption. It is not
+//! fiber-native; use [`crate::Queue`] or [`crate::SubscriptionRef`] when the
+//! subscriber is a fiber. The hub is public for hosts that bridge a thread.
+//!
 //! A [`PubSub`] fans each published value out to every live subscription,
 //! each with its own bounded queue. [`Strategy`] picks the full-queue
 //! policy: [`Strategy::Bounded`] parks the publisher until space frees,
@@ -13,10 +18,6 @@
 //! Threads stand in for fibers here (blocking park/unpark via one
 //! [`Condvar`](std::sync::Condvar) per subscription). Effect scopes and
 //! interruption are not carried; a raw thread has no scope to close.
-// A test reaches this module through a `#[path]` include, so one test target
-// does not exercise its whole surface. The dead-code allowance covers the
-// unexercised remainder, not a defect in the crate.
-#![allow(dead_code)]
 use std::collections::VecDeque;
 use std::sync::{Arc, Condvar, Mutex};
 
