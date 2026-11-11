@@ -32,6 +32,7 @@ fn eventless_always_transitions_cascade_until_quiescence() {
             .state(LoopState::Counting, |node| {
                 let self_loop = node
                     .transition(LoopState::Counting)
+                    .reenter()
                     .guard(|ctx, _| ctx.count < 3)
                     .assign(|ctx, _| {
                         ctx.count += 1;

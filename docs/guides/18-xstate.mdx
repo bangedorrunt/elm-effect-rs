@@ -208,9 +208,11 @@ assert_eq!(fired.state(), Some(&Phase::TimedOut));
 
 A timer that fires for a state that is no longer active does nothing, so cancelling a delay without reaching the state is safe. In an Elm program, implement `StatechartDefinition::timer_cmd` to turn an intent into a command the host can run, and have the delay message map back through `extract_event`. The default `timer_cmd` returns `None`, which is correct for a chart with no `after`.
 
+A schema `after` key may name an entry in `delays` instead of spelling milliseconds. `DynamicMachineBuilder::delay(name, resolver)` registers a function that recomputes the duration from context and the event that entered the state; a `None` answer leaves that delay unarmed. `DynamicMachine::enter` supplies the `xstate.init` event. The resolved duration is stored in `MachineState`, so a later context change cannot retarget a fired timer. `MachineState` serializes its armed timers, so `ActorSystem::resume` restores the entry-time duration even when the delay depended on the entry event; no replay is needed. `Machine::timers_for_state` returns those armed starts. Actor timers are available through `ActorSystem::take_timers` and fire through `ActorSystem::fire_timer`.
+
 ## Completion
 
-A compound state completes when its child reaches a final state. A parallel state completes when every region does. `on_done` takes the completion transition, and `outcome.done` reports a completed root:
+A compound state completes when its child reaches a final state. A parallel state completes when every region does. `on_done` takes the completion transition, and `outcome.done` reports a completed root. Root entry actions run before the initial state's entry; reaching done exits the final state, every active ancestor, and the root exit actions once, without clearing the final snapshot. A JSON machine may declare `"type": "parallel"` at the root, making every top-level state a concurrent region:
 
 ```rust
 let machine = Machine::builder(Task::Work, ())
@@ -253,6 +255,12 @@ Actions on a schema-driven chart reach the actor system through `ActionQueue`:
 
 `ActorLogic::from_transition(initial, reduce)` is the reducer form. `ActorSystem::state`, `configuration`, `context`, and `value` inspect an actor without stepping it.
 
+A state can instead own an invoked actor. `"invoke": {"id": "worker", "src": "worker"}` spawns the logic registered with `DynamicMachineBuilder::actor("worker", logic)` on entry and stops it on exit. `onDone` and `onError` are ordinary transition rules attached to that child id. A reentering transition restarts the invoke; a transition that keeps the state active leaves it running.
+
+`invoke.input` is passed to the child at spawn. A literal JSON value works directly; `DynamicMachineBuilder::invoke_input(id, resolver)` computes it from the owner's context and the entry event. Effect, promise, callback, and reducer actors consume it through `from_effect_with_input`, `from_promise_with_input`, `from_callback_with_input`, and `from_transition_with_input`. An invoked machine receives it in the `xstate.init` event, and uses it as initial context data when the machine declares no context of its own.
+
+Completion output travels in the done event. Declare `output` on a top-level final state, or a root `output`, or register `DynamicMachineBuilder::output(state, resolver)` / `root_output(resolver)`. The parent's `onDone` action reads the child output from `event.payload`.
+
 A child that reaches a final state sends `xstate.done.actor.<id>` to its parent, so a parent chart declares that event like any other transition:
 
 ```json
@@ -268,11 +276,11 @@ Every actor owns a `Scope` forked from its parent's. `stop` closes the descendan
 
 `run` refuses to wait forever: it stops at its step budget and returns `ActorError::StepBudget`, which turns a directive cycle into an error instead of a hang.
 
-Actor verbs exist on `ActionQueue<CMD, DynamicEvent>`; a typed chart keeps its own event type and does not use them.
+Actor verbs exist on `ActionQueue<CMD, DynamicEvent>`; a typed chart keeps its own event type and does not use them. A completed machine actor sends its done event once, even if it receives later events in its final configuration. Timer intents from machine actors are collected with `ActorSystem::take_timers` and delivered back with `ActorSystem::fire_timer`; resuming a snapshot keeps the duration armed at entry.
 
 ### Host-run actors
 
-`ActorLogic::from_effect` and `from_promise` produce one-shot tasks. `from_stream` forwards each received value to the parent, and `from_callback` invokes a handler once at spawn with a `CallbackSender`. These actors keep their lifetime in the system and their work at the host edge:
+`ActorLogic::from_effect` and `from_promise` produce one-shot tasks. Their `_with_input` forms build the task from invoke input. `from_stream` forwards each received value to the parent, and `from_callback` invokes a handler once at spawn with a `CallbackSender`; `from_callback_with_input` also receives the input. These actors keep their lifetime in the system and their work at the host edge:
 
 ```rust
 for task in system.take_tasks() {
@@ -351,6 +359,26 @@ let transition = node
 - `action(|ctx, e, enq| ...)`: Receives mutable context, the event, and the [`ActionQueue`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-xstate/src/action.rs).
 - `exec(cmd)`: Convenience helper for emitting a runtime command.
 
+A target whose state is the source defaults to a non-reentering self-transition in XState v6: the transition actions run, but the source's exit and entry actions do not. Add `.reenter()` to exit and re-enter the source, or `"reenter": true` in a schema. A transition to a descendant keeps the source active unless it reenters.
+
+A targetless transition runs its actions without exiting or entering any state. Build it with `node.targetless()`:
+
+```rust
+let audit = node
+    .targetless()
+    .on(|e| matches!(e, Event::Audit))
+    .action(|ctx, _, _| ctx.audited += 1);
+node.on(audit)
+```
+
+In a schema, omit `target`; the transition still runs its guards and actions:
+
+```json
+"Active": { "on": { "AUDIT": { "actions": ["record_audit"] } } }
+```
+
+Targetless transitions do not add an edge to Mermaid or TLA+ output because they do not change the active configuration.
+
 ## Transient Eventless Microsteps (`always`)
 
 Eventless transitions evaluate immediately upon entering a state:
@@ -380,7 +408,7 @@ The engine cascades these micro-steps until reaching quiescence (or a safe itera
 let diagram = machine.to_mermaid();
 ```
 
-`TransitionRecord` turns one step into a journal entry. Append it before the entry actions run, so a crash replays the transition rather than part of its effects. `TransitionRecord::replay` walks a continuous record chain back to a configuration and never runs actions, so replaying does not repeat side effects. Attach run state with `.with_snapshot(serde_json::to_string(&state)?)`; `ActorSystem::resume(root, machine, state)` restores it without re-running the active states' entry actions. Children and timers are the host's to respawn.
+`TransitionRecord` turns one step into a journal entry. Append it before the entry actions run, so a crash replays the transition rather than part of its effects. `TransitionRecord::replay` walks a continuous record chain back to a configuration and never runs actions, so replaying does not repeat side effects. Attach run state with `.with_snapshot(serde_json::to_string(&state)?)`; `ActorSystem::resume(root, machine, state)` restores it without re-running the active states' entry actions. `ActorSystem::snapshot()` serializes the whole actor tree, and `ActorSystem::restore(snapshot, resolve)` rebuilds every machine and reducer actor with its parent links and armed timers. Host-driven effect, stream, and callback actors are the host's to respawn.
 
 ```rust
 let before = machine.initial_configuration();
@@ -416,6 +444,10 @@ impl StatechartDefinition for MyDef {
 
     fn machine() -> Machine<Self::State, Self::Event, Self::Context, Self::Cmd> {
         // Build machine here
+    }
+
+    fn init_event() -> Self::Event {
+        TrafficLightEvent::Init
     }
 
     fn extract_event(msg: &Self::Msg) -> Option<Self::Event> {
@@ -456,7 +488,7 @@ let outcome = machine.step("Green", machine.initial_context(), &DynamicEvent::ne
 assert_eq!(outcome.current_state, "Yellow");
 ```
 
-Behavioral conformance vectors live in `crates/elm-effect-xstate/tests/conformance/fixtures/*.json`: 53 cases across actions, always, after, parallel, history, hierarchy, guards, final states, and actors, including ten ported from XState 6.0.0-beta.1 (commit d56483f) whose `source` field names the upstream test. `tests/conformance_actors.rs` runs the actor scenarios (`spawn:`, `send:`, and `stop:` actions); `tests/conformance_test.rs` runs the machine suite and enforces a feature matrix naming the cases that prove each behavior. Run both with `cargo test -p elm-effect-xstate --test conformance_test --test conformance_actors` or `scripts/sync-xstate-conformance.sh`. This is the crate's matrix plus six upstream vectors, not a vendored copy of the ~400-case suite. An optional Node check (`scripts/xstate-differential`, `npm run check`) compares final state, `done`, and context against XState for 41 of the vectors; it is not part of the cargo gate.
+Behavioral conformance vectors live in `crates/elm-effect-xstate/tests/conformance/fixtures/*.json`: 140 cases across actions, always, after, parallel, history, hierarchy, guards, final states, events, and actors, including ninety-two ported from XState 6.0.0-beta.1 (commit d56483f) whose `source` field names the upstream test. `tests/conformance_actors.rs` runs the actor scenarios (`spawn:`, `send:`, and `stop:` actions); `tests/conformance_test.rs` runs the machine suite and enforces a feature matrix naming the cases that prove each behavior. Run both with `cargo test -p elm-effect-xstate --test conformance_test --test conformance_actors` or `scripts/sync-xstate-conformance.sh`. This is a crate-authored matrix with ninety-two upstream-derived vectors, not a vendored copy of the ~400-case suite. An optional Node check (`scripts/xstate-differential`, `npm run check`) compares final state, `done`, and context against XState for 119 vectors (118 agree, 1 skipped); it is not part of the cargo gate.
 
 ## Formal verification (TLA+ / TLC)
 

@@ -1,9 +1,10 @@
 use crate::action::ActionQueue;
 use crate::configuration::Configuration;
-use crate::state_node::StateNode;
+use crate::state_node::{LifecycleFn, StateNode};
 use crate::transition::Transition;
-use crate::types::{MachineState, StateNodeType, StepOutcome, TimerFired, TimerIntent};
+use crate::types::{ArmedTimer, MachineState, StateNodeType, StepOutcome, TimerFired, TimerIntent};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::sync::Arc;
 
 /// The micro-step bound that turns a non-terminating `always` loop into a
 /// stopped machine instead of a hung one (ADR-0007 law L2).
@@ -36,6 +37,9 @@ pub struct Machine<S: Ord + Clone, E, C: Clone, CMD> {
     pub(crate) nodes: BTreeMap<S, StateNode<S, E, C, CMD>>,
     pub(crate) initial_state: S,
     pub(crate) initial_context: C,
+    pub(crate) root_parallel: bool,
+    pub(crate) root_entry_actions: Vec<LifecycleFn<C, CMD, E>>,
+    pub(crate) root_exit_actions: Vec<LifecycleFn<C, CMD, E>>,
 }
 
 impl<S, E, C, CMD> Machine<S, E, C, CMD>
@@ -66,6 +70,14 @@ where
     /// parallel node expanded to its leaves.
     #[must_use]
     pub fn initial_configuration(&self) -> Configuration<S> {
+        if self.root_parallel {
+            let mut config = Configuration::new();
+            let mut visited = BTreeSet::new();
+            for child in self.top_level_children() {
+                self.expand_into(&child, &BTreeMap::new(), &mut visited, &mut config);
+            }
+            return config;
+        }
         self.resolve_configuration(&self.initial_state)
     }
 
@@ -140,6 +152,15 @@ where
             .collect()
     }
 
+    /// Nodes directly under the implicit root.
+    fn top_level_children(&self) -> Vec<S> {
+        self.nodes
+            .values()
+            .filter(|node| node.parent.is_none())
+            .map(|node| node.id.clone())
+            .collect()
+    }
+
     fn is_strict_descendant(&self, child: &S, ancestor: &S) -> bool {
         let mut cursor = self.parent_of(child);
         while let Some(current) = cursor {
@@ -169,16 +190,27 @@ where
     /// The states that stay active across this transition (ADR-0007 law L1).
     ///
     /// A target equal to the source exits and re-enters it. A target strictly
-    /// inside the source keeps the source active. Everything else exits below
+    /// inside the source keeps the source active. A target strictly above the
+    /// source exits and re-enters that ancestor. Everything else exits below
     /// the deepest shared ancestor.
-    fn transition_domain(&self, source: &S, target: &S) -> Option<S> {
+    fn transition_domain_single(&self, source: &S, target: &S, reenter: bool) -> Option<S> {
         if target == source {
-            return self.parent_of(source);
+            return if reenter {
+                self.parent_of(source)
+            } else {
+                Some(source.clone())
+            };
         }
         if self.is_strict_descendant(target, source) {
+            if reenter {
+                return self.parent_of(source);
+            }
             return self
                 .parallel_target_region(source, target)
                 .or_else(|| Some(source.clone()));
+        }
+        if self.is_strict_descendant(source, target) {
+            return self.parent_of(target);
         }
         let domain = self.lca(source, target);
         domain
@@ -199,6 +231,116 @@ where
         let position = path.iter().position(|node| node == ancestor)?;
         let region = path.get(position + 1)?;
         (region != target).then(|| region.clone())
+    }
+
+    /// Resolve history targets to the states they actually enter, following
+    /// XState's effective-target rule: a recorded deep history contributes its
+    /// leaves, shallow history its immediate children, and an unvisited history
+    /// contributes its fallback.
+    fn effective_targets(&self, targets: &[S], history: &BTreeMap<S, Configuration<S>>) -> Vec<S> {
+        let mut effective = Vec::new();
+        let mut seen = BTreeSet::new();
+        for target in targets {
+            if !self.is_history(target) {
+                if seen.insert(target.clone()) {
+                    effective.push(target.clone());
+                }
+                continue;
+            }
+            let recorded = history.get(target).filter(|recorded| !recorded.is_empty());
+            if let Some(recorded) = recorded {
+                let boundary = self.parent_of(target);
+                for leaf in recorded.leaves() {
+                    let node = if self.node_type(target) == StateNodeType::HistoryShallow {
+                        let mut cursor = leaf.clone();
+                        while let Some(parent) = self.parent_of(&cursor) {
+                            if Some(&parent) == boundary.as_ref() {
+                                break;
+                            }
+                            cursor = parent;
+                        }
+                        cursor
+                    } else {
+                        leaf.clone()
+                    };
+                    if seen.insert(node.clone()) {
+                        effective.push(node);
+                    }
+                }
+            } else if let Some(node) = self.node(target) {
+                for fallback in node.initial_targets.clone() {
+                    if seen.insert(fallback.clone()) {
+                        effective.push(fallback);
+                    }
+                }
+            }
+        }
+        effective
+    }
+
+    /// Keep a parallel domain only as wide as the region that contains every
+    /// target, so sibling regions are not reset by a region-local transition.
+    fn narrow_parallel_domain(&self, domain: Option<S>, targets: &[S]) -> Option<S> {
+        let mut narrowed = domain?;
+        while self.node_type(&narrowed) == StateNodeType::Parallel {
+            let Some(region) = self.children(&narrowed).into_iter().find(|child| {
+                targets
+                    .iter()
+                    .all(|target| target == child || self.is_strict_descendant(target, child))
+            }) else {
+                break;
+            };
+            narrowed = region;
+        }
+        Some(narrowed)
+    }
+
+    /// The transition domain for a target set. A single target keeps the
+    /// documented self/descendant/ancestor rules; several targets take the
+    /// deepest proper common ancestor of the source and every target.
+    fn transition_domain(
+        &self,
+        source: &S,
+        targets: &[S],
+        history: &BTreeMap<S, Configuration<S>>,
+        reenter: bool,
+    ) -> Option<S> {
+        if targets.len() == 1 {
+            return self.transition_domain_single(source, &targets[0], reenter);
+        }
+        let effective = self.effective_targets(targets, history);
+        if effective.is_empty() {
+            return None;
+        }
+        if effective.len() == 1 {
+            return self.transition_domain_single(source, &effective[0], reenter);
+        }
+        if effective
+            .iter()
+            .all(|target| target == source || self.is_strict_descendant(target, source))
+        {
+            if reenter {
+                return self.parent_of(source);
+            }
+            return self.narrow_parallel_domain(Some(source.clone()), &effective);
+        }
+
+        let source_path = self.path_from_root(source);
+        let mut common = None;
+        for (position, node) in source_path.iter().enumerate() {
+            let shared = effective.iter().all(|target| {
+                let target_path = self.path_from_root(target);
+                target_path.get(position) == Some(node) && target_path.len() > position + 1
+            });
+            if !shared {
+                break;
+            }
+            common = Some(node.clone());
+        }
+        if reenter {
+            return common;
+        }
+        self.narrow_parallel_domain(common, &effective)
     }
 
     /// Every active node, leaves and their ancestors.
@@ -225,6 +367,15 @@ where
     /// compound or parallel node, and an XState schema whose top-level states
     /// are siblings and one of them is `"type": "final"`.
     fn root_done(&self, config: &Configuration<S>) -> bool {
+        if self.root_parallel {
+            let children: Vec<S> = self
+                .top_level_children()
+                .into_iter()
+                .filter(|child| !self.is_history(child))
+                .collect();
+            return !children.is_empty()
+                && children.iter().all(|child| self.node_done(config, child));
+        }
         self.node_done(config, &self.initial_state)
             || config.leaves().any(|leaf| {
                 self.node_type(leaf) == StateNodeType::Final && self.parent_of(leaf).is_none()
@@ -246,7 +397,7 @@ where
                     .into_iter()
                     .filter(|child| self.has_active_under(config, child))
                     .collect();
-                matches!(active.as_slice(), [child] if self.node_done(config, child))
+                matches!(active.as_slice(), [child] if self.node_type(child) == StateNodeType::Final)
             }
             StateNodeType::Parallel => {
                 let children: Vec<S> = self
@@ -316,7 +467,7 @@ where
                     }
                     return;
                 }
-                if let Some(fallback) = node.initial.clone() {
+                for fallback in node.initial_targets.clone() {
                     self.expand_into(&fallback, history, visited, out);
                 }
             }
@@ -347,20 +498,25 @@ where
                 let Some(node) = self.node(&ancestor) else {
                     continue;
                 };
-                let found = if transient {
+                let found = if self.node_type(&ancestor) == StateNodeType::Final {
+                    None
+                } else if transient {
                     node.always
                         .iter()
-                        .find(|transition| transition.guard_passes(ctx, event))
+                        .find(|transition| transition.guard_passes_in(config, ctx, event))
                 } else {
-                    node.transitions
+                    let mut candidates: Vec<&Transition<S, E, C, CMD>> = node
+                        .transitions
                         .iter()
-                        .find(|transition| transition.is_enabled(ctx, event))
-                        .or_else(|| {
-                            node.after
-                                .iter()
-                                .map(|(_, transition)| transition)
-                                .find(|transition| transition.is_enabled(ctx, event))
-                        })
+                        .filter(|transition| transition.is_enabled(config, ctx, event))
+                        .collect();
+                    candidates.sort_by_key(|transition| transition.selection_priority_for(event));
+                    candidates.first().copied().or_else(|| {
+                        node.after
+                            .iter()
+                            .map(|(_, transition)| transition)
+                            .find(|transition| transition.is_enabled(config, ctx, event))
+                    })
                 };
                 if let Some(transition) = found {
                     chosen.insert(ancestor.clone());
@@ -394,6 +550,7 @@ where
             .into_iter()
             .filter(|id| {
                 !handled.contains(id)
+                    && self.node_type(id) != StateNodeType::Final
                     && self.node(id).is_some_and(|node| !node.on_done.is_empty())
                     && self.node_done(&state.configuration, id)
             })
@@ -403,7 +560,7 @@ where
         for id in candidates {
             if let Some(node) = self.node(&id) {
                 for transition in &node.on_done {
-                    if transition.guard_passes(&state.context, event) {
+                    if transition.guard_passes_in(&state.configuration, &state.context, event) {
                         return Some(Selected {
                             source: id,
                             transition: transition.clone(),
@@ -413,6 +570,51 @@ where
             }
         }
         None
+    }
+
+    /// Run the exit side of a node sequence already ordered child-to-parent.
+    fn run_exit_actions(
+        &self,
+        ordered: &[S],
+        state: &mut MachineState<S, C>,
+        out: &mut Outbox<'_, S, CMD, E>,
+    ) {
+        for id in ordered {
+            if let Some(node) = self.node(id) {
+                for action in &node.exit_actions {
+                    action(&mut state.context, out.enq);
+                }
+                let cancelled: Vec<_> = state
+                    .armed
+                    .iter()
+                    .filter(|timer| timer.state == *id)
+                    .map(|timer| timer.duration)
+                    .collect();
+                state.armed.retain(|timer| timer.state != *id);
+                for duration in cancelled {
+                    out.timers.push(TimerIntent::Cancel {
+                        state: id.clone(),
+                        duration,
+                    });
+                }
+            }
+        }
+    }
+
+    /// Exit every active node and then the implicit machine root when the
+    /// chart completes. The configuration stays readable as the final
+    /// snapshot; only lifecycle actions and timers run.
+    fn finalize_done(&self, state: &mut MachineState<S, C>, out: &mut Outbox<'_, S, CMD, E>) {
+        let mut ordered: Vec<S> = self
+            .active_nodes(&state.configuration)
+            .into_iter()
+            .collect();
+        ordered.sort_by_key(|state| std::cmp::Reverse(self.path_from_root(state)));
+        self.run_exit_actions(&ordered, state, out);
+        for action in &self.root_exit_actions {
+            action(&mut state.context, out.enq);
+        }
+        out.collect_raised();
     }
 
     /// Record history for every compound or parallel state this step exits.
@@ -459,6 +661,7 @@ where
         id: &S,
         state: &mut MachineState<S, C>,
         entered: &mut BTreeSet<S>,
+        event: Option<&E>,
         out: &mut Outbox<'_, S, CMD, E>,
     ) {
         if !entered.insert(id.clone()) {
@@ -470,11 +673,23 @@ where
         for action in &node.entry_actions {
             action(&mut state.context, out.enq);
         }
-        for (duration, _) in &node.after {
-            out.timers.push(TimerIntent::Start {
-                state: id.clone(),
-                duration: *duration,
-            });
+        for hook in &node.entry_hooks {
+            hook(&mut state.context, out.enq, event);
+        }
+        if node.node_type != StateNodeType::Final {
+            for (index, (delay, _)) in node.after.iter().enumerate() {
+                if let Some(duration) = delay.resolve(&state.context, event) {
+                    out.timers.push(TimerIntent::Start {
+                        state: id.clone(),
+                        duration,
+                    });
+                    state.armed.push(ArmedTimer {
+                        state: id.clone(),
+                        duration,
+                        transition: index,
+                    });
+                }
+            }
         }
         if matches!(node.node_type, StateNodeType::Atomic | StateNodeType::Final) {
             state.configuration.insert(id.clone());
@@ -487,19 +702,20 @@ where
         id: &S,
         state: &mut MachineState<S, C>,
         entered: &mut BTreeSet<S>,
+        event: Option<&E>,
         out: &mut Outbox<'_, S, CMD, E>,
     ) {
         if entered.contains(id) {
             return;
         }
-        self.enter_self(id, state, entered, out);
+        self.enter_self(id, state, entered, event, out);
         let Some(node) = self.node(id) else {
             return;
         };
         match node.node_type {
             StateNodeType::Compound => {
                 if let Some(initial) = node.initial.clone() {
-                    self.enter_target(&initial, state, entered, out);
+                    self.enter_target(&initial, state, entered, event, out);
                 }
             }
             StateNodeType::Parallel => {
@@ -508,10 +724,32 @@ where
                     .into_iter()
                     .filter(|child| !self.is_history(child))
                 {
-                    self.enter_target(&child, state, entered, out);
+                    self.enter_target(&child, state, entered, event, out);
                 }
             }
             _ => {}
+        }
+    }
+
+    /// Enter the implicit root's initial regions: every top-level child for a
+    /// parallel root, or the declared initial state otherwise.
+    fn enter_root(
+        &self,
+        state: &mut MachineState<S, C>,
+        entered: &mut BTreeSet<S>,
+        event: Option<&E>,
+        out: &mut Outbox<'_, S, CMD, E>,
+    ) {
+        if self.root_parallel {
+            for child in self
+                .top_level_children()
+                .into_iter()
+                .filter(|child| !self.is_history(child))
+            {
+                self.enter_target(&child, state, entered, event, out);
+            }
+        } else {
+            self.enter_target(&self.initial_state, state, entered, event, out);
         }
     }
 
@@ -521,6 +759,7 @@ where
         id: &S,
         state: &mut MachineState<S, C>,
         entered: &mut BTreeSet<S>,
+        event: Option<&E>,
         out: &mut Outbox<'_, S, CMD, E>,
     ) {
         let Some(node) = self.node(id) else {
@@ -543,23 +782,32 @@ where
                                     cursor = parent;
                                 }
                                 if seen.insert(cursor.clone()) {
-                                    self.enter_node(&cursor, state, entered, out);
+                                    self.enter_node(&cursor, state, entered, event, out);
                                 }
                             }
                         } else {
-                            self.restore_deep(&recorded, id, state, entered, out);
+                            self.restore_deep(&recorded, id, state, entered, event, out);
                         }
                     }
                     None => {
-                        if let Some(fallback) = node.initial.clone()
-                            && fallback != *id
-                        {
-                            self.enter_target(&fallback, state, entered, out);
+                        let boundary = self.parent_of(id);
+                        for fallback in node.initial_targets.clone() {
+                            if fallback == *id {
+                                continue;
+                            }
+                            self.enter_from_domain(
+                                &fallback,
+                                boundary.as_ref(),
+                                state,
+                                entered,
+                                event,
+                                out,
+                            );
                         }
                     }
                 }
             }
-            _ => self.enter_node(id, state, entered, out),
+            _ => self.enter_node(id, state, entered, event, out),
         }
     }
 
@@ -570,6 +818,7 @@ where
         history_id: &S,
         state: &mut MachineState<S, C>,
         entered: &mut BTreeSet<S>,
+        event: Option<&E>,
         out: &mut Outbox<'_, S, CMD, E>,
     ) {
         let boundary = self.parent_of(history_id);
@@ -585,7 +834,7 @@ where
         let mut ordered: Vec<S> = nodes.into_iter().collect();
         ordered.sort_by(|a, b| self.depth(a).cmp(&self.depth(b)).then_with(|| a.cmp(b)));
         for node in ordered {
-            self.enter_self(&node, state, entered, out);
+            self.enter_self(&node, state, entered, event, out);
         }
     }
 
@@ -596,6 +845,7 @@ where
         domain: Option<&S>,
         state: &mut MachineState<S, C>,
         entered: &mut BTreeSet<S>,
+        event: Option<&E>,
         out: &mut Outbox<'_, S, CMD, E>,
     ) {
         let mut path = self.path_from_root(target);
@@ -605,12 +855,47 @@ where
             path.drain(..=position);
         }
         let Some((last, ancestors)) = path.split_last() else {
+            if domain == Some(target) {
+                self.enter_default_descendants(target, state, entered, event, out);
+            }
             return;
         };
         for ancestor in ancestors {
-            self.enter_self(ancestor, state, entered, out);
+            self.enter_self(ancestor, state, entered, event, out);
         }
-        self.enter_target(last, state, entered, out);
+        self.enter_target(last, state, entered, event, out);
+    }
+
+    /// Re-enter the default children of a state that stays active across a
+    /// non-reentering self-transition.
+    fn enter_default_descendants(
+        &self,
+        id: &S,
+        state: &mut MachineState<S, C>,
+        entered: &mut BTreeSet<S>,
+        event: Option<&E>,
+        out: &mut Outbox<'_, S, CMD, E>,
+    ) {
+        let Some(node) = self.node(id) else {
+            return;
+        };
+        match node.node_type {
+            StateNodeType::Compound => {
+                if let Some(initial) = node.initial.clone() {
+                    self.enter_target(&initial, state, entered, event, out);
+                }
+            }
+            StateNodeType::Parallel => {
+                for child in self
+                    .children(id)
+                    .into_iter()
+                    .filter(|child| !self.is_history(child))
+                {
+                    self.enter_target(&child, state, entered, event, out);
+                }
+            }
+            _ => {}
+        }
     }
 
     /// Apply the chosen transitions in law L1 order: exit, actions, entry.
@@ -630,7 +915,16 @@ where
         let mut exiting: BTreeSet<S> = BTreeSet::new();
         let mut domains: Vec<Option<S>> = Vec::with_capacity(selections.len());
         for selection in selections {
-            let domain = self.transition_domain(&selection.source, &selection.transition.target);
+            if selection.transition.is_targetless() {
+                domains.push(None);
+                continue;
+            }
+            let domain = self.transition_domain(
+                &selection.source,
+                selection.transition.target_states(),
+                &state.history,
+                selection.transition.is_reentering(),
+            );
             for node in &active {
                 let below = match &domain {
                     Some(domain) => self.is_strict_descendant(node, domain),
@@ -646,20 +940,8 @@ where
         self.record_history(&before, &exiting, &mut state.history);
 
         let mut ordered: Vec<S> = exiting.into_iter().collect();
-        ordered.sort_by(|a, b| self.depth(b).cmp(&self.depth(a)).then_with(|| a.cmp(b)));
-        for id in &ordered {
-            if let Some(node) = self.node(id) {
-                for action in &node.exit_actions {
-                    action(&mut state.context, out.enq);
-                }
-                for (duration, _) in &node.after {
-                    out.timers.push(TimerIntent::Cancel {
-                        state: id.clone(),
-                        duration: *duration,
-                    });
-                }
-            }
-        }
+        ordered.sort_by_key(|state| std::cmp::Reverse(self.path_from_root(state)));
+        self.run_exit_actions(&ordered, state, out);
         state.configuration = Configuration::from_leaves(
             before
                 .leaves()
@@ -675,13 +957,19 @@ where
 
         let mut entered = self.active_nodes(&state.configuration);
         for (selection, domain) in selections.iter().zip(domains) {
-            self.enter_from_domain(
-                &selection.transition.target,
-                domain.as_ref(),
-                state,
-                &mut entered,
-                out,
-            );
+            if selection.transition.is_targetless() {
+                continue;
+            }
+            for target in selection.transition.target_states() {
+                self.enter_from_domain(
+                    target,
+                    domain.as_ref(),
+                    state,
+                    &mut entered,
+                    Some(event),
+                    out,
+                );
+            }
         }
         out.collect_raised();
     }
@@ -725,18 +1013,27 @@ where
 
     fn outcome(
         &self,
-        state: MachineState<S, C>,
+        mut state: MachineState<S, C>,
         mut enq: ActionQueue<CMD, E>,
-        timers: Vec<TimerIntent<S>>,
-        internal: VecDeque<E>,
+        mut timers: Vec<TimerIntent<S>>,
+        mut internal: VecDeque<E>,
         transitioned: bool,
+        was_done: bool,
     ) -> StepOutcome<S, C, CMD, E> {
+        let done = self.root_done(&state.configuration);
+        if done && !was_done {
+            let mut out = Outbox {
+                enq: &mut enq,
+                timers: &mut timers,
+                internal: &mut internal,
+            };
+            self.finalize_done(&mut state, &mut out);
+        }
         let current_state = state
             .configuration
             .primary()
             .cloned()
             .unwrap_or_else(|| self.initial_state.clone());
-        let done = self.root_done(&state.configuration);
         StepOutcome {
             current_state,
             configuration: state.configuration,
@@ -747,6 +1044,7 @@ where
             emitted: enq.take_emitted(),
             directives: enq.take_directives(),
             timers,
+            armed: state.armed,
             transitioned,
             done,
         }
@@ -760,21 +1058,62 @@ where
     /// [`step`](Self::step), because a guard and a transition action both read
     /// the event, and no event exists yet.
     pub fn enter(&self, context: &C) -> StepOutcome<S, C, CMD, E> {
+        self.enter_inner(context, None)
+    }
+
+    /// Enter like [`enter`](Self::enter), but make `init` the event that entry
+    /// actions and delay functions observe. No eventless transitions settle.
+    pub fn enter_with_event(&self, context: &C, init: &E) -> StepOutcome<S, C, CMD, E> {
+        self.enter_inner(context, Some(init))
+    }
+
+    fn enter_inner(&self, context: &C, init: Option<&E>) -> StepOutcome<S, C, CMD, E> {
         let mut state = MachineState::new(Configuration::new(), context.clone());
         let mut enq = ActionQueue::new();
         let mut timers = Vec::new();
         let mut internal = VecDeque::new();
         {
+            for action in &self.root_entry_actions {
+                action(&mut state.context, &mut enq);
+            }
             let mut out = Outbox {
                 enq: &mut enq,
                 timers: &mut timers,
                 internal: &mut internal,
             };
             let mut entered = BTreeSet::new();
-            self.enter_node(&self.initial_state, &mut state, &mut entered, &mut out);
+            self.enter_root(&mut state, &mut entered, init, &mut out);
             out.collect_raised();
         }
-        self.outcome(state, enq, timers, internal, false)
+        self.outcome(state, enq, timers, internal, false, false)
+    }
+
+    /// Enter the machine and settle its initial macrostep.
+    ///
+    /// Entry actions may raise events, and active states may declare `always`
+    /// transitions. Both run before `start` returns, with `init` available to
+    /// guards and actions. [`enter`](Self::enter) remains the unsettled entry
+    /// edge for hosts that need to supply their own first event.
+    pub fn start(&self, context: &C, init: &E) -> StepOutcome<S, C, CMD, E> {
+        let mut state = MachineState::new(Configuration::new(), context.clone());
+        let mut enq = ActionQueue::new();
+        let mut timers = Vec::new();
+        let mut internal = VecDeque::new();
+        let transitioned = {
+            for action in &self.root_entry_actions {
+                action(&mut state.context, &mut enq);
+            }
+            let mut out = Outbox {
+                enq: &mut enq,
+                timers: &mut timers,
+                internal: &mut internal,
+            };
+            let mut entered = BTreeSet::new();
+            self.enter_root(&mut state, &mut entered, Some(init), &mut out);
+            out.collect_raised();
+            self.settle(&mut state, init, &mut out)
+        };
+        self.outcome(state, enq, timers, internal, transitioned, false)
     }
 
     /// Process an event through the statechart, following hierarchy bubbling
@@ -790,6 +1129,7 @@ where
         if working.configuration.is_empty() {
             working.configuration = self.initial_configuration();
         }
+        let was_done = self.root_done(&working.configuration);
         let mut enq = ActionQueue::new();
         let mut timers = Vec::new();
         let mut internal = VecDeque::new();
@@ -806,7 +1146,75 @@ where
             }
             self.settle(&mut working, event, &mut out) || taken
         };
-        self.outcome(working, enq, timers, internal, transitioned)
+        self.outcome(working, enq, timers, internal, transitioned, was_done)
+    }
+
+    /// Timer intents for the delays armed by the active states, in entry order.
+    /// A host resuming from a snapshot arms these before stepping.
+    #[must_use]
+    pub fn timers_for_state(&self, state: &MachineState<S, C>) -> Vec<TimerIntent<S>> {
+        let active = self.active_nodes(&state.configuration);
+        if !state.armed.is_empty() {
+            return state
+                .armed
+                .iter()
+                .filter(|timer| active.contains(&timer.state))
+                .map(|timer| TimerIntent::Start {
+                    state: timer.state.clone(),
+                    duration: timer.duration,
+                })
+                .collect();
+        }
+        let mut timers = Vec::new();
+        for id in active {
+            if let Some(node) = self.node(&id) {
+                for (delay, _) in &node.after {
+                    if let Some(duration) = delay.resolve(&state.context, None) {
+                        timers.push(TimerIntent::Start {
+                            state: id.clone(),
+                            duration,
+                        });
+                    }
+                }
+            }
+        }
+        timers
+    }
+
+    /// Rebuild runtime timer bookkeeping from a restored configuration and
+    /// context. Serialized armed timers are authoritative, including durations
+    /// originally resolved from an entry event. Missing context-only delays are
+    /// reconstructed; an event-dependent delay with no serialized entry cannot
+    /// be reconstructed and stays unarmed.
+    pub fn rearm_timers(&self, state: &mut MachineState<S, C>) {
+        let active = self.active_nodes(&state.configuration);
+        state.armed.retain(|timer| {
+            active.contains(&timer.state)
+                && self
+                    .node(&timer.state)
+                    .is_some_and(|node| timer.transition < node.after.len())
+        });
+        for id in active {
+            let Some(node) = self.node(&id) else {
+                continue;
+            };
+            for (index, (delay, _)) in node.after.iter().enumerate() {
+                if state
+                    .armed
+                    .iter()
+                    .any(|timer| timer.state == id && timer.transition == index)
+                {
+                    continue;
+                }
+                if let Some(duration) = delay.resolve(&state.context, None) {
+                    state.armed.push(ArmedTimer {
+                        state: id.clone(),
+                        duration,
+                        transition: index,
+                    });
+                }
+            }
+        }
     }
 
     /// Take the `after` transition of `timer.state` when its delay elapsed.
@@ -823,6 +1231,7 @@ where
         if working.configuration.is_empty() {
             working.configuration = self.initial_configuration();
         }
+        let was_done = self.root_done(&working.configuration);
         let mut enq = ActionQueue::new();
         let mut timers = Vec::new();
         let mut internal = VecDeque::new();
@@ -832,17 +1241,35 @@ where
                 timers: &mut timers,
                 internal: &mut internal,
             };
+            let armed = working
+                .armed
+                .iter()
+                .position(|armed| armed.state == timer.state && armed.duration == timer.duration)
+                .map(|position| working.armed.remove(position));
             let active = self.active_nodes(&working.configuration);
             let selection = active.contains(&timer.state).then(|| {
-                self.node(&timer.state).and_then(|node| {
-                    node.after
+                self.node(&timer.state).and_then(|node| match armed {
+                    Some(armed) => node
+                        .after
+                        .get(armed.transition)
+                        .map(|(_, transition)| transition.clone()),
+                    None => node
+                        .after
                         .iter()
-                        .find(|(duration, _)| *duration == timer.duration)
-                        .map(|(_, transition)| transition.clone())
+                        .find(|(delay, _)| {
+                            delay.resolve(&working.context, Some(event)) == Some(timer.duration)
+                        })
+                        .map(|(_, transition)| transition.clone()),
                 })
             });
             let taken = match selection.flatten() {
-                Some(transition) if transition.guard_passes(&working.context, event) => {
+                Some(transition)
+                    if transition.guard_passes_in(
+                        &working.configuration,
+                        &working.context,
+                        event,
+                    ) =>
+                {
                     let selected = Selected {
                         source: timer.state.clone(),
                         transition,
@@ -859,7 +1286,7 @@ where
             };
             self.settle(&mut working, event, &mut out) || taken
         };
-        self.outcome(working, enq, timers, internal, transitioned)
+        self.outcome(working, enq, timers, internal, transitioned, was_done)
     }
 }
 
@@ -868,6 +1295,9 @@ pub struct MachineBuilder<S: Ord + Clone, E, C: Clone, CMD> {
     nodes: BTreeMap<S, StateNode<S, E, C, CMD>>,
     initial_state: S,
     initial_context: C,
+    root_parallel: bool,
+    root_entry_actions: Vec<LifecycleFn<C, CMD, E>>,
+    root_exit_actions: Vec<LifecycleFn<C, CMD, E>>,
 }
 
 impl<S, E, C, CMD> MachineBuilder<S, E, C, CMD>
@@ -883,7 +1313,37 @@ where
             nodes: BTreeMap::new(),
             initial_state,
             initial_context,
+            root_parallel: false,
+            root_entry_actions: Vec::new(),
+            root_exit_actions: Vec::new(),
         }
+    }
+
+    /// Treat every top-level node as a region of an implicit parallel root.
+    /// The declared initial state is then only a placeholder.
+    pub fn root_parallel(mut self) -> Self {
+        self.root_parallel = true;
+        self
+    }
+
+    /// Register an action that runs when the machine root is entered, before
+    /// the initial state's own entry actions.
+    pub fn root_entry(
+        mut self,
+        action: impl Fn(&mut C, &mut ActionQueue<CMD, E>) + Send + Sync + 'static,
+    ) -> Self {
+        self.root_entry_actions.push(Arc::new(action));
+        self
+    }
+
+    /// Register an action that runs when the machine root is exited after
+    /// completion, after every active state's exit actions.
+    pub fn root_exit(
+        mut self,
+        action: impl Fn(&mut C, &mut ActionQueue<CMD, E>) + Send + Sync + 'static,
+    ) -> Self {
+        self.root_exit_actions.push(Arc::new(action));
+        self
     }
 
     /// Add an atomic state node configured through a closure.
@@ -969,6 +1429,9 @@ where
             nodes: self.nodes,
             initial_state: self.initial_state,
             initial_context: self.initial_context,
+            root_parallel: self.root_parallel,
+            root_entry_actions: self.root_entry_actions,
+            root_exit_actions: self.root_exit_actions,
         }
     }
 }

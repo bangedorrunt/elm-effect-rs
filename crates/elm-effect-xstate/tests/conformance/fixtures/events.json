@@ -1,0 +1,157 @@
+[
+  {
+    "name": "wildcard_event_falls_back",
+    "description": "Upstream event descriptors: a wildcard handles an event with no explicit descriptor",
+    "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/eventDescriptors.test.ts: should fallback to using wildcard transition definition (if specified)",
+    "machine": {
+      "initial": "A",
+      "context": { "log": [] },
+      "states": {
+        "A": { "on": { "FOO": "B", "*": "C" } },
+        "B": {},
+        "C": {}
+      }
+    },
+    "events": [{ "type": "BAR" }],
+    "expected": { "final_state": "C", "trace": [] }
+  },
+  {
+    "name": "exact_descriptor_beats_wildcard",
+    "description": "Upstream event descriptors: an exact descriptor wins even when the wildcard is declared first",
+    "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/eventDescriptors.test.ts: should prioritize explicit descriptor even if wildcard comes first",
+    "machine": {
+      "initial": "A",
+      "context": { "log": [] },
+      "states": {
+        "A": { "on": { "*": "Fail", "NEXT": "Pass" } },
+        "Fail": {},
+        "Pass": {}
+      }
+    },
+    "events": [{ "type": "NEXT" }],
+    "expected": { "final_state": "Pass", "trace": [] }
+  },
+  {
+    "name": "exact_descriptor_beats_partial_wildcard",
+    "description": "Upstream event descriptors: an exact descriptor wins over a partial wildcard declared first",
+    "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/eventDescriptors.test.ts: should prioritize explicit descriptor even if a partial one comes first",
+    "machine": {
+      "initial": "A",
+      "context": { "log": [] },
+      "states": {
+        "A": { "on": { "foo.*": "Fail", "foo.bar": "Pass" } },
+        "Fail": {},
+        "Pass": {}
+      }
+    },
+    "events": [{ "type": "foo.bar" }],
+    "expected": { "final_state": "Pass", "trace": [] }
+  },
+  {
+    "name": "longer_wildcard_beats_shorter",
+    "description": "Upstream event descriptors: the longest matching wildcard prefix wins",
+    "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/eventDescriptors.test.ts: should prioritize a longer descriptor even if the shorter one comes first",
+    "machine": {
+      "initial": "A",
+      "context": { "log": [] },
+      "states": {
+        "A": { "on": { "foo.*": "Fail", "foo.bar.*": "Pass" } },
+        "Fail": {},
+        "Pass": {}
+      }
+    },
+    "events": [{ "type": "foo.bar.baz" }],
+    "expected": { "final_state": "Pass", "trace": [] }
+  },
+  {
+    "name": "wildcard_prefix_matches_zero_segments",
+    "description": "Upstream event descriptors: a wildcard prefix matches the bare prefix event",
+    "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/eventDescriptors.test.ts: should support prefix matching with wildcards (+0)",
+    "machine": {
+      "initial": "Start",
+      "context": { "log": [] },
+      "states": {
+        "Start": { "on": { "event.*": "Success" } },
+        "Success": {}
+      }
+    },
+    "events": [{ "type": "event" }],
+    "expected": { "final_state": "Success", "trace": [] }
+  },
+  {
+    "name": "wildcard_prefix_matches_many_segments",
+    "description": "Upstream event descriptors: a wildcard prefix matches any number of following segments",
+    "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/eventDescriptors.test.ts: should support prefix matching with wildcards (+n)",
+    "machine": {
+      "initial": "Start",
+      "context": { "log": [] },
+      "states": {
+        "Start": { "on": { "event.*": "Success" } },
+        "Success": {}
+      }
+    },
+    "events": [{ "type": "event.first.second" }],
+    "expected": { "final_state": "Success", "trace": [] }
+  },
+  {
+    "name": "non_tokenized_wildcard_does_not_match",
+    "description": "Upstream event descriptors: a wildcard inside a token is not a descriptor wildcard",
+    "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/eventDescriptors.test.ts: should NOT support non-tokenized wildcards",
+    "machine": {
+      "initial": "Start",
+      "context": { "log": [] },
+      "states": {
+        "Start": { "on": { "event*": "Success" } },
+        "Success": {}
+      }
+    },
+    "events": [{ "type": "eventually" }],
+    "expected": { "final_state": "Start", "done": false, "trace": [] }
+  },
+  {
+    "name": "transition_matches_payload",
+    "description": "Upstream event descriptors: a serialized transition with matches selects on shallow event payload fields",
+    "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/eventDescriptors.test.ts: selects serialized transition arrays by shallow event payload matches",
+    "machine": {
+      "initial": "Pending",
+      "context": { "log": [] },
+      "states": {
+        "Pending": {
+          "on": {
+            "result": [
+              { "matches": { "actorId": "first" }, "target": "First" },
+              { "matches": { "actorId": "second" }, "target": "Second" }
+            ]
+          }
+        },
+        "First": {},
+        "Second": {}
+      }
+    },
+    "events": [
+      { "type": "result", "payload": { "actorId": "second" } }
+    ],
+    "expected": { "final_state": "Second", "trace": [] }
+  },
+  {
+    "name": "wildcard_fallback_when_exact_guard_fails",
+    "description": "Upstream event descriptors: a failing exact guard lets a wildcard descriptor handle the event",
+    "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/eventDescriptors.test.ts: should fall back to wildcard descriptor when exact descriptor guard fails",
+    "machine": {
+      "initial": "A",
+      "context": { "log": [] },
+      "states": {
+        "A": {
+          "on": {
+            "foo.bar": { "target": "Fail", "guard": "false" },
+            "foo.*": "Pass"
+          }
+        },
+        "Fail": {},
+        "Pass": {}
+      }
+    },
+    "events": [{ "type": "foo.bar" }],
+    "expected": { "final_state": "Pass", "trace": [] }
+  }
+]

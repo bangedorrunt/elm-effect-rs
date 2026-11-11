@@ -69,6 +69,12 @@ fn collect_rule(rule: &TransitionRule, out: &mut BTreeSet<String>) {
 }
 
 fn collect_actions(config: &MachineConfig, out: &mut BTreeSet<String>) {
+    for action in actions(&config.entry) {
+        out.insert(action.clone());
+    }
+    for action in actions(&config.exit) {
+        out.insert(action.clone());
+    }
     for node in config.states.values() {
         for action in actions(&node.entry) {
             out.insert(action.clone());

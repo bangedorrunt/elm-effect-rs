@@ -59,6 +59,7 @@ fn run_to_waiting() -> (
             configuration: started.configuration,
             history: started.history,
             context: started.context,
+            armed: started.armed,
         },
     )
 }
@@ -121,6 +122,7 @@ fn leaving_a_delayed_state_cancels_it_and_a_stale_fire_does_nothing() {
         configuration: cancelled.configuration,
         history: cancelled.history,
         context: cancelled.context,
+        armed: cancelled.armed,
     };
     let stale = machine.step_timer(
         &idle,

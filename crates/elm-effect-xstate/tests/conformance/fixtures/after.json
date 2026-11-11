@@ -84,10 +84,405 @@
         "Done": { "entry": ["enter_done"] }
       }
     },
-    "events": [{ "type": "xstate.after.0.A" }],
-    "expected": {
-      "final_state": "Done",
-      "trace": ["enter_done"]
-    }
+    "events": [{ "type": "xstate.after.0.A" }],  "expected": {
+    "final_state": "Done",
+    "trace": ["enter_done"]
   }
+},
+{
+  "name": "guarded_after_transition_fires",
+  "description": "Proves an elapsed delay still evaluates its guard before taking the transition",
+  "machine": {
+    "initial": "A",
+    "context": { "score": 1, "log": [] },
+    "states": {
+      "A": {
+        "after": {
+          "100": {
+            "target": "B",
+            "guard": "score >= 1",
+            "actions": ["timer_ok"]
+          }
+        }
+      },
+      "B": { "entry": ["enter_b"] }
+    }
+  },
+  "events": [{ "type": "xstate.after.100.A" }],
+  "expected": {
+    "final_state": "B",
+    "trace": ["timer_ok", "enter_b"]
+  }
+},
+{
+  "name": "guarded_after_transition_is_skipped",
+  "description": "Proves a failed guard leaves the state active after its delay elapses",
+  "machine": {
+    "initial": "A",
+    "context": { "score": 0, "log": [] },
+    "states": {
+      "A": {
+        "after": {
+          "100": {
+            "target": "B",
+            "guard": "score >= 1",
+            "actions": ["timer_ok"]
+          }
+        }
+      },
+      "B": { "entry": ["enter_b"] }
+    }
+  },
+  "events": [{ "type": "xstate.after.100.A" }],
+  "expected": {
+    "final_state": "A",
+    "trace": []
+  }
+},
+{
+  "name": "after_timers_are_region_scoped",
+  "description": "Proves one region's timer event transitions only that region and leaves the sibling timer armed",
+  "machine": {
+    "initial": "Root",
+    "context": { "log": [] },
+    "states": {
+      "Root": { "type": "parallel" },
+      "Left": {
+        "type": "compound",
+        "initial": "L1",
+        "parent": "Root"
+      },
+      "L1": {
+        "parent": "Left",
+        "entry": ["enter_l1"],
+        "exit": ["exit_l1"],
+        "after": { "100": "L2" }
+      },
+      "L2": {
+        "parent": "Left",
+        "entry": ["enter_l2"]
+      },
+      "Right": {
+        "type": "compound",
+        "initial": "R1",
+        "parent": "Root"
+      },
+      "R1": {
+        "parent": "Right",
+        "entry": ["enter_r1"],
+        "exit": ["exit_r1"],
+        "after": { "200": "R2" }
+      },
+      "R2": {
+        "parent": "Right",
+        "entry": ["enter_r2"]
+      }
+    }
+  },
+  "events": [
+    { "type": "xstate.after.100.L1" },
+    { "type": "xstate.after.200.R1" }
+  ],
+  "expected": {
+    "final_state": "L2",
+    "final_states": ["L2", "R2"],
+    "trace": [
+      "enter_l1",
+      "enter_r1",
+      "exit_l1",
+      "enter_l2",
+      "exit_r1",
+      "enter_r2"
+    ]
+  }
+},
+{
+  "name": "after_timer_from_nested_initial_state",
+  "description": "Upstream after: a delay declared by a nested initial state still fires and completes the machine",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/after.test.ts: should be able to transition with delay from nested initial state",
+  "machine": {
+    "initial": "Nested",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Nested": {
+        "type": "compound",
+        "initial": "Wait"
+      },
+      "Wait": {
+        "parent": "Nested",
+        "after": {
+          "10": "End"
+        }
+      },
+      "End": {
+        "type": "final"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "xstate.after.10.Wait"
+    }
+  ],
+  "expected": {
+    "final_state": "End",
+    "done": true,
+    "trace": []
+  }
+},
+{
+  "name": "after_multiple_delays_select_matching",
+  "description": "Upstream after: two delays on one state stay independently selectable by their timer events",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/after.test.ts: resolves all initial state delays after an enqueue entry context patch",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "after": {
+          "100": "B",
+          "200": "C"
+        }
+      },
+      "B": {
+        "entry": [
+          "enter_b"
+        ]
+      },
+      "C": {
+        "entry": [
+          "enter_c"
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "xstate.after.200.A"
+    },
+    {
+      "type": "xstate.after.100.A"
+    }
+  ],
+  "expected": {
+    "final_state": "C",
+    "trace": [
+      "enter_c"
+    ]
+  }
+},
+{
+  "name": "after_cycle_through_states",
+  "description": "Upstream after: consecutive delayed transitions cycle through three states",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/after.test.ts: should transition after delay",
+  "machine": {
+    "initial": "Green",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Green": {
+        "entry": [
+          "enter_green"
+        ],
+        "after": {
+          "1000": "Yellow"
+        }
+      },
+      "Yellow": {
+        "entry": [
+          "enter_yellow"
+        ],
+        "after": {
+          "1000": "Red"
+        }
+      },
+      "Red": {
+        "entry": [
+          "enter_red"
+        ],
+        "after": {
+          "1000": "Green"
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "xstate.after.1000.Green"
+    },
+    {
+      "type": "xstate.after.1000.Yellow"
+    },
+    {
+      "type": "xstate.after.1000.Red"
+    }
+  ],
+  "expected": {
+    "final_state": "Green",
+    "trace": [
+      "enter_green",
+      "enter_yellow",
+      "enter_red",
+      "enter_green"
+    ]
+  }
+},
+{
+  "name": "delayed_targetless_transition",
+  "description": "Upstream actions: a targetless delayed transition runs its action without exiting or reentering the source",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/actions.test.ts: shouldn't exit (and reenter) state on targetless delayed transition",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "entry": [
+          "enter_a"
+        ],
+        "exit": [
+          "exit_a"
+        ],
+        "after": {
+          "10": {
+            "actions": [
+              "timer_action"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "xstate.after.10.A"
+    }
+  ],
+  "expected": {
+    "final_state": "A",
+    "trace": [
+      "enter_a",
+      "timer_action"
+    ]
+  }
+},
+{
+  "name": "after_internal_target_child",
+  "description": "Upstream after: a delayed parent-to-child target exits only the old child and does not re-enter the parent",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/after.test.ts: parent state should enter child state without re-entering self (relative target)",
+  "machine": {
+    "initial": "One",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "One": {
+        "type": "compound",
+        "initial": "Two",
+        "entry": [
+          "entered_one"
+        ],
+        "after": {
+          "10": {
+            "target": "Three"
+          }
+        }
+      },
+      "Two": {
+        "parent": "One",
+        "entry": [
+          "entered_two"
+        ],
+        "exit": [
+          "exit_two"
+        ]
+      },
+      "Three": {
+        "parent": "One",
+        "entry": [
+          "entered_three"
+        ],
+        "always": [
+          {
+            "target": "End"
+          }
+        ]
+      },
+      "End": {
+        "type": "final"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "xstate.after.10.One"
+    }
+  ],
+  "expected": {
+    "final_state": "End",
+    "done": true,
+    "trace": [
+      "entered_one",
+      "entered_two",
+      "exit_two",
+      "entered_three"
+    ]
+  }
+},
+{
+  "name": "after_iso8601_duration",
+  "description": "Upstream after: an ISO8601 duration without a delay source arms the matching millisecond timer",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/after.test.ts: should transition after an ISO8601 duration without a delay source",
+  "machine": {
+    "initial": "Pending",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Pending": {
+        "after": {
+          "PT0.5S": "Done"
+        }
+      },
+      "Done": {}
+    }
+  },
+  "events": [
+    {
+      "type": "xstate.after.500.Pending"
+    }
+  ],
+  "expected": {
+    "final_state": "Done",
+    "trace": []
+  }
+},
+{
+  "name": "after_named_delay_expression",
+  "description": "Proves an after key resolves through the schema's named delay table",
+  "machine": {
+    "initial": "Pending",
+    "delays": { "short": 25 },
+    "context": { "log": [] },
+    "states": {
+      "Pending": {
+        "after": { "short": "Done" }
+      },
+      "Done": {}
+    }
+  },
+  "events": [
+    { "type": "xstate.after.short.Pending" }
+  ],
+  "expected": {
+    "final_state": "Done",
+    "trace": []
+  }
+}
 ]

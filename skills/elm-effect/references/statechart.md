@@ -37,6 +37,8 @@ Statechart evaluation in `elm-effect-xstate` strictly follows the five fundament
    - `enq.raise(event)`: Emits an internal event to re-enter the machine fold.
    - `enq.emit(payload)`: Emits telemetry/inspection data.
 
+Targetless transitions (`StateNode::targetless()`, or a JSON transition with no `target`) run guards and actions without exiting or entering any state. They are omitted from Mermaid and TLA+ topology output.
+
 ---
 
 ## 3. When to Use Statecharts vs Pure Elm Program
@@ -354,6 +356,10 @@ impl StatechartDefinition for MyStatechartDef {
         // Construct machine here
     }
 
+    fn init_event() -> Self::Event {
+        PlayerEvent::Init
+    }
+
     fn extract_event(msg: &Self::Msg) -> Option<Self::Event> {
         match msg {
             AppMsg::UserAction(e) => Some(e.clone()),
@@ -375,18 +381,20 @@ type MyProgram = StatechartProgram<MyStatechartDef>;
 
 - **Parallel**: `.parallel(id, ...)`; children with `parent = id` are regions. Entering activates one leaf per region. One event is offered to every region, and a deeper selection preempts an ancestor selection.
 - **History**: `.history(id, fallback, ...)` and `.deep_history(id, fallback, ...)`; the parent must be a compound state. History is recorded when that parent exits. A history node with no record enters its fallback.
-- **Delays**: `node.after(Duration, transition)` arms a `TimerIntent::Start` on entry and a `TimerIntent::Cancel` on exit. Nothing reads a clock. Call `machine.step_timer(&state, &TimerFired::new(id, duration), &event)`; a fire for an exited state is a no-op.
-- **Completion**: a final child completes its compound parent; a parallel node completes when every region does. `node.on_done(transition)` takes the completion edge. `outcome.done` reports a completed root, including a top-level final sibling.
+- **Delays**: `node.after(Duration, transition)` arms a `TimerIntent::Start` on entry and a `TimerIntent::Cancel` on exit. `after_fn` resolves from context; `after_event` and `DynamicMachineBuilder::delay` also see the entry event. The armed duration lives in `MachineState` and is serialized, so firing uses the entry-time value even after context changes and even when a snapshot is restored without replaying the entry event. Nothing reads a clock. Call `machine.step_timer(&state, &TimerFired::new(id, duration), &event)`; a fire for an exited state is a no-op. `timers_for_state` restores armed starts, and `rearm_timers` validates them and fills missing context-only delays.
+- **Reentry**: A self-target is non-reentering by default in XState v6. Use `.reenter()` or `"reenter": true` to run exit and entry again.
+- **Invoke**: A schema state `invoke` spawns registered actor logic on entry and stops it on exit; `onDone`/`onError` are transition rules on the child id. `invoke.input` is literal JSON or resolved with `DynamicMachineBuilder::invoke_input`; the child consumes it through an actor constructor or the machine's `xstate.init` event. Completion output comes from a top-level final state's `output`, a root `output`, or a registered output resolver, and reaches `onDone` as `event.payload`.
+- **Completion**: a final child completes its compound parent; a parallel node completes when every region does. `node.on_done(transition)` takes the completion edge. `outcome.done` reports a completed root, including a top-level final sibling. Root entry runs before initial entry; completion exits the final state, active ancestors, and root exit actions once. `MachineBuilder::root_parallel` treats all top-level nodes as concurrent regions.
 - **Actors**: `ActorSystem` runs machine and reducer actors in-process with no extra runtime. Actions reach it through `enq.spawn`, `enq.send_to`, and `enq.stop`; `run` applies directives and is bounded (`ActorError::StepBudget`). Each actor owns a `Scope` forked from its parent's, so `stop` closes descendants deepest-first and runs finalizers LIFO. A child that reaches a top-level final sends `xstate.done.actor.<id>` to its parent.
-- **Actor logic**: `from_machine`, `from_transition`, `from_effect`, `from_promise`, `from_stream`, and `from_callback`. Effect and promise actors emit `ActorTask` values for the host; a stream forwards values to its parent; a callback receives a `CallbackSender` at spawn. Run host tasks inside `system.scope(&task.actor)` so `stop` interrupts the fiber.
+- **Actor logic**: `from_machine`, `from_transition`, `from_effect`, `from_promise`, `from_stream`, and `from_callback`, plus input-aware effect, promise, callback, and transition forms. Effect and promise actors emit `ActorTask` values for the host; a stream forwards values to its parent; a callback receives a `CallbackSender` at spawn. Run host tasks inside `system.scope(&task.actor)` so `stop` interrupts the fiber.
 - **Run state**: `Machine::enter` starts; `Machine::step_state` takes a `MachineState` (configuration, history, context). `Machine::step(&leaf, &ctx, &event)` is the one-region short form.
-- **Export**: `machine.to_mermaid()`, topology-only `machine.to_tla()` (model-checked by `scripts/verify-formal.sh` via `examples/emit_tla.rs`), and `TransitionRecord::from_outcome(...).append(&log, stamp)`. The stamp is the host's `(producer_id, epoch, seq)`; this crate never mints one. `TransitionRecord::replay` rebuilds a configuration from a continuous chain without running actions. `TransitionRecord::with_snapshot` plus `ActorSystem::resume` restore a machine actor without re-running the active states' entry actions.
+- **Export**: `machine.to_mermaid()`, topology-only `machine.to_tla()` (model-checked by `scripts/verify-formal.sh` via `examples/emit_tla.rs`), and `TransitionRecord::from_outcome(...).append(&log, stamp)`. The stamp is the host's `(producer_id, epoch, seq)`; this crate never mints one. `TransitionRecord::replay` rebuilds a configuration from a continuous chain without running actions. `TransitionRecord::with_snapshot` plus `ActorSystem::resume` restore a machine actor without re-running the active states' entry actions. `ActorSystem::snapshot` and `restore` rebuild the machine/reducer actor tree, its parent links, and its armed timers; host-driven actors must be respawned.
 
 ## 7. Testing & Conformance Verification
 
 - **Pure Step Testing**: Test statecharts synchronously using `machine.step(...)` or `machine.step_state(...)`. No mock threads, sockets, or clocks required.
 - **Delayed Transitions**: The engine returns `TimerIntent` values. A host that runs on [`elm-effect-test::TestClock`](file:///Users/bangedorrunt/workspace/elm-effect-rs/crates/elm-effect-test/src/clock.rs) schedules them as commands, so virtual time still needs no wall-clock sleep.
-- **Conformance Matrix**: `crates/elm-effect-xstate/tests/conformance/fixtures/` holds 53 declarative vectors across actions, always, after, parallel, history, hierarchy, guards, final states, and actors, including ten ported from XState 6.0.0-beta.1 (commit d56483f) with a `source` field. `conformance_actors.rs` drives actor scenarios through `spawn:`, `send:`, and `stop:` actions; the machine runner supports `raise:` and `emit:`. `conformance_test.rs` enforces a feature matrix naming the proving cases. Run `scripts/sync-xstate-conformance.sh`. The optional `scripts/xstate-differential` Node check compares state outcomes for 41 vectors; it is not the full ~400-case upstream suite.
+- **Conformance Matrix**: `crates/elm-effect-xstate/tests/conformance/fixtures/` holds 140 declarative vectors across actions, always, after, events, parallel, history, hierarchy, guards, final states, and actors, including ninety-two ported from XState 6.0.0-beta.1 (commit d56483f) with a `source` field. `conformance_actors.rs` drives actor scenarios through `spawn:`, `send:`, and `stop:` actions; the machine runner supports `raise:` and `emit:`. `conformance_test.rs` enforces a feature matrix naming the proving cases. Snapshot resume re-arms active timers, and completed machine actors report `done` once. Run `scripts/sync-xstate-conformance.sh`. The optional `scripts/xstate-differential` Node check compares state outcomes for 119 vectors (118 agree, 1 skipped); it is not the full ~400-case upstream suite.
 - **Formal Verification (TLA+ / TLC)**: Four dedicated statechart models in `skills/verify-framework-flows/` are model-checked via `scripts/verify-formal.sh` and documented in `docs/research/state-machines-and-flows.md`:
   - Flow 6: `flow6_statechart_microstep.tla` (Quiescence, LCA resolution, Law L1 ordering)
   - Flow 7: `flow7_statechart_parallel.tla` (Orthogonal isolation, synchronized `onDone` join)

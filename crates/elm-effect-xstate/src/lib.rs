@@ -29,36 +29,42 @@ pub mod types;
 
 pub use action::ActionQueue;
 pub use actor::{
-    ActorDirective, ActorError, ActorId, ActorLogic, ActorState, ActorSystem, ActorTask,
-    CallbackLogic, CallbackSender, EffectLogic, Reducer, StreamLogic,
+    ActorDirective, ActorError, ActorId, ActorLogic, ActorSnapshotEntry, ActorState, ActorSystem,
+    ActorTask, ActorTreeSnapshot, CallbackLogic, CallbackSender, EffectLogic, Reducer, StreamLogic,
 };
 pub use adapter::{StatechartDefinition, StatechartModel, StatechartProgram};
 pub use configuration::Configuration;
 pub use durable::{ReplayError, TransitionRecord, TransitionStamp};
 pub use dynamic::{
-    ActionList, DynamicActionFn, DynamicContext, DynamicEvent, DynamicGuardFn, DynamicMachine,
-    DynamicMachineBuilder, MachineConfig, StateNodeConfig, TransitionConfig, TransitionRule,
+    ActionList, DelaySpec, DynamicActionFn, DynamicContext, DynamicDelayFn, DynamicEvent,
+    DynamicGuardFn, DynamicInputFn, DynamicMachine, DynamicMachineBuilder, DynamicOutputFn,
+    InvokeConfig, InvokeList, MachineConfig, StateNodeConfig, TargetList, TransitionConfig,
+    TransitionRule,
 };
 pub use machine::{Machine, MachineBuilder};
 pub use state_node::StateNode;
 pub use transition::Transition;
-pub use types::{MachineState, StateNodeType, StepOutcome, TimerFired, TimerIntent};
+pub use types::{ArmedTimer, MachineState, StateNodeType, StepOutcome, TimerFired, TimerIntent};
 
 pub mod prelude {
     pub use crate::action::ActionQueue;
     pub use crate::actor::{
-        ActorDirective, ActorError, ActorId, ActorLogic, ActorState, ActorSystem, ActorTask,
-        CallbackLogic, CallbackSender, EffectLogic, Reducer, StreamLogic,
+        ActorDirective, ActorError, ActorId, ActorLogic, ActorSnapshotEntry, ActorState,
+        ActorSystem, ActorTask, ActorTreeSnapshot, CallbackLogic, CallbackSender, EffectLogic,
+        Reducer, StreamLogic,
     };
     pub use crate::adapter::{StatechartDefinition, StatechartModel, StatechartProgram};
     pub use crate::configuration::Configuration;
     pub use crate::durable::{ReplayError, TransitionRecord, TransitionStamp};
     pub use crate::dynamic::{
-        ActionList, DynamicActionFn, DynamicContext, DynamicEvent, DynamicGuardFn, DynamicMachine,
-        DynamicMachineBuilder, MachineConfig, StateNodeConfig, TransitionConfig, TransitionRule,
+        ActionList, DelaySpec, DynamicActionFn, DynamicContext, DynamicDelayFn, DynamicEvent,
+        DynamicGuardFn, DynamicMachine, DynamicMachineBuilder, InvokeConfig, InvokeList,
+        MachineConfig, StateNodeConfig, TargetList, TransitionConfig, TransitionRule,
     };
     pub use crate::machine::{Machine, MachineBuilder};
     pub use crate::state_node::StateNode;
     pub use crate::transition::Transition;
-    pub use crate::types::{MachineState, StateNodeType, StepOutcome, TimerFired, TimerIntent};
+    pub use crate::types::{
+        ArmedTimer, MachineState, StateNodeType, StepOutcome, TimerFired, TimerIntent,
+    };
 }

@@ -399,5 +399,806 @@
     ],
     "trace": []
   }
+},
+{
+  "name": "shallow_history_resets_a_deep_descendant",
+  "description": "Upstream history: shallow history restores the immediate child and resets its nested initial",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/history.test.ts: should go to the shallow history",
+  "machine": {
+    "initial": "On",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Off": {
+        "on": {
+          "POWER": "History"
+        }
+      },
+      "On": {
+        "type": "compound",
+        "initial": "First",
+        "on": {
+          "POWER": "Off"
+        }
+      },
+      "First": {
+        "parent": "On",
+        "on": {
+          "SWITCH": "Second"
+        }
+      },
+      "Second": {
+        "type": "compound",
+        "initial": "A",
+        "parent": "On"
+      },
+      "A": {
+        "parent": "Second",
+        "on": {
+          "INNER": "B"
+        }
+      },
+      "B": {
+        "type": "compound",
+        "initial": "P",
+        "parent": "Second"
+      },
+      "P": {
+        "parent": "B"
+      },
+      "Q": {
+        "parent": "B"
+      },
+      "History": {
+        "type": "history",
+        "history": "shallow",
+        "initial": "First",
+        "parent": "On"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "SWITCH"
+    },
+    {
+      "type": "INNER"
+    },
+    {
+      "type": "POWER"
+    },
+    {
+      "type": "POWER"
+    }
+  ],
+  "expected": {
+    "final_state": "A",
+    "trace": []
+  }
+},
+{
+  "name": "deep_history_restores_two_nested_levels",
+  "description": "Upstream history: deep history restores a leaf two compound levels below the parent",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/history.test.ts: should go to the deep history (explicit)",
+  "machine": {
+    "initial": "On",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Off": {
+        "on": {
+          "POWER": "History"
+        }
+      },
+      "On": {
+        "type": "compound",
+        "initial": "First",
+        "on": {
+          "POWER": "Off"
+        }
+      },
+      "First": {
+        "parent": "On",
+        "on": {
+          "SWITCH": "Second"
+        }
+      },
+      "Second": {
+        "type": "compound",
+        "initial": "A",
+        "parent": "On"
+      },
+      "A": {
+        "parent": "Second",
+        "on": {
+          "INNER": "B"
+        }
+      },
+      "B": {
+        "type": "compound",
+        "initial": "P",
+        "parent": "Second"
+      },
+      "P": {
+        "parent": "B"
+      },
+      "Q": {
+        "parent": "B"
+      },
+      "History": {
+        "type": "history",
+        "history": "deep",
+        "initial": "First",
+        "parent": "On"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "SWITCH"
+    },
+    {
+      "type": "INNER"
+    },
+    {
+      "type": "POWER"
+    },
+    {
+      "type": "POWER"
+    }
+  ],
+  "expected": {
+    "final_state": "P",
+    "trace": []
+  }
+},
+{
+  "name": "history_as_initial_child_uses_fallback",
+  "description": "Upstream history: a history node selected as a compound initial resolves to its fallback",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/history.test.ts: should execute actions of the initial transition when it select a history state as the initial state of its parent",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "on": {
+          "NEXT": "B"
+        }
+      },
+      "B": {
+        "type": "compound",
+        "initial": "History",
+        "entry": [
+          "enter_b"
+        ]
+      },
+      "History": {
+        "type": "history",
+        "initial": "B2",
+        "parent": "B"
+      },
+      "B2": {
+        "parent": "B",
+        "entry": [
+          "enter_b2"
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "NEXT"
+    }
+  ],
+  "expected": {
+    "final_state": "B2",
+    "trace": [
+      "enter_b",
+      "enter_b2"
+    ]
+  }
+},
+{
+  "name": "internal_history_target_uses_fallback",
+  "description": "Upstream history: targeting a history node inside an active parent without a record uses its fallback",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/history.test.ts: internal transition to a history state should enter default history state configuration if the containing state has never been exited yet",
+  "machine": {
+    "initial": "First",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "First": {
+        "on": {
+          "NEXT": "Other"
+        }
+      },
+      "Second": {
+        "type": "compound",
+        "initial": "Nested",
+        "on": {
+          "NEXT": "History"
+        }
+      },
+      "Nested": {
+        "parent": "Second"
+      },
+      "Other": {
+        "parent": "Second"
+      },
+      "History": {
+        "type": "history",
+        "initial": "Nested",
+        "parent": "Second"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "NEXT"
+    },
+    {
+      "type": "NEXT"
+    }
+  ],
+  "expected": {
+    "final_state": "Nested",
+    "trace": []
+  }
+},
+{
+  "name": "history_restore_reenters_the_parent",
+  "description": "Upstream history: restoring a remembered history configuration runs the parent entry action again",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/history.test.ts: should execute entry actions of a parent of the targeted history state when its parent state was already visited",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "on": {
+          "NEXT": "History"
+        }
+      },
+      "B": {
+        "type": "compound",
+        "initial": "B1",
+        "entry": [
+          "enter_b"
+        ],
+        "on": {
+          "NEXT": "A"
+        }
+      },
+      "B1": {
+        "parent": "B"
+      },
+      "History": {
+        "type": "history",
+        "initial": "B3",
+        "parent": "B"
+      },
+      "B3": {
+        "parent": "B"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "NEXT"
+    },
+    {
+      "type": "NEXT"
+    },
+    {
+      "type": "NEXT"
+    }
+  ],
+  "expected": {
+    "final_state": "B3",
+    "trace": [
+      "enter_b",
+      "enter_b"
+    ]
+  }
+},
+{
+  "name": "history_as_machine_initial_uses_fallback",
+  "description": "Upstream history: a history node as the machine initial resolves to its declared fallback",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/history.test.ts: should go to the configured default target when a history state is the initial state of the machine",
+  "machine": {
+    "initial": "History",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "History": {
+        "type": "history",
+        "initial": "Start"
+      },
+      "Start": {
+        "entry": [
+          "enter_start"
+        ]
+      }
+    }
+  },
+  "events": [],
+  "expected": {
+    "final_state": "Start",
+    "trace": [
+      "enter_start"
+    ]
+  }
+},
+{
+  "name": "history_restore_stays_inside_domain",
+  "description": "Upstream history: restoring a remembered child enters the parent and remembered leaf without re-entering the default child",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/history.test.ts: should not enter ancestors of the entered history state that lie outside of the transition domain when restoring the stored history configuration",
+  "machine": {
+    "initial": "Closed",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Closed": {
+        "on": {
+          "BUTTON_CLICK": "OpenHistory"
+        }
+      },
+      "Open": {
+        "type": "compound",
+        "initial": "First",
+        "entry": [
+          "enter_open"
+        ],
+        "on": {
+          "BUTTON_CLICK": "Closed"
+        }
+      },
+      "OpenHistory": {
+        "type": "history",
+        "initial": "First",
+        "parent": "Open"
+      },
+      "First": {
+        "parent": "Open",
+        "entry": [
+          "enter_first"
+        ],
+        "exit": [
+          "exit_first"
+        ],
+        "on": {
+          "NEXT": "Second"
+        }
+      },
+      "Second": {
+        "parent": "Open",
+        "entry": [
+          "enter_second"
+        ],
+        "on": {
+          "CLOSE": "Closed"
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "BUTTON_CLICK"
+    },
+    {
+      "type": "NEXT"
+    },
+    {
+      "type": "CLOSE"
+    },
+    {
+      "type": "BUTTON_CLICK"
+    }
+  ],
+  "expected": {
+    "final_state": "Second",
+    "trace": [
+      "enter_open",
+      "enter_first",
+      "exit_first",
+      "enter_second",
+      "enter_open",
+      "enter_second"
+    ]
+  }
+},
+{
+  "name": "multistage_history_restores_latest",
+  "description": "Upstream history: a running child is remembered across an intermediate starting state and restored through history",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/history.test.ts: should go to the most recently visited state (multistage history states)",
+  "machine": {
+    "initial": "Running",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Running": {
+        "type": "compound",
+        "initial": "Normal",
+        "entry": [
+          "enter_running"
+        ],
+        "exit": [
+          "exit_running"
+        ],
+        "on": {
+          "POWER": "Off"
+        }
+      },
+      "Normal": {
+        "parent": "Running",
+        "entry": [
+          "enter_normal"
+        ],
+        "exit": [
+          "exit_normal"
+        ],
+        "on": {
+          "SWITCH_TURBO": "Turbo"
+        }
+      },
+      "Turbo": {
+        "parent": "Running",
+        "entry": [
+          "enter_turbo"
+        ],
+        "exit": [
+          "exit_turbo"
+        ],
+        "on": {
+          "SWITCH_TURBO": "Normal"
+        }
+      },
+      "Hist": {
+        "type": "history",
+        "initial": "Normal",
+        "parent": "Running"
+      },
+      "Starting": {
+        "entry": [
+          "enter_starting"
+        ],
+        "on": {
+          "STARTED": "Hist"
+        }
+      },
+      "Off": {
+        "entry": [
+          "enter_off"
+        ],
+        "exit": [
+          "exit_off"
+        ],
+        "on": {
+          "POWER": "Starting"
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "SWITCH_TURBO"
+    },
+    {
+      "type": "POWER"
+    },
+    {
+      "type": "POWER"
+    },
+    {
+      "type": "STARTED"
+    }
+  ],
+  "expected": {
+    "final_state": "Turbo",
+    "trace": [
+      "enter_running",
+      "enter_normal",
+      "exit_normal",
+      "enter_turbo",
+      "exit_turbo",
+      "exit_running",
+      "enter_off",
+      "exit_off",
+      "enter_starting",
+      "enter_running",
+      "enter_turbo"
+    ]
+  }
+},
+{
+  "name": "history_default_stays_inside_domain",
+  "description": "Upstream history: entering an unvisited default history target does not enter ancestors outside the transition domain",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/history.test.ts: should not enter ancestors of the entered history state that lie outside of the transition domain when entering the default history configuration",
+  "machine": {
+    "initial": "Closed",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Closed": {
+        "on": {
+          "BUTTON_CLICK": "OpenHistory"
+        }
+      },
+      "Open": {
+        "type": "compound",
+        "initial": "First",
+        "entry": [
+          "enter_open"
+        ],
+        "on": {
+          "BUTTON_CLICK": "Closed"
+        }
+      },
+      "OpenHistory": {
+        "type": "history",
+        "initial": "First",
+        "parent": "Open"
+      },
+      "First": {
+        "parent": "Open",
+        "entry": [
+          "enter_first"
+        ]
+      },
+      "Second": {
+        "parent": "Open"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "BUTTON_CLICK"
+    }
+  ],
+  "expected": {
+    "final_state": "First",
+    "trace": [
+      "enter_open",
+      "enter_first"
+    ]
+  }
+},
+{
+  "name": "history_target_enters_never_visited_parent",
+  "description": "Upstream history: targeting a history state inside a never-visited parent enters the parent and its fallback",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/history.test.ts: should execute entry actions of a parent of the targeted history state when its parent state was never visited yet",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "on": {
+          "NEXT": "Hist"
+        }
+      },
+      "B": {
+        "type": "compound",
+        "initial": "B1",
+        "entry": [
+          "enter_b"
+        ],
+        "on": {
+          "NEXT": "A"
+        }
+      },
+      "B1": {
+        "parent": "B"
+      },
+      "Hist": {
+        "type": "history",
+        "initial": "B3",
+        "parent": "B"
+      },
+      "B3": {
+        "parent": "B"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "NEXT"
+    }
+  ],
+  "expected": {
+    "final_state": "B3",
+    "trace": [
+      "enter_b"
+    ]
+  }
+},
+{
+  "name": "history_multi_target_deep_default",
+  "description": "Upstream history: an unvisited deep parallel history enters every fallback target",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/history.test.ts: should enter a legal multi-target default for deep parallel history",
+  "machine": {
+    "initial": "Off",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Off": {
+        "on": {
+          "GO": "Hist"
+        }
+      },
+      "On": {
+        "type": "parallel"
+      },
+      "A": {
+        "type": "compound",
+        "initial": "B",
+        "parent": "On"
+      },
+      "B": {
+        "parent": "A"
+      },
+      "C": {
+        "parent": "A"
+      },
+      "K": {
+        "type": "compound",
+        "initial": "L",
+        "parent": "On"
+      },
+      "L": {
+        "parent": "K"
+      },
+      "M": {
+        "parent": "K"
+      },
+      "Hist": {
+        "type": "history",
+        "history": "deep",
+        "target": [
+          "C",
+          "M"
+        ],
+        "parent": "On"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "GO"
+    }
+  ],
+  "expected": {
+    "final_state": "C",
+    "final_states": [
+      "C",
+      "M"
+    ],
+    "trace": []
+  }
+},
+{
+  "name": "history_multi_target_shallow_default",
+  "description": "Upstream history: an unvisited shallow parallel history enters each region and its initial",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/history.test.ts: should enter a shallow parallel history default before its parent was visited",
+  "machine": {
+    "initial": "Off",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Off": {
+        "on": {
+          "GO": "Hist"
+        }
+      },
+      "On": {
+        "type": "parallel"
+      },
+      "A": {
+        "type": "compound",
+        "initial": "B",
+        "parent": "On"
+      },
+      "B": {
+        "parent": "A"
+      },
+      "C": {
+        "parent": "A"
+      },
+      "K": {
+        "type": "compound",
+        "initial": "L",
+        "parent": "On"
+      },
+      "L": {
+        "parent": "K"
+      },
+      "M": {
+        "parent": "K"
+      },
+      "Hist": {
+        "type": "history",
+        "history": "shallow",
+        "target": [
+          "A",
+          "K"
+        ],
+        "parent": "On"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "GO"
+    }
+  ],
+  "expected": {
+    "final_state": "B",
+    "final_states": [
+      "B",
+      "L"
+    ],
+    "trace": []
+  }
+},
+{
+  "name": "history_internal_relative_target",
+  "description": "Upstream history: a dot target reaches the history node inside the source state and uses its default",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/history.test.ts: internal transition to a history state should enter default history state configuration if the containing state has never been exited yet",
+  "machine": {
+    "initial": "First",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "First": {
+        "on": {
+          "NEXT": "Second.Other"
+        }
+      },
+      "Second": {
+        "type": "compound",
+        "initial": "Nested",
+        "on": {
+          "NEXT": ".Hist"
+        }
+      },
+      "Nested": {
+        "parent": "Second"
+      },
+      "Other": {
+        "parent": "Second"
+      },
+      "Hist": {
+        "type": "history",
+        "initial": "Nested",
+        "parent": "Second"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "NEXT"
+    },
+    {
+      "type": "NEXT"
+    }
+  ],
+  "expected": {
+    "final_state": "Nested",
+    "trace": []
+  }
 }
 ]

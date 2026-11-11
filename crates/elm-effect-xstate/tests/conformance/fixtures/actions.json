@@ -40,13 +40,46 @@
   },
   {
     "name": "self_transition_exits_and_reenters",
-    "description": "Proves self-transition exits source and re-enters target",
+    "description": "Proves reenter:true exits the source and re-enters the target",
     "machine": {
       "initial": "A",
       "context": { "log": [] },
       "states": {
         "A": {
           "type": "atomic",
+          "entry": ["enter_A"],
+          "exit": ["exit_A"],
+          "on": {
+            "REFRESH": {
+              "target": "A",
+              "reenter": true,
+              "actions": ["action_self"]
+            }
+          }
+        }
+      }
+    },
+    "events": [
+      { "type": "REFRESH" }
+    ],
+    "expected": {
+      "final_state": "A",
+      "trace": [
+        "enter_A",
+        "exit_A",
+        "action_self",
+        "enter_A"
+      ]
+    }
+  },
+  {
+    "name": "self_transition_default_no_reentry",
+    "description": "Proves v6 defaults a self-transition to no exit and no entry",
+    "machine": {
+      "initial": "A",
+      "context": { "log": [] },
+      "states": {
+        "A": {
           "entry": ["enter_A"],
           "exit": ["exit_A"],
           "on": {
@@ -65,9 +98,7 @@
       "final_state": "A",
       "trace": [
         "enter_A",
-        "exit_A",
-        "action_self",
-        "enter_A"
+        "action_self"
       ]
     }
   },
@@ -290,6 +321,656 @@
       "C4"
     ],
     "trace": []
+  }
+},
+{
+  "name": "eventless_transition_runs_before_raised_event",
+  "description": "Upstream transient: an eventless transition settles before the raised event is dequeued",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/transient.test.ts: should select eventless transition before processing raised events",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "on": {
+          "FOO": "B"
+        }
+      },
+      "B": {
+        "entry": [
+          "raise:BAR"
+        ],
+        "always": [
+          {
+            "target": "C"
+          }
+        ],
+        "on": {
+          "BAR": "D"
+        }
+      },
+      "C": {
+        "on": {
+          "BAR": "E"
+        }
+      },
+      "D": {},
+      "E": {}
+    }
+  },
+  "events": [
+    {
+      "type": "FOO"
+    }
+  ],
+  "expected": {
+    "final_state": "E",
+    "trace": []
+  }
+},
+{
+  "name": "descendant_target_keeps_common_ancestor",
+  "description": "Upstream actions: a target inside a sibling subtree exits the source leaf but keeps the shared ancestor active",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/actions.test.ts: should exit current node and enter target node when target is not a descendent or ancestor of current",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "type": "compound",
+        "initial": "A1",
+        "entry": [
+          "enter_a"
+        ]
+      },
+      "A1": {
+        "parent": "A",
+        "entry": [
+          "enter_a1"
+        ],
+        "exit": [
+          "exit_a1"
+        ],
+        "on": {
+          "NEXT": "A2Child"
+        }
+      },
+      "A2": {
+        "type": "compound",
+        "initial": "A2Child",
+        "parent": "A",
+        "entry": [
+          "enter_a2"
+        ]
+      },
+      "A2Child": {
+        "parent": "A2",
+        "entry": [
+          "enter_a2_child"
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "NEXT"
+    }
+  ],
+  "expected": {
+    "final_state": "A2Child",
+    "trace": [
+      "enter_a",
+      "enter_a1",
+      "exit_a1",
+      "enter_a2",
+      "enter_a2_child"
+    ]
+  }
+},
+{
+  "name": "ancestor_target_exits_and_reenters_it",
+  "description": "Upstream actions: targeting an ancestor exits that ancestor and re-enters its initial child",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/actions.test.ts: should exit current node and reenter target node when target is ancestor of current",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "type": "compound",
+        "initial": "A1",
+        "entry": [
+          "enter_a"
+        ],
+        "exit": [
+          "exit_a"
+        ]
+      },
+      "A1": {
+        "parent": "A",
+        "entry": [
+          "enter_a1"
+        ],
+        "exit": [
+          "exit_a1"
+        ],
+        "on": {
+          "NEXT": "A2"
+        }
+      },
+      "A2": {
+        "type": "compound",
+        "initial": "A2Child",
+        "parent": "A",
+        "entry": [
+          "enter_a2"
+        ],
+        "exit": [
+          "exit_a2"
+        ]
+      },
+      "A2Child": {
+        "parent": "A2",
+        "entry": [
+          "enter_a2_child"
+        ],
+        "exit": [
+          "exit_a2_child"
+        ],
+        "on": {
+          "NEXT": "A"
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "NEXT"
+    },
+    {
+      "type": "NEXT"
+    }
+  ],
+  "expected": {
+    "final_state": "A1",
+    "trace": [
+      "enter_a",
+      "enter_a1",
+      "exit_a1",
+      "enter_a2",
+      "enter_a2_child",
+      "exit_a2_child",
+      "exit_a2",
+      "exit_a",
+      "enter_a",
+      "enter_a1"
+    ]
+  }
+},
+{
+  "name": "parallel_initial_entry_actions",
+  "description": "Upstream actions: a parallel initial state enters its node, regions, and leaves in document order",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/actions.test.ts: should return the entry actions of an initial state (parallel)",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel",
+        "entry": [
+          "enter_root"
+        ]
+      },
+      "A": {
+        "type": "compound",
+        "initial": "A1",
+        "parent": "Root",
+        "entry": [
+          "enter_a"
+        ]
+      },
+      "A1": {
+        "parent": "A",
+        "entry": [
+          "enter_a1"
+        ]
+      },
+      "B": {
+        "type": "compound",
+        "initial": "B1",
+        "parent": "Root",
+        "entry": [
+          "enter_b"
+        ]
+      },
+      "B1": {
+        "parent": "B",
+        "entry": [
+          "enter_b1"
+        ]
+      }
+    }
+  },
+  "events": [],
+  "expected": {
+    "final_state": "A1",
+    "final_states": [
+      "A1",
+      "B1"
+    ],
+    "trace": [
+      "enter_root",
+      "enter_a",
+      "enter_a1",
+      "enter_b",
+      "enter_b1"
+    ]
+  }
+},
+{
+  "name": "parallel_children_exit_reverse_document_order",
+  "description": "Upstream actions: leaving a parallel state exits each region subtree in reverse document order",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/actions.test.ts: should exit children of parallel state nodes",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "compound",
+        "initial": "B"
+      },
+      "A": {
+        "parent": "Root",
+        "entry": [
+          "enter_a"
+        ]
+      },
+      "B": {
+        "type": "parallel",
+        "parent": "Root",
+        "entry": [
+          "enter_b"
+        ],
+        "exit": [
+          "exit_b"
+        ],
+        "on": {
+          "to-A": "A"
+        }
+      },
+      "C": {
+        "type": "compound",
+        "initial": "C1",
+        "parent": "B",
+        "entry": [
+          "enter_c"
+        ],
+        "exit": [
+          "exit_c"
+        ]
+      },
+      "C1": {
+        "parent": "C",
+        "entry": [
+          "enter_c1"
+        ],
+        "exit": [
+          "exit_c1"
+        ]
+      },
+      "D": {
+        "type": "compound",
+        "initial": "D1",
+        "parent": "B",
+        "entry": [
+          "enter_d"
+        ],
+        "exit": [
+          "exit_d"
+        ]
+      },
+      "D1": {
+        "parent": "D",
+        "entry": [
+          "enter_d1"
+        ],
+        "exit": [
+          "exit_d1"
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "to-A"
+    }
+  ],
+  "expected": {
+    "final_state": "A",
+    "trace": [
+      "enter_b",
+      "enter_c",
+      "enter_c1",
+      "enter_d",
+      "enter_d1",
+      "exit_d1",
+      "exit_d",
+      "exit_c1",
+      "exit_c",
+      "exit_b",
+      "enter_a"
+    ]
+  }
+},
+{
+  "name": "nested_child_parent_action_order",
+  "description": "Upstream actions: a parent transition exits its active child then itself, and enters the target parent before its initial child",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/actions.test.ts: should return nested actions in the correct (child to parent) order",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "type": "compound",
+        "initial": "A1",
+        "entry": [
+          "enter_a"
+        ],
+        "exit": [
+          "exit_a"
+        ],
+        "on": {
+          "CHANGE": "B"
+        }
+      },
+      "A1": {
+        "parent": "A",
+        "entry": [
+          "enter_a1"
+        ],
+        "exit": [
+          "exit_a1"
+        ]
+      },
+      "B": {
+        "type": "compound",
+        "initial": "B1",
+        "entry": [
+          "enter_b"
+        ],
+        "exit": [
+          "exit_b"
+        ]
+      },
+      "B1": {
+        "parent": "B",
+        "entry": [
+          "enter_b1"
+        ],
+        "exit": [
+          "exit_b1"
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "CHANGE"
+    }
+  ],
+  "expected": {
+    "final_state": "B1",
+    "trace": [
+      "enter_a",
+      "enter_a1",
+      "exit_a1",
+      "exit_a",
+      "enter_b",
+      "enter_b1"
+    ]
+  }
+},
+{
+  "name": "same_parent_substate_action_isolation",
+  "description": "Upstream actions: a sibling transition under one parent exits and enters only the child states",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/actions.test.ts: should ignore parent state actions for same-parent substates",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "type": "compound",
+        "initial": "A1",
+        "entry": [
+          "enter_a"
+        ],
+        "exit": [
+          "exit_a"
+        ]
+      },
+      "A1": {
+        "parent": "A",
+        "entry": [
+          "enter_a1"
+        ],
+        "exit": [
+          "exit_a1"
+        ],
+        "on": {
+          "NEXT": "A2"
+        }
+      },
+      "A2": {
+        "parent": "A",
+        "entry": [
+          "enter_a2"
+        ],
+        "exit": [
+          "exit_a2"
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "NEXT"
+    }
+  ],
+  "expected": {
+    "final_state": "A2",
+    "trace": [
+      "enter_a",
+      "enter_a1",
+      "exit_a1",
+      "enter_a2"
+    ]
+  }
+},
+{
+  "name": "ancestor_target_reenters_with_initial_first_descendant",
+  "description": "Upstream actions: targeting an ancestor re-enters it and selects its initial child, not the exited descendant",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/actions.test.ts: should not enter exited state when targeting its ancestor and when its former descendant gets selected through initial state",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "type": "compound",
+        "initial": "A1",
+        "entry": [
+          "enter_a"
+        ],
+        "exit": [
+          "exit_a"
+        ]
+      },
+      "A1": {
+        "parent": "A",
+        "entry": [
+          "enter_a1"
+        ],
+        "exit": [
+          "exit_a1"
+        ],
+        "on": {
+          "EV": "A2"
+        }
+      },
+      "A2": {
+        "parent": "A",
+        "entry": [
+          "enter_a2"
+        ],
+        "exit": [
+          "exit_a2"
+        ],
+        "on": {
+          "EV": "A"
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "EV"
+    },
+    {
+      "type": "EV"
+    }
+  ],
+  "expected": {
+    "final_state": "A1",
+    "trace": [
+      "enter_a",
+      "enter_a1",
+      "exit_a1",
+      "enter_a2",
+      "exit_a2",
+      "exit_a",
+      "enter_a",
+      "enter_a1"
+    ]
+  }
+},
+{
+  "name": "ancestor_target_reenters_with_initial_latter_descendant",
+  "description": "Upstream actions: targeting an ancestor re-enters it and selects its initial latter-declared child",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/actions.test.ts: should not enter exited state when targeting its ancestor and when its latter descendant gets selected through initial state",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "type": "compound",
+        "initial": "A2",
+        "entry": [
+          "enter_a"
+        ],
+        "exit": [
+          "exit_a"
+        ]
+      },
+      "A1": {
+        "parent": "A",
+        "entry": [
+          "enter_a1"
+        ],
+        "exit": [
+          "exit_a1"
+        ],
+        "on": {
+          "EV": "A"
+        }
+      },
+      "A2": {
+        "parent": "A",
+        "entry": [
+          "enter_a2"
+        ],
+        "exit": [
+          "exit_a2"
+        ],
+        "on": {
+          "EV": "A1"
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "EV"
+    },
+    {
+      "type": "EV"
+    }
+  ],
+  "expected": {
+    "final_state": "A2",
+    "trace": [
+      "enter_a",
+      "enter_a2",
+      "exit_a2",
+      "enter_a1",
+      "exit_a1",
+      "exit_a",
+      "enter_a",
+      "enter_a2"
+    ]
+  }
+},
+{
+  "name": "invalid_event_does_not_replay_prior_actions",
+  "description": "Upstream actions: an unhandled event after a transition does not replay the previous transition actions",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/actions.test.ts: should not recall previous actions",
+  "machine": {
+    "initial": "Idle",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Idle": {
+        "on": {
+          "STOP": {
+            "target": "Stop",
+            "actions": [
+              "stop_action"
+            ]
+          }
+        }
+      },
+      "Stop": {}
+    }
+  },
+  "events": [
+    {
+      "type": "STOP"
+    },
+    {
+      "type": "INVALID"
+    }
+  ],
+  "expected": {
+    "final_state": "Stop",
+    "trace": [
+      "stop_action"
+    ]
   }
 }
 ]

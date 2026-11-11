@@ -11,6 +11,7 @@ enum GateState {
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum GateEvent {
+    Init,
     Push,
     Coin,
 }
@@ -65,6 +66,10 @@ impl StatechartDefinition for GateProgramDef {
                 node.on(to_closed)
             })
             .build()
+    }
+
+    fn init_event() -> Self::Event {
+        GateEvent::Init
     }
 
     fn extract_event(msg: &Self::Msg) -> Option<Self::Event> {

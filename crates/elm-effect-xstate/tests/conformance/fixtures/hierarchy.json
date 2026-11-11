@@ -210,7 +210,7 @@
   },
   {
     "name": "parent_self_transition_reenters_its_child",
-    "description": "Proves a compound self-transition exits and re-enters the whole subtree",
+    "description": "Proves a reentering compound self-transition exits and re-enters the whole subtree",
     "machine": {
       "initial": "Root",
       "context": { "log": [] },
@@ -220,7 +220,7 @@
           "initial": "A",
           "entry": ["enter_root"],
           "exit": ["exit_root"],
-          "on": { "RESET": "Root" }
+          "on": { "RESET": { "target": "Root", "reenter": true } }
         },
         "A": {
           "parent": "Root",

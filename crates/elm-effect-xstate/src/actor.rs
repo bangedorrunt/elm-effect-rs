@@ -1,6 +1,6 @@
 use crate::configuration::Configuration;
 use crate::dynamic::{DynamicEvent, DynamicMachine};
-use crate::types::MachineState;
+use crate::types::{MachineState, TimerFired, TimerIntent};
 use elm_effect::{Defect, Effect, Scope};
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
@@ -47,8 +47,8 @@ impl From<String> for ActorId {
 /// A pure reducer actor: `(state, event) -> state`.
 pub type Reducer =
     Arc<dyn Fn(&serde_json::Value, &DynamicEvent) -> serde_json::Value + Send + Sync>;
-
-type EffectStart = Arc<dyn Fn() -> Effect<DynamicEvent, String> + Send + Sync>;
+type EffectStart = Arc<dyn Fn(&serde_json::Value) -> Effect<DynamicEvent, String> + Send + Sync>;
+type CallbackStart = Arc<dyn Fn(CallbackSender, &serde_json::Value) + Send + Sync>;
 
 /// A one-shot host task. The actor system describes it; the host runs it.
 #[derive(Clone)]
@@ -77,7 +77,7 @@ impl fmt::Debug for StreamLogic {
 /// A callback invoked once at spawn with a sender to the actor's parent.
 #[derive(Clone)]
 pub struct CallbackLogic {
-    start: Arc<dyn Fn(CallbackSender) + Send + Sync>,
+    start: CallbackStart,
 }
 
 impl fmt::Debug for CallbackLogic {
@@ -139,6 +139,13 @@ pub enum ActorLogic {
         /// The pure step function.
         reduce: Reducer,
     },
+    /// A reducer whose initial value is derived from spawn input.
+    InputTransition {
+        /// Resolve the value before the first event from input.
+        initial: Arc<dyn Fn(&serde_json::Value) -> serde_json::Value + Send + Sync>,
+        /// The pure step function.
+        reduce: Reducer,
+    },
     /// A one-shot effect, from `from_effect` or `from_promise`.
     Effect(EffectLogic),
     /// A stream of events forwarded to the parent.
@@ -164,10 +171,28 @@ impl ActorLogic {
         }
     }
 
+    /// A reducer actor whose initial value is derived from invoke input.
+    pub fn from_transition_with_input(
+        initial: impl Fn(&serde_json::Value) -> serde_json::Value + Send + Sync + 'static,
+        reduce: impl Fn(&serde_json::Value, &DynamicEvent) -> serde_json::Value + Send + Sync + 'static,
+    ) -> Self {
+        Self::InputTransition {
+            initial: Arc::new(initial),
+            reduce: Arc::new(reduce),
+        }
+    }
+
     /// A one-shot effect actor. Its task appears in
     /// [`ActorSystem::take_tasks`]; the host runs it and reports the outcome.
     pub fn from_effect(
         start: impl Fn() -> Effect<DynamicEvent, String> + Send + Sync + 'static,
+    ) -> Self {
+        Self::from_effect_with_input(move |_input| start())
+    }
+
+    /// A one-shot effect actor that receives its invoke input at spawn.
+    pub fn from_effect_with_input(
+        start: impl Fn(&serde_json::Value) -> Effect<DynamicEvent, String> + Send + Sync + 'static,
     ) -> Self {
         Self::Effect(EffectLogic {
             start: Arc::new(start),
@@ -186,6 +211,13 @@ impl ActorLogic {
         Self::from_effect(start)
     }
 
+    /// A one-shot promise actor that receives its invoke input at spawn.
+    pub fn from_promise_with_input(
+        start: impl Fn(&serde_json::Value) -> Effect<DynamicEvent, String> + Send + Sync + 'static,
+    ) -> Self {
+        Self::from_effect_with_input(start)
+    }
+
     /// A non-blocking stream actor. Every received value is forwarded to the
     /// actor's parent; disconnect stops the actor.
     pub fn from_stream(receiver: Receiver<DynamicEvent>) -> Self {
@@ -197,6 +229,13 @@ impl ActorLogic {
     /// A callback actor. The handler runs once at spawn with a
     /// [`CallbackSender`] that forwards events to the parent.
     pub fn from_callback(handler: impl Fn(CallbackSender) + Send + Sync + 'static) -> Self {
+        Self::from_callback_with_input(move |sender, _input| handler(sender))
+    }
+
+    /// A callback actor that also receives its invoke input at spawn.
+    pub fn from_callback_with_input(
+        handler: impl Fn(CallbackSender, &serde_json::Value) + Send + Sync + 'static,
+    ) -> Self {
         Self::Callback(CallbackLogic {
             start: Arc::new(handler),
         })
@@ -207,7 +246,9 @@ impl fmt::Debug for ActorLogic {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Machine(_) => formatter.write_str("Machine"),
-            Self::Transition { .. } => formatter.write_str("Transition"),
+            Self::Transition { .. } | Self::InputTransition { .. } => {
+                formatter.write_str("Transition")
+            }
             Self::Effect(_) => formatter.write_str("Effect"),
             Self::Stream(_) => formatter.write_str("Stream"),
             Self::Callback(_) => formatter.write_str("Callback"),
@@ -228,6 +269,8 @@ pub enum ActorDirective {
         id: ActorId,
         /// What it computes.
         logic: ActorLogic,
+        /// Input the logic observes at spawn.
+        input: serde_json::Value,
     },
     /// Deliver an event to another actor's inbox.
     Send {
@@ -244,7 +287,7 @@ pub enum ActorDirective {
 }
 
 /// One actor's current value.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum ActorState {
     /// A statechart run.
     Machine(MachineState<String, crate::DynamicContext>),
@@ -283,12 +326,33 @@ impl ActorState {
     }
 }
 
+/// One actor in a serializable actor-tree snapshot.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ActorSnapshotEntry {
+    /// Stable actor name.
+    pub id: ActorId,
+    /// Parent name, or `None` for the root.
+    pub parent: Option<ActorId>,
+    /// Machine or reducer state. Host-driven actors have no restorable state.
+    pub state: ActorState,
+    /// Whether this actor already reported completion to its parent.
+    pub done_reported: bool,
+}
+
+/// A serializable snapshot of an actor tree.
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
+pub struct ActorTreeSnapshot {
+    /// Every actor, in stable name order.
+    pub actors: Vec<ActorSnapshotEntry>,
+}
+
 struct Actor {
     id: ActorId,
     parent: Option<ActorId>,
     logic: ActorLogic,
     state: ActorState,
     scope: Arc<Scope>,
+    done_reported: bool,
 }
 
 struct Envelope {
@@ -308,6 +372,15 @@ pub enum ActorError {
     /// The system did not reach quiescence inside its step budget.
     #[error("actor system did not quiesce within {0} steps")]
     StepBudget(usize),
+    /// No logic was supplied for an actor named by a snapshot.
+    #[error("no logic supplied to restore actor {0}")]
+    MissingLogic(ActorId),
+    /// A host-driven actor has no restorable machine or reducer state.
+    #[error("actor {0} is host-driven and cannot be restored from a snapshot")]
+    UnsupportedActor(ActorId),
+    /// The snapshot's parent links are not a tree.
+    #[error("invalid actor snapshot: {0}")]
+    InvalidSnapshot(String),
 }
 
 /// In-process actor system with parent-child supervision.
@@ -331,6 +404,7 @@ pub struct ActorSystem {
     inbox: VecDeque<Envelope>,
     pending: VecDeque<(ActorId, ActorDirective)>,
     tasks: Vec<ActorTask>,
+    timers: Vec<(ActorId, TimerIntent<String>)>,
     callback_tx: Sender<(ActorId, DynamicEvent)>,
     callback_rx: Receiver<(ActorId, DynamicEvent)>,
     defects: Vec<Defect>,
@@ -348,12 +422,19 @@ impl ActorSystem {
             inbox: VecDeque::new(),
             pending: VecDeque::new(),
             tasks: Vec::new(),
+            timers: Vec::new(),
             callback_tx,
             callback_rx,
             defects: Vec::new(),
             max_steps: DEFAULT_STEP_BUDGET,
         };
-        system.add_actor(root.into(), None, logic, Arc::new(Scope::new(0)));
+        system.add_actor(
+            root.into(),
+            None,
+            logic,
+            serde_json::Value::Null,
+            Arc::new(Scope::new(0)),
+        );
         system
     }
 
@@ -366,10 +447,16 @@ impl ActorSystem {
     pub fn resume(
         root: impl Into<ActorId>,
         machine: DynamicMachine,
-        state: MachineState<String, crate::DynamicContext>,
+        mut state: MachineState<String, crate::DynamicContext>,
     ) -> Self {
         let (callback_tx, callback_rx) = mpsc::channel();
         let id = root.into();
+        machine.rearm_timers(&mut state);
+        let timers = machine
+            .timers_for_state(&state)
+            .into_iter()
+            .map(|timer| (id.clone(), timer))
+            .collect();
         let mut actors = BTreeMap::new();
         actors.insert(
             id.clone(),
@@ -379,6 +466,7 @@ impl ActorSystem {
                 logic: ActorLogic::Machine(Arc::new(machine)),
                 state: ActorState::Machine(state),
                 scope: Arc::new(Scope::new(0)),
+                done_reported: false,
             },
         );
         Self {
@@ -386,11 +474,199 @@ impl ActorSystem {
             inbox: VecDeque::new(),
             pending: VecDeque::new(),
             tasks: Vec::new(),
+            timers,
             callback_tx,
             callback_rx,
             defects: Vec::new(),
             max_steps: DEFAULT_STEP_BUDGET,
         }
+    }
+
+    /// A serializable snapshot of every actor's machine or reducer state.
+    ///
+    /// Host-driven actors carry [`ActorState::External`] and cannot be restored;
+    /// they must be respawned by the host.
+    #[must_use]
+    pub fn snapshot(&self) -> ActorTreeSnapshot {
+        ActorTreeSnapshot {
+            actors: self
+                .actors
+                .values()
+                .map(|actor| ActorSnapshotEntry {
+                    id: actor.id.clone(),
+                    parent: actor.parent.clone(),
+                    state: actor.state.clone(),
+                    done_reported: actor.done_reported,
+                })
+                .collect(),
+        }
+    }
+
+    /// Restore an actor tree without re-running active entry actions.
+    ///
+    /// `resolve` supplies the logic for each actor name. Machine snapshots
+    /// re-arm their serialized timers; reducer snapshots restore their values.
+    /// Host-driven actors are rejected because their work lives at the host
+    /// edge.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ActorError::MissingLogic`], [`ActorError::UnsupportedActor`],
+    /// or [`ActorError::InvalidSnapshot`] when the tree cannot be rebuilt.
+    pub fn restore(
+        snapshot: ActorTreeSnapshot,
+        resolve: impl Fn(&ActorId) -> Option<ActorLogic>,
+    ) -> Result<Self, ActorError> {
+        if snapshot.actors.is_empty() {
+            return Err(ActorError::InvalidSnapshot("no actors".to_string()));
+        }
+        let parents: BTreeMap<ActorId, Option<ActorId>> = snapshot
+            .actors
+            .iter()
+            .map(|entry| (entry.id.clone(), entry.parent.clone()))
+            .collect();
+        if parents.values().filter(|parent| parent.is_none()).count() != 1 {
+            return Err(ActorError::InvalidSnapshot(
+                "expected exactly one root".to_string(),
+            ));
+        }
+        let mut entries = snapshot.actors;
+        entries.sort_by_key(|entry| {
+            let mut depth = 0;
+            let mut cursor = entry.parent.as_ref();
+            while let Some(parent) = cursor {
+                depth += 1;
+                cursor = parents.get(parent).and_then(Option::as_ref);
+                if depth > parents.len() {
+                    break;
+                }
+            }
+            depth
+        });
+
+        let (callback_tx, callback_rx) = mpsc::channel();
+        let mut actors = BTreeMap::new();
+        let mut scopes: BTreeMap<ActorId, Arc<Scope>> = BTreeMap::new();
+        let mut timers = Vec::new();
+        for entry in entries {
+            let logic =
+                resolve(&entry.id).ok_or_else(|| ActorError::MissingLogic(entry.id.clone()))?;
+            let scope = match &entry.parent {
+                Some(parent) => scopes
+                    .get(parent)
+                    .ok_or_else(|| {
+                        ActorError::InvalidSnapshot(format!(
+                            "parent {parent} of {} is not earlier in the tree",
+                            entry.id
+                        ))
+                    })?
+                    .fork(),
+                None => Arc::new(Scope::new(0)),
+            };
+            let mut state = entry.state;
+            match (&logic, &mut state) {
+                (ActorLogic::Machine(machine), ActorState::Machine(machine_state)) => {
+                    machine.rearm_timers(machine_state);
+                    timers.extend(
+                        machine
+                            .timers_for_state(machine_state)
+                            .into_iter()
+                            .map(|intent| (entry.id.clone(), intent)),
+                    );
+                }
+                (
+                    ActorLogic::Transition { .. } | ActorLogic::InputTransition { .. },
+                    ActorState::Transition(_),
+                ) => {}
+                (_, ActorState::External) => {
+                    return Err(ActorError::UnsupportedActor(entry.id));
+                }
+                _ => {
+                    return Err(ActorError::InvalidSnapshot(format!(
+                        "logic does not match the state of {}",
+                        entry.id
+                    )));
+                }
+            }
+            scopes.insert(entry.id.clone(), Arc::clone(&scope));
+            actors.insert(
+                entry.id.clone(),
+                Actor {
+                    id: entry.id,
+                    parent: entry.parent,
+                    logic,
+                    state,
+                    scope,
+                    done_reported: entry.done_reported,
+                },
+            );
+        }
+
+        Ok(Self {
+            actors,
+            inbox: VecDeque::new(),
+            pending: VecDeque::new(),
+            tasks: Vec::new(),
+            timers,
+            callback_tx,
+            callback_rx,
+            defects: Vec::new(),
+            max_steps: DEFAULT_STEP_BUDGET,
+        })
+    }
+
+    /// Timer intents produced by actor work, in production order.
+    pub fn take_timers(&mut self) -> Vec<(ActorId, TimerIntent<String>)> {
+        std::mem::take(&mut self.timers)
+    }
+
+    /// Deliver one elapsed actor timer. The synthetic timer event is available
+    /// to guards and actions, and the machine settles normally.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ActorError::Unknown`] when the actor does not exist.
+    pub fn fire_timer(
+        &mut self,
+        actor: &ActorId,
+        timer: &TimerFired<String>,
+    ) -> Result<(), ActorError> {
+        let Some(mut entry) = self.actors.remove(actor) else {
+            return Err(ActorError::Unknown(actor.clone()));
+        };
+        let mut directives = Vec::new();
+        let mut done = false;
+        if let (ActorLogic::Machine(machine), ActorState::Machine(state)) =
+            (&entry.logic, &mut entry.state)
+        {
+            let event = DynamicEvent::new(format!(
+                "xstate.after.{}.{}",
+                timer.duration.as_millis(),
+                timer.state
+            ));
+            let outcome = machine.step_timer(state, timer, &event);
+            *state = MachineState {
+                configuration: outcome.configuration,
+                history: outcome.history,
+                context: outcome.context,
+                armed: outcome.armed,
+            };
+            self.timers.extend(
+                outcome
+                    .timers
+                    .into_iter()
+                    .map(|intent| (entry.id.clone(), intent)),
+            );
+            directives = outcome.directives;
+            done = outcome.done;
+        }
+        self.actors.insert(entry.id.clone(), entry);
+        let id = actor.clone();
+        for directive in directives {
+            self.apply(&id, directive)?;
+        }
+        self.report_done(&id, done);
+        Ok(())
     }
 
     /// Bound the number of steps [`run`](Self::run) may take.
@@ -420,7 +696,13 @@ impl ActorSystem {
             return Err(ActorError::Unknown(parent.clone()));
         };
         let scope = parent_actor.scope.fork();
-        self.add_actor(id, Some(parent.clone()), logic, scope);
+        self.add_actor(
+            id,
+            Some(parent.clone()),
+            logic,
+            serde_json::Value::Null,
+            scope,
+        );
         Ok(())
     }
 
@@ -627,37 +909,62 @@ impl ActorSystem {
         id: ActorId,
         parent: Option<ActorId>,
         logic: ActorLogic,
+        input: serde_json::Value,
         scope: Arc<Scope>,
     ) {
-        let (state, directives) = match &logic {
+        let (state, directives, done) = match &logic {
             ActorLogic::Machine(machine) => {
-                let outcome = machine.enter(machine.initial_context());
+                let context = if input.is_null() {
+                    machine.initial_context().clone()
+                } else if machine.initial_context().data.is_null() {
+                    crate::DynamicContext::from_data(input.clone())
+                } else {
+                    machine.initial_context().clone()
+                };
+                let outcome = machine.start(
+                    &context,
+                    &DynamicEvent::with_payload("xstate.init", input.clone()),
+                );
+                self.timers.extend(
+                    outcome
+                        .timers
+                        .into_iter()
+                        .map(|intent| (id.clone(), intent)),
+                );
                 (
                     ActorState::Machine(MachineState {
                         configuration: outcome.configuration,
                         history: outcome.history,
                         context: outcome.context,
+                        armed: outcome.armed,
                     }),
                     outcome.directives,
+                    outcome.done,
                 )
             }
             ActorLogic::Transition { initial, .. } => {
-                (ActorState::Transition(initial.clone()), Vec::new())
+                (ActorState::Transition(initial.clone()), Vec::new(), false)
+            }
+            ActorLogic::InputTransition { initial, .. } => {
+                (ActorState::Transition(initial(&input)), Vec::new(), false)
             }
             ActorLogic::Effect(effect) => {
                 self.tasks.push(ActorTask {
                     actor: id.clone(),
-                    effect: (effect.start)(),
+                    effect: (effect.start)(&input),
                 });
-                (ActorState::External, Vec::new())
+                (ActorState::External, Vec::new(), false)
             }
-            ActorLogic::Stream(_) => (ActorState::External, Vec::new()),
+            ActorLogic::Stream(_) => (ActorState::External, Vec::new(), false),
             ActorLogic::Callback(callback) => {
-                (callback.start)(CallbackSender {
-                    actor: id.clone(),
-                    tx: self.callback_tx.clone(),
-                });
-                (ActorState::External, Vec::new())
+                (callback.start)(
+                    CallbackSender {
+                        actor: id.clone(),
+                        tx: self.callback_tx.clone(),
+                    },
+                    &input,
+                );
+                (ActorState::External, Vec::new(), false)
             }
         };
         self.actors.insert(
@@ -668,6 +975,7 @@ impl ActorSystem {
                 logic,
                 state,
                 scope,
+                done_reported: false,
             },
         );
         self.pending.extend(
@@ -675,11 +983,44 @@ impl ActorSystem {
                 .into_iter()
                 .map(|directive| (id.clone(), directive)),
         );
+        self.report_done(&id, done);
+    }
+
+    fn report_done(&mut self, id: &ActorId, done: bool) {
+        if !done {
+            return;
+        }
+        let output = self.done_output(id);
+        let Some(actor) = self.actors.get_mut(id) else {
+            return;
+        };
+        if actor.done_reported {
+            return;
+        }
+        actor.done_reported = true;
+        if let Some(parent) = actor.parent.clone() {
+            self.inbox.push_back(Envelope {
+                target: parent,
+                event: DynamicEvent::with_payload(format!("xstate.done.actor.{id}"), output),
+            });
+        }
+    }
+
+    fn done_output(&self, id: &ActorId) -> serde_json::Value {
+        let Some(actor) = self.actors.get(id) else {
+            return serde_json::Value::Null;
+        };
+        match (&actor.logic, &actor.state) {
+            (ActorLogic::Machine(machine), ActorState::Machine(state)) => machine
+                .completion_output(state, &DynamicEvent::new("xstate.done"))
+                .unwrap_or(serde_json::Value::Null),
+            _ => serde_json::Value::Null,
+        }
     }
 
     fn apply(&mut self, sender: &ActorId, directive: ActorDirective) -> Result<(), ActorError> {
         match directive {
-            ActorDirective::Spawn { id, logic } => {
+            ActorDirective::Spawn { id, logic, input } => {
                 if self.actors.contains_key(&id) {
                     return Err(ActorError::Duplicate(id));
                 }
@@ -687,7 +1028,7 @@ impl ActorSystem {
                     return Err(ActorError::Unknown(sender.clone()));
                 };
                 let scope = parent.scope.fork();
-                self.add_actor(id, Some(sender.clone()), logic, scope);
+                self.add_actor(id, Some(sender.clone()), logic, input, scope);
                 Ok(())
             }
             ActorDirective::Send { target, event } => {
@@ -698,11 +1039,8 @@ impl ActorSystem {
                 Ok(())
             }
             ActorDirective::Stop { id } => {
-                if self.stop(&id) {
-                    Ok(())
-                } else {
-                    Err(ActorError::Unknown(id))
-                }
+                self.stop(&id);
+                Ok(())
             }
         }
     }
@@ -720,28 +1058,29 @@ impl ActorSystem {
                     configuration: outcome.configuration,
                     history: outcome.history,
                     context: outcome.context,
+                    armed: outcome.armed,
                 };
+                self.timers.extend(
+                    outcome
+                        .timers
+                        .into_iter()
+                        .map(|intent| (envelope.target.clone(), intent)),
+                );
                 directives = outcome.directives;
                 done = outcome.done;
             }
-            (ActorLogic::Transition { reduce, .. }, ActorState::Transition(value)) => {
+            (ActorLogic::Transition { reduce, .. }, ActorState::Transition(value))
+            | (ActorLogic::InputTransition { reduce, .. }, ActorState::Transition(value)) => {
                 *value = reduce(value, &envelope.event);
             }
             _ => {}
         }
         let id = actor.id.clone();
-        let parent = actor.parent.clone();
         self.actors.insert(id.clone(), actor);
         for directive in directives {
             self.apply(&id, directive)?;
         }
-        if done && let Some(parent) = parent {
-            let event = DynamicEvent::new(format!("xstate.done.actor.{id}"));
-            self.inbox.push_back(Envelope {
-                target: parent,
-                event,
-            });
-        }
+        self.report_done(&id, done);
         Ok(())
     }
 
@@ -823,6 +1162,7 @@ impl fmt::Debug for ActorSystem {
             .field("inbox", &self.inbox.len())
             .field("pending", &self.pending.len())
             .field("tasks", &self.tasks.len())
+            .field("timers", &self.timers.len())
             .finish()
     }
 }

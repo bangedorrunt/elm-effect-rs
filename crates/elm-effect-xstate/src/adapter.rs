@@ -26,6 +26,7 @@ impl<S: Ord + Clone, C: Clone> StatechartModel<S, C> {
             configuration: self.configuration.clone(),
             history: self.history.clone(),
             context: self.context.clone(),
+            armed: Vec::new(),
         }
     }
 
@@ -53,6 +54,9 @@ pub trait StatechartDefinition {
 
     /// Build the static machine topology.
     fn machine() -> Machine<Self::State, Self::Event, Self::Context, Self::Cmd>;
+
+    /// The event that settles initial eventless transitions and entry-raised events.
+    fn init_event() -> Self::Event;
 
     /// Extract a domain event from an incoming message, if matched.
     fn extract_event(msg: &Self::Msg) -> Option<Self::Event>;
@@ -84,7 +88,7 @@ impl<D: StatechartDefinition> Program for StatechartProgram<D> {
 
     fn init(_boot: &Boot) -> Update<Self::Model, Self::Cmd> {
         let machine = D::machine();
-        let outcome = machine.enter(&D::Context::default());
+        let outcome = machine.start(&D::Context::default(), &D::init_event());
         let mut commands = outcome.commands;
         commands.extend(outcome.timers.iter().filter_map(D::timer_cmd));
         Update::with_commands(

@@ -12,6 +12,7 @@ const fixtureDir = path.resolve(
 const FIXTURES = [
   'actions.json',
   'always.json',
+  'events.json',
   'final_states.json',
   'guards.json',
   'hierarchy.json',
@@ -51,6 +52,10 @@ function runActions(actions, args, enq, trace) {
       const [, key, amount] = match;
       next[key] = (next[key] ?? 0) + Number(amount);
       patch[key] = next[key];
+    } else if (action.startsWith('assign_event:')) {
+      const key = action.slice('assign_event:'.length);
+      next[key] = args.event?.[key];
+      patch[key] = next[key];
     } else {
       trace.push(action);
     }
@@ -66,8 +71,44 @@ function lifecycle(actions, trace) {
   };
 }
 
+function stateIn(value, path) {
+  if (path.length === 0) return true;
+  if (typeof value === 'string') {
+    return path.length === 1 && value === path[0];
+  }
+  if (!value || typeof value !== 'object') return false;
+  const [head, ...rest] = path;
+  return head in value && stateIn(value[head], rest);
+}
+
+function stateInAny(value, path) {
+  if (stateIn(value, path)) return true;
+  if (!value || typeof value !== 'object') return false;
+  return Object.values(value).some(
+    (child) => child && typeof child === 'object' && stateInAny(child, path)
+  );
+}
+
 function guardPasses(expression, args) {
   if (!expression) return true;
+  if (expression.startsWith('state_in:')) {
+    const value =
+      args.value ??
+      args.self?.getSnapshot?.().value ??
+      args.snapshot?.value;
+    return stateInAny(value, expression.slice('state_in:'.length).split('.'));
+  }
+  if (expression.startsWith('event_type:')) {
+    return args.event?.type === expression.slice('event_type:'.length);
+  }
+  if (expression.startsWith('event:')) {
+    return Boolean(
+      expression
+        .slice('event:'.length)
+        .split('.')
+        .reduce((value, key) => value?.[key], args.event)
+    );
+  }
   const keys = Object.keys(args.context);
   const predicate = new Function(
     'context',
@@ -82,11 +123,38 @@ function guardPasses(expression, args) {
   );
 }
 
+function toXStateEvent(event) {
+  const payload =
+    event.payload && typeof event.payload === 'object' && !Array.isArray(event.payload)
+      ? event.payload
+      : {};
+  return { ...payload, ...event };
+}
+
+function xstateTarget(target) {
+  if (target.startsWith('#') || target.startsWith('.') || target.includes('.')) {
+    return target;
+  }
+  return `#${target}`;
+}
+
 function transition(rule, trace) {
   return (args, enq) => {
+    if (rule.matches) {
+      for (const [key, value] of Object.entries(rule.matches)) {
+        if (JSON.stringify(args.event?.[key]) !== JSON.stringify(value)) {
+          return undefined;
+        }
+      }
+    }
     if (!guardPasses(rule.guard, args)) return undefined;
     const patch = runActions(rule.actions, args, enq, trace);
-    const result = { target: `#${rule.target}` };
+    const result = {};
+    if (rule.target) {
+      result.target = (Array.isArray(rule.target) ? rule.target : [rule.target]).map(
+        xstateTarget
+      );
+    }
     if (patch) result.context = patch;
     return result;
   };
@@ -94,7 +162,7 @@ function transition(rule, trace) {
 
 function rule(value, trace) {
   if (typeof value === 'string') {
-    return () => ({ target: `#${value}` });
+    return () => ({ target: xstateTarget(value) });
   }
   if (Array.isArray(value)) {
     return value.map((entry) => transition(entry, trace));
@@ -104,14 +172,20 @@ function rule(value, trace) {
 
 function state(name, states, children, trace) {
   const raw = states[name];
-  const node = { id: name };
+  const node = { id: raw.id ?? name };
 
   if (raw.type === 'parallel') node.type = 'parallel';
   if (raw.type === 'final') node.type = 'final';
   if (raw.type === 'history') {
     node.type = 'history';
     if (raw.history) node.history = raw.history;
-    if (raw.initial) node.target = `#${raw.initial}`;
+    if (raw.target) {
+      node.target = (Array.isArray(raw.target) ? raw.target : [raw.target]).map(
+        xstateTarget
+      );
+    } else if (raw.initial) {
+      node.target = xstateTarget(raw.initial);
+    }
     return node;
   }
 
@@ -146,7 +220,6 @@ function machineFor(config, trace) {
   const children = childrenByParent(states);
   const root = {
     context: config.context ?? {},
-    initial: config.initial,
     states: Object.fromEntries(
       (children.get(null) ?? []).map((name) => [
         name,
@@ -154,6 +227,15 @@ function machineFor(config, trace) {
       ])
     )
   };
+  if (config.type === 'parallel') {
+    root.type = 'parallel';
+  } else {
+    root.initial = config.initial;
+  }
+  const entry = lifecycle(config.entry, trace);
+  if (entry) root.entry = entry;
+  const exit = lifecycle(config.exit, trace);
+  if (exit) root.exit = exit;
   return createMachine(root);
 }
 
@@ -234,7 +316,7 @@ function runFixture(file) {
     try {
       const machine = machineFor(testCase.machine, trace);
       const actor = createActor(machine).start();
-      for (const event of testCase.events) actor.send(event);
+      for (const event of testCase.events) actor.send(toXStateEvent(event));
       const snapshot = actor.getSnapshot();
       failures.push(...compare(testCase.name, testCase.expected, trace, snapshot));
       checked++;

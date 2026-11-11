@@ -131,6 +131,62 @@ fn a_top_level_final_completes_the_machine() {
 }
 
 #[test]
+fn root_entry_and_exit_surround_the_machine_lifecycle() {
+    let machine: Machine<Task, Signal, Trace, ()> = Machine::builder(Task::Work, Trace::default())
+        .root_entry(|ctx, _| ctx.log.push("enter_root".into()))
+        .root_exit(|ctx, _| ctx.log.push("exit_root".into()))
+        .state(Task::Work, |node| {
+            let finish = node
+                .transition(Task::StepDone)
+                .on(|e| matches!(e, Signal::Finish));
+            node.entry(|ctx, _| ctx.log.push("enter_work".into()))
+                .exit(|ctx, _| ctx.log.push("exit_work".into()))
+                .on(finish)
+        })
+        .final_state(Task::StepDone, |node| {
+            node.entry(|ctx, _| ctx.log.push("enter_final".into()))
+                .exit(|ctx, _| ctx.log.push("exit_final".into()))
+        })
+        .build();
+
+    let entered = machine.start(&Trace::default(), &Signal::Finish);
+    assert_eq!(entered.context.log, ["enter_root", "enter_work"]);
+    let outcome = machine.step_state(
+        &MachineState::new(entered.configuration, entered.context),
+        &Signal::Finish,
+    );
+
+    assert!(outcome.done);
+    assert_eq!(
+        outcome.context.log,
+        [
+            "enter_root",
+            "enter_work",
+            "exit_work",
+            "enter_final",
+            "exit_final",
+            "exit_root"
+        ]
+    );
+
+    let replayed = machine.step_state(
+        &MachineState::new(outcome.configuration, outcome.context),
+        &Signal::Finish,
+    );
+    assert_eq!(
+        replayed.context.log,
+        [
+            "enter_root",
+            "enter_work",
+            "exit_work",
+            "enter_final",
+            "exit_final",
+            "exit_root"
+        ]
+    );
+}
+
+#[test]
 fn a_machine_whose_root_is_final_reports_done() {
     let machine: Machine<Task, Signal, Trace, ()> =
         Machine::builder(Task::StepDone, Trace::default())

@@ -44,8 +44,8 @@
         "enter_left_a",
         "enter_right",
         "enter_right_a",
-        "exit_left_a",
         "exit_right_a",
+        "exit_left_a",
         "enter_left_b",
         "enter_right_b"
       ]
@@ -114,13 +114,16 @@
         "Finished": { "entry": ["finished"] }
       }
     },
-    "events": [{ "type": "FINISH_LEFT" }],
-    "expected": {
-      "final_state": "LeftDone",
-      "final_states": ["LeftDone", "RightA"],
-      "trace": []
-    }
-  },
+    "events": [{ "type": "FINISH_LEFT" }],  "expected": {
+    "final_state": "LeftDone",
+    "final_states": [
+      "LeftDone",
+      "RightA"
+    ],
+    "done": false,
+    "trace": []
+  }
+},
   {
     "name": "parallel_completes_only_after_the_last_region",
     "description": "Proves onDone fires when the second region reaches its final child",
@@ -352,6 +355,1185 @@
     "final_states": [
       "Idle",
       "RegionA"
+    ],
+    "trace": []
+  }
+},
+{
+  "name": "nested_parallel_simple_transition",
+  "description": "Upstream parallel: one event enters nested parallel regions and a later event advances one nested region",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/parallel.test.ts: should properly transition when in a simple nested state",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "OUTER1": {
+        "type": "compound",
+        "initial": "STATE_OFF",
+        "parent": "Root"
+      },
+      "STATE_OFF": {
+        "parent": "OUTER1",
+        "on": {
+          "EVENT_SIMPLE": "STATE_ON"
+        }
+      },
+      "STATE_ON": {
+        "type": "parallel",
+        "parent": "OUTER1"
+      },
+      "STATE_NTJ0": {
+        "type": "compound",
+        "initial": "STATE_IDLE_0",
+        "parent": "STATE_ON"
+      },
+      "STATE_IDLE_0": {
+        "parent": "STATE_NTJ0",
+        "on": {
+          "EVENT_STATE_NTJ0_WORK": "STATE_WORKING_0"
+        }
+      },
+      "STATE_WORKING_0": {
+        "parent": "STATE_NTJ0"
+      },
+      "STATE_NTJ1": {
+        "type": "compound",
+        "initial": "STATE_IDLE_1",
+        "parent": "STATE_ON"
+      },
+      "STATE_IDLE_1": {
+        "parent": "STATE_NTJ1"
+      },
+      "OUTER2": {
+        "type": "compound",
+        "initial": "OUTER2_OFF",
+        "parent": "Root"
+      },
+      "OUTER2_OFF": {
+        "parent": "OUTER2",
+        "on": {
+          "EVENT_SIMPLE": "OUTER2_ON_SIMPLE"
+        }
+      },
+      "OUTER2_ON_SIMPLE": {
+        "parent": "OUTER2"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "EVENT_SIMPLE"
+    },
+    {
+      "type": "EVENT_STATE_NTJ0_WORK"
+    }
+  ],
+  "expected": {
+    "final_state": "OUTER2_ON_SIMPLE",
+    "final_states": [
+      "OUTER2_ON_SIMPLE",
+      "STATE_IDLE_1",
+      "STATE_WORKING_0"
+    ],
+    "trace": []
+  }
+},
+{
+  "name": "nested_parallel_complex_transition",
+  "description": "Upstream parallel: an event enters a nested parallel subtree while a sibling nested region advances independently",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/parallel.test.ts: should properly transition when in a complex nested state",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "OUTER1": {
+        "type": "compound",
+        "initial": "STATE_OFF",
+        "parent": "Root"
+      },
+      "STATE_OFF": {
+        "parent": "OUTER1",
+        "on": {
+          "EVENT_COMPLEX": "STATE_ON"
+        }
+      },
+      "STATE_ON": {
+        "type": "parallel",
+        "parent": "OUTER1"
+      },
+      "STATE_NTJ0": {
+        "type": "compound",
+        "initial": "STATE_IDLE_0",
+        "parent": "STATE_ON"
+      },
+      "STATE_IDLE_0": {
+        "parent": "STATE_NTJ0",
+        "on": {
+          "EVENT_STATE_NTJ0_WORK": "STATE_WORKING_0"
+        }
+      },
+      "STATE_WORKING_0": {
+        "parent": "STATE_NTJ0"
+      },
+      "STATE_NTJ1": {
+        "type": "compound",
+        "initial": "STATE_IDLE_1",
+        "parent": "STATE_ON"
+      },
+      "STATE_IDLE_1": {
+        "parent": "STATE_NTJ1"
+      },
+      "OUTER2": {
+        "type": "compound",
+        "initial": "OUTER2_OFF",
+        "parent": "Root"
+      },
+      "OUTER2_OFF": {
+        "parent": "OUTER2",
+        "on": {
+          "EVENT_COMPLEX": "OUTER2_ON_COMPLEX"
+        }
+      },
+      "OUTER2_ON_COMPLEX": {
+        "type": "parallel",
+        "parent": "OUTER2"
+      },
+      "INNER1": {
+        "type": "compound",
+        "initial": "INNER1_OFF",
+        "parent": "OUTER2_ON_COMPLEX"
+      },
+      "INNER1_OFF": {
+        "parent": "INNER1"
+      },
+      "INNER2": {
+        "type": "compound",
+        "initial": "INNER2_OFF",
+        "parent": "OUTER2_ON_COMPLEX"
+      },
+      "INNER2_OFF": {
+        "parent": "INNER2"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "EVENT_COMPLEX"
+    },
+    {
+      "type": "EVENT_STATE_NTJ0_WORK"
+    }
+  ],
+  "expected": {
+    "final_state": "INNER1_OFF",
+    "final_states": [
+      "INNER1_OFF",
+      "INNER2_OFF",
+      "STATE_IDLE_1",
+      "STATE_WORKING_0"
+    ],
+    "trace": []
+  }
+},
+{
+  "name": "nested_parallel_cross_region_preserves_source",
+  "description": "Upstream parallel: a cross-region transition inside a nested parallel keeps the source region active",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/parallel.test.ts: source parallel region should not be exited when a transition within it targets another parallel region (nested parallel)",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "type": "parallel"
+      },
+      "Operation": {
+        "type": "compound",
+        "initial": "Waiting",
+        "parent": "A"
+      },
+      "Waiting": {
+        "parent": "Operation",
+        "on": {
+          "TOGGLE_MODE": "Demo"
+        }
+      },
+      "Mode": {
+        "type": "compound",
+        "initial": "Normal",
+        "parent": "A"
+      },
+      "Normal": {
+        "parent": "Mode",
+        "exit": [
+          "exit_normal"
+        ]
+      },
+      "Demo": {
+        "parent": "Mode",
+        "entry": [
+          "enter_demo"
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "TOGGLE_MODE"
+    }
+  ],
+  "expected": {
+    "final_state": "Demo",
+    "final_states": [
+      "Demo",
+      "Waiting"
+    ],
+    "trace": [
+      "exit_normal",
+      "enter_demo"
+    ]
+  }
+},
+{
+  "name": "deep_flat_parallel_entry",
+  "description": "Upstream parallel: targeting a compound enters its initial parallel subtree and leaves the sibling region active",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/parallel.test.ts: should properly evaluate deep flat parallel states",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "X": {
+        "parent": "Root"
+      },
+      "V": {
+        "type": "compound",
+        "initial": "A",
+        "parent": "Root",
+        "on": {
+          "a": "A",
+          "b": "B",
+          "c": "C"
+        }
+      },
+      "A": {
+        "parent": "V"
+      },
+      "B": {
+        "type": "compound",
+        "initial": "BB",
+        "parent": "V"
+      },
+      "BB": {
+        "type": "parallel",
+        "parent": "B"
+      },
+      "BBB_A": {
+        "parent": "BB"
+      },
+      "BBB_B": {
+        "parent": "BB"
+      },
+      "C": {
+        "parent": "V"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "a"
+    },
+    {
+      "type": "c"
+    },
+    {
+      "type": "b"
+    }
+  ],
+  "expected": {
+    "final_state": "BBB_A",
+    "final_states": [
+      "BBB_A",
+      "BBB_B",
+      "X"
+    ],
+    "trace": []
+  }
+},
+{
+  "name": "multi_region_word_toggles",
+  "description": "Upstream parallel: independent formatting regions toggle without disturbing a list region already on bullets",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/parallel.test.ts: should go from underline on and list bullets to bold and italics on",
+  "machine": {
+    "initial": "Word",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Word": {
+        "type": "parallel"
+      },
+      "Bold": {
+        "type": "compound",
+        "initial": "BoldOff",
+        "parent": "Word"
+      },
+      "BoldOff": {
+        "parent": "Bold",
+        "on": {
+          "TOGGLE_BOLD": "BoldOn"
+        }
+      },
+      "BoldOn": {
+        "parent": "Bold",
+        "on": {
+          "TOGGLE_BOLD": "BoldOff"
+        }
+      },
+      "Italics": {
+        "type": "compound",
+        "initial": "ItalicsOff",
+        "parent": "Word"
+      },
+      "ItalicsOff": {
+        "parent": "Italics",
+        "on": {
+          "TOGGLE_ITALICS": "ItalicsOn"
+        }
+      },
+      "ItalicsOn": {
+        "parent": "Italics",
+        "on": {
+          "TOGGLE_ITALICS": "ItalicsOff"
+        }
+      },
+      "Underline": {
+        "type": "compound",
+        "initial": "UnderlineOn",
+        "parent": "Word"
+      },
+      "UnderlineOn": {
+        "parent": "Underline",
+        "on": {
+          "TOGGLE_UNDERLINE": "UnderlineOff"
+        }
+      },
+      "UnderlineOff": {
+        "parent": "Underline",
+        "on": {
+          "TOGGLE_UNDERLINE": "UnderlineOn"
+        }
+      },
+      "List": {
+        "type": "compound",
+        "initial": "ListBullets",
+        "parent": "Word"
+      },
+      "ListNone": {
+        "parent": "List",
+        "on": {
+          "BULLETS": "ListBullets",
+          "NUMBERS": "ListNumbers"
+        }
+      },
+      "ListBullets": {
+        "parent": "List",
+        "on": {
+          "NONE": "ListNone",
+          "NUMBERS": "ListNumbers"
+        }
+      },
+      "ListNumbers": {
+        "parent": "List",
+        "on": {
+          "BULLETS": "ListBullets",
+          "NONE": "ListNone"
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "TOGGLE_BOLD"
+    },
+    {
+      "type": "TOGGLE_ITALICS"
+    }
+  ],
+  "expected": {
+    "final_state": "BoldOn",
+    "final_states": [
+      "BoldOn",
+      "ItalicsOn",
+      "ListBullets",
+      "UnderlineOn"
+    ],
+    "trace": []
+  }
+},
+{
+  "name": "parallel_target_entry_actions",
+  "description": "Upstream actions: entering a parallel state runs its entry before each nested region and leaf",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/actions.test.ts: should return entry action defined on parallel state",
+  "machine": {
+    "initial": "Start",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Start": {
+        "entry": [
+          "enter_start"
+        ],
+        "exit": [
+          "exit_start"
+        ],
+        "on": {
+          "ENTER_PARALLEL": "P1"
+        }
+      },
+      "P1": {
+        "type": "parallel",
+        "entry": [
+          "enter_p1"
+        ],
+        "exit": [
+          "exit_p1"
+        ]
+      },
+      "Nested": {
+        "type": "compound",
+        "initial": "Inner",
+        "parent": "P1",
+        "entry": [
+          "enter_nested"
+        ],
+        "exit": [
+          "exit_nested"
+        ]
+      },
+      "Inner": {
+        "parent": "Nested",
+        "entry": [
+          "enter_inner"
+        ],
+        "exit": [
+          "exit_inner"
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "ENTER_PARALLEL"
+    }
+  ],
+  "expected": {
+    "final_state": "Inner",
+    "trace": [
+      "enter_start",
+      "exit_start",
+      "enter_p1",
+      "enter_nested",
+      "enter_inner"
+    ]
+  }
+},
+{
+  "name": "parallel_simultaneous_region_actions",
+  "description": "Upstream actions: simultaneous region transitions exit in reverse document order, run region actions in order, then enter in order",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/actions.test.ts: should return actions for parallel machines",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "A": {
+        "type": "compound",
+        "initial": "A1",
+        "parent": "Root",
+        "entry": [
+          "enter_a"
+        ],
+        "exit": [
+          "exit_a"
+        ]
+      },
+      "A1": {
+        "parent": "A",
+        "entry": [
+          "enter_a1"
+        ],
+        "exit": [
+          "exit_a1"
+        ],
+        "on": {
+          "CHANGE": {
+            "target": "A2",
+            "actions": [
+              "do_a2",
+              "another_do_a2"
+            ]
+          }
+        }
+      },
+      "A2": {
+        "parent": "A",
+        "entry": [
+          "enter_a2"
+        ],
+        "exit": [
+          "exit_a2"
+        ]
+      },
+      "B": {
+        "type": "compound",
+        "initial": "B1",
+        "parent": "Root",
+        "entry": [
+          "enter_b"
+        ],
+        "exit": [
+          "exit_b"
+        ]
+      },
+      "B1": {
+        "parent": "B",
+        "entry": [
+          "enter_b1"
+        ],
+        "exit": [
+          "exit_b1"
+        ],
+        "on": {
+          "CHANGE": {
+            "target": "B2",
+            "actions": [
+              "do_b2"
+            ]
+          }
+        }
+      },
+      "B2": {
+        "parent": "B",
+        "entry": [
+          "enter_b2"
+        ],
+        "exit": [
+          "exit_b2"
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "CHANGE"
+    }
+  ],
+  "expected": {
+    "final_state": "A2",
+    "final_states": [
+      "A2",
+      "B2"
+    ],
+    "trace": [
+      "enter_a",
+      "enter_a1",
+      "enter_b",
+      "enter_b1",
+      "exit_b1",
+      "exit_a1",
+      "do_a2",
+      "another_do_a2",
+      "do_b2",
+      "enter_a2",
+      "enter_b2"
+    ]
+  }
+},
+{
+  "name": "parallel_atomic_regions",
+  "description": "Upstream parallel: atomic regions stay active while a compound region advances",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/parallel.test.ts: should work with regions without states",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "Bar": {
+        "parent": "Root"
+      },
+      "Baz": {
+        "type": "compound",
+        "initial": "One",
+        "parent": "Root"
+      },
+      "One": {
+        "parent": "Baz",
+        "on": {
+          "E": "Two"
+        }
+      },
+      "Two": {
+        "parent": "Baz"
+      },
+      "Foo": {
+        "parent": "Root"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "E"
+    }
+  ],
+  "expected": {
+    "final_state": "Bar",
+    "final_states": [
+      "Bar",
+      "Foo",
+      "Two"
+    ],
+    "trace": []
+  }
+},
+{
+  "name": "targetless_parallel_state_actions",
+  "description": "Upstream parallel: a targetless transition on a parallel state runs its action without entering or exiting any state",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/parallel.test.ts: targetless transition on a parallel state should not enter nor exit any states",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel",
+        "entry": [
+          "enter_parallel"
+        ],
+        "on": {
+          "MY_EVENT": {
+            "actions": [
+              "targetless_action"
+            ]
+          }
+        }
+      },
+      "First": {
+        "type": "compound",
+        "initial": "Disabled",
+        "parent": "Root",
+        "entry": [
+          "enter_first"
+        ],
+        "exit": [
+          "exit_first"
+        ]
+      },
+      "Disabled": {
+        "parent": "First",
+        "entry": [
+          "enter_disabled"
+        ],
+        "exit": [
+          "exit_disabled"
+        ]
+      },
+      "Enabled": {
+        "parent": "First",
+        "entry": [
+          "enter_enabled"
+        ],
+        "exit": [
+          "exit_enabled"
+        ]
+      },
+      "Second": {
+        "parent": "Root",
+        "entry": [
+          "enter_second"
+        ],
+        "exit": [
+          "exit_second"
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "MY_EVENT"
+    }
+  ],
+  "expected": {
+    "final_state": "Disabled",
+    "final_states": [
+      "Disabled",
+      "Second"
+    ],
+    "trace": [
+      "enter_parallel",
+      "enter_first",
+      "enter_disabled",
+      "enter_second",
+      "targetless_action"
+    ]
+  }
+},
+{
+  "name": "targetless_region_actions",
+  "description": "Upstream parallel: a targetless transition inside one region runs its action without touching any region state",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/parallel.test.ts: targetless transition in one of the parallel regions should not enter nor exit any states",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel",
+        "entry": [
+          "enter_parallel"
+        ]
+      },
+      "First": {
+        "type": "compound",
+        "initial": "Disabled",
+        "parent": "Root",
+        "entry": [
+          "enter_first"
+        ],
+        "exit": [
+          "exit_first"
+        ],
+        "on": {
+          "MY_EVENT": {
+            "actions": [
+              "targetless_action"
+            ]
+          }
+        }
+      },
+      "Disabled": {
+        "parent": "First",
+        "entry": [
+          "enter_disabled"
+        ],
+        "exit": [
+          "exit_disabled"
+        ]
+      },
+      "Enabled": {
+        "parent": "First",
+        "entry": [
+          "enter_enabled"
+        ],
+        "exit": [
+          "exit_enabled"
+        ]
+      },
+      "Second": {
+        "parent": "Root",
+        "entry": [
+          "enter_second"
+        ],
+        "exit": [
+          "exit_second"
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "MY_EVENT"
+    }
+  ],
+  "expected": {
+    "final_state": "Disabled",
+    "final_states": [
+      "Disabled",
+      "Second"
+    ],
+    "trace": [
+      "enter_parallel",
+      "enter_first",
+      "enter_disabled",
+      "enter_second",
+      "targetless_action"
+    ]
+  }
+},
+{
+  "name": "parallel_targetless_action_document_order",
+  "description": "Upstream actions: targetless transitions in same-level parallel regions run their actions in document order",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/actions.test.ts: should call transition actions in document order for same-level parallel regions",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "A": {
+        "parent": "Root",
+        "on": {
+          "FOO": {
+            "actions": [
+              "a"
+            ]
+          }
+        }
+      },
+      "B": {
+        "parent": "Root",
+        "on": {
+          "FOO": {
+            "actions": [
+              "b"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "FOO"
+    }
+  ],
+  "expected": {
+    "final_state": "A",
+    "final_states": [
+      "A",
+      "B"
+    ],
+    "trace": [
+      "a",
+      "b"
+    ]
+  }
+},
+{
+  "name": "parallel_targetless_action_nested_order",
+  "description": "Upstream actions: targetless transitions at different depths of parallel regions run actions in active-leaf order",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/actions.test.ts: should call transition actions in document order for states at different levels of parallel regions",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "A": {
+        "type": "compound",
+        "initial": "A1",
+        "parent": "Root"
+      },
+      "A1": {
+        "parent": "A",
+        "on": {
+          "FOO": {
+            "actions": [
+              "a1"
+            ]
+          }
+        }
+      },
+      "B": {
+        "parent": "Root",
+        "on": {
+          "FOO": {
+            "actions": [
+              "b"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "FOO"
+    }
+  ],
+  "expected": {
+    "final_state": "A1",
+    "final_states": [
+      "A1",
+      "B"
+    ],
+    "trace": [
+      "a1",
+      "b"
+    ]
+  }
+},
+{
+  "name": "parallel_root_cross_region_preserves_source",
+  "description": "Upstream parallel: a root-level cross-region transition exits only the target region's leaf and leaves the source region active",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/parallel.test.ts: source parallel region should not be exited when a transition within it targets another parallel region (parallel root)",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "Operation": {
+        "type": "compound",
+        "initial": "Waiting",
+        "parent": "Root"
+      },
+      "Waiting": {
+        "parent": "Operation",
+        "on": {
+          "TOGGLE_MODE": "#demo"
+        }
+      },
+      "Mode": {
+        "type": "compound",
+        "initial": "Normal",
+        "parent": "Root"
+      },
+      "Normal": {
+        "parent": "Mode",
+        "exit": [
+          "exit_normal"
+        ]
+      },
+      "Demo": {
+        "id": "demo",
+        "parent": "Mode",
+        "entry": [
+          "enter_demo"
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "TOGGLE_MODE"
+    }
+  ],
+  "expected": {
+    "final_state": "Demo",
+    "final_states": [
+      "Demo",
+      "Waiting"
+    ],
+    "trace": [
+      "exit_normal",
+      "enter_demo"
+    ]
+  }
+},
+{
+  "name": "parallel_simultaneous_event_assignment",
+  "description": "Upstream parallel: one event assigns context in one region while transitioning another region",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/parallel.test.ts: should handle simultaneous orthogonal transitions",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "value": ""
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "Editing": {
+        "parent": "Root",
+        "on": {
+          "CHANGE": {
+            "actions": [
+              "assign_event:value"
+            ]
+          }
+        }
+      },
+      "Status": {
+        "type": "compound",
+        "initial": "Unsaved",
+        "parent": "Root"
+      },
+      "Unsaved": {
+        "parent": "Status",
+        "on": {
+          "SAVE": "Saved"
+        }
+      },
+      "Saved": {
+        "parent": "Status",
+        "on": {
+          "CHANGE": "Unsaved"
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "SAVE"
+    },
+    {
+      "type": "CHANGE",
+      "payload": {
+        "value": "something"
+      }
+    }
+  ],
+  "expected": {
+    "final_state": "Editing",
+    "final_states": [
+      "Editing",
+      "Unsaved"
+    ],
+    "final_data": {
+      "value": "something"
+    },
+    "trace": []
+  }
+},
+{
+  "name": "multi_target_enters_orthogonal_regions",
+  "description": "Upstream parallel: one transition with two targets updates both orthogonal regions",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/parallel.test.ts: regions should be able to transition to orthogonal regions",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "Pages": {
+        "type": "compound",
+        "initial": "About",
+        "parent": "Root"
+      },
+      "About": {
+        "parent": "Pages"
+      },
+      "Dashboard": {
+        "parent": "Pages"
+      },
+      "Menu": {
+        "type": "compound",
+        "initial": "Closed",
+        "parent": "Root"
+      },
+      "Closed": {
+        "parent": "Menu",
+        "on": {
+          "toggle": "Opened"
+        }
+      },
+      "Opened": {
+        "parent": "Menu",
+        "on": {
+          "toggle": "Closed",
+          "go to dashboard": {
+            "target": [
+              "Dashboard",
+              "Opened"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "toggle"
+    },
+    {
+      "type": "go to dashboard"
+    }
+  ],
+  "expected": {
+    "final_state": "Dashboard",
+    "final_states": [
+      "Dashboard",
+      "Opened"
+    ],
+    "trace": []
+  }
+},
+{
+  "name": "relative_target_within_parallel_region",
+  "description": "Upstream parallel: a dot target resolves inside its declaring compound state without resetting the sibling region",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/parallel.test.ts: should properly transition to relative substate",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "SelectionStatus": {
+        "type": "compound",
+        "initial": "SelectedNone",
+        "parent": "Root",
+        "on": {
+          "singleClickActivity": ".SelectedActivity"
+        }
+      },
+      "SelectedNone": {
+        "parent": "SelectionStatus"
+      },
+      "SelectedActivity": {
+        "parent": "SelectionStatus"
+      },
+      "ClipboardStatus": {
+        "type": "compound",
+        "initial": "Empty",
+        "parent": "Root"
+      },
+      "Empty": {
+        "parent": "ClipboardStatus"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "singleClickActivity"
+    }
+  ],
+  "expected": {
+    "final_state": "Empty",
+    "final_states": [
+      "Empty",
+      "SelectedActivity"
     ],
     "trace": []
   }

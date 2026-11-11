@@ -62,34 +62,54 @@ where
             return;
         };
         for transition in &node.transitions {
-            out.push_str(&format!(
-                "{pad}{} --> {} : {}\n",
-                mermaid_id(id),
-                mermaid_id(transition.destination()),
-                transition.edge_label().unwrap_or("on")
-            ));
+            if transition.is_targetless() {
+                continue;
+            }
+            for target in transition.target_states() {
+                out.push_str(&format!(
+                    "{pad}{} --> {} : {}\n",
+                    mermaid_id(id),
+                    mermaid_id(target),
+                    transition.edge_label().unwrap_or("on")
+                ));
+            }
         }
         for transition in &node.always {
-            out.push_str(&format!(
-                "{pad}{} --> {} : always\n",
-                mermaid_id(id),
-                mermaid_id(transition.destination())
-            ));
+            if transition.is_targetless() {
+                continue;
+            }
+            for target in transition.target_states() {
+                out.push_str(&format!(
+                    "{pad}{} --> {} : always\n",
+                    mermaid_id(id),
+                    mermaid_id(target)
+                ));
+            }
         }
-        for (duration, transition) in &node.after {
-            out.push_str(&format!(
-                "{pad}{} --> {} : after {}ms\n",
-                mermaid_id(id),
-                mermaid_id(transition.destination()),
-                duration.as_millis()
-            ));
+        for (delay, transition) in &node.after {
+            if transition.is_targetless() {
+                continue;
+            }
+            for target in transition.target_states() {
+                out.push_str(&format!(
+                    "{pad}{} --> {} : after {}\n",
+                    mermaid_id(id),
+                    mermaid_id(target),
+                    delay.label()
+                ));
+            }
         }
         for transition in &node.on_done {
-            out.push_str(&format!(
-                "{pad}{} --> {} : done\n",
-                mermaid_id(id),
-                mermaid_id(transition.destination())
-            ));
+            if transition.is_targetless() {
+                continue;
+            }
+            for target in transition.target_states() {
+                out.push_str(&format!(
+                    "{pad}{} --> {} : done\n",
+                    mermaid_id(id),
+                    mermaid_id(target)
+                ));
+            }
         }
     }
 }
@@ -146,16 +166,32 @@ where
         for node in self.nodes.values() {
             let source = tla_state(&node.id);
             for transition in &node.transitions {
-                edges.push(tla_edge(&source, &tla_state(transition.destination())));
+                if !transition.is_targetless() {
+                    for target in transition.target_states() {
+                        edges.push(tla_edge(&source, &tla_state(target)));
+                    }
+                }
             }
             for transition in &node.always {
-                edges.push(tla_edge(&source, &tla_state(transition.destination())));
+                if !transition.is_targetless() {
+                    for target in transition.target_states() {
+                        edges.push(tla_edge(&source, &tla_state(target)));
+                    }
+                }
             }
             for (_, transition) in &node.after {
-                edges.push(tla_edge(&source, &tla_state(transition.destination())));
+                if !transition.is_targetless() {
+                    for target in transition.target_states() {
+                        edges.push(tla_edge(&source, &tla_state(target)));
+                    }
+                }
             }
             for transition in &node.on_done {
-                edges.push(tla_edge(&source, &tla_state(transition.destination())));
+                if !transition.is_targetless() {
+                    for target in transition.target_states() {
+                        edges.push(tla_edge(&source, &tla_state(target)));
+                    }
+                }
             }
         }
         if edges.is_empty() {

@@ -22,6 +22,26 @@ pub enum StateNodeType {
     Final,
 }
 
+/// One timer armed by a state entry. `transition` is the index into that
+/// state's `after` list, so the matching transition survives a context change.
+///
+/// The host owns the clock. This record is the engine's durable intent for the
+/// current run; [`MachineState`] carries it between steps.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(bound(
+    serialize = "S: serde::Serialize",
+    deserialize = "S: serde::Deserialize<'de>"
+))]
+pub struct ArmedTimer<S> {
+    /// The state that declares the delay.
+    pub state: S,
+    /// The duration resolved at entry.
+    #[serde(with = "duration_string")]
+    pub duration: Duration,
+    /// Index of the transition in the state's `after` list.
+    pub transition: usize,
+}
+
 /// One chart run: the active configuration, recorded history, and context.
 ///
 /// The engine is pure, so a run is a value. [`step`](crate::Machine::step_state)
@@ -39,6 +59,11 @@ pub struct MachineState<S, C> {
     pub history: BTreeMap<S, Configuration<S>>,
     /// Extended quantitative context.
     pub context: C,
+    /// Timers armed by active states in this run, including the duration
+    /// resolved when each state was entered. Snapshots carry this so an
+    /// event-dependent delay does not need its entry event replayed.
+    #[serde(default)]
+    pub armed: Vec<ArmedTimer<S>>,
 }
 
 impl<S: Ord + Clone, C> MachineState<S, C> {
@@ -49,6 +74,7 @@ impl<S: Ord + Clone, C> MachineState<S, C> {
             configuration,
             history: BTreeMap::new(),
             context,
+            armed: Vec::new(),
         }
     }
 
@@ -88,6 +114,27 @@ pub enum TimerIntent<S> {
         /// The delay that is no longer relevant.
         duration: Duration,
     },
+}
+
+mod duration_string {
+    use elm_effect::Duration;
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&duration.to_pin_string())
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw = String::deserialize(deserializer)?;
+        Duration::from_input_string(&raw)
+            .ok_or_else(|| serde::de::Error::custom(format!("invalid duration {raw:?}")))
+    }
 }
 
 /// A delay that elapsed. Pass it to
@@ -138,6 +185,8 @@ pub struct StepOutcome<S, C, CMD, E> {
     pub directives: Vec<ActorDirective>,
     /// Clock requests this step produced, in entry and exit order.
     pub timers: Vec<TimerIntent<S>>,
+    /// Timers armed after this step, for the next [`MachineState`].
+    pub armed: Vec<ArmedTimer<S>>,
     /// Whether any transition was taken.
     pub transitioned: bool,
     /// Whether the root node reached a final state.

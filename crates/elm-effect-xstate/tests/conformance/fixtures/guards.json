@@ -103,7 +103,7 @@
   },
   {
     "name": "guarded_self_transition_reenters",
-    "description": "Proves a true guard on a self-transition still exits and re-enters the state",
+    "description": "Proves a true guard on a reentering self-transition still exits and re-enters the state",
     "machine": {
       "initial": "A",
       "context": { "score": 50, "log": [] },
@@ -113,7 +113,12 @@
           "exit": ["exit_a"],
           "on": {
             "RETRY": [
-              { "target": "A", "guard": "score >= 10", "actions": ["retry"] }
+              {
+                "target": "A",
+                "reenter": true,
+                "guard": "score >= 10",
+                "actions": ["retry"]
+              }
             ]
           }
         }
@@ -124,5 +129,116 @@
       "final_state": "A",
       "trace": ["enter_a", "exit_a", "retry", "enter_a"]
     }
+  },
+  {
+    "name": "guard_event_payload_matches",
+    "description": "Upstream guards: a guard reading the event payload accepts a true emergency flag",
+    "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/guards.test.ts: should transition if condition based on event is met",
+    "machine": {
+      "initial": "Green",
+      "context": { "log": [] },
+      "states": {
+        "Green": {
+          "on": {
+            "EMERGENCY": {
+              "target": "Red",
+              "guard": "event:isEmergency"
+            }
+          }
+        },
+        "Red": {}
+      }
+    },
+    "events": [
+      { "type": "EMERGENCY", "payload": { "isEmergency": true } }
+    ],
+    "expected": {
+      "final_state": "Red",
+      "trace": []
+    }
+  },
+  {
+    "name": "guard_event_payload_skips",
+    "description": "Upstream guards: a false event payload flag leaves the transition untaken",
+    "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/guards.test.ts: should not transition if condition based on event is not met",
+    "machine": {
+      "initial": "Green",
+      "context": { "log": [] },
+      "states": {
+        "Green": {
+          "on": {
+            "EMERGENCY": {
+              "target": "Red",
+              "guard": "event:isEmergency"
+            }
+          }
+        },
+        "Red": {}
+      }
+    },
+    "events": [
+      { "type": "EMERGENCY", "payload": { "isEmergency": false } }
+    ],
+    "expected": {
+      "final_state": "Green",
+      "trace": []
+    }
+  },
+{
+  "name": "guard_state_in_matches",
+  "description": "Upstream guards: a transition guarded by the active configuration is selected",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/guards.test.ts: should allow a matching transition",
+  "machine": {
+    "initial": "Root",
+    "context": { "log": [] },
+    "states": {
+      "Root": { "type": "parallel" },
+      "A": { "type": "compound", "initial": "A2", "parent": "Root" },
+      "A2": { "parent": "A" },
+      "B": { "type": "compound", "initial": "B0", "parent": "Root" },
+      "B0": {
+        "parent": "B",
+        "on": {
+          "T2": { "target": "B2", "guard": "state_in:A.A2" }
+        }
+      },
+      "B2": { "parent": "B" }
+    }
+  },
+  "events": [{ "type": "T2" }],
+  "expected": {
+    "final_state": "A2",
+    "final_states": ["A2", "B2"],
+    "trace": []
   }
+},
+{
+  "name": "guard_state_in_interim",
+  "description": "Upstream guards: an always guard observes an interim active state in another parallel region",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/guards.test.ts: should check guards with interim states",
+  "machine": {
+    "initial": "Root",
+    "context": { "log": [] },
+    "states": {
+      "Root": { "type": "parallel" },
+      "A": { "type": "compound", "initial": "A2", "parent": "Root" },
+      "A2": { "parent": "A", "on": { "A": "A3" } },
+      "A3": { "parent": "A", "always": [{ "target": "A4" }] },
+      "A4": { "parent": "A", "always": [{ "target": "A5" }] },
+      "A5": { "parent": "A" },
+      "B": { "type": "compound", "initial": "B0", "parent": "Root" },
+      "B0": {
+        "parent": "B",
+        "always": [{ "target": "B4", "guard": "state_in:A.A4" }]
+      },
+      "B4": { "parent": "B" }
+    }
+  },
+  "events": [{ "type": "A" }],
+  "expected": {
+    "final_state": "A5",
+    "final_states": ["A5", "B4"],
+    "trace": []
+  }
+}
 ]

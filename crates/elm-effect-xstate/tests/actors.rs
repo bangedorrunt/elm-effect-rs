@@ -193,7 +193,7 @@ fn sending_to_an_unknown_actor_is_an_error() {
 #[test]
 fn a_directive_cycle_trips_the_step_budget() {
     let config: MachineConfig = serde_json::from_str(
-        r#"{"initial":"A","states":{"A":{"entry":["loop"],"on":{"TICK":"A"}}}}"#,
+        r#"{"initial":"A","states":{"A":{"entry":["loop"],"on":{"TICK":{"target":"A","reenter":true}}}}}"#,
     )
     .expect("schema");
     let machine = DynamicMachine::builder(config)
@@ -204,4 +204,80 @@ fn a_directive_cycle_trips_the_step_budget() {
 
     let mut system = ActorSystem::new("root", ActorLogic::from_machine(machine)).with_max_steps(16);
     assert_eq!(system.run(), Err(ActorError::StepBudget(16)));
+}
+
+#[test]
+fn a_completed_child_reports_done_once() {
+    let root_config: MachineConfig = serde_json::from_str(
+        r#"{"initial":"Listening","context":{"count":0},"states":{
+            "Listening":{"on":{"xstate.done.actor.worker":{"actions":["bump"]}}}
+        }}"#,
+    )
+    .expect("root schema");
+    let root = DynamicMachine::builder(root_config)
+        .action("bump", |context, _event, _enq| {
+            if let Some(data) = context.data.as_object_mut() {
+                let count = data
+                    .get("count")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0);
+                data.insert("count".into(), serde_json::json!(count + 1));
+            }
+        })
+        .build();
+    let child = DynamicMachine::from_json_str(
+        r#"{"initial":"Go","states":{"Go":{"on":{"FINISH":"End"}},"End":{"type":"final"}}}"#,
+    )
+    .expect("child schema");
+
+    let mut system = ActorSystem::new("root", ActorLogic::from_machine(root));
+    system
+        .spawn(&id("root"), "worker", ActorLogic::from_machine(child))
+        .expect("spawn worker");
+    system
+        .send("worker", DynamicEvent::new("FINISH"))
+        .expect("finish worker");
+    system.run().expect("system settles");
+
+    let count = |system: &ActorSystem| {
+        system
+            .context(&id("root"))
+            .expect("root context")
+            .data
+            .get("count")
+            .and_then(serde_json::Value::as_u64)
+            .expect("count")
+    };
+    assert_eq!(count(&system), 1);
+
+    system
+        .send("worker", DynamicEvent::new("AGAIN"))
+        .expect("worker still exists");
+    system.run().expect("system settles");
+    assert_eq!(count(&system), 1, "a completed actor reports done once");
+}
+
+#[test]
+fn actor_start_settles_entry_raised_events() {
+    let config: MachineConfig = serde_json::from_str(
+        r#"{"initial":"A","context":{"log":[]},"states":{"A":{"entry":["raise_ping"],"on":{"PING":"B"}},"B":{}}}"#,
+    )
+    .expect("schema");
+    let machine = DynamicMachine::builder(config)
+        .action("raise_ping", |_context, _event, enq| {
+            enq.raise(DynamicEvent::new("PING"));
+        })
+        .build();
+
+    let mut system = ActorSystem::new("root", ActorLogic::from_machine(machine));
+    system.run().expect("system settles");
+
+    assert_eq!(
+        system
+            .configuration(&id("root"))
+            .expect("root configuration")
+            .primary()
+            .map(String::as_str),
+        Some("B")
+    );
 }

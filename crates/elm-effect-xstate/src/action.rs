@@ -69,9 +69,20 @@ impl<CMD, E> ActionQueue<CMD, E> {
 impl<CMD> ActionQueue<CMD, DynamicEvent> {
     /// Ask the host to create a child actor under the sending actor.
     pub fn spawn(&mut self, id: impl Into<ActorId>, logic: ActorLogic) {
+        self.spawn_with_input(id, logic, serde_json::Value::Null);
+    }
+
+    /// Ask the host to create a child actor with the input its logic observes.
+    pub fn spawn_with_input(
+        &mut self,
+        id: impl Into<ActorId>,
+        logic: ActorLogic,
+        input: serde_json::Value,
+    ) {
         self.directives.push(ActorDirective::Spawn {
             id: id.into(),
             logic,
+            input,
         });
     }
 

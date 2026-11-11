@@ -50,7 +50,43 @@ fn collect_rule_actions(rule: &TransitionRule, out: &mut BTreeSet<String>) {
     }
 }
 
+fn collect_rule_guards(rule: &TransitionRule, out: &mut BTreeSet<String>) {
+    match rule {
+        TransitionRule::Shorthand(_) => {}
+        TransitionRule::Single(config) => {
+            if let Some(guard) = &config.guard {
+                out.insert(guard.clone());
+            }
+        }
+        TransitionRule::Multiple(configs) => {
+            for config in configs {
+                if let Some(guard) = &config.guard {
+                    out.insert(guard.clone());
+                }
+            }
+        }
+    }
+}
+
+fn collect_guards(config: &MachineConfig, out: &mut BTreeSet<String>) {
+    for node in config.states.values() {
+        for rule in node.on.values().chain(node.after.values()) {
+            collect_rule_guards(rule, out);
+        }
+        for transition in &node.always {
+            if let Some(guard) = &transition.guard {
+                out.insert(guard.clone());
+            }
+        }
+        if let Some(rule) = &node.on_done {
+            collect_rule_guards(rule, out);
+        }
+    }
+}
+
 fn collect_actions(config: &MachineConfig, out: &mut BTreeSet<String>) {
+    out.extend(action_names(&config.entry).into_iter().cloned());
+    out.extend(action_names(&config.exit).into_iter().cloned());
     for node in config.states.values() {
         out.extend(action_names(&node.entry).into_iter().cloned());
         out.extend(action_names(&node.exit).into_iter().cloned());
@@ -69,7 +105,24 @@ fn collect_actions(config: &MachineConfig, out: &mut BTreeSet<String>) {
 fn build_machine(config: MachineConfig) -> DynamicMachine {
     let mut names = BTreeSet::new();
     collect_actions(&config, &mut names);
+    let mut guard_names = BTreeSet::new();
+    collect_guards(&config, &mut guard_names);
     let mut builder = DynamicMachine::builder(config);
+    for name in guard_names {
+        if let Some(expected) = name.strip_prefix("event_type:") {
+            let expected = expected.to_string();
+            builder = builder.guard(name, move |_context, event| event.r#type == expected);
+        } else if let Some(field) = name.strip_prefix("event:") {
+            let field = field.to_string();
+            builder = builder.guard(name, move |_context, event| {
+                event
+                    .payload
+                    .get(&field)
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false)
+            });
+        }
+    }
     for name in names {
         if let Some(event) = name.strip_prefix("raise:") {
             let event = event.to_string();
@@ -80,6 +133,15 @@ fn build_machine(config: MachineConfig) -> DynamicMachine {
             let payload = payload.to_string();
             builder = builder.action(name, move |_context, _event, enq| {
                 enq.emit(payload.clone());
+            });
+        } else if let Some(key) = name.strip_prefix("assign_event:") {
+            let key = key.to_string();
+            builder = builder.action(name, move |context, event, _enq| {
+                if let Some(value) = event.payload.get(&key)
+                    && let Some(data) = context.data.as_object_mut()
+                {
+                    data.insert(key.clone(), value.clone());
+                }
             });
         }
     }
@@ -102,13 +164,14 @@ fn execute_suite(fixture_name: &str) {
 
     for case in cases {
         let machine = build_machine(case.machine);
-        let entered = machine.enter(machine.initial_context());
-        let mut done = entered.done;
-        let mut emitted = Vec::new();
+        let started = machine.start(machine.initial_context(), &DynamicEvent::new("xstate.init"));
+        let mut done = started.done;
+        let mut emitted = started.emitted;
         let mut state = MachineState {
-            configuration: entered.configuration,
-            history: entered.history,
-            context: entered.context,
+            configuration: started.configuration,
+            history: started.history,
+            context: started.context,
+            armed: started.armed,
         };
 
         for event in &case.events {
@@ -119,6 +182,7 @@ fn execute_suite(fixture_name: &str) {
                 configuration: outcome.configuration,
                 history: outcome.history,
                 context: outcome.context,
+                armed: outcome.armed,
             };
         }
 
@@ -205,6 +269,11 @@ fn conformance_history() {
 }
 
 #[test]
+fn conformance_events() {
+    execute_suite("events.json");
+}
+
+#[test]
 fn conformance_after() {
     execute_suite("after.json");
 }
@@ -215,6 +284,7 @@ const FIXTURES: &[&str] = &[
     "after.json",
     "always.json",
     "final_states.json",
+    "events.json",
     "guards.json",
     "hierarchy.json",
     "history.json",
@@ -241,6 +311,11 @@ const FEATURES: &[Feature] = &[
         name: "self_transition_reentry",
         fixture: "actions.json",
         cases: &["self_transition_exits_and_reenters"],
+    },
+    Feature {
+        name: "self_transition_default_no_reentry",
+        fixture: "actions.json",
+        cases: &["self_transition_default_no_reentry"],
     },
     Feature {
         name: "internal_target",
@@ -348,6 +423,11 @@ const FEATURES: &[Feature] = &[
         cases: &["eventless_transition_stays_inside_its_parallel_region"],
     },
     Feature {
+        name: "always_initial_startup",
+        fixture: "always.json",
+        cases: &["initial_transient_settles_on_start"],
+    },
+    Feature {
         name: "final_terminal",
         fixture: "final_states.json",
         cases: &["final_state_is_terminal"],
@@ -381,6 +461,26 @@ const FEATURES: &[Feature] = &[
         name: "guard_self_transition",
         fixture: "guards.json",
         cases: &["guarded_self_transition_reenters"],
+    },
+    Feature {
+        name: "guard_event_payload_match",
+        fixture: "guards.json",
+        cases: &["guard_event_payload_matches"],
+    },
+    Feature {
+        name: "guard_event_payload_skip",
+        fixture: "guards.json",
+        cases: &["guard_event_payload_skips"],
+    },
+    Feature {
+        name: "guard_state_in_match",
+        fixture: "guards.json",
+        cases: &["guard_state_in_matches"],
+    },
+    Feature {
+        name: "guard_state_in_interim",
+        fixture: "guards.json",
+        cases: &["guard_state_in_interim"],
     },
     Feature {
         name: "hierarchy_initial",
@@ -439,6 +539,11 @@ const FEATURES: &[Feature] = &[
         cases: &["history_default_enters_the_parent_and_its_fallback"],
     },
     Feature {
+        name: "history_target_parent_entry",
+        fixture: "history.json",
+        cases: &["history_target_enters_never_visited_parent"],
+    },
+    Feature {
         name: "parallel_deep_history",
         fixture: "history.json",
         cases: &["deep_history_restores_every_parallel_region"],
@@ -493,6 +598,392 @@ const FEATURES: &[Feature] = &[
         name: "parallel_final_region_inert",
         fixture: "parallel.json",
         cases: &["final_region_under_parallel_ignores_events"],
+    },
+    Feature {
+        name: "eventless_before_raised",
+        fixture: "actions.json",
+        cases: &["eventless_transition_runs_before_raised_event"],
+    },
+    Feature {
+        name: "hierarchy_descendant_target",
+        fixture: "actions.json",
+        cases: &["descendant_target_keeps_common_ancestor"],
+    },
+    Feature {
+        name: "always_parallel_regions",
+        fixture: "always.json",
+        cases: &["parallel_regions_settle_eventless_together"],
+    },
+    Feature {
+        name: "final_done_action_order",
+        fixture: "final_states.json",
+        cases: &["nested_done_actions_run_inside_out"],
+    },
+    Feature {
+        name: "parallel_nested_done",
+        fixture: "final_states.json",
+        cases: &["nested_parallel_completion_propagates"],
+    },
+    Feature {
+        name: "after_guard_true",
+        fixture: "after.json",
+        cases: &["guarded_after_transition_fires"],
+    },
+    Feature {
+        name: "after_guard_false",
+        fixture: "after.json",
+        cases: &["guarded_after_transition_is_skipped"],
+    },
+    Feature {
+        name: "after_parallel_regions",
+        fixture: "after.json",
+        cases: &["after_timers_are_region_scoped"],
+    },
+    Feature {
+        name: "ancestor_target_reentry",
+        fixture: "actions.json",
+        cases: &[
+            "ancestor_target_exits_and_reenters_it",
+            "ancestor_target_reenters_with_initial_first_descendant",
+            "ancestor_target_reenters_with_initial_latter_descendant",
+        ],
+    },
+    Feature {
+        name: "invalid_event_no_replay",
+        fixture: "actions.json",
+        cases: &["invalid_event_does_not_replay_prior_actions"],
+    },
+    Feature {
+        name: "always_assign_quiescence",
+        fixture: "always.json",
+        cases: &["guarded_assign_loop_reaches_quiescence"],
+    },
+    Feature {
+        name: "history_shallow_resets_descendant",
+        fixture: "history.json",
+        cases: &["shallow_history_resets_a_deep_descendant"],
+    },
+    Feature {
+        name: "history_deep_two_levels",
+        fixture: "history.json",
+        cases: &["deep_history_restores_two_nested_levels"],
+    },
+    Feature {
+        name: "history_initial_child",
+        fixture: "history.json",
+        cases: &["history_as_initial_child_uses_fallback"],
+    },
+    Feature {
+        name: "parallel_nested_simple",
+        fixture: "parallel.json",
+        cases: &["nested_parallel_simple_transition"],
+    },
+    Feature {
+        name: "parallel_nested_complex",
+        fixture: "parallel.json",
+        cases: &["nested_parallel_complex_transition"],
+    },
+    Feature {
+        name: "parallel_nested_cross_region",
+        fixture: "parallel.json",
+        cases: &["nested_parallel_cross_region_preserves_source"],
+    },
+    Feature {
+        name: "final_parallel_on_done_once",
+        fixture: "final_states.json",
+        cases: &["parallel_on_done_runs_once"],
+    },
+    Feature {
+        name: "always_guard_priority",
+        fixture: "always.json",
+        cases: &["guarded_always_first_match_wins"],
+    },
+    Feature {
+        name: "history_internal_default",
+        fixture: "history.json",
+        cases: &["internal_history_target_uses_fallback"],
+    },
+    Feature {
+        name: "history_parent_entry_restore",
+        fixture: "history.json",
+        cases: &["history_restore_reenters_the_parent"],
+    },
+    Feature {
+        name: "parallel_deep_flat",
+        fixture: "parallel.json",
+        cases: &["deep_flat_parallel_entry"],
+    },
+    Feature {
+        name: "after_nested_initial",
+        fixture: "after.json",
+        cases: &["after_timer_from_nested_initial_state"],
+    },
+    Feature {
+        name: "after_multiple_delays",
+        fixture: "after.json",
+        cases: &["after_multiple_delays_select_matching"],
+    },
+    Feature {
+        name: "final_parallel_initial_completion",
+        fixture: "final_states.json",
+        cases: &["nested_parallel_initial_completion"],
+    },
+    Feature {
+        name: "always_all_guards_false",
+        fixture: "always.json",
+        cases: &["all_guards_false_leave_state_active"],
+    },
+    Feature {
+        name: "history_machine_initial",
+        fixture: "history.json",
+        cases: &["history_as_machine_initial_uses_fallback"],
+    },
+    Feature {
+        name: "history_domain_restore",
+        fixture: "history.json",
+        cases: &["history_restore_stays_inside_domain"],
+    },
+    Feature {
+        name: "parallel_direct_final_partial",
+        fixture: "final_states.json",
+        cases: &["parallel_direct_final_partial_done"],
+    },
+    Feature {
+        name: "after_cycle",
+        fixture: "after.json",
+        cases: &["after_cycle_through_states"],
+    },
+    Feature {
+        name: "mixed_parallel_completion_parallel_first",
+        fixture: "final_states.json",
+        cases: &["mixed_parallel_completion_parallel_first"],
+    },
+    Feature {
+        name: "mixed_parallel_completion_compound_first",
+        fixture: "final_states.json",
+        cases: &["mixed_parallel_completion_compound_first"],
+    },
+    Feature {
+        name: "history_multistage_restore",
+        fixture: "history.json",
+        cases: &["multistage_history_restores_latest"],
+    },
+    Feature {
+        name: "history_default_domain",
+        fixture: "history.json",
+        cases: &["history_default_stays_inside_domain"],
+    },
+    Feature {
+        name: "parallel_multi_region_toggle",
+        fixture: "parallel.json",
+        cases: &["multi_region_word_toggles"],
+    },
+    Feature {
+        name: "parallel_target_entry_actions",
+        fixture: "parallel.json",
+        cases: &["parallel_target_entry_actions"],
+    },
+    Feature {
+        name: "parallel_simultaneous_actions",
+        fixture: "parallel.json",
+        cases: &["parallel_simultaneous_region_actions"],
+    },
+    Feature {
+        name: "parallel_simultaneous_event_assign",
+        fixture: "parallel.json",
+        cases: &["parallel_simultaneous_event_assignment"],
+    },
+    Feature {
+        name: "parallel_atomic_regions",
+        fixture: "parallel.json",
+        cases: &["parallel_atomic_regions"],
+    },
+    Feature {
+        name: "final_compound_parent_stays_active",
+        fixture: "final_states.json",
+        cases: &["parallel_child_completion_does_not_complete_compound"],
+    },
+    Feature {
+        name: "final_parallel_reversed_exit",
+        fixture: "final_states.json",
+        cases: &["parallel_completion_reversed_exit_order"],
+    },
+    Feature {
+        name: "parallel_initial_entry_actions",
+        fixture: "actions.json",
+        cases: &["parallel_initial_entry_actions"],
+    },
+    Feature {
+        name: "parallel_exit_document_order",
+        fixture: "actions.json",
+        cases: &["parallel_children_exit_reverse_document_order"],
+    },
+    Feature {
+        name: "final_nested_parallel_completion",
+        fixture: "final_states.json",
+        cases: &["nested_parallel_in_parallel_completion"],
+    },
+    Feature {
+        name: "final_parallel_compound_partial",
+        fixture: "final_states.json",
+        cases: &["parallel_compound_partial_completion_stays_active"],
+    },
+    Feature {
+        name: "targetless_parallel_state",
+        fixture: "parallel.json",
+        cases: &["targetless_parallel_state_actions"],
+    },
+    Feature {
+        name: "targetless_parallel_region",
+        fixture: "parallel.json",
+        cases: &["targetless_region_actions"],
+    },
+    Feature {
+        name: "parallel_targetless_action_order",
+        fixture: "parallel.json",
+        cases: &["parallel_targetless_action_document_order"],
+    },
+    Feature {
+        name: "parallel_targetless_nested_action_order",
+        fixture: "parallel.json",
+        cases: &["parallel_targetless_action_nested_order"],
+    },
+    Feature {
+        name: "final_parallel_sequential_exit",
+        fixture: "final_states.json",
+        cases: &["parallel_sequential_region_completion_exit_order"],
+    },
+    Feature {
+        name: "transient_transition_actions",
+        fixture: "always.json",
+        cases: &["transient_carries_transition_actions"],
+    },
+    Feature {
+        name: "transient_event_guard",
+        fixture: "always.json",
+        cases: &["transient_event_preserved_in_guard"],
+    },
+    Feature {
+        name: "transient_event_action",
+        fixture: "always.json",
+        cases: &["transient_event_preserved_in_actions"],
+    },
+    Feature {
+        name: "transient_state_in_microsteps",
+        fixture: "always.json",
+        cases: &["transient_state_in_microsteps"],
+    },
+    Feature {
+        name: "after_targetless_delayed",
+        fixture: "after.json",
+        cases: &["delayed_targetless_transition"],
+    },
+    Feature {
+        name: "action_nested_child_parent_order",
+        fixture: "actions.json",
+        cases: &["nested_child_parent_action_order"],
+    },
+    Feature {
+        name: "action_same_parent_isolation",
+        fixture: "actions.json",
+        cases: &["same_parent_substate_action_isolation"],
+    },
+    Feature {
+        name: "parallel_root_cross_region",
+        fixture: "parallel.json",
+        cases: &["parallel_root_cross_region_preserves_source"],
+    },
+    Feature {
+        name: "multi_target_cross_region",
+        fixture: "parallel.json",
+        cases: &["multi_target_enters_orthogonal_regions"],
+    },
+    Feature {
+        name: "after_internal_target_child",
+        fixture: "after.json",
+        cases: &["after_internal_target_child"],
+    },
+    Feature {
+        name: "event_wildcard_fallback",
+        fixture: "events.json",
+        cases: &["wildcard_event_falls_back"],
+    },
+    Feature {
+        name: "event_wildcard_priority",
+        fixture: "events.json",
+        cases: &[
+            "exact_descriptor_beats_wildcard",
+            "exact_descriptor_beats_partial_wildcard",
+            "longer_wildcard_beats_shorter",
+        ],
+    },
+    Feature {
+        name: "event_wildcard_prefix",
+        fixture: "events.json",
+        cases: &[
+            "wildcard_prefix_matches_zero_segments",
+            "wildcard_prefix_matches_many_segments",
+        ],
+    },
+    Feature {
+        name: "event_wildcard_tokenized",
+        fixture: "events.json",
+        cases: &["non_tokenized_wildcard_does_not_match"],
+    },
+    Feature {
+        name: "event_wildcard_guard_fallback",
+        fixture: "events.json",
+        cases: &["wildcard_fallback_when_exact_guard_fails"],
+    },
+    Feature {
+        name: "event_payload_matches",
+        fixture: "events.json",
+        cases: &["transition_matches_payload"],
+    },
+    Feature {
+        name: "history_multi_target_deep",
+        fixture: "history.json",
+        cases: &["history_multi_target_deep_default"],
+    },
+    Feature {
+        name: "history_multi_target_shallow",
+        fixture: "history.json",
+        cases: &["history_multi_target_shallow_default"],
+    },
+    Feature {
+        name: "relative_target_parallel_region",
+        fixture: "parallel.json",
+        cases: &["relative_target_within_parallel_region"],
+    },
+    Feature {
+        name: "history_relative_target",
+        fixture: "history.json",
+        cases: &["history_internal_relative_target"],
+    },
+    Feature {
+        name: "after_iso8601_duration",
+        fixture: "after.json",
+        cases: &["after_iso8601_duration"],
+    },
+    Feature {
+        name: "after_named_delay_expression",
+        fixture: "after.json",
+        cases: &["after_named_delay_expression"],
+    },
+    Feature {
+        name: "final_state_inert",
+        fixture: "final_states.json",
+        cases: &["final_region_ignores_its_own_transition"],
+    },
+    Feature {
+        name: "root_completion_exit",
+        fixture: "final_states.json",
+        cases: &["root_exit_runs_after_final_entry"],
+    },
+    Feature {
+        name: "parallel_root_completion_exit",
+        fixture: "final_states.json",
+        cases: &["parallel_root_completion_exit_order"],
     },
 ];
 
@@ -561,9 +1052,12 @@ fn conformance_feature_matrix() {
             );
         }
     }
-    assert!(total >= 53, "conformance matrix regressed to {total} cases");
     assert!(
-        FEATURES.len() >= 50,
+        total >= 140,
+        "conformance matrix regressed to {total} cases"
+    );
+    assert!(
+        FEATURES.len() >= 132,
         "feature matrix regressed to {} features",
         FEATURES.len()
     );
@@ -593,7 +1087,7 @@ fn upstream_derived_vectors_cite_the_pinned_source() {
         }
     }
     assert!(
-        sourced >= 10,
-        "expected at least ten upstream-derived vectors, found {sourced}"
+        sourced >= 92,
+        "expected at least ninety-two upstream-derived vectors, found {sourced}"
     );
 }

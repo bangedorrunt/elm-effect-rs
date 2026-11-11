@@ -77,6 +77,7 @@ fn run_to_paused(machine: &Machine<Spot, Signal, Trace, ()>) -> MachineState<Spo
         configuration: played.configuration,
         history: played.history,
         context: played.context,
+        armed: played.armed,
     }
 }
 
@@ -95,6 +96,7 @@ fn shallow_history_restores_the_child_and_resolves_its_initial() {
             configuration: stopped.configuration,
             history: stopped.history,
             context: stopped.context,
+            armed: stopped.armed,
         },
         &Signal::ResumeShallow,
     );
@@ -112,6 +114,7 @@ fn deep_history_restores_the_exact_leaf() {
             configuration: stopped.configuration,
             history: stopped.history,
             context: stopped.context,
+            armed: stopped.armed,
         },
         &Signal::ResumeDeep,
     );

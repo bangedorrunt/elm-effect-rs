@@ -157,7 +157,7 @@ To guarantee 100% behavioral parity without inheriting JavaScript runtime quirks
                                     │ Invariants & Semantic Laws
 ┌───────────────────────────────────▼────────────────────────────────────┐
 │ Plane 2: Declarative Conformance & Upstream Differential Checking      │
-│  - 53+ JSON declarative test vectors synced with statelyai/xstate      │
+│  - 120 JSON declarative test vectors synced with statelyai/xstate      │
 │  - Differential execution runner (scripts/xstate-differential)         │
 │  - Exact state, context, and done outcome parity against Node engine   │
 └───────────────────────────────────┬────────────────────────────────────┘
@@ -204,12 +204,12 @@ Rather than modeling JavaScript-specific event loops or microtask queuing, we fo
 
 To verify day-to-day behavioral equivalence against Stately's reference implementation:
 1. **Declarative JSON Fixture Corpus**:
-   - Located in [`crates/elm-effect-xstate/tests/conformance/fixtures/`](../../crates/elm-effect-xstate/tests/conformance/fixtures), covering 53 declarative cases across 9 categories: `actions`, `always`, `after`, `parallel`, `history`, `hierarchy`, `guards`, `final_states`, and `actors`.
+   - Located in [`crates/elm-effect-xstate/tests/conformance/fixtures/`](../../crates/elm-effect-xstate/tests/conformance/fixtures), covering 140 declarative cases across 10 categories: `actions`, `always`, `after`, `events`, `parallel`, `history`, `hierarchy`, `guards`, `final_states`, and `actors`.
    - Directly references upstream commit `d56483f` (XState 6.0.0-beta.1), citing the upstream source file for each vector.
    - Pinned feature matrix in [`tests/conformance_test.rs`](../../crates/elm-effect-xstate/tests/conformance_test.rs) enforcing 100% test passage.
 2. **Differential Execution Runner (`scripts/xstate-differential`)**:
    - Executes identical declarative JSON test vectors concurrently in Node.js (via `@statelyai/xstate` v6 beta) and in Rust (`elm-effect-xstate`).
-   - Asserts 100% agreement on final active state configuration, machine `done` flag, and extended `context`.
+   - Asserts agreement on final active state configuration, machine `done` flag, and extended `context` for 119 vectors (118 agree, 1 skipped); `after` and actor fixtures use different harnesses.
    - Action call traces are validated in Rust against Law L1 specifications, insulating the conformance suite from transient npm beta transition-timing anomalies.
 3. **Automated Synchronization Script (`scripts/sync-xstate-conformance.sh`)**:
    - Syncs and runs all fixture suites in a single command, integrating into CI workflows.
@@ -259,10 +259,10 @@ To verify day-to-day behavioral equivalence against Stately's reference implemen
 ### Verification
 
 - [x] `crates/elm-effect-xstate` compiles cleanly under `cargo check --workspace`.
-- [x] Conformance suite passes 100% of its vectors (`actions`, `always`, `after`, `parallel`, `history`, `hierarchy`, `guards`, `final_states`, `actors`): 53 declarative cases (47 authored plus ten ported from XState 6.0.0-beta.1 at commit d56483f) plus the effect/stream/callback proofs. `tests/conformance_test.rs` enforces a feature matrix that names the cases proving each behavior. The ~400-case upstream corpus is not vendored, so full upstream parity is not proven; `scripts/xstate-differential` agrees with XState on final state, `done`, and context for 41 of the vectors.
+- [x] Conformance suite passes 100% of its vectors (`actions`, `always`, `after`, `events`, `parallel`, `history`, `hierarchy`, `guards`, `final_states`, `actors`): 140 declarative cases (48 authored plus ninety-two ported from XState 6.0.0-beta.1 at commit d56483f) plus the effect/stream/callback proofs. `tests/conformance_test.rs` enforces a feature matrix that names the cases proving each behavior. The ~400-case upstream corpus is not vendored, so full upstream parity is not proven; `scripts/xstate-differential` agrees with XState on final state, `done`, and context for 118 of the vectors, with 1 skipped.
 - [x] `after` delayed transitions simulate deterministically under `TestClock` with 0ms wall-clock wait. The engine returns `TimerIntent` values; `tests/after_clock.rs` advances `TestClock` and calls `step_timer` without sleeping.
 - [x] Scope lifecycle test proves state exit terminates child fibers and executes LIFO finalizers. Actor stop closes descendant scopes, runs LIFO finalizers (`tests/actors.rs`), and interrupts a fiber forked into the actor's scope (`tests/actor_effects.rs`).
-- [x] Replay test proves crashed actor resumes from exact journal snapshot without re-executing side effects. `tests/replay.rs` appends a record with a serialized `MachineState` snapshot, reloads it through `MemLog`, and resumes with `ActorSystem::resume`; active entry actions do not run again. Timers and child actors are rebuilt by the host.
+- [x] Replay test proves crashed actor resumes from exact journal snapshot without re-executing side effects. `tests/replay.rs` appends a record with a serialized `MachineState` snapshot, reloads it through `MemLog`, and resumes with `ActorSystem::resume`; active entry actions do not run again. Armed timer durations are serialized, so event-dependent delays survive restore. `ActorSystem::snapshot`/`restore` rebuild the machine and reducer actor tree; host-driven actors are respawned by the host.
 - [x] `to_mermaid()` outputs valid Mermaid diagrams matching TLC formal models. `scripts/verify-formal.sh` also runs TLC over a `.to_tla()` module generated from a machine (`examples/emit_tla.rs`), proving the exported spec is well-formed.
 - [x] Full workspace passes `cargo test --workspace`, `clippy` (0 warnings), and `fmt`.
 
@@ -273,8 +273,8 @@ Landed in `crates/elm-effect-xstate`:
 - The active state is a `Configuration`, so a parallel node contributes one leaf per region and one event is offered to every region. Deeper selections preempt ancestor selections. A transition into one region narrows its domain to that region, so sibling regions stay active even when the source is a different region.
 - Compound and parallel entry, strict L1 ordering, hierarchical bubbling, guard priority, and deterministic micro-step quiescence.
 - Shallow and deep history are recorded on the exit of the compound or parallel parent. A parallel parent records its full active leaf set; deep history restores every region, while shallow history restores each region's initial.
-- Final states complete their compound parent; a parallel node completes when every region does; `on_done` takes the completion transition; `outcome.done` reports a completed root, including a top-level final sibling.
-- `after` delays leave as `TimerIntent::Start` and `TimerIntent::Cancel` data. `Machine::step_timer` takes the transition; a stale timer is a no-op.
+- Final states complete their compound parent; a parallel node completes when every region does; `on_done` takes the completion transition; `outcome.done` reports a completed root, including a top-level final sibling. Root entry actions run before initial entry. Reaching done exits the final state, active ancestors, and root exit actions once without clearing the final snapshot. A JSON root may be parallel, making every top-level state an independent region.
+- `after` delays leave as `TimerIntent::Start` and `TimerIntent::Cancel` data. A delay function may resolve from context or from context plus the entry event, and the resolved duration is serialized in `MachineState.armed`, so `step_timer` does not recompute it and a restore does not need the entry event. `Machine::step_timer` takes the transition; a stale timer is a no-op.
 - `enq.raise` events are consumed inside the macro-step; `enq.emit` payloads reach `StepOutcome::emitted` instead of being dropped.
 - `Machine::enter` is the pure start edge: entry actions and timer intents without an event.
 - `Machine::to_mermaid` and `TransitionRecord` (append to `DurableLog`).
@@ -283,13 +283,13 @@ Landed in `crates/elm-effect-xstate`:
 - `ActorSystem` runs machine and reducer actors with `spawn`, `send`, and `stop`; `ActorId` is the actor ref. Every actor owns a `Scope` forked from its parent's, so stopping an actor closes its descendants' scopes deepest-first and runs finalizers LIFO. A machine actor that reaches a top-level final state sends `xstate.done.actor.<id>` to its parent. `run` is bounded and returns `ActorError::StepBudget` on a directive cycle.
 - `ActorLogic::from_effect` and `from_promise` produce `ActorTask` values the host runs; `from_stream` forwards values to the parent; `from_callback` receives a `CallbackSender` at spawn. `ActorSystem::scope` returns the per-actor scope for host work.
 - `Machine::to_tla` and `to_tla_named` render a topology-only TLA+ module. `TransitionRecord::replay` reconstructs a configuration from a continuous record chain without running actions.
-- The conformance matrix holds 53 declarative vectors across nine categories, including ten ported from upstream XState 6.0.0-beta.1 (commit d56483f) whose `source` field names the original test. Each case belongs to a named feature in `tests/conformance_test.rs`. `tests/conformance_actors.rs` drives actor scenarios with `spawn:`, `send:`, and `stop:` actions; the machine runner registers `raise:` and `emit:` actions and asserts done, emitted payloads, traces, and leaves.
-- `TransitionRecord::with_snapshot` stores serialized run state and `ActorSystem::resume` restores a machine actor without re-running active entry actions. `scripts/verify-formal.sh` runs the `.to_tla()` export test and model-checks a generated module with TLC.
+- The conformance matrix holds 140 declarative vectors across ten categories, including ninety-two ported from upstream XState 6.0.0-beta.1 (commit d56483f) whose `source` field names the original test. Each case belongs to a named feature in `tests/conformance_test.rs`. `tests/conformance_actors.rs` drives actor scenarios with `spawn:`, `send:`, and `stop:` actions; the machine runner registers `raise:` and `emit:` actions and asserts done, emitted payloads, traces, and leaves.
+- `TransitionRecord::with_snapshot` stores serialized run state and `ActorSystem::resume` restores a machine actor without re-running active entry actions. `ActorSystem::snapshot`/`restore` rehydrate a machine/reducer actor tree with parent links and armed timers. `scripts/verify-formal.sh` runs the `.to_tla()` export test and model-checks a generated module with TLC.
 
 Not landed:
 
-- Actor-tree rehydration: the chart snapshot restores one machine actor; children, streams, and timers are respawned by the host.
-- The ~400-case upstream corpus; the crate carries 53 declarative vectors (ten ported) plus its own actor/effect proofs in `tests/conformance/`, `tests/actors.rs`, and `tests/actor_effects.rs`. The optional Node differential check compares state outcomes only, because the npm beta's transition-function timing differs from the L1 contract; action traces remain covered by the Rust suite.
+- Host-driven actor rehydration: the tree snapshot restores machine and reducer actors; effect, stream, and callback actors are respawned by the host because their work lives at the host edge.
+- The ~400-case upstream corpus; the crate carries 140 declarative vectors (ninety-two ported) plus its own actor/effect proofs in `tests/conformance/`, `tests/actors.rs`, and `tests/actor_effects.rs`. The optional Node differential check compares state outcomes only, because the npm beta's transition-function timing differs from the L1 contract; action traces remain covered by the Rust suite.
 - Behavioral TLC checks: the exporter is currently topology-only, so guards and context are not modelled in the dynamically generated exporter. Milestone 5 introduces dedicated full behavioral TLA+ models for Flows 6–9 in `scripts/verify-formal.sh` and `docs/research/state-machines-and-flows.md`.
 
 ## More Information

@@ -59,11 +59,1123 @@
         "Completed": { "type": "final", "entry": ["enter_completed"] }
       }
     },
-    "events": [{ "type": "COMPLETE" }, { "type": "NOOP" }],
+    "events": [{ "type": "COMPLETE" }, { "type": "NOOP" }],  "expected": {
+    "final_state": "Completed",
+    "done": true,
+    "trace": ["enter_completed"]
+  }
+},
+{
+  "name": "nested_done_actions_run_inside_out",
+  "description": "Upstream final: the final child's entry runs before each enclosing onDone transition",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/final.test.ts: should execute final child state actions first",
+  "machine": {
+    "initial": "Foo",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Foo": {
+        "type": "compound",
+        "initial": "Bar",
+        "onDone": {
+          "target": "Finished",
+          "actions": [
+            "foo_done"
+          ]
+        }
+      },
+      "Bar": {
+        "type": "compound",
+        "initial": "Baz",
+        "parent": "Foo",
+        "onDone": "BarFinal"
+      },
+      "Baz": {
+        "type": "final",
+        "parent": "Bar",
+        "entry": [
+          "baz_entry"
+        ]
+      },
+      "BarFinal": {
+        "type": "final",
+        "parent": "Foo",
+        "entry": [
+          "bar_final_entry"
+        ]
+      },
+      "Finished": {
+        "type": "final"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "NOOP"
+    }
+  ],
+  "expected": {
+    "final_state": "Finished",
+    "done": true,
+    "trace": [
+      "baz_entry",
+      "bar_final_entry",
+      "foo_done"
+    ]
+  }
+},
+{
+  "name": "nested_parallel_completion_propagates",
+  "description": "Upstream final: a parallel root completes only after every nested region reaches a final state",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/final.test.ts: should emit a done state event for a parallel state when its parallel children reach their final states",
+  "machine": {
+    "initial": "Outer",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Outer": {
+        "type": "parallel",
+        "onDone": "Finished"
+      },
+      "Alpha": {
+        "type": "parallel",
+        "parent": "Outer"
+      },
+      "One": {
+        "type": "compound",
+        "initial": "OneStart",
+        "parent": "Alpha"
+      },
+      "OneStart": {
+        "parent": "One",
+        "on": {
+          "FINISH_ONE": "OneDone"
+        }
+      },
+      "OneDone": {
+        "type": "final",
+        "parent": "One"
+      },
+      "Two": {
+        "type": "compound",
+        "initial": "TwoStart",
+        "parent": "Alpha"
+      },
+      "TwoStart": {
+        "parent": "Two",
+        "on": {
+          "FINISH_TWO": "TwoDone"
+        }
+      },
+      "TwoDone": {
+        "type": "final",
+        "parent": "Two"
+      },
+      "Beta": {
+        "type": "parallel",
+        "parent": "Outer"
+      },
+      "Three": {
+        "type": "compound",
+        "initial": "ThreeStart",
+        "parent": "Beta"
+      },
+      "ThreeStart": {
+        "parent": "Three",
+        "on": {
+          "FINISH_THREE": "ThreeDone"
+        }
+      },
+      "ThreeDone": {
+        "type": "final",
+        "parent": "Three"
+      },
+      "Four": {
+        "type": "compound",
+        "initial": "FourStart",
+        "parent": "Beta"
+      },
+      "FourStart": {
+        "parent": "Four",
+        "on": {
+          "FINISH_FOUR": "FourDone"
+        }
+      },
+      "FourDone": {
+        "type": "final",
+        "parent": "Four"
+      },
+      "Finished": {
+        "type": "final"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "FINISH_ONE"
+    },
+    {
+      "type": "FINISH_TWO"
+    },
+    {
+      "type": "FINISH_THREE"
+    },
+    {
+      "type": "FINISH_FOUR"
+    }
+  ],
+  "expected": {
+    "final_state": "Finished",
+    "done": true,
+    "trace": []
+  }
+},
+{
+  "name": "parallel_on_done_runs_once",
+  "description": "Upstream final: multiple regions completing together fire one parallel completion transition",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/final.test.ts: onDone of a parallel state should only be called once when multiple parallel regions complete at once",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "type": "parallel",
+        "onDone": {
+          "target": "Finished",
+          "actions": [
+            "done_once"
+          ]
+        }
+      },
+      "B": {
+        "type": "final",
+        "parent": "A"
+      },
+      "C": {
+        "type": "final",
+        "parent": "A"
+      },
+      "Finished": {
+        "type": "final"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "NOOP"
+    }
+  ],
+  "expected": {
+    "final_state": "Finished",
+    "done": true,
+    "trace": [
+      "done_once"
+    ]
+  }
+},
+{
+  "name": "nested_parallel_initial_completion",
+  "description": "Upstream final: an initially complete nested parallel transitions to a top-level final state",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/final.test.ts: should reach a final state when a parallel state reaches its final state and transitions to a top-level final state in response to that",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "type": "parallel",
+        "onDone": "B"
+      },
+      "A1": {
+        "type": "parallel",
+        "parent": "A"
+      },
+      "A1a": {
+        "type": "final",
+        "parent": "A1"
+      },
+      "A1b": {
+        "type": "final",
+        "parent": "A1"
+      },
+      "A2": {
+        "type": "compound",
+        "initial": "A2a",
+        "parent": "A"
+      },
+      "A2a": {
+        "type": "final",
+        "parent": "A2"
+      },
+      "B": {
+        "type": "final"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "NOOP"
+    }
+  ],
+  "expected": {
+    "final_state": "B",
+    "done": true,
+    "trace": []
+  }
+},
+{
+  "name": "parallel_direct_final_partial_done",
+  "description": "Upstream final: a direct final region does not complete the parallel while its sibling is active",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/final.test.ts: should not complete a parallel root immediately when only some of its regions are in their final states (a direct final child state reached)",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "A": {
+        "type": "final",
+        "parent": "Root"
+      },
+      "B": {
+        "type": "compound",
+        "initial": "B1",
+        "parent": "Root"
+      },
+      "B1": {
+        "parent": "B",
+        "on": {
+          "FINISH": "B2"
+        }
+      },
+      "B2": {
+        "type": "final",
+        "parent": "B"
+      }
+    }
+  },
+  "events": [],
+  "expected": {
+    "final_state": "A",
+    "final_states": [
+      "A",
+      "B1"
+    ],
+    "done": false,
+    "trace": []
+  }
+},
+{
+  "name": "mixed_parallel_completion_parallel_first",
+  "description": "Upstream final: a completed parallel region waits for its compound sibling before the outer parallel completes",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/final.test.ts: should emit a done state event for a parallel state when its compound child reaches its final state when the other parallel child region is already in its final state",
+  "machine": {
+    "initial": "Outer",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Outer": {
+        "type": "parallel",
+        "onDone": {
+          "target": "Finished",
+          "actions": [
+            "outer_done"
+          ]
+        }
+      },
+      "Alpha": {
+        "type": "parallel",
+        "parent": "Outer"
+      },
+      "One": {
+        "type": "compound",
+        "initial": "OneStart",
+        "parent": "Alpha"
+      },
+      "OneStart": {
+        "parent": "One",
+        "on": {
+          "FINISH_ONE": "OneDone"
+        }
+      },
+      "OneDone": {
+        "type": "final",
+        "parent": "One",
+        "entry": [
+          "enter_one_done"
+        ]
+      },
+      "Two": {
+        "type": "compound",
+        "initial": "TwoStart",
+        "parent": "Alpha"
+      },
+      "TwoStart": {
+        "parent": "Two",
+        "on": {
+          "FINISH_TWO": "TwoDone"
+        }
+      },
+      "TwoDone": {
+        "type": "final",
+        "parent": "Two",
+        "entry": [
+          "enter_two_done"
+        ]
+      },
+      "Beta": {
+        "type": "compound",
+        "initial": "BetaActive",
+        "parent": "Outer"
+      },
+      "BetaActive": {
+        "parent": "Beta",
+        "on": {
+          "FINISH_BETA": "BetaDone"
+        }
+      },
+      "BetaDone": {
+        "type": "final",
+        "parent": "Beta",
+        "entry": [
+          "enter_beta_done"
+        ]
+      },
+      "Finished": {
+        "type": "final",
+        "entry": [
+          "enter_finished"
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "FINISH_ONE"
+    },
+    {
+      "type": "FINISH_TWO"
+    },
+    {
+      "type": "FINISH_BETA"
+    }
+  ],
+  "expected": {
+    "final_state": "Finished",
+    "done": true,
+    "trace": [
+      "enter_one_done",
+      "enter_two_done",
+      "enter_beta_done",
+      "outer_done",
+      "enter_finished"
+    ]
+  }
+},
+{
+  "name": "mixed_parallel_completion_compound_first",
+  "description": "Upstream final: a completed compound region waits for its parallel sibling before the outer parallel completes",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/final.test.ts: should emit a done state event for a parallel state when its parallel child reaches its final state when the other compound child region is already in its final state",
+  "machine": {
+    "initial": "Outer",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Outer": {
+        "type": "parallel",
+        "onDone": {
+          "target": "Finished",
+          "actions": [
+            "outer_done"
+          ]
+        }
+      },
+      "Alpha": {
+        "type": "parallel",
+        "parent": "Outer"
+      },
+      "One": {
+        "type": "compound",
+        "initial": "OneStart",
+        "parent": "Alpha"
+      },
+      "OneStart": {
+        "parent": "One",
+        "on": {
+          "FINISH_ONE": "OneDone"
+        }
+      },
+      "OneDone": {
+        "type": "final",
+        "parent": "One",
+        "entry": [
+          "enter_one_done"
+        ]
+      },
+      "Two": {
+        "type": "compound",
+        "initial": "TwoStart",
+        "parent": "Alpha"
+      },
+      "TwoStart": {
+        "parent": "Two",
+        "on": {
+          "FINISH_TWO": "TwoDone"
+        }
+      },
+      "TwoDone": {
+        "type": "final",
+        "parent": "Two",
+        "entry": [
+          "enter_two_done"
+        ]
+      },
+      "Beta": {
+        "type": "compound",
+        "initial": "BetaActive",
+        "parent": "Outer"
+      },
+      "BetaActive": {
+        "parent": "Beta",
+        "on": {
+          "FINISH_BETA": "BetaDone"
+        }
+      },
+      "BetaDone": {
+        "type": "final",
+        "parent": "Beta",
+        "entry": [
+          "enter_beta_done"
+        ]
+      },
+      "Finished": {
+        "type": "final",
+        "entry": [
+          "enter_finished"
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "FINISH_BETA"
+    },
+    {
+      "type": "FINISH_ONE"
+    },
+    {
+      "type": "FINISH_TWO"
+    }
+  ],
+  "expected": {
+    "final_state": "Finished",
+    "done": true,
+    "trace": [
+      "enter_beta_done",
+      "enter_one_done",
+      "enter_two_done",
+      "outer_done",
+      "enter_finished"
+    ]
+  }
+},
+{
+  "name": "parallel_child_completion_does_not_complete_compound",
+  "description": "Upstream final: a completed parallel child leaves its compound parent and the machine active",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/final.test.ts: machine should not complete when a parallel child of a compound state completes",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "compound",
+        "initial": "A"
+      },
+      "A": {
+        "type": "parallel",
+        "parent": "Root"
+      },
+      "B": {
+        "type": "compound",
+        "initial": "C",
+        "parent": "A"
+      },
+      "C": {
+        "type": "final",
+        "parent": "B"
+      }
+    }
+  },
+  "events": [],
+  "expected": {
+    "final_state": "C",
+    "done": false,
+    "trace": []
+  }
+},
+{
+  "name": "parallel_completion_reversed_exit_order",
+  "description": "Upstream final: completing parallel regions exit leaves and parents in reverse document order",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/final.test.ts: should call exit actions of parallel states in reversed document order when the machines reaches its final state after multiple regions transition",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel",
+        "exit": [
+          "exit_root"
+        ],
+        "onDone": "Complete"
+      },
+      "A": {
+        "type": "compound",
+        "initial": "A1",
+        "parent": "Root",
+        "entry": [
+          "enter_a"
+        ],
+        "exit": [
+          "exit_a"
+        ]
+      },
+      "A1": {
+        "parent": "A",
+        "entry": [
+          "enter_a1"
+        ],
+        "exit": [
+          "exit_a1"
+        ],
+        "on": {
+          "EV": "A2"
+        }
+      },
+      "A2": {
+        "type": "final",
+        "parent": "A",
+        "entry": [
+          "enter_a2"
+        ],
+        "exit": [
+          "exit_a2"
+        ]
+      },
+      "B": {
+        "type": "compound",
+        "initial": "B1",
+        "parent": "Root",
+        "entry": [
+          "enter_b"
+        ],
+        "exit": [
+          "exit_b"
+        ]
+      },
+      "B1": {
+        "parent": "B",
+        "entry": [
+          "enter_b1"
+        ],
+        "exit": [
+          "exit_b1"
+        ],
+        "on": {
+          "EV": "B2"
+        }
+      },
+      "B2": {
+        "type": "final",
+        "parent": "B",
+        "entry": [
+          "enter_b2"
+        ],
+        "exit": [
+          "exit_b2"
+        ]
+      },
+      "Complete": {
+        "type": "final",
+        "entry": [
+          "enter_complete"
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "EV"
+    }
+  ],
+  "expected": {
+    "final_state": "Complete",
+    "done": true,
+    "trace": [
+      "enter_a",
+      "enter_a1",
+      "enter_b",
+      "enter_b1",
+      "exit_b1",
+      "exit_a1",
+      "enter_a2",
+      "enter_b2",
+      "exit_b2",
+      "exit_b",
+      "exit_a2",
+      "exit_a",
+      "exit_root",
+      "enter_complete"
+    ]
+  }
+},
+{
+  "name": "nested_parallel_in_parallel_completion",
+  "description": "Upstream final: two nested parallel levels complete and their onDone reaches a top-level final state",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/final.test.ts: should reach a final state when a parallel state nested in a parallel state reaches its final state and transitions to a top-level final state in response to that",
+  "machine": {
+    "initial": "A",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "A": {
+        "type": "parallel",
+        "onDone": "B"
+      },
+      "A1": {
+        "type": "parallel",
+        "parent": "A"
+      },
+      "A1A": {
+        "type": "final",
+        "parent": "A1"
+      },
+      "A1B": {
+        "type": "final",
+        "parent": "A1"
+      },
+      "A2": {
+        "type": "compound",
+        "initial": "A2A",
+        "parent": "A"
+      },
+      "A2A": {
+        "type": "final",
+        "parent": "A2"
+      },
+      "B": {
+        "type": "final"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "NOOP"
+    }
+  ],
+  "expected": {
+    "final_state": "B",
+    "done": true,
+    "trace": []
+  }
+},
+{
+  "name": "parallel_compound_partial_completion_stays_active",
+  "description": "Upstream final: a parallel root stays active when one compound region is final and another is not",
+  "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/final.test.ts: should not complete a parallel root immediately when only some of its regions are in their final states (final state reached in a compound region)",
+  "machine": {
+    "initial": "Root",
+    "context": {
+      "log": []
+    },
+    "states": {
+      "Root": {
+        "type": "parallel"
+      },
+      "A": {
+        "type": "compound",
+        "initial": "A1",
+        "parent": "Root"
+      },
+      "A1": {
+        "type": "final",
+        "parent": "A"
+      },
+      "B": {
+        "type": "compound",
+        "initial": "B1",
+        "parent": "Root"
+      },
+      "B1": {
+        "parent": "B"
+      },
+      "B2": {
+        "type": "final",
+        "parent": "B"
+      }
+    }
+  },
+  "events": [],
+  "expected": {      "final_state": "A1",
+      "final_states": [
+        "A1",
+        "B1"
+      ],
+      "done": false,
+      "trace": []
+    }
+  },
+  {
+    "name": "parallel_sequential_region_completion_exit_order",
+    "description": "Upstream final: completing the second region later exits both region subtrees in reverse document order",
+    "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/final.test.ts: should call exit actions of parallel states in reversed document order when the machines reaches its final state after earlier region transition",
+    "machine": {
+      "initial": "Root",
+      "context": {
+        "log": []
+      },
+      "states": {
+        "Root": {
+          "type": "parallel",
+          "exit": [
+            "exit_root"
+          ],
+          "onDone": "Complete"
+        },
+        "A": {
+          "type": "compound",
+          "initial": "A1",
+          "parent": "Root",
+          "entry": [
+            "enter_a"
+          ],
+          "exit": [
+            "exit_a"
+          ]
+        },
+        "A1": {
+          "parent": "A",
+          "entry": [
+            "enter_a1"
+          ],
+          "exit": [
+            "exit_a1"
+          ],
+          "on": {
+            "EV2": "A2"
+          }
+        },
+        "A2": {
+          "type": "final",
+          "parent": "A",
+          "entry": [
+            "enter_a2"
+          ],
+          "exit": [
+            "exit_a2"
+          ]
+        },
+        "B": {
+          "type": "compound",
+          "initial": "B1",
+          "parent": "Root",
+          "entry": [
+            "enter_b"
+          ],
+          "exit": [
+            "exit_b"
+          ]
+        },
+        "B1": {
+          "parent": "B",
+          "entry": [
+            "enter_b1"
+          ],
+          "exit": [
+            "exit_b1"
+          ],
+          "on": {
+            "EV1": "B2"
+          }
+        },
+        "B2": {
+          "type": "final",
+          "parent": "B",
+          "entry": [
+            "enter_b2"
+          ],
+          "exit": [
+            "exit_b2"
+          ]
+        },
+        "Complete": {
+          "type": "final",
+          "entry": [
+            "enter_complete"
+          ]
+        }
+      }
+    },
+    "events": [
+      {
+        "type": "EV1"
+      },
+      {
+        "type": "EV2"
+      }
+    ],
     "expected": {
-      "final_state": "Completed",
+      "final_state": "Complete",
       "done": true,
-      "trace": ["enter_completed"]
+      "trace": [
+        "enter_a",
+        "enter_a1",
+        "enter_b",
+        "enter_b1",
+        "exit_b1",
+        "enter_b2",
+        "exit_a1",
+        "enter_a2",
+        "exit_b2",
+        "exit_b",
+        "exit_a2",
+        "exit_a",
+        "exit_root",
+        "enter_complete"
+      ]
+    }
+  },
+  {
+    "name": "final_region_ignores_its_own_transition",
+    "description": "Upstream final: a final region takes no transitions even when it declares one",
+    "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/final.test.ts: final regions under a parallel state take no transitions and start no actors",
+    "machine": {
+      "initial": "Root",
+      "context": {
+        "log": []
+      },
+      "states": {
+        "Root": {
+          "type": "parallel"
+        },
+        "A": {
+          "type": "final",
+          "parent": "Root",
+          "on": {
+            "GO": "Other"
+          }
+        },
+        "B": {
+          "type": "compound",
+          "initial": "Idle",
+          "parent": "Root"
+        },
+        "Idle": {
+          "parent": "B"
+        },
+        "Other": {
+          "parent": "B"
+        }
+      }
+    },
+    "events": [
+      {
+        "type": "GO"
+      }
+    ],
+    "expected": {
+      "final_state": "A",
+      "final_states": [
+        "A",
+        "Idle"
+      ],
+      "trace": []
+    }
+  },
+  {
+    "name": "root_exit_runs_after_final_entry",
+    "description": "Upstream final: completing the machine exits the final state and then the implicit root",
+    "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/final.test.ts: should call exit actions in reversed document order when the machines reaches its final state",
+    "machine": {
+      "initial": "Running",
+      "context": {
+        "log": []
+      },
+      "entry": [
+        "enter_root"
+      ],
+      "exit": [
+        "exit_root"
+      ],
+      "states": {
+        "Running": {
+          "entry": [
+            "enter_running"
+          ],
+          "exit": [
+            "exit_running"
+          ],
+          "on": {
+            "FINISH": "Done"
+          }
+        },
+        "Done": {
+          "type": "final",
+          "entry": [
+            "enter_done"
+          ],
+          "exit": [
+            "exit_done"
+          ]
+        }
+      }
+    },
+    "events": [
+      {
+        "type": "FINISH"
+      }
+    ],
+    "expected": {
+      "final_state": "Done",
+      "done": true,
+      "trace": [
+        "enter_root",
+        "enter_running",
+        "exit_running",
+        "enter_done",
+        "exit_done",
+        "exit_root"
+      ]
+    }
+  },
+  {
+    "name": "parallel_root_completion_exit_order",
+    "description": "Upstream final: parallel completion exits both region subtrees in reverse document order before the implicit root",
+    "source": "xstate@6.0.0-beta.1 commit d56483f packages/core/test/final.test.ts: should call exit actions of parallel states in reversed document order when the machines reaches its final state after earlier region transition",
+    "machine": {
+      "type": "parallel",
+      "initial": "A",
+      "context": {
+        "log": []
+      },
+      "entry": [
+        "enter_root"
+      ],
+      "exit": [
+        "exit_root"
+      ],
+      "states": {
+        "A": {
+          "type": "compound",
+          "initial": "A1",
+          "entry": [
+            "enter_a"
+          ],
+          "exit": [
+            "exit_a"
+          ]
+        },
+        "A1": {
+          "parent": "A",
+          "entry": [
+            "enter_a1"
+          ],
+          "exit": [
+            "exit_a1"
+          ],
+          "on": {
+            "EV2": "A2"
+          }
+        },
+        "A2": {
+          "type": "final",
+          "parent": "A",
+          "entry": [
+            "enter_a2"
+          ],
+          "exit": [
+            "exit_a2"
+          ]
+        },
+        "B": {
+          "type": "compound",
+          "initial": "B1",
+          "entry": [
+            "enter_b"
+          ],
+          "exit": [
+            "exit_b"
+          ]
+        },
+        "B1": {
+          "parent": "B",
+          "entry": [
+            "enter_b1"
+          ],
+          "exit": [
+            "exit_b1"
+          ],
+          "on": {
+            "EV1": "B2"
+          }
+        },
+        "B2": {
+          "type": "final",
+          "parent": "B",
+          "entry": [
+            "enter_b2"
+          ],
+          "exit": [
+            "exit_b2"
+          ]
+        }
+      }
+    },
+    "events": [
+      {
+        "type": "EV1"
+      },
+      {
+        "type": "EV2"
+      }
+    ],
+    "expected": {
+      "final_state": "A2",
+      "final_states": [
+        "A2",
+        "B2"
+      ],
+      "done": true,
+      "trace": [
+        "enter_root",
+        "enter_a",
+        "enter_a1",
+        "enter_b",
+        "enter_b1",
+        "exit_b1",
+        "enter_b2",
+        "exit_a1",
+        "enter_a2",
+        "exit_b2",
+        "exit_b",
+        "exit_a2",
+        "exit_a",
+        "exit_root"
+      ]
     }
   }
 ]
