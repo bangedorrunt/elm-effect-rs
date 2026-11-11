@@ -432,5 +432,56 @@
       "final_states": { "root": ["Running"], "a": ["Waiting"] },
       "absent": ["b"]
     }
+  },
+  {
+    "name": "invoke_input_resolves_from_context_and_entry_event",
+    "description": "Proves invoke input resolves from the owner's context and the event that entered the owning state, with the invoke id defaulting to its src",
+    "root": {
+      "initial": "Idle",
+      "context": { "seed": 5, "seen": null },
+      "states": {
+        "Idle": { "on": { "START": "Waiting" } },
+        "Waiting": {
+          "invoke": {
+            "src": "worker",
+            "onDone": {
+              "target": "Finished",
+              "actions": ["assign_payload:seen"]
+            }
+          }
+        },
+        "Finished": {}
+      }
+    },
+    "children": {
+      "worker": {
+        "initial": "Go",
+        "states": {
+          "Go": { "on": { "FINISH": "Done" } },
+          "Done": { "type": "final", "output": { "result": 42 } }
+        }
+      }
+    },
+    "invoke_inputs": {
+      "worker": { "from_context": "seed", "from_event": "n" }
+    },
+    "steps": [
+      {
+        "send": "root",
+        "event": { "type": "START", "payload": { "n": 7 } },
+        "expect": { "root": ["Waiting"], "worker": ["Go"] },
+        "context": { "worker": { "seed": 5, "n": 7 } }
+      },
+      {
+        "send": "worker",
+        "event": { "type": "FINISH" },
+        "expect": { "root": ["Finished"] }
+      }
+    ],
+    "expected": {
+      "final_states": { "root": ["Finished"] },
+      "absent": ["worker"],
+      "context": { "root": { "seen": { "result": 42 } } }
+    }
   }
 ]

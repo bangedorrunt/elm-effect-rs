@@ -991,6 +991,11 @@ const FEATURES: &[Feature] = &[
         cases: &["invoke_input_and_final_output_cross_the_child_boundary"],
     },
     Feature {
+        name: "invoke_input_resolver",
+        fixture: "actors.json",
+        cases: &["invoke_input_resolves_from_context_and_entry_event"],
+    },
+    Feature {
         name: "invoke_reentry",
         fixture: "actors.json",
         cases: &["invoke_reentering_restarts_the_child"],

@@ -13,6 +13,8 @@ struct ActorCase {
     #[serde(default)]
     children: BTreeMap<String, MachineConfig>,
     #[serde(default)]
+    invoke_inputs: BTreeMap<String, InvokeInput>,
+    #[serde(default)]
     steps: Vec<Step>,
     expected: Expected,
 }
@@ -39,6 +41,14 @@ enum Step {
         #[serde(default)]
         context: BTreeMap<String, BTreeMap<String, serde_json::Value>>,
     },
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct InvokeInput {
+    #[serde(default)]
+    from_context: Option<String>,
+    #[serde(default)]
+    from_event: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -117,23 +127,60 @@ fn collect_actions(config: &MachineConfig, out: &mut BTreeSet<String>) {
     }
 }
 
-fn build(config: MachineConfig, configs: &BTreeMap<String, MachineConfig>) -> DynamicMachine {
-    build_with_invokes(config, configs, true)
+fn build(
+    config: MachineConfig,
+    configs: &BTreeMap<String, MachineConfig>,
+    invoke_inputs: &BTreeMap<String, InvokeInput>,
+) -> DynamicMachine {
+    build_with_invokes(config, configs, invoke_inputs, true)
 }
 
 fn build_with_invokes(
     config: MachineConfig,
     configs: &BTreeMap<String, MachineConfig>,
+    invoke_inputs: &BTreeMap<String, InvokeInput>,
     register_invokes: bool,
 ) -> DynamicMachine {
     let mut names = BTreeSet::new();
     collect_actions(&config, &mut names);
     let mut builder = DynamicMachine::builder(config);
     if register_invokes {
+        for (id, input) in invoke_inputs {
+            let input = input.clone();
+            builder = builder.invoke_input(id.clone(), move |context, event| {
+                let mut data = serde_json::Map::new();
+                if let Some(key) = &input.from_context {
+                    data.insert(
+                        key.clone(),
+                        context
+                            .data
+                            .get(key)
+                            .cloned()
+                            .unwrap_or(serde_json::Value::Null),
+                    );
+                }
+                if let Some(key) = &input.from_event {
+                    data.insert(
+                        key.clone(),
+                        event
+                            .payload
+                            .get(key)
+                            .cloned()
+                            .unwrap_or(serde_json::Value::Null),
+                    );
+                }
+                serde_json::Value::Object(data)
+            });
+        }
         for (child, child_config) in configs {
             builder = builder.actor(
                 child.clone(),
-                ActorLogic::from_machine(build_with_invokes(child_config.clone(), configs, false)),
+                ActorLogic::from_machine(build_with_invokes(
+                    child_config.clone(),
+                    configs,
+                    invoke_inputs,
+                    false,
+                )),
             );
         }
     }
@@ -141,6 +188,7 @@ fn build_with_invokes(
         if let Some(child) = name.strip_prefix("spawn:") {
             let child = child.to_string();
             let configs = configs.clone();
+            let invoke_inputs = invoke_inputs.clone();
             builder = builder.action(name, move |_context, _event, enq| {
                 let config = configs
                     .get(&child)
@@ -148,7 +196,12 @@ fn build_with_invokes(
                     .clone();
                 enq.spawn(
                     child.clone(),
-                    ActorLogic::from_machine(build_with_invokes(config, &configs, false)),
+                    ActorLogic::from_machine(build_with_invokes(
+                        config,
+                        &configs,
+                        &invoke_inputs,
+                        false,
+                    )),
                 );
             });
         } else if let Some(rest) = name.strip_prefix("send:") {
@@ -216,7 +269,7 @@ fn conformance_actors() {
     let cases: Vec<ActorCase> = serde_json::from_str(&content).expect("parse actors fixture");
 
     for case in cases {
-        let root = build(case.root, &case.children);
+        let root = build(case.root, &case.children, &case.invoke_inputs);
         let mut system = ActorSystem::new("root", ActorLogic::from_machine(root));
         system
             .run()
