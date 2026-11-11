@@ -257,6 +257,8 @@ Actions on a schema-driven chart reach the actor system through `ActionQueue`:
 
 A state can instead own an invoked actor. `"invoke": {"id": "worker", "src": "worker"}` spawns the logic registered with `DynamicMachineBuilder::actor("worker", logic)` on entry and stops it on exit. `onDone` and `onError` are ordinary transition rules attached to that child id. A reentering transition restarts the invoke; a transition that keeps the state active leaves it running.
 
+`DynamicMachineBuilder::try_build` rejects an invoke whose `src` has no registered actor and a state that reuses an invoke id. `build` panics on either error. `DynamicMachine::from_json_str` is for schemas without `invoke`; use the builder when actor logic must be registered.
+
 `invoke.input` is passed to the child at spawn. A literal JSON value works directly; `DynamicMachineBuilder::invoke_input(id, resolver)` computes it from the owner's context and the entry event. Effect, promise, callback, and reducer actors consume it through `from_effect_with_input`, `from_promise_with_input`, `from_callback_with_input`, and `from_transition_with_input`. An invoked machine receives it in the `xstate.init` event, and uses it as initial context data when the machine declares no context of its own.
 
 Completion output travels in the done event. Declare `output` on a top-level final state, or a root `output`, or register `DynamicMachineBuilder::output(state, resolver)` / `root_output(resolver)`. The parent's `onDone` action reads the child output from `event.payload`.

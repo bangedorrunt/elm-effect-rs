@@ -340,6 +340,12 @@ impl DynamicMachine {
     ///
     /// Returns the parse error when the schema is not valid JSON or does not
     /// match [`MachineConfig`].
+    ///
+    /// # Panics
+    ///
+    /// Panics when the schema invokes an actor, because this entry point has no
+    /// place to register actor logic. Use [`DynamicMachine::builder`] and
+    /// [`DynamicMachineBuilder::try_build`] for schemas with `invoke`.
     pub fn from_json_str(json: &str) -> Result<Self, serde_json::Error> {
         let config: MachineConfig = serde_json::from_str(json)?;
         Ok(Self::builder(config).build())
@@ -460,6 +466,27 @@ impl DynamicMachine {
     pub fn to_mermaid(&self) -> String {
         self.inner.to_mermaid()
     }
+}
+
+/// Why a dynamic machine cannot be built.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum DynamicBuildError {
+    /// An invoke names an actor source the builder has not registered.
+    #[error("state `{state}` invokes unknown actor source `{src}`")]
+    UnknownInvokeSource {
+        /// State owning the invoke.
+        state: String,
+        /// Unregistered `src`.
+        src: String,
+    },
+    /// One state declares the same invoke id more than once.
+    #[error("state `{state}` declares invoke id `{id}` more than once")]
+    DuplicateInvokeId {
+        /// State owning the invokes.
+        state: String,
+        /// Repeated child id.
+        id: String,
+    },
 }
 
 /// Builder for compiling a [`MachineConfig`] into an executable [`DynamicMachine`].
@@ -921,9 +948,51 @@ impl DynamicMachineBuilder {
         transition
     }
 
+    fn validate_invokes(&self) -> Result<(), DynamicBuildError> {
+        for (state, config) in &self.config.states {
+            let mut ids = BTreeSet::new();
+            for invoke in config.invoke.clone().into_vec() {
+                if !self.actors.contains_key(&invoke.src) {
+                    return Err(DynamicBuildError::UnknownInvokeSource {
+                        state: state.clone(),
+                        src: invoke.src,
+                    });
+                }
+                let id = invoke.id.unwrap_or(invoke.src);
+                if !ids.insert(id.clone()) {
+                    return Err(DynamicBuildError::DuplicateInvokeId {
+                        state: state.clone(),
+                        id,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Compile, rejecting invoke configurations that cannot run.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DynamicBuildError::UnknownInvokeSource`] when an invoke names
+    /// an unregistered source, or [`DynamicBuildError::DuplicateInvokeId`] when
+    /// one state declares the same id twice.
+    pub fn try_build(self) -> Result<DynamicMachine, DynamicBuildError> {
+        self.validate_invokes()?;
+        Ok(self.build_validated())
+    }
+
     /// Compile into an immutable [`DynamicMachine`].
+    ///
+    /// # Panics
+    ///
+    /// Panics when [`try_build`](Self::try_build) would return an error.
     #[must_use]
     pub fn build(self) -> DynamicMachine {
+        self.try_build().unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn build_validated(self) -> DynamicMachine {
         let initial_context = DynamicContext::from_data(self.config.context.clone());
         let paths = Self::state_paths(&self.config);
         let ids = Self::state_ids(&self.config);

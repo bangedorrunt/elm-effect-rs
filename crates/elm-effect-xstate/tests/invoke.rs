@@ -357,3 +357,184 @@ fn root_output_resolver_wins_over_final_state_output() {
     );
     assert!(!system.exists(&id("worker")));
 }
+
+#[test]
+fn invoke_input_reaches_a_transition_actor() {
+    let config: MachineConfig = serde_json::from_str(
+        r#"{"initial":"Running","states":{
+            "Running":{"invoke":{"id":"counter","src":"counter","input":{"start":5}}}
+        }}"#,
+    )
+    .expect("root schema");
+    let root = DynamicMachine::builder(config)
+        .actor(
+            "counter",
+            ActorLogic::from_transition_with_input(
+                |input| input["start"].clone(),
+                |value, event| {
+                    if event.r#type == "BUMP" {
+                        serde_json::json!(value.as_u64().unwrap_or(0) + 1)
+                    } else {
+                        value.clone()
+                    }
+                },
+            ),
+        )
+        .build();
+
+    let mut system = ActorSystem::new("root", ActorLogic::from_machine(root));
+    system.run().expect("system settles");
+    assert_eq!(system.value(&id("counter")), Some(&serde_json::json!(5)));
+
+    system
+        .send("counter", DynamicEvent::new("BUMP"))
+        .expect("send BUMP");
+    system.run().expect("system settles");
+
+    assert_eq!(system.value(&id("counter")), Some(&serde_json::json!(6)));
+}
+
+#[test]
+fn invoke_input_reaches_a_callback_actor() {
+    let config: MachineConfig = serde_json::from_str(
+        r#"{"initial":"Running","context":{"seen":null},"states":{
+            "Running":{
+                "invoke":{"id":"callback","src":"callback","input":{"n":9}},
+                "on":{"PING":{"target":"Seen","actions":["capture"]}}
+            },
+            "Seen":{}
+        }}"#,
+    )
+    .expect("root schema");
+    let root = DynamicMachine::builder(config)
+        .actor(
+            "callback",
+            ActorLogic::from_callback_with_input(|sender, input| {
+                assert!(sender.send(DynamicEvent::with_payload("PING", input.clone())));
+            }),
+        )
+        .action("capture", |context, event, _enq| {
+            context.data["seen"] = event.payload.clone();
+        })
+        .build();
+
+    let mut system = ActorSystem::new("root", ActorLogic::from_machine(root));
+    system.run().expect("system settles");
+
+    assert_eq!(
+        system
+            .configuration(&id("root"))
+            .expect("root configuration")
+            .leaves()
+            .cloned()
+            .collect::<Vec<_>>(),
+        ["Seen"]
+    );
+    assert_eq!(
+        system.context(&id("root")).expect("root context").data["seen"],
+        serde_json::json!({"n": 9})
+    );
+    assert!(!system.exists(&id("callback")));
+}
+
+#[test]
+fn invoke_input_reaches_a_promise_actor() {
+    let config: MachineConfig = serde_json::from_str(
+        r#"{"initial":"Running","context":{"seen":null},"states":{
+            "Running":{
+                "invoke":{
+                    "id":"worker",
+                    "src":"worker",
+                    "input":{"n":4},
+                    "onDone":{"target":"Finished","actions":["capture"]}
+                }
+            },
+            "Finished":{}
+        }}"#,
+    )
+    .expect("root schema");
+    let root = DynamicMachine::builder(config)
+        .actor(
+            "worker",
+            ActorLogic::from_promise_with_input(|input| {
+                let output = input.clone();
+                Effect::<DynamicEvent, String>::sync(move || {
+                    DynamicEvent::with_payload("READY", output.clone())
+                })
+            }),
+        )
+        .action("capture", |context, event, _enq| {
+            context.data["seen"] = event.payload.clone();
+        })
+        .build();
+
+    let mut system = ActorSystem::new("root", ActorLogic::from_machine(root));
+    system.run().expect("system settles");
+    let task = system.take_tasks().into_iter().next().expect("worker task");
+    let event = match Runtime::run(task.effect) {
+        Exit::Success(event) => event,
+        Exit::Failure(cause) => panic!("promise failed: {cause:?}"),
+    };
+    assert_eq!(event.payload, serde_json::json!({"n": 4}));
+    system
+        .complete(&task.actor, event.payload)
+        .expect("complete worker");
+    system.run().expect("system settles");
+
+    assert_eq!(
+        system.context(&id("root")).expect("root context").data["seen"],
+        serde_json::json!({"n": 4})
+    );
+}
+
+#[test]
+fn an_unknown_invoke_source_is_a_build_error() {
+    let config: MachineConfig = serde_json::from_str(
+        r#"{"initial":"Running","states":{
+            "Running":{"invoke":{"id":"worker","src":"missing"}}
+        }}"#,
+    )
+    .expect("root schema");
+
+    let error = match DynamicMachine::builder(config).try_build() {
+        Ok(_) => panic!("an unknown invoke source must not build"),
+        Err(error) => error,
+    };
+
+    assert_eq!(
+        error,
+        DynamicBuildError::UnknownInvokeSource {
+            state: "Running".to_string(),
+            src: "missing".to_string(),
+        }
+    );
+}
+
+#[test]
+fn duplicate_invoke_ids_are_a_build_error() {
+    let config: MachineConfig = serde_json::from_str(
+        r#"{"initial":"Running","states":{
+            "Running":{"invoke":[
+                {"id":"worker","src":"worker"},
+                {"id":"worker","src":"worker"}
+            ]}
+        }}"#,
+    )
+    .expect("root schema");
+
+    let error = match DynamicMachine::builder(config)
+        .actor("worker", ActorLogic::from_machine(worker()))
+        .try_build()
+    {
+        Ok(_) => panic!("duplicate invoke ids must not build"),
+        Err(error) => error,
+    };
+
+    assert_eq!(
+        error,
+        DynamicBuildError::DuplicateInvokeId {
+            state: "Running".to_string(),
+            id: "worker".to_string(),
+        }
+    );
+}

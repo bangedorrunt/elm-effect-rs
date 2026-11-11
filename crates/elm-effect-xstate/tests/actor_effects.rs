@@ -1,7 +1,7 @@
 use elm_effect::{Clock, ClockImpl, Duration, Effect, Exit, Runtime, TestClock};
 use elm_effect_xstate::prelude::*;
-use std::sync::Arc;
 use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
 
 fn id(name: &str) -> ActorId {
     ActorId::new(name)
@@ -60,11 +60,20 @@ fn an_effect_actor_reports_done_to_its_parent() {
 }
 
 #[test]
-fn an_effect_failure_notifies_the_parent_and_stops_the_actor() {
-    let mut system = ActorSystem::new(
-        "root",
-        ActorLogic::from_machine(waiting_parent("xstate.error.actor.worker")),
-    );
+fn an_effect_failure_carries_its_payload_to_the_parent_and_stops_the_actor() {
+    let config: MachineConfig = serde_json::from_str(
+        r#"{"initial":"Waiting","context":{"failure":null},"states":{
+            "Waiting":{"on":{"xstate.error.actor.worker":{"target":"Finished","actions":["capture"]}}},
+            "Finished":{}
+        }}"#,
+    )
+    .expect("parent schema");
+    let root = DynamicMachine::builder(config)
+        .action("capture", |context, event, _enq| {
+            context.data["failure"] = event.payload.clone();
+        })
+        .build();
+    let mut system = ActorSystem::new("root", ActorLogic::from_machine(root));
     system
         .spawn(
             &id("root"),
@@ -81,6 +90,10 @@ fn an_effect_failure_notifies_the_parent_and_stops_the_actor() {
     system.run().expect("system settles");
 
     assert_eq!(leaves(&system, &id("root")), ["Finished"]);
+    assert_eq!(
+        system.context(&id("root")).expect("root context").data["failure"],
+        serde_json::json!({"error": "boom"})
+    );
     assert!(!system.exists(&id("worker")));
 }
 
@@ -111,6 +124,29 @@ fn a_stream_actor_forwards_values_to_its_parent() {
 }
 
 #[test]
+fn a_stream_disconnect_stops_the_stream_actor() {
+    let (tx, rx) = mpsc::channel();
+    let mut system = ActorSystem::new(
+        "root",
+        ActorLogic::from_machine(
+            DynamicMachine::from_json_str(r#"{"initial":"Idle","states":{"Idle":{}}}"#)
+                .expect("parent schema"),
+        ),
+    );
+    system
+        .spawn(&id("root"), "feed", ActorLogic::from_stream(rx))
+        .expect("spawn stream");
+    system.run().expect("system settles");
+    assert!(system.exists(&id("feed")));
+
+    drop(tx);
+    system.run().expect("system settles");
+
+    assert!(!system.exists(&id("feed")));
+    assert!(system.exists(&id("root")));
+}
+
+#[test]
 fn a_callback_actor_forwards_values_to_its_parent() {
     let mut system = ActorSystem::new(
         "root",
@@ -136,6 +172,72 @@ fn a_callback_actor_forwards_values_to_its_parent() {
     system.run().expect("system settles");
 
     assert_eq!(leaves(&system, &id("root")), ["Ponged"]);
+}
+
+#[test]
+fn a_callback_sender_returns_false_after_the_system_is_dropped() {
+    let captured = Arc::new(Mutex::new(None));
+    let slot = Arc::clone(&captured);
+    let mut system = ActorSystem::new(
+        "root",
+        ActorLogic::from_machine(
+            DynamicMachine::from_json_str(r#"{"initial":"Idle","states":{"Idle":{}}}"#)
+                .expect("parent schema"),
+        ),
+    );
+    system
+        .spawn(
+            &id("root"),
+            "callback",
+            ActorLogic::from_callback(move |sender| {
+                *slot.lock().expect("callback slot") = Some(sender);
+            }),
+        )
+        .expect("spawn callback");
+    system.run().expect("system settles");
+    let sender = captured
+        .lock()
+        .expect("callback slot")
+        .take()
+        .expect("callback sender");
+
+    drop(system);
+
+    assert!(!sender.send(DynamicEvent::new("PING")));
+}
+
+#[test]
+fn a_callback_event_after_the_parent_stops_is_discarded() {
+    let captured = Arc::new(Mutex::new(None));
+    let slot = Arc::clone(&captured);
+    let mut system = ActorSystem::new(
+        "root",
+        ActorLogic::from_machine(
+            DynamicMachine::from_json_str(r#"{"initial":"Idle","states":{"Idle":{}}}"#)
+                .expect("parent schema"),
+        ),
+    );
+    system
+        .spawn(
+            &id("root"),
+            "callback",
+            ActorLogic::from_callback(move |sender| {
+                *slot.lock().expect("callback slot") = Some(sender);
+            }),
+        )
+        .expect("spawn callback");
+    system.run().expect("system settles");
+    let sender = captured
+        .lock()
+        .expect("callback slot")
+        .take()
+        .expect("callback sender");
+
+    system.stop(&id("root"));
+    assert!(sender.send(DynamicEvent::new("PING")));
+    system.run().expect("system settles");
+
+    assert!(system.ids().next().is_none());
 }
 
 #[test]

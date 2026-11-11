@@ -36,10 +36,10 @@ pub use adapter::{StatechartDefinition, StatechartModel, StatechartProgram};
 pub use configuration::Configuration;
 pub use durable::{ReplayError, TransitionRecord, TransitionStamp};
 pub use dynamic::{
-    ActionList, DelaySpec, DynamicActionFn, DynamicContext, DynamicDelayFn, DynamicEvent,
-    DynamicGuardFn, DynamicInputFn, DynamicMachine, DynamicMachineBuilder, DynamicOutputFn,
-    InvokeConfig, InvokeList, MachineConfig, StateNodeConfig, TargetList, TransitionConfig,
-    TransitionRule,
+    ActionList, DelaySpec, DynamicActionFn, DynamicBuildError, DynamicContext, DynamicDelayFn,
+    DynamicEvent, DynamicGuardFn, DynamicInputFn, DynamicMachine, DynamicMachineBuilder,
+    DynamicOutputFn, InvokeConfig, InvokeList, MachineConfig, StateNodeConfig, TargetList,
+    TransitionConfig, TransitionRule,
 };
 pub use machine::{Machine, MachineBuilder};
 pub use state_node::StateNode;
@@ -57,9 +57,9 @@ pub mod prelude {
     pub use crate::configuration::Configuration;
     pub use crate::durable::{ReplayError, TransitionRecord, TransitionStamp};
     pub use crate::dynamic::{
-        ActionList, DelaySpec, DynamicActionFn, DynamicContext, DynamicDelayFn, DynamicEvent,
-        DynamicGuardFn, DynamicMachine, DynamicMachineBuilder, InvokeConfig, InvokeList,
-        MachineConfig, StateNodeConfig, TargetList, TransitionConfig, TransitionRule,
+        ActionList, DelaySpec, DynamicActionFn, DynamicBuildError, DynamicContext, DynamicDelayFn,
+        DynamicEvent, DynamicGuardFn, DynamicMachine, DynamicMachineBuilder, InvokeConfig,
+        InvokeList, MachineConfig, StateNodeConfig, TargetList, TransitionConfig, TransitionRule,
     };
     pub use crate::machine::{Machine, MachineBuilder};
     pub use crate::state_node::StateNode;

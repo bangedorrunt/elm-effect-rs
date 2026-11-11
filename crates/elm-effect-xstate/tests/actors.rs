@@ -191,6 +191,20 @@ fn sending_to_an_unknown_actor_is_an_error() {
 }
 
 #[test]
+fn spawning_a_duplicate_actor_id_is_an_error() {
+    let mut system = ActorSystem::new("root", ActorLogic::from_machine(worker()));
+    system
+        .spawn(&id("root"), "worker", ActorLogic::from_machine(worker()))
+        .expect("first spawn");
+
+    let error = system
+        .spawn(&id("root"), "worker", ActorLogic::from_machine(worker()))
+        .expect_err("duplicate id");
+
+    assert_eq!(error, ActorError::Duplicate(id("worker")));
+}
+
+#[test]
 fn a_directive_cycle_trips_the_step_budget() {
     let config: MachineConfig = serde_json::from_str(
         r#"{"initial":"A","states":{"A":{"entry":["loop"],"on":{"TICK":{"target":"A","reenter":true}}}}}"#,
