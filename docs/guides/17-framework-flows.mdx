@@ -4,7 +4,7 @@ This guide describes the state machines and execution flows of `elm-effect`.
 
 Full formal proofs and TLA+ models live in [`docs/research/state-machines-and-flows.md`](../research/state-machines-and-flows.md), [`skills/verify-framework-flows`](../../skills/verify-framework-flows), [`skills/verify-signal-latch`](../../skills/verify-signal-latch), and [`skills/verify-lease-fencing`](../../skills/verify-lease-fencing).
 
-All models run via `scripts/verify-formal.sh`.
+All models run via `scripts/verify-formal.sh` (21 checks). The CI `formal` job model-checks all 19 TLA+ models directly. The executable 21-machine tracker is `crates/elm-effect/tests/machine_matrix.rs`: 20 model-backed machines, 1 exhaustive state table, and no unmodeled rows. The Effect v4 law and verb tracker is `crates/elm-effect/tests/law_matrix.rs`; the readable index is [verb and primitive parity](../parity/effect-verbs.md).
 
 ## 1. The Elm loop (UX)
 
@@ -101,3 +101,35 @@ Delayed transitions (`after`) generate `TimerIntent` data without sleeping:
 3. Stale timer wakeups arriving after state exit are discarded as harmless no-ops.
 
 Formally verified in [`flow9_statechart_timer.tla`](../../skills/verify-framework-flows/flow9_statechart_timer.tla). For full guide see [Harel statecharts](18-xstate.mdx).
+
+## 10. The Effect interpreter (Step/Drive)
+
+A run is a private trampoline. `Step` returns `Done`, `Fail`, or `Pending`. A `Pending` step pushes a continuation frame; `Drive` resumes frames in LIFO order. A failure unwinds every frame. An unmasked interrupt is checked before a step and fails the run without entering it; a mask defers delivery until the depth returns to zero.
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  Poll --> Step: unmasked or masked
+  Poll --> Fail: unmasked interrupt
+  Step --> Resume: Done and a frame waits
+  Step --> Done: Done and no frame waits
+  Step --> Fail: Fail, unwind every frame
+  Resume --> Step: pop a continuation
+  Resume --> Done: pop the last frame
+```
+
+Formally verified in [`flow10_effect_interpreter.tla`](../../skills/verify-framework-flows/flow10_effect_interpreter.tla).
+
+## 11. Scope masking and interrupt deferral
+
+Releases run in reverse acquisition order, exactly once. An interrupt requested during a release waits; delivery happens only at an unmasked, non-release boundary. A normal close requires the body to finish; an interrupted close still runs every release.
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  Running --> Closing: body done or interrupt delivered
+  Closing --> Closing: finalizer completes (LIFO)
+  Closing --> Closed: all finalizers settled
+```
+
+Formally verified in [`flow11_scope_masking.tla`](../../skills/verify-framework-flows/flow11_scope_masking.tla).

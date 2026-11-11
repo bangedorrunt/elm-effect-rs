@@ -29,3 +29,62 @@ jobs:
 
       - name: Format
         run: cargo fmt --all -- --check
+
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: rustup show active-toolchain
+
+      - name: Law matrix
+        run: cargo test -p elm-effect --test law_matrix -- --nocapture
+
+      - name: Machine matrix
+        run: cargo test -p elm-effect --test machine_matrix -- --nocapture
+
+      - name: Runtime laws on both executors
+        run: cargo test -p elm-effect-test --test runtime_laws -- --nocapture
+
+  formal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: TLA tools
+        run: curl -fsSL -o "$RUNNER_TEMP/tla2tools.jar" https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+
+      - name: Model check every flow
+        run: |
+          set -euo pipefail
+          for spec in \
+            skills/verify-framework-flows/flow1_elm_loop \
+            skills/verify-framework-flows/flow2_concurrency \
+            skills/verify-framework-flows/flow3_saga \
+            skills/verify-signal-latch/signal_latch \
+            skills/verify-lease-fencing/lease_fencing \
+            skills/verify-framework-flows/flow6_statechart_microstep \
+            skills/verify-framework-flows/flow7_statechart_parallel \
+            skills/verify-framework-flows/flow8_statechart_actor \
+            skills/verify-framework-flows/flow9_statechart_timer \
+            skills/verify-framework-flows/flow10_effect_interpreter \
+            skills/verify-framework-flows/flow11_scope_masking \
+            skills/verify-framework-flows/schedule_state \
+            skills/verify-framework-flows/deferred_latch \
+            skills/verify-framework-flows/test_clock \
+            skills/verify-framework-flows/crash_recovery \
+            skills/verify-framework-flows/dispatch_plan \
+            skills/verify-framework-flows/park_plan \
+            skills/verify-framework-flows/engine_run_phase \
+            skills/verify-framework-flows/lineage_rollover; do
+            java -cp "$RUNNER_TEMP/tla2tools.jar" tlc2.TLC \
+              -config "$spec.cfg" \
+              -workers auto \
+              "$spec.tla"
+          done

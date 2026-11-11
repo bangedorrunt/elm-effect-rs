@@ -23,9 +23,32 @@ This document serves as the permanent architectural reference for all implicit a
 
 ---
 
-## 2. Crucial Framework Flows (Formally Verified Statecharts)
+## 2. Crucial Framework Flows (Model-Checked Statecharts)
 
-All five statecharts below have been verified with TLA+ model checking via the `/statechart` skill and `scripts/verify-formal.sh`.
+The 11 framework flows and 8 dedicated machine models each have a TLA+ model checked by `scripts/verify-formal.sh` and by the CI `formal` job.
+
+### Proof Coverage
+
+`crates/elm-effect/tests/machine_matrix.rs` is the executable tracker for all 21 machines. It currently records:
+
+- **20 model-backed machines** covered by **19 TLA+ models**, with every model, config, and declared invariant checked for existence.
+- **1 exhaustive Rust table**: `EffectState`'s 18 edges over all 81 state pairs.
+- **No gap state**: every machine must be model-backed or exhaustively enumerated; the matrix has no unmodeled row it will accept.
+
+The matrix fails when a code path or witness disappears, a model loses an invariant, or the coverage baseline changes silently. Passing it is **not** a claim of 100% upstream behavior conformance; it is a claim that the declared envelope is accounted for.
+
+### Dedicated Machine Models
+
+| Machine | Model | Invariants |
+|---|---|---|
+| Schedule State | `schedule_state.tla` | `AttemptsBounded`, `WaitingWithinBudget`, `StopIsFinal`, `WakeIsARetry` |
+| Deferred Latch | `deferred_latch.tla` | `BodyRunsOnce`, `CompletionPermanent`, `ValueStable`, `WaitersBounded`, `CompletionNeedsBody` |
+| TestClock Time | `test_clock.tla` | `NoEarlyWake1`, `NoEarlyWake2`, `WakeOrder`, `TimeBounded`, `WokenNotSleeping`, `Woken2NotSleeping` |
+| Crash Recovery | `crash_recovery.tla` | `ProviderNeedsIntent`, `OutcomeNeedsProvider`, `PendingNeverRan`, `InFlightNotReplayed`, `AtMostOneRun`, `AtMostOneReconcile`, `CrashedHasMessage`, `RecoveredClassifies`, `DoneSettled` |
+| DispatchPlan Attempt | `dispatch_plan.tla` | `PlanIsTotal`, `PreparedDispatchesNew`, `TerminalsDuplicate`, `ParkedResumes`, `ReconcileRefuses`, `LiveLeaseRefuses`, `QueryBeatsIdempotency`, `IdempotentRetriesSameKey`, `NoContractRefuses` |
+| ParkPlan Evaluation | `park_plan.tla` | `RefusalNeedsCeiling`, `WaitHasFutureDeadline`, `ResumeReachedDeadline`, `DecisionIsTotal`, `AtMostOneRow`, `WaitHasOneRow`, `RefusalHasNoRow` |
+| Engine RunPhase | `engine_run_phase.tla` | `ExclusiveTerminals`, `RunningClear`, `ParkedClear`, `TerminalPhase`, `FailedPhase`, `CancelledPhase`, `ParkedResumable`, `GenerationBounded`, `ParkCountBounded`, `GenerationLaw` |
+| Lineage Rollover | `lineage_rollover.tla` | `EpochPositive`, `EpochBounded`, `NextEpochAdjacent`, `PrevClosedBeforeNext`, `RunningAfterRolloverClosedPrev`, `HistoryBounded`, `DoneHasClosedPrev`, `SettledNextStillClosesPrev`, `CrashKeepsNextAdjacent` |
 
 ### Flow 1 (UX): The Elm Loop Reactive Cycle
 - **Crate**: [`crates/elm-effect-elm`](../../crates/elm-effect-elm)
@@ -429,7 +452,85 @@ stateDiagram-v2
 
 ---
 
-## 3. Catalog of All 19 State Machines
+### Flow 10: Effect Interpreter Step/Drive Trampoline
+- **Crate**: [`crates/elm-effect`](../../crates/elm-effect)
+- **Model**: [`skills/verify-framework-flows/flow10_effect_interpreter.tla`](../../skills/verify-framework-flows/flow10_effect_interpreter.tla)
+- **Invariants**: `FailUnwindsAllFrames`, `DoneHasNoFrames`, `NoStepWhileUnmaskedInterrupted`, `EveryFailureHasAReason`, `ResumeNeedsAFrame`
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  state "At the same time" as all {
+    state "Interpreter" as r0 {
+      s0: Poll
+      s1: Step
+      s2: Resume
+      s3: Done
+      s4: Fail
+      [*] --> s0
+      s0 --> s1: boundary check passes: no unmasked interrupt
+      s0 --> s4: unmasked interrupt at boundary fails before a step
+      s1 --> s1: pending advance pushes a continuation frame
+      s1 --> s2: step returns Done and a frame is waiting
+      s1 --> s3: step returns Done with no frames
+      s1 --> s4: step returns Fail: unwind every frame
+      s2 --> s1: pop the frame and run its continuation
+      s2 --> s3: pop the last frame
+    }
+    --
+    state "FiberMask" as r1 {
+      s5: Mask0
+      s6: Mask1
+      s7: Mask2
+      [*] --> s5
+      s5 --> s6: enter uninterruptible region
+      s6 --> s7: nest another uninterruptible region
+      s7 --> s6: leave uninterruptible region
+      s6 --> s5: leave uninterruptible region
+    }
+  }
+```
+
+### Flow 11: Scope Masking & Deferred Interrupts
+- **Crate**: [`crates/elm-effect`](../../crates/elm-effect)
+- **Model**: [`skills/verify-framework-flows/flow11_scope_masking.tla`](../../skills/verify-framework-flows/flow11_scope_masking.tla)
+- **Invariants**: `ReleasedOnce`, `LifoRelease`, `NoDuplicateReleased`, `NoReleaseBeforeClose`, `TerminalReleasedAll`, `MaskedInterruptDeferred`, `InterruptDeliveredUnmasked`
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  state "At the same time" as all {
+    state "Scope" as r0 {
+      s0: Running
+      s1: Closing
+      s2: Closed
+      [*] --> s0
+      s0 --> s1: body completes, or cancellation is delivered
+      s1 --> s1: finalizer completes in reverse acquisition order
+      s1 --> s2: all finalizers settled
+    }
+    --
+    state "Release" as r1 {
+      s3: Idle
+      s4: InFlight
+      [*] --> s3
+      s3 --> s4: start the next finalizer
+      s4 --> s3: finalizer completes; delivery had to wait
+    }
+    --
+    state "Interrupt" as r2 {
+      s5: None
+      s6: Requested
+      s7: Delivered
+      [*] --> s5
+      s5 --> s6: interrupt requested
+      s6 --> s6: masked or release in flight: delivery waits
+      s6 --> s7: unmasked, non-release boundary
+    }
+  }
+```
+
+## 3. Catalog of All 21 State Machines
 
 | # | Machine | Subsystem | Code Location | Key Transitions |
 |---|---|---|---|---|
@@ -452,3 +553,5 @@ stateDiagram-v2
 | 17 | Parallel Coordinator | `elm-effect-xstate` | `configuration.rs` | `RegionalLeaves(R1..Rn)` -> `Advance` -> `AllFinal` -> `Emit(onDone)` |
 | 18 | Actor Hierarchy System | `elm-effect-xstate` | `actor.rs` | `Spawn` -> `Mailbox(FIFO)` -> `ParentExit` -> `LIFO(ScopeTeardown)` |
 | 19 | Delayed Transition Scheduler | `elm-effect-xstate` | `dynamic.rs`, `types.rs` | `Start(Intent)` -> `TestClock(Advance)` -> `Fire` vs `Cancel(EarlyExit)` |
+| 20 | Effect Interpreter | `elm-effect` | `effect.rs` (`Step`, `Drive`) | `Poll` -> `Step` -> `Done` / `Fail`, with `Resume` for continuation frames |
+| 21 | Scope Masking | `elm-effect` | `scope.rs`, `fiber.rs` | `Running` -> `Closing` -> `Finished`, with unmasked interrupt delivery only between releases |

@@ -16,6 +16,8 @@ use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
 
 use elm_effect::{BoxFuture, Executor};
 
+pub mod runtime_laws;
+
 /// Single-threaded, registration-order executor for tests. Clones
 /// share one queue pair (like [`TestClock`]), so the handle kept beside
 /// a [`elm_effect::Runtime`] built with it drains the same work the

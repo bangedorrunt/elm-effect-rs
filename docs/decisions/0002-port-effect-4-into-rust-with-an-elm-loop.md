@@ -30,6 +30,18 @@ witness below is withdrawn rather than left red.
 > vocabulary and the carrier laws (journal, `DurableLog`, Elm loop) are
 > unchanged.
 
+> **Amended 2026-11-11.** The law names are now executable. `crates/elm-effect/tests/law_matrix.rs`
+> maps L1–L16 to real test paths, upstream citations under `packages/effect/test/` at the
+> pin, and the verb inventory. It fails on a renamed or missing witness. The drifted
+> names in L5, L15, and L16 are retargeted there: `ambiguous_tag_is_a_defect` is the
+> duplicate-provision test, `fold_model_no_hashmap` is `HashMapInAModel`, and L16's
+> retention witness is `JournalStore::old_offset_returns_gone_with_first_replayable`.
+> `fork_drops_producer_epoch` and `soft_delete_gone_is_not_retention` are native
+> carve-outs with written reasons: the in-process log has no fork or soft delete, and
+> those protocol features live in the HTTP adapter. The carrier now also has formal
+> models for the `Step`/`Drive` trampoline (Flow 10) and scope masking (Flow 11), plus
+> an executor-parameterized runtime law suite in `elm-effect-test`.
+
 ## How to read this
 
 The decision, in one page, is the next section. Everything after it is the specification an agent implements. The constitution (the laws) is the part that has to stay true if the TypeScript library, the executor, or the sibling codebases change. The crate map and the phases say where code goes and in what order.

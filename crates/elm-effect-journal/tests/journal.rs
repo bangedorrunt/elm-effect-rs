@@ -27,9 +27,33 @@ fn golden_transitions() {
         (S::ReconcilePending, S::Cancelled),
     ];
     assert_eq!(legal.len(), 18);
-    for (from, to) in legal {
+    for &(from, to) in &legal {
         assert!(can_transition(from, to), "{from:?} -> {to:?}");
         assert_eq!(transition(from, to), Ok(to));
+    }
+    // Exhaustive: every pair in the 9-state registry is classified by the
+    // 18-edge golden set, so adding a state or an edge without updating the
+    // table fails here.
+    let all = [
+        S::Prepared,
+        S::InFlight,
+        S::Accepted,
+        S::Settled,
+        S::Failed,
+        S::Unknown,
+        S::ReconcilePending,
+        S::Cancelled,
+        S::Parked,
+    ];
+    assert_eq!(all.len(), 9);
+    for &from in &all {
+        for &to in &all {
+            assert_eq!(
+                can_transition(from, to),
+                legal.contains(&(from, to)),
+                "{from:?} -> {to:?}"
+            );
+        }
     }
     // Rejections: terminal states go nowhere, Prepared skips nothing
     // forward, failures never settle, Parked has no edge at all.

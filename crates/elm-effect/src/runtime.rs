@@ -358,6 +358,27 @@ impl Runtime {
         })
     }
 
+    /// [`spawn_effect`](Self::spawn_effect) without the deferred start latch.
+    /// Deterministic harnesses need the fiber eligible before `join`: their
+    /// executor advances only when the caller drains it, and `join` cannot
+    /// fire a latch while it is the caller blocked on the drain.
+    pub fn spawn_effect_immediate<A, E>(&self, effect: Effect<A, E>) -> FiberHandle<A, E>
+    where
+        A: Send + 'static,
+        E: Send + 'static,
+    {
+        self.fork_detach_with(
+            move |ctx| {
+                let ambient = ctx.services_with_fiber();
+                match effect.run_sync_with(&ambient) {
+                    Ok(a) => Exit::Success(a),
+                    Err(cause) => Exit::Failure(cause),
+                }
+            },
+            ForkOpts::immediate(),
+        )
+    }
+
     /// Interrupt every live fiber and wait until all finalizers finished.
     /// Bounded by [`SHUTDOWN_DEADLINE`]: fibers still alive past it are
     /// named in the returned list and detached instead of hanging the caller.
