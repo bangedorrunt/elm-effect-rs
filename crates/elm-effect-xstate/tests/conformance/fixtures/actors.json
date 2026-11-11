@@ -355,5 +355,82 @@
       "final_states": { "root": ["Stopped"] },
       "absent": ["worker"]
     }
+  },
+  {
+    "name": "invoke_error_advances_owner_and_carries_payload",
+    "description": "Proves invoke onError runs its transition and action with the failure payload, then removes the child",
+    "root": {
+      "initial": "Waiting",
+      "context": { "failure": null },
+      "states": {
+        "Waiting": {
+          "invoke": {
+            "id": "worker",
+            "src": "worker",
+            "onError": {
+              "target": "Failed",
+              "actions": ["assign_payload:failure"]
+            }
+          }
+        },
+        "Failed": {}
+      }
+    },
+    "children": {
+      "worker": { "initial": "Waiting", "states": { "Waiting": {} } }
+    },
+    "steps": [
+      {
+        "fail": "worker",
+        "error": "boom",
+        "expect": { "root": ["Failed"] },
+        "context": { "root": { "failure": { "error": "boom" } } }
+      }
+    ],
+    "expected": {
+      "final_states": { "root": ["Failed"] },
+      "absent": ["worker"]
+    }
+  },
+  {
+    "name": "invoke_error_routes_to_the_matching_actor",
+    "description": "Proves two invokes keep separate error routes and a targetless onError action leaves the owner active",
+    "root": {
+      "initial": "Running",
+      "context": { "a_error": null, "b_error": null },
+      "states": {
+        "Running": {
+          "invoke": [
+            {
+              "id": "a",
+              "src": "worker",
+              "onError": { "actions": ["assign_payload:a_error"] }
+            },
+            {
+              "id": "b",
+              "src": "worker",
+              "onError": { "actions": ["assign_payload:b_error"] }
+            }
+          ]
+        }
+      }
+    },
+    "children": {
+      "worker": { "initial": "Waiting", "states": { "Waiting": {} } }
+    },
+    "steps": [
+      {
+        "fail": "b",
+        "error": "boom",
+        "expect": { "root": ["Running"], "a": ["Waiting"] },
+        "context": {
+          "root": { "a_error": null, "b_error": { "error": "boom" } }
+        }
+      }
+    ],
+    "expected": {
+      "final_states": { "root": ["Running"], "a": ["Waiting"] },
+      "absent": ["b"]
+    }
   }
 ]

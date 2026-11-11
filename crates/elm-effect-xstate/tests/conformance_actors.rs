@@ -31,6 +31,14 @@ enum Step {
     Stop {
         stop: String,
     },
+    Fail {
+        fail: String,
+        error: String,
+        #[serde(default)]
+        expect: BTreeMap<String, Vec<String>>,
+        #[serde(default)]
+        context: BTreeMap<String, BTreeMap<String, serde_json::Value>>,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -237,6 +245,23 @@ fn conformance_actors() {
                         "case '{}': stop '{stop}' found no actor",
                         case.name
                     );
+                }
+                Step::Fail {
+                    fail,
+                    error,
+                    expect,
+                    context,
+                } => {
+                    system
+                        .fail(&ActorId::new(&fail), error)
+                        .unwrap_or_else(|error| {
+                            panic!("case '{}': fail '{fail}' failed: {error}", case.name)
+                        });
+                    system.run().unwrap_or_else(|error| {
+                        panic!("case '{}': run after fail failed: {error}", case.name)
+                    });
+                    assert_states(&system, &expect, &case.name);
+                    assert_context(&system, &context, &case.name);
                 }
             }
         }

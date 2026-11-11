@@ -1000,6 +1000,16 @@ const FEATURES: &[Feature] = &[
         fixture: "actors.json",
         cases: &["invoke_stops_when_owner_exits"],
     },
+    Feature {
+        name: "invoke_error",
+        fixture: "actors.json",
+        cases: &["invoke_error_advances_owner_and_carries_payload"],
+    },
+    Feature {
+        name: "invoke_error_routing",
+        fixture: "actors.json",
+        cases: &["invoke_error_routes_to_the_matching_actor"],
+    },
 ];
 
 fn fixture_values(name: &str) -> Vec<serde_json::Value> {
