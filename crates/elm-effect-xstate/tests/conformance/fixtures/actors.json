@@ -242,5 +242,118 @@
       "final_states": { "root": ["Stopped"] },
       "absent": ["supervisor", "worker"]
     }
+  },
+  {
+    "name": "invoke_input_and_final_output_cross_the_child_boundary",
+    "description": "Proves invoke input becomes a null-context child's initial data and final output reaches the parent's onDone action",
+    "root": {
+      "initial": "Waiting",
+      "context": { "seen": null },
+      "states": {
+        "Waiting": {
+          "invoke": {
+            "id": "worker",
+            "src": "worker",
+            "input": { "n": 3 },
+            "onDone": {
+              "target": "Finished",
+              "actions": ["assign_payload:seen"]
+            }
+          }
+        },
+        "Finished": {}
+      }
+    },
+    "children": {
+      "worker": {
+        "initial": "Go",
+        "states": {
+          "Go": { "on": { "FINISH": "Done" } },
+          "Done": { "type": "final", "output": { "result": 42 } }
+        }
+      }
+    },
+    "steps": [
+      {
+        "send": "worker",
+        "event": { "type": "OBSERVE" },
+        "expect": { "worker": ["Go"] },
+        "context": { "worker": { "n": 3 } }
+      },
+      {
+        "send": "worker",
+        "event": { "type": "FINISH" },
+        "expect": { "root": ["Finished"] }
+      }
+    ],
+    "expected": {
+      "final_states": { "root": ["Finished"] },
+      "context": { "root": { "seen": { "result": 42 } } }
+    }
+  },
+  {
+    "name": "invoke_reentering_restarts_the_child",
+    "description": "Proves a reentering transition stops and respawns an invoked child instead of preserving its state",
+    "root": {
+      "initial": "Running",
+      "states": {
+        "Running": {
+          "invoke": { "id": "worker", "src": "worker" },
+          "on": { "RESTART": { "target": "Running", "reenter": true } }
+        }
+      }
+    },
+    "children": {
+      "worker": {
+        "initial": "Idle",
+        "states": {
+          "Idle": { "on": { "WORK": "Working" } },
+          "Working": {}
+        }
+      }
+    },
+    "steps": [
+      {
+        "send": "worker",
+        "event": { "type": "WORK" },
+        "expect": { "worker": ["Working"] }
+      },
+      {
+        "send": "root",
+        "event": { "type": "RESTART" },
+        "expect": { "root": ["Running"], "worker": ["Idle"] }
+      }
+    ],
+    "expected": {
+      "final_states": { "root": ["Running"], "worker": ["Idle"] }
+    }
+  },
+  {
+    "name": "invoke_stops_when_owner_exits",
+    "description": "Proves an invoked child is stopped automatically when its owning state exits",
+    "root": {
+      "initial": "Running",
+      "states": {
+        "Running": {
+          "invoke": { "id": "worker", "src": "worker" },
+          "on": { "STOP": "Stopped" }
+        },
+        "Stopped": {}
+      }
+    },
+    "children": {
+      "worker": { "initial": "Waiting", "states": { "Waiting": {} } }
+    },
+    "steps": [
+      {
+        "send": "root",
+        "event": { "type": "STOP" },
+        "expect": { "root": ["Stopped"] }
+      }
+    ],
+    "expected": {
+      "final_states": { "root": ["Stopped"] },
+      "absent": ["worker"]
+    }
   }
 ]

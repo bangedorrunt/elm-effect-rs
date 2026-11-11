@@ -985,6 +985,21 @@ const FEATURES: &[Feature] = &[
         fixture: "final_states.json",
         cases: &["parallel_root_completion_exit_order"],
     },
+    Feature {
+        name: "invoke_input_output",
+        fixture: "actors.json",
+        cases: &["invoke_input_and_final_output_cross_the_child_boundary"],
+    },
+    Feature {
+        name: "invoke_reentry",
+        fixture: "actors.json",
+        cases: &["invoke_reentering_restarts_the_child"],
+    },
+    Feature {
+        name: "invoke_lifetime",
+        fixture: "actors.json",
+        cases: &["invoke_stops_when_owner_exits"],
+    },
 ];
 
 fn fixture_values(name: &str) -> Vec<serde_json::Value> {

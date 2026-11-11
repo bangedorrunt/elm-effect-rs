@@ -25,6 +25,8 @@ enum Step {
         event: DynamicEvent,
         #[serde(default)]
         expect: BTreeMap<String, Vec<String>>,
+        #[serde(default)]
+        context: BTreeMap<String, BTreeMap<String, serde_json::Value>>,
     },
     Stop {
         stop: String,
@@ -37,6 +39,8 @@ struct Expected {
     final_states: BTreeMap<String, Vec<String>>,
     #[serde(default)]
     absent: Vec<String>,
+    #[serde(default)]
+    context: BTreeMap<String, BTreeMap<String, serde_json::Value>>,
 }
 
 fn fixture_path() -> PathBuf {
@@ -94,13 +98,37 @@ fn collect_actions(config: &MachineConfig, out: &mut BTreeSet<String>) {
         if let Some(rule) = &node.on_done {
             collect_rule(rule, out);
         }
+        for invoke in node.invoke.clone().into_vec() {
+            if let Some(rule) = &invoke.on_done {
+                collect_rule(rule, out);
+            }
+            if let Some(rule) = &invoke.on_error {
+                collect_rule(rule, out);
+            }
+        }
     }
 }
 
 fn build(config: MachineConfig, configs: &BTreeMap<String, MachineConfig>) -> DynamicMachine {
+    build_with_invokes(config, configs, true)
+}
+
+fn build_with_invokes(
+    config: MachineConfig,
+    configs: &BTreeMap<String, MachineConfig>,
+    register_invokes: bool,
+) -> DynamicMachine {
     let mut names = BTreeSet::new();
     collect_actions(&config, &mut names);
     let mut builder = DynamicMachine::builder(config);
+    if register_invokes {
+        for (child, child_config) in configs {
+            builder = builder.actor(
+                child.clone(),
+                ActorLogic::from_machine(build_with_invokes(child_config.clone(), configs, false)),
+            );
+        }
+    }
     for name in names {
         if let Some(child) = name.strip_prefix("spawn:") {
             let child = child.to_string();
@@ -112,7 +140,7 @@ fn build(config: MachineConfig, configs: &BTreeMap<String, MachineConfig>) -> Dy
                     .clone();
                 enq.spawn(
                     child.clone(),
-                    ActorLogic::from_machine(build(config, &configs)),
+                    ActorLogic::from_machine(build_with_invokes(config, &configs, false)),
                 );
             });
         } else if let Some(rest) = name.strip_prefix("send:") {
@@ -129,6 +157,13 @@ fn build(config: MachineConfig, configs: &BTreeMap<String, MachineConfig>) -> Dy
             builder = builder.action(name, move |_context, _event, enq| {
                 enq.stop(target.clone());
             });
+        } else if let Some(key) = name.strip_prefix("assign_payload:") {
+            let key = key.to_string();
+            builder = builder.action(name, move |context, event, _enq| {
+                if let Some(data) = context.data.as_object_mut() {
+                    data.insert(key.clone(), event.payload.clone());
+                }
+            });
         }
     }
     builder.build()
@@ -144,6 +179,26 @@ fn assert_states(system: &ActorSystem, expected: &BTreeMap<String, Vec<String>>,
             .cloned()
             .collect();
         assert_eq!(&actual, leaves, "case '{case}': actor '{actor}'");
+    }
+}
+
+fn assert_context(
+    system: &ActorSystem,
+    expected: &BTreeMap<String, BTreeMap<String, serde_json::Value>>,
+    case: &str,
+) {
+    for (actor, expected) in expected {
+        let data = &system
+            .context(&ActorId::new(actor))
+            .unwrap_or_else(|| panic!("case '{case}': '{actor}' has no context"))
+            .data;
+        for (key, value) in expected {
+            assert_eq!(
+                data.get(key),
+                Some(value),
+                "case '{case}': context '{actor}.{key}'"
+            );
+        }
     }
 }
 
@@ -165,6 +220,7 @@ fn conformance_actors() {
                     send,
                     event,
                     expect,
+                    context,
                 } => {
                     system.send(send.as_str(), event).unwrap_or_else(|error| {
                         panic!("case '{}': send to '{send}' failed: {error}", case.name)
@@ -173,6 +229,7 @@ fn conformance_actors() {
                         panic!("case '{}': run after send failed: {error}", case.name)
                     });
                     assert_states(&system, &expect, &case.name);
+                    assert_context(&system, &context, &case.name);
                 }
                 Step::Stop { stop } => {
                     assert!(
@@ -185,12 +242,13 @@ fn conformance_actors() {
         }
 
         assert_states(&system, &case.expected.final_states, &case.name);
-        for actor in case.expected.absent {
+        for actor in &case.expected.absent {
             assert!(
-                !system.exists(&ActorId::new(&actor)),
+                !system.exists(&ActorId::new(actor)),
                 "case '{}': actor '{actor}' should be absent",
                 case.name
             );
         }
+        assert_context(&system, &case.expected.context, &case.name);
     }
 }
