@@ -24,6 +24,7 @@ pub mod dynamic;
 pub mod export;
 pub mod machine;
 pub mod state_node;
+pub mod topology;
 pub mod transition;
 pub mod types;
 
@@ -43,6 +44,7 @@ pub use dynamic::{
 };
 pub use machine::{Machine, MachineBuilder};
 pub use state_node::StateNode;
+pub use topology::{Topology, TopologyNode};
 pub use transition::Transition;
 pub use types::{ArmedTimer, MachineState, StateNodeType, StepOutcome, TimerFired, TimerIntent};
 

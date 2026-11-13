@@ -410,6 +410,14 @@ The engine cascades these micro-steps until reaching quiescence (or a safe itera
 let diagram = machine.to_mermaid();
 ```
 
+`Machine::topology()` returns the same graph as data for static checks. `unreachable()` lists declared states no path enters; `cannot_finish()` lists reachable leaves with no path to a top-level final state; `cannot_reach(goal)` takes any goal, such as a return to `Idle` for a long-lived chart. Every guard counts as enabled, so a reported state is a real defect under any guard, and an empty report does not prove that the guards allow a path:
+
+```rust
+let topology = machine.topology();
+assert!(topology.unreachable().is_empty());
+assert!(topology.cannot_finish().is_empty());
+```
+
 `TransitionRecord` turns one step into a journal entry. Append it before the entry actions run, so a crash replays the transition rather than part of its effects. `TransitionRecord::replay` walks a continuous record chain back to a configuration and never runs actions, so replaying does not repeat side effects. Attach run state with `.with_snapshot(serde_json::to_string(&state)?)`; `ActorSystem::resume(root, machine, state)` restores it without re-running the active states' entry actions. `ActorSystem::snapshot()` serializes the whole actor tree, including host-actor spawn input, and `ActorSystem::restore(snapshot, resolve)` rebuilds every actor with its parent links and armed timers. Restoring a host-driven actor reattaches it: effects and promises re-emit a task, callbacks run again, and streams reconnect to the receiver supplied by `resolve`. Treat this as at-least-once; use a journal when an effect must not repeat.
 
 ```rust
