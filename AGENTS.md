@@ -37,7 +37,11 @@ and [skills/verify-lease-fencing/SKILL.md](skills/verify-lease-fencing/SKILL.md)
 ## Commands
 
 Nightly edition 2024 (`rust-toolchain.toml`). Prefer `mbx` when present
-(sibling stack convention); CI uses bare `cargo`.
+(sibling stack convention), with no `CARGO_TARGET_DIR`; CI uses bare `cargo`.
+Flywheel builds this crate from the sibling tree at the rev pinned in
+`../flywheel/proof.toml`: keep the tree compiling, commit with
+`flywheel commit <paths> --repo ../elm-effect-rs`, and bump that pin together
+with the flywheel change that needs it.
 
 ```bash
 mbx test --workspace          # or: cargo test --workspace
@@ -62,10 +66,8 @@ ADR-0002 — do not ask whether it is accepted.
 - Use `policy` or `Schedule` for retry — do not sleep in a loop.
 - `TestClock` order: fork → adjust → join.
 - A durable append uses one `epoch` and one `seq` for one retry of the same append.
-- Do not rebuild `.beads/gates.jsonl` from the issues log (beads invariant).
-- A sibling removes Resonate only through its own adoption record. This repo's
-  engine replaces it (ADR-0005); do not restore a vendor adapter or add a new
-  one.
+- This repo's durable engine (ADR-0005) is the only one; do not add a vendor
+  adapter.
 - A module earns its place when a caller uses it: type/function + failing test
   + guide entry. Do not mirror another library's file layout.
 - Extension from an app: add a `ServiceTag`, a `Program`, or a `DurableLog` —
@@ -86,9 +88,9 @@ ADR-0002 — do not ask whether it is accepted.
 A change is unfinished until determinism and interpreter proofs cover success,
 typed failure, hang, and cancellation without real sleep or live network.
 
-## Do not resurrect
+## Removed on purpose
 
-Tokio is a plain dependency (no `tokio` feature flag). Do not bring back
-`elm-effect-unstable`, the conformance ledger, the `schema` / `stm`
-features from ADR historical text, or ADR-0006's trait adapter without
-a new decision. Proofs live under `crates/*/tests/`.
+Tokio is a plain dependency (no `tokio` feature flag). `elm-effect-unstable`,
+the conformance ledger, the `schema` / `stm` features and ADR-0006's trait
+adapter stay gone unless a new ADR brings them back. Proofs live under
+`crates/*/tests/`.
