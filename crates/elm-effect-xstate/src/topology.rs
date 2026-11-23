@@ -175,7 +175,7 @@ impl<S: Ord + Clone> Topology<S> {
             return;
         };
         match node.node_type {
-            StateNodeType::Atomic | StateNodeType::Final => {
+            StateNodeType::Atomic | StateNodeType::Final | StateNodeType::Choice => {
                 out.insert(state.clone());
             }
             StateNodeType::Compound => {

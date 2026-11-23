@@ -394,8 +394,21 @@ struct Actor {
 }
 
 struct Envelope {
+    sender: Option<ActorId>,
     target: ActorId,
     event: DynamicEvent,
+}
+
+/// An internal actor message that could not be delivered because the target
+/// actor did not exist or had already stopped (ADR-0008 Law L11).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct DeadLetter {
+    /// The actor that sent the message, when sent via `enq.send_to` or child notification.
+    pub sender: Option<ActorId>,
+    /// The destination actor that was missing or stopped.
+    pub target: ActorId,
+    /// The undelivered event.
+    pub event: DynamicEvent,
 }
 
 /// Why an actor operation failed.
@@ -440,6 +453,7 @@ pub struct ActorSystem {
     pending: VecDeque<(ActorId, ActorDirective)>,
     tasks: Vec<ActorTask>,
     timers: Vec<(ActorId, TimerIntent<String>)>,
+    dead_letters: Vec<DeadLetter>,
     callback_tx: Sender<(ActorId, DynamicEvent)>,
     callback_rx: Receiver<(ActorId, DynamicEvent)>,
     defects: Vec<Defect>,
@@ -458,6 +472,7 @@ impl ActorSystem {
             pending: VecDeque::new(),
             tasks: Vec::new(),
             timers: Vec::new(),
+            dead_letters: Vec::new(),
             callback_tx,
             callback_rx,
             defects: Vec::new(),
@@ -511,6 +526,7 @@ impl ActorSystem {
             pending: VecDeque::new(),
             tasks: Vec::new(),
             timers,
+            dead_letters: Vec::new(),
             callback_tx,
             callback_rx,
             defects: Vec::new(),
@@ -653,6 +669,7 @@ impl ActorSystem {
             pending: VecDeque::new(),
             tasks,
             timers,
+            dead_letters: Vec::new(),
             callback_tx,
             callback_rx,
             defects: Vec::new(),
@@ -765,12 +782,18 @@ impl ActorSystem {
         if !self.actors.contains_key(&target) {
             return Err(ActorError::Unknown(target));
         }
-        self.inbox.push_back(Envelope { target, event });
+        self.inbox.push_back(Envelope {
+            sender: None,
+            target,
+            event,
+        });
         Ok(())
     }
 
     /// Stop an actor and every descendant. Closing runs LIFO finalizers.
     ///
+    /// Purges uncollected tasks and pending directives belonging to the stopped
+    /// subtree, and converts any queued inbox messages to [`DeadLetter`]s.
     /// Returns `false` when no actor has this name.
     pub fn stop(&mut self, id: &ActorId) -> bool {
         if !self.actors.contains_key(id) {
@@ -778,11 +801,57 @@ impl ActorSystem {
         }
         let mut doomed = self.subtree(id);
         doomed.sort_by(|a, b| self.depth(b).cmp(&self.depth(a)).then_with(|| a.cmp(b)));
-        for actor_id in doomed {
-            if let Some(actor) = self.actors.remove(&actor_id) {
+        for actor_id in &doomed {
+            if let Some(actor) = self.actors.remove(actor_id) {
+                if let ActorState::Machine(state) = &actor.state {
+                    let mut seen_armed = Vec::new();
+                    for armed in &state.armed {
+                        let key = (&armed.state, armed.duration);
+                        if seen_armed.contains(&key) {
+                            continue;
+                        }
+                        seen_armed.push(key);
+                        if let Some(pos) = self.timers.iter().rposition(|(id, intent)| {
+                            id == actor_id
+                                && matches!(
+                                    intent,
+                                    TimerIntent::Start { state: s, duration: d }
+                                        if *s == armed.state && *d == armed.duration
+                                )
+                        }) {
+                            self.timers.remove(pos);
+                        } else {
+                            self.timers.push((
+                                actor_id.clone(),
+                                TimerIntent::Cancel {
+                                    state: armed.state.clone(),
+                                    duration: armed.duration,
+                                },
+                            ));
+                        }
+                    }
+                }
                 self.defects.extend(actor.scope.close());
             }
         }
+        self.timers.retain(|(id, intent)| {
+            !doomed.contains(id) || matches!(intent, TimerIntent::Cancel { .. })
+        });
+        self.tasks.retain(|task| !doomed.contains(&task.actor));
+        self.pending.retain(|(sender, _)| !doomed.contains(sender));
+        let mut kept = VecDeque::with_capacity(self.inbox.len());
+        while let Some(envelope) = self.inbox.pop_front() {
+            if doomed.contains(&envelope.target) {
+                self.dead_letters.push(DeadLetter {
+                    sender: envelope.sender,
+                    target: envelope.target,
+                    event: envelope.event,
+                });
+            } else {
+                kept.push_back(envelope);
+            }
+        }
+        self.inbox = kept;
         true
     }
 
@@ -866,6 +935,7 @@ impl ActorSystem {
             };
         };
         self.inbox.push_back(Envelope {
+            sender: Some(id.clone()),
             target: parent,
             event: DynamicEvent::with_payload(event_type, payload),
         });
@@ -947,6 +1017,17 @@ impl ActorSystem {
     #[must_use]
     pub fn defects(&self) -> &[Defect] {
         &self.defects
+    }
+
+    /// Undelivered internal messages recorded when sending to missing or stopped actors.
+    #[must_use]
+    pub fn dead_letters(&self) -> &[DeadLetter] {
+        &self.dead_letters
+    }
+
+    /// Drain recorded [`DeadLetter`] messages in arrival order.
+    pub fn take_dead_letters(&mut self) -> Vec<DeadLetter> {
+        std::mem::take(&mut self.dead_letters)
     }
 
     fn add_actor(
@@ -1032,6 +1113,7 @@ impl ActorSystem {
         actor.done_reported = true;
         if let Some(parent) = actor.parent.clone() {
             self.inbox.push_back(Envelope {
+                sender: Some(id.clone()),
                 target: parent,
                 event: DynamicEvent::with_payload(format!("xstate.done.actor.{id}"), output),
             });
@@ -1065,9 +1147,18 @@ impl ActorSystem {
             }
             ActorDirective::Send { target, event } => {
                 if !self.actors.contains_key(&target) {
-                    return Err(ActorError::Unknown(target));
+                    self.dead_letters.push(DeadLetter {
+                        sender: Some(sender.clone()),
+                        target,
+                        event,
+                    });
+                    return Ok(());
                 }
-                self.inbox.push_back(Envelope { target, event });
+                self.inbox.push_back(Envelope {
+                    sender: Some(sender.clone()),
+                    target,
+                    event,
+                });
                 Ok(())
             }
             ActorDirective::Stop { id } => {
@@ -1079,7 +1170,12 @@ impl ActorSystem {
 
     fn deliver(&mut self, envelope: Envelope) -> Result<(), ActorError> {
         let Some(mut actor) = self.actors.remove(&envelope.target) else {
-            return Err(ActorError::Unknown(envelope.target));
+            self.dead_letters.push(DeadLetter {
+                sender: envelope.sender,
+                target: envelope.target,
+                event: envelope.event,
+            });
+            return Ok(());
         };
         let mut directives = Vec::new();
         let mut done = false;
@@ -1128,7 +1224,11 @@ impl ActorSystem {
                 match receiver.try_recv() {
                     Ok(event) => {
                         let target = actor.parent.clone().unwrap_or_else(|| actor.id.clone());
-                        events.push(Envelope { target, event });
+                        events.push(Envelope {
+                            sender: Some(actor.id.clone()),
+                            target,
+                            event,
+                        });
                     }
                     Err(TryRecvError::Disconnected) => ended.push(actor.id.clone()),
                     Err(TryRecvError::Empty) => {}
@@ -1153,7 +1253,11 @@ impl ActorSystem {
                 continue;
             };
             let target = actor.parent.clone().unwrap_or_else(|| id.clone());
-            self.inbox.push_back(Envelope { target, event });
+            self.inbox.push_back(Envelope {
+                sender: Some(id),
+                target,
+                event,
+            });
         }
         pumped
     }

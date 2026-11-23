@@ -20,6 +20,8 @@ pub enum StateNodeType {
     HistoryDeep,
     /// Terminal state node signifying completion of its parent compound state.
     Final,
+    /// Pseudo-state node that immediately evaluates `always` branches on entry.
+    Choice,
 }
 
 /// One timer armed by a state entry. `transition` is the index into that
@@ -116,7 +118,7 @@ pub enum TimerIntent<S> {
     },
 }
 
-mod duration_string {
+pub(crate) mod duration_string {
     use elm_effect::Duration;
     use serde::{Deserialize, Deserializer, Serializer};
 

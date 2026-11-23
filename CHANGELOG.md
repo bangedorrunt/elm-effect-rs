@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.4] - 2026-11-24
+
+### Added
+
+- ADR-0008: Hardened Harel statechart engine (`elm-effect-xstate`) with compiled topology, timer tokens, and macro DX.
+- `CompiledIndex` with pre-order indexing (`StateIdx`), subtree bounds, depth, and interval containment for O(1) descendant checks and canonical LCA computation (Law L7).
+- `Observer` zero-cost microstep tracing trait with `MicrostepRecord`, `MicrostepKind`, `start_observed`, `step_observed`, `step_timer_observed`, and `microsteps()` (Law L8).
+- `HostTimers`, `HostScheduler`, `DrivenMachine`, and monotonic `TimerToken` generation fencing with `TimerOp` and remaining-deadline resumption (`restore_remaining`) (Law L9).
+- `statechart!` declarative macro with automatic hierarchical `.with_parent` wiring, payload pattern-matching, and shorthand target/action syntax.
+- Machine introspection via `can(event)`, `to_machine_json()` (XState v6 MachineJSON schema), and dynamic target inspection.
+- Dead letter queue (`dead_letters()`, `take_dead_letters()`) and recursive actor teardown with active timer cancellation in `ActorSystem`.
+- First-class `Choice` pseudo-states (transient decision vertices evaluated before entering child targets).
+
+### Changed
+
+- Statechart transition matching isolates unhandled events on typed `after` states without spurious wildcard matches.
+- Multi-branch `after` transitions evaluate guards in definition order until a condition matches or fall back to default branch (Law L4).
+- Intra-macrostep netting collapses ephemeral `Cancel` and `Start` directives for the same timer within one macrostep (Law L11).
+- `FileLog` implements `Drop` to explicitly unlock journal fence before file close.
+- Workspace crates bumped 0.4.3 to 0.4.4.
+
+[0.4.4]: https://github.com/bangedorrunt/elm-effect-rs/compare/v0.4.3...v0.4.4
+
 ## [0.4.3] - 2026-11-11
 
 ### Added

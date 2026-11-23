@@ -2,7 +2,7 @@
 
 Effects, structured concurrency, an Elm loop, and Harel statecharts for Rust.
 
-The workspace crates are released together as `0.4.3`.
+The workspace crates are released together as `0.4.4`.
 
 An `Effect<A, E>` is a description: it does nothing until `Runtime::run` runs
 it. Failures are values in `Cause<E>`, not panics. Fibers are structured, so a

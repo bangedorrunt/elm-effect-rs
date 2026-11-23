@@ -108,6 +108,11 @@ impl<S: Clone + 'static, E: 'static, C: 'static, CMD: Send + Sync + 'static>
         Self::empty(id, StateNodeType::Final)
     }
 
+    /// Create a choice pseudo-state node that immediately evaluates `always` branches.
+    pub fn choice(id: S) -> Self {
+        Self::empty(id, StateNodeType::Choice)
+    }
+
     /// Create a history node. `fallback` is entered when nothing is remembered.
     pub fn history(id: S, deep: bool, fallback: S) -> Self {
         let node_type = if deep {
@@ -152,6 +157,25 @@ impl<S: Clone + 'static, E: 'static, C: 'static, CMD: Send + Sync + 'static>
     /// without exiting or entering any state.
     pub fn targetless(&self) -> Transition<S, E, C, CMD> {
         Transition::target(self.id.clone()).targetless()
+    }
+
+    /// Create a dynamic transition from this node whose target is decided at runtime.
+    ///
+    /// Returning `None` from `resolver` declines the event and allows later candidates
+    /// or parent states to handle it.
+    pub fn on_fn(
+        &self,
+        resolver: impl Fn(&C, &E) -> Option<S> + Send + Sync + 'static,
+    ) -> Transition<S, E, C, CMD> {
+        Transition::dynamic(self.id.clone(), resolver)
+    }
+
+    /// Create a dynamic multi-target transition from this node.
+    pub fn on_fn_targets(
+        &self,
+        resolver: impl Fn(&C, &E) -> Option<Vec<S>> + Send + Sync + 'static,
+    ) -> Transition<S, E, C, CMD> {
+        Transition::dynamic_targets(self.id.clone(), resolver)
     }
 
     /// Add a reactive event transition.

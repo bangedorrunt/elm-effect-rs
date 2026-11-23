@@ -6,6 +6,7 @@ use std::sync::Arc;
 use crate::action::ActionQueue;
 use crate::actor::ActorLogic;
 use crate::machine::{Machine, MachineBuilder};
+use crate::observer::MicrostepTrace;
 use crate::state_node::StateNode;
 use crate::transition::Transition;
 use crate::types::{MachineState, StepOutcome, TimerFired, TimerIntent};
@@ -461,10 +462,32 @@ impl DynamicMachine {
             .map(|resolve| resolve(&state.context, event))
     }
 
+    /// Whether `event` would select at least one enabled transition from `state`.
+    #[must_use]
+    pub fn can(&self, state: &MachineState<String, DynamicContext>, event: &DynamicEvent) -> bool {
+        self.inner.can(state, event)
+    }
+
+    /// Step an event and return both the final outcome and all microstep records.
+    #[must_use]
+    pub fn microsteps(
+        &self,
+        state: &MachineState<String, DynamicContext>,
+        event: &DynamicEvent,
+    ) -> MicrostepTrace<String, DynamicContext, String, DynamicEvent> {
+        self.inner.microsteps(state, event)
+    }
+
     /// Render the compiled chart as a Mermaid diagram.
     #[must_use]
     pub fn to_mermaid(&self) -> String {
         self.inner.to_mermaid()
+    }
+
+    /// Export the chart as an XState v6-compatible MachineJSON object.
+    #[must_use]
+    pub fn to_machine_json(&self) -> serde_json::Value {
+        self.inner.to_machine_json()
     }
 }
 
@@ -1022,11 +1045,14 @@ impl DynamicMachineBuilder {
             let is_history = state_cfg.r#type.as_deref() == Some("history");
             let is_parallel = state_cfg.r#type.as_deref() == Some("parallel");
             let is_final = state_cfg.r#type.as_deref() == Some("final");
+            let is_choice = state_cfg.r#type.as_deref() == Some("choice");
             let is_compound =
                 state_cfg.r#type.as_deref() == Some("compound") || state_cfg.initial.is_some();
 
             let mut node = if is_final {
                 StateNode::final_state(state_id.clone())
+            } else if is_choice {
+                StateNode::choice(state_id.clone())
             } else if is_history {
                 let mut targets: Vec<String> = state_cfg
                     .target

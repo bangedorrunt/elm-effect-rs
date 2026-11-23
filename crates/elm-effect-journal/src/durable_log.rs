@@ -252,8 +252,14 @@ impl MemLog {
 pub struct FileLog {
     store: Mutex<Store>,
     path: PathBuf,
-    /// Held for the handle's lifetime; released on drop.
+    /// Held for the handle's lifetime; released explicitly on drop before close.
     _fence: std::fs::File,
+}
+
+impl Drop for FileLog {
+    fn drop(&mut self) {
+        let _ = self._fence.unlock();
+    }
 }
 
 /// The journal's fence file: beside it, so compaction cannot replace it.

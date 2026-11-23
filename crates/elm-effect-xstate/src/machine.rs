@@ -1,8 +1,12 @@
 use crate::action::ActionQueue;
+use crate::actor::ActorDirective;
+use crate::compiled::{CompiledIndex, StateIdx};
 use crate::configuration::Configuration;
+use crate::observer::{MicrostepKind, MicrostepRecord, Observer};
 use crate::state_node::{LifecycleFn, StateNode};
 use crate::transition::Transition;
 use crate::types::{ArmedTimer, MachineState, StateNodeType, StepOutcome, TimerFired, TimerIntent};
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::Arc;
 
@@ -22,6 +26,8 @@ struct Outbox<'a, S, CMD, E> {
     enq: &'a mut ActionQueue<CMD, E>,
     timers: &'a mut Vec<TimerIntent<S>>,
     internal: &'a mut VecDeque<E>,
+    entered_log: &'a mut Vec<S>,
+    track_entered: bool,
 }
 
 impl<S, CMD, E> Outbox<'_, S, CMD, E> {
@@ -35,6 +41,7 @@ impl<S, CMD, E> Outbox<'_, S, CMD, E> {
 #[derive(Clone)]
 pub struct Machine<S: Ord + Clone, E, C: Clone, CMD> {
     pub(crate) nodes: BTreeMap<S, StateNode<S, E, C, CMD>>,
+    pub(crate) compiled: CompiledIndex<S>,
     pub(crate) initial_state: S,
     pub(crate) initial_context: C,
     pub(crate) root_parallel: bool,
@@ -74,11 +81,29 @@ where
             let mut config = Configuration::new();
             let mut visited = BTreeSet::new();
             for child in self.top_level_children() {
-                self.expand_into(&child, &BTreeMap::new(), &mut visited, &mut config);
+                self.expand_into(child, &BTreeMap::new(), &mut visited, &mut config);
             }
             return config;
         }
         self.resolve_configuration(&self.initial_state)
+    }
+
+    /// Pre-order index of `state`, compiled at build time (ADR-0008 Law L7).
+    #[must_use]
+    pub fn state_idx(&self, state: &S) -> Option<StateIdx> {
+        self.compiled.pre_order_idx(state)
+    }
+
+    /// Exclusive pre-order end bound of `state`'s subtree (ADR-0008 Law L7).
+    #[must_use]
+    pub fn subtree_end(&self, state: &S) -> Option<StateIdx> {
+        self.compiled.subtree_end(state)
+    }
+
+    /// Whether `child` is a strict descendant of `ancestor` in $O(1)$ time (ADR-0008 Law L7).
+    #[must_use]
+    pub fn is_descendant(&self, child: &S, ancestor: &S) -> bool {
+        self.compiled.is_strict_descendant(child, ancestor)
     }
 
     /// Expand a state into the leaves entered when it is the target.
@@ -121,55 +146,39 @@ where
     }
 
     /// `[state, parent, grandparent, ...]`.
-    fn ancestry(&self, state: &S) -> Vec<S> {
-        let mut path = Vec::new();
-        let mut cursor = Some(state.clone());
-        while let Some(current) = cursor {
-            path.push(current.clone());
-            cursor = self.parent_of(&current);
+    fn ancestry(&self, state: &S) -> Cow<'_, [S]> {
+        match self.compiled.ancestry(state) {
+            Some(slice) => Cow::Borrowed(slice),
+            None => Cow::Owned(vec![state.clone()]),
         }
-        path
     }
 
     /// `[root, ..., parent, state]`.
-    fn path_from_root(&self, state: &S) -> Vec<S> {
-        let mut path = self.ancestry(state);
-        path.reverse();
-        path
+    fn path_from_root(&self, state: &S) -> Cow<'_, [S]> {
+        match self.compiled.path_from_root(state) {
+            Some(slice) => Cow::Borrowed(slice),
+            None => Cow::Owned(vec![state.clone()]),
+        }
     }
 
     /// Distance from a top-level node, counted in nodes.
     fn depth(&self, state: &S) -> usize {
-        self.ancestry(state).len()
+        self.compiled.depth(state).unwrap_or(1)
     }
 
     /// Direct children, in deterministic identifier order.
-    pub(crate) fn children(&self, id: &S) -> Vec<S> {
-        self.nodes
-            .values()
-            .filter(|node| node.parent.as_ref() == Some(id))
-            .map(|node| node.id.clone())
-            .collect()
+    pub(crate) fn children(&self, id: &S) -> &[S] {
+        self.compiled.children(id)
     }
 
     /// Nodes directly under the implicit root.
-    fn top_level_children(&self) -> Vec<S> {
-        self.nodes
-            .values()
-            .filter(|node| node.parent.is_none())
-            .map(|node| node.id.clone())
-            .collect()
+    fn top_level_children(&self) -> &[S] {
+        self.compiled.top_level_children()
     }
 
+    #[inline]
     fn is_strict_descendant(&self, child: &S, ancestor: &S) -> bool {
-        let mut cursor = self.parent_of(child);
-        while let Some(current) = cursor {
-            if &current == ancestor {
-                return true;
-            }
-            cursor = self.parent_of(&current);
-        }
-        false
+        self.compiled.is_strict_descendant(child, ancestor)
     }
 
     /// Deepest shared ancestor. `None` is the implicit machine root.
@@ -283,11 +292,16 @@ where
     fn narrow_parallel_domain(&self, domain: Option<S>, targets: &[S]) -> Option<S> {
         let mut narrowed = domain?;
         while self.node_type(&narrowed) == StateNodeType::Parallel {
-            let Some(region) = self.children(&narrowed).into_iter().find(|child| {
-                targets
-                    .iter()
-                    .all(|target| target == child || self.is_strict_descendant(target, child))
-            }) else {
+            let Some(region) = self
+                .children(&narrowed)
+                .iter()
+                .find(|child| {
+                    targets
+                        .iter()
+                        .all(|target| target == *child || self.is_strict_descendant(target, child))
+                })
+                .cloned()
+            else {
                 break;
             };
             narrowed = region;
@@ -347,8 +361,8 @@ where
     fn active_nodes(&self, config: &Configuration<S>) -> BTreeSet<S> {
         let mut nodes = BTreeSet::new();
         for leaf in config.leaves() {
-            for ancestor in self.ancestry(leaf) {
-                nodes.insert(ancestor);
+            for ancestor in self.ancestry(leaf).iter() {
+                nodes.insert(ancestor.clone());
             }
         }
         nodes
@@ -368,9 +382,9 @@ where
     /// are siblings and one of them is `"type": "final"`.
     fn root_done(&self, config: &Configuration<S>) -> bool {
         if self.root_parallel {
-            let children: Vec<S> = self
+            let children: Vec<&S> = self
                 .top_level_children()
-                .into_iter()
+                .iter()
                 .filter(|child| !self.is_history(child))
                 .collect();
             return !children.is_empty()
@@ -388,21 +402,22 @@ where
         };
         match node.node_type {
             StateNodeType::Final => self.has_active_under(config, id),
-            StateNodeType::Atomic | StateNodeType::HistoryShallow | StateNodeType::HistoryDeep => {
-                false
-            }
+            StateNodeType::Atomic
+            | StateNodeType::Choice
+            | StateNodeType::HistoryShallow
+            | StateNodeType::HistoryDeep => false,
             StateNodeType::Compound => {
-                let active: Vec<S> = self
+                let active: Vec<&S> = self
                     .children(id)
-                    .into_iter()
+                    .iter()
                     .filter(|child| self.has_active_under(config, child))
                     .collect();
                 matches!(active.as_slice(), [child] if self.node_type(child) == StateNodeType::Final)
             }
             StateNodeType::Parallel => {
-                let children: Vec<S> = self
+                let children: Vec<&S> = self
                     .children(id)
-                    .into_iter()
+                    .iter()
                     .filter(|child| !self.is_history(child))
                     .collect();
                 !children.is_empty() && children.iter().all(|child| self.node_done(config, child))
@@ -426,7 +441,7 @@ where
             return;
         };
         match node.node_type {
-            StateNodeType::Atomic | StateNodeType::Final => {
+            StateNodeType::Atomic | StateNodeType::Final | StateNodeType::Choice => {
                 out.insert(id.clone());
             }
             StateNodeType::Compound => {
@@ -437,10 +452,10 @@ where
             StateNodeType::Parallel => {
                 for child in self
                     .children(id)
-                    .into_iter()
+                    .iter()
                     .filter(|child| !self.is_history(child))
                 {
-                    self.expand_into(&child, history, visited, out);
+                    self.expand_into(child, history, visited, out);
                 }
             }
             StateNodeType::HistoryShallow | StateNodeType::HistoryDeep => {
@@ -491,38 +506,50 @@ where
         let mut chosen: BTreeSet<S> = BTreeSet::new();
 
         for leaf in config.leaves() {
-            for ancestor in self.ancestry(leaf) {
-                if chosen.contains(&ancestor) {
+            for ancestor in self.ancestry(leaf).iter() {
+                if chosen.contains(ancestor) {
                     break;
                 }
-                let Some(node) = self.node(&ancestor) else {
+                let Some(node) = self.node(ancestor) else {
                     continue;
                 };
-                let found = if self.node_type(&ancestor) == StateNodeType::Final {
+                let found: Option<Transition<S, E, C, CMD>> = if self.node_type(ancestor)
+                    == StateNodeType::Final
+                {
                     None
                 } else if transient {
                     node.always
                         .iter()
-                        .find(|transition| transition.guard_passes_in(config, ctx, event))
+                        .find_map(|transition| transition.resolve_for_selection(config, ctx, event))
                 } else {
-                    let mut candidates: Vec<&Transition<S, E, C, CMD>> = node
+                    let mut indexed: Vec<(usize, (u8, usize))> = node
                         .transitions
                         .iter()
-                        .filter(|transition| transition.is_enabled(config, ctx, event))
+                        .enumerate()
+                        .filter(|(_, transition)| transition.matches(event))
+                        .map(|(idx, transition)| (idx, transition.selection_priority_for(event)))
                         .collect();
-                    candidates.sort_by_key(|transition| transition.selection_priority_for(event));
-                    candidates.first().copied().or_else(|| {
-                        node.after
-                            .iter()
-                            .map(|(_, transition)| transition)
-                            .find(|transition| transition.is_enabled(config, ctx, event))
-                    })
+                    indexed.sort_by_key(|(idx, prio)| (*prio, *idx));
+                    indexed
+                        .into_iter()
+                        .find_map(|(idx, _)| {
+                            node.transitions[idx].resolve_for_selection(config, ctx, event)
+                        })
+                        .or_else(|| {
+                            node.after
+                                .iter()
+                                .map(|(_, transition)| transition)
+                                .filter(|transition| transition.matcher.is_some())
+                                .find_map(|transition| {
+                                    transition.resolve_for_selection(config, ctx, event)
+                                })
+                        })
                 };
                 if let Some(transition) = found {
                     chosen.insert(ancestor.clone());
                     selected.push(Selected {
                         source: ancestor.clone(),
-                        transition: transition.clone(),
+                        transition,
                     });
                     break;
                 }
@@ -560,10 +587,14 @@ where
         for id in candidates {
             if let Some(node) = self.node(&id) {
                 for transition in &node.on_done {
-                    if transition.guard_passes_in(&state.configuration, &state.context, event) {
+                    if let Some(resolved) = transition.resolve_for_selection(
+                        &state.configuration,
+                        &state.context,
+                        event,
+                    ) {
                         return Some(Selected {
                             source: id,
-                            transition: transition.clone(),
+                            transition: resolved,
                         });
                     }
                 }
@@ -584,12 +615,12 @@ where
                 for action in &node.exit_actions {
                     action(&mut state.context, out.enq);
                 }
-                let cancelled: Vec<_> = state
-                    .armed
-                    .iter()
-                    .filter(|timer| timer.state == *id)
-                    .map(|timer| timer.duration)
-                    .collect();
+                let mut cancelled = Vec::new();
+                for timer in state.armed.iter().filter(|timer| timer.state == *id) {
+                    if !cancelled.contains(&timer.duration) {
+                        cancelled.push(timer.duration);
+                    }
+                }
                 state.armed.retain(|timer| timer.state != *id);
                 for duration in cancelled {
                     out.timers.push(TimerIntent::Cancel {
@@ -609,7 +640,7 @@ where
             .active_nodes(&state.configuration)
             .into_iter()
             .collect();
-        ordered.sort_by_key(|state| std::cmp::Reverse(self.path_from_root(state)));
+        ordered.sort_by_key(|state| std::cmp::Reverse(self.compiled.pre_order_idx(state)));
         self.run_exit_actions(&ordered, state, out);
         for action in &self.root_exit_actions {
             action(&mut state.context, out.enq);
@@ -633,7 +664,7 @@ where
             }
             for child in self.children(node_id) {
                 if !matches!(
-                    self.node_type(&child),
+                    self.node_type(child),
                     StateNodeType::HistoryShallow | StateNodeType::HistoryDeep
                 ) {
                     continue;
@@ -645,7 +676,7 @@ where
                         .cloned(),
                 );
                 if !recorded.is_empty() {
-                    history.insert(child, recorded);
+                    history.insert(child.clone(), recorded);
                 }
             }
         }
@@ -667,6 +698,9 @@ where
         if !entered.insert(id.clone()) {
             return;
         }
+        if out.track_entered {
+            out.entered_log.push(id.clone());
+        }
         let Some(node) = self.node(id) else {
             return;
         };
@@ -677,12 +711,16 @@ where
             hook(&mut state.context, out.enq, event);
         }
         if node.node_type != StateNodeType::Final {
+            let mut started_durations = Vec::new();
             for (index, (delay, _)) in node.after.iter().enumerate() {
                 if let Some(duration) = delay.resolve(&state.context, event) {
-                    out.timers.push(TimerIntent::Start {
-                        state: id.clone(),
-                        duration,
-                    });
+                    if !started_durations.contains(&duration) {
+                        started_durations.push(duration);
+                        out.timers.push(TimerIntent::Start {
+                            state: id.clone(),
+                            duration,
+                        });
+                    }
                     state.armed.push(ArmedTimer {
                         state: id.clone(),
                         duration,
@@ -691,7 +729,10 @@ where
                 }
             }
         }
-        if matches!(node.node_type, StateNodeType::Atomic | StateNodeType::Final) {
+        if matches!(
+            node.node_type,
+            StateNodeType::Atomic | StateNodeType::Final | StateNodeType::Choice
+        ) {
             state.configuration.insert(id.clone());
         }
     }
@@ -721,10 +762,10 @@ where
             StateNodeType::Parallel => {
                 for child in self
                     .children(id)
-                    .into_iter()
+                    .iter()
                     .filter(|child| !self.is_history(child))
                 {
-                    self.enter_target(&child, state, entered, event, out);
+                    self.enter_target(child, state, entered, event, out);
                 }
             }
             _ => {}
@@ -743,10 +784,10 @@ where
         if self.root_parallel {
             for child in self
                 .top_level_children()
-                .into_iter()
+                .iter()
                 .filter(|child| !self.is_history(child))
             {
-                self.enter_target(&child, state, entered, event, out);
+                self.enter_target(child, state, entered, event, out);
             }
         } else {
             self.enter_target(&self.initial_state, state, entered, event, out);
@@ -824,11 +865,11 @@ where
         let boundary = self.parent_of(history_id);
         let mut nodes = BTreeSet::new();
         for leaf in recorded.leaves() {
-            for ancestor in self.ancestry(leaf) {
-                if Some(&ancestor) == boundary.as_ref() {
+            for ancestor in self.ancestry(leaf).iter() {
+                if Some(ancestor) == boundary.as_ref() {
                     break;
                 }
-                nodes.insert(ancestor);
+                nodes.insert(ancestor.clone());
             }
         }
         let mut ordered: Vec<S> = nodes.into_iter().collect();
@@ -848,12 +889,11 @@ where
         event: Option<&E>,
         out: &mut Outbox<'_, S, CMD, E>,
     ) {
-        let mut path = self.path_from_root(target);
-        if let Some(domain) = domain
-            && let Some(position) = path.iter().position(|node| node == domain)
-        {
-            path.drain(..=position);
-        }
+        let full_path = self.path_from_root(target);
+        let path = match domain.and_then(|d| full_path.iter().position(|node| node == d)) {
+            Some(position) => &full_path[position + 1..],
+            None => full_path.as_ref(),
+        };
         let Some((last, ancestors)) = path.split_last() else {
             if domain == Some(target) {
                 self.enter_default_descendants(target, state, entered, event, out);
@@ -888,10 +928,10 @@ where
             StateNodeType::Parallel => {
                 for child in self
                     .children(id)
-                    .into_iter()
+                    .iter()
                     .filter(|child| !self.is_history(child))
                 {
-                    self.enter_target(&child, state, entered, event, out);
+                    self.enter_target(child, state, entered, event, out);
                 }
             }
             _ => {}
@@ -899,16 +939,28 @@ where
     }
 
     /// Apply the chosen transitions in law L1 order: exit, actions, entry.
-    fn apply(
+    fn apply<O: Observer<S, C, CMD>>(
         &self,
         state: &mut MachineState<S, C>,
         selections: &[Selected<S, E, C, CMD>],
         event: &E,
         out: &mut Outbox<'_, S, CMD, E>,
+        kind: MicrostepKind,
+        observer: &mut O,
     ) {
         if selections.is_empty() {
             return;
         }
+        let cmd_start = if O::ENABLED {
+            out.enq.commands.len()
+        } else {
+            0
+        };
+        let timer_start = if O::ENABLED { out.timers.len() } else { 0 };
+        if O::ENABLED {
+            out.entered_log.clear();
+        }
+
         let before = state.configuration.clone();
         let active = self.active_nodes(&before);
 
@@ -940,7 +992,7 @@ where
         self.record_history(&before, &exiting, &mut state.history);
 
         let mut ordered: Vec<S> = exiting.into_iter().collect();
-        ordered.sort_by_key(|state| std::cmp::Reverse(self.path_from_root(state)));
+        ordered.sort_by_key(|state| std::cmp::Reverse(self.compiled.pre_order_idx(state)));
         self.run_exit_actions(&ordered, state, out);
         state.configuration = Configuration::from_leaves(
             before
@@ -972,14 +1024,26 @@ where
             }
         }
         out.collect_raised();
+        if O::ENABLED {
+            observer.on_microstep(MicrostepRecord {
+                kind,
+                exited: ordered,
+                entered: std::mem::take(out.entered_log),
+                configuration: state.configuration.clone(),
+                context: state.context.clone(),
+                commands: out.enq.commands[cmd_start..].to_vec(),
+                timers: out.timers[timer_start..].to_vec(),
+            });
+        }
     }
 
     /// Run eventless, completion, and raised-event micro-steps to quiescence.
-    fn settle(
+    fn settle<O: Observer<S, C, CMD>>(
         &self,
         state: &mut MachineState<S, C>,
         event: &E,
         out: &mut Outbox<'_, S, CMD, E>,
+        observer: &mut O,
     ) -> bool {
         let mut taken = false;
         let mut handled_done: BTreeSet<S> = BTreeSet::new();
@@ -987,14 +1051,28 @@ where
         for _ in 0..MAX_MICRO_STEPS {
             let transient = self.select(&state.configuration, &state.context, event, true);
             if !transient.is_empty() {
-                self.apply(state, &transient, event, out);
+                self.apply(
+                    state,
+                    &transient,
+                    event,
+                    out,
+                    MicrostepKind::Always,
+                    observer,
+                );
                 taken = true;
                 continue;
             }
 
             if let Some(done) = self.select_done(state, event, &handled_done) {
                 handled_done.insert(done.source.clone());
-                self.apply(state, std::slice::from_ref(&done), event, out);
+                self.apply(
+                    state,
+                    std::slice::from_ref(&done),
+                    event,
+                    out,
+                    MicrostepKind::Done,
+                    observer,
+                );
                 taken = true;
                 continue;
             }
@@ -1004,7 +1082,14 @@ where
             };
             let selections = self.select(&state.configuration, &state.context, &raised, false);
             if !selections.is_empty() {
-                self.apply(state, &selections, &raised, out);
+                self.apply(
+                    state,
+                    &selections,
+                    &raised,
+                    out,
+                    MicrostepKind::Raised,
+                    observer,
+                );
                 taken = true;
             }
         }
@@ -1022,13 +1107,19 @@ where
     ) -> StepOutcome<S, C, CMD, E> {
         let done = self.root_done(&state.configuration);
         if done && !was_done {
+            let mut entered_log = Vec::new();
             let mut out = Outbox {
                 enq: &mut enq,
                 timers: &mut timers,
                 internal: &mut internal,
+                entered_log: &mut entered_log,
+                track_entered: false,
             };
             self.finalize_done(&mut state, &mut out);
         }
+        net_macrostep_timers(&mut timers);
+        let mut directives = enq.take_directives();
+        net_macrostep_directives(&mut directives);
         let current_state = state
             .configuration
             .primary()
@@ -1042,12 +1133,28 @@ where
             commands: enq.take_commands(),
             raised_events: internal.into_iter().collect(),
             emitted: enq.take_emitted(),
-            directives: enq.take_directives(),
+            directives,
             timers,
             armed: state.armed,
             transitioned,
             done,
         }
+    }
+
+    /// Whether `event` would select at least one enabled transition from `state`.
+    #[must_use]
+    pub fn can(&self, state: &MachineState<S, C>, event: &E) -> bool {
+        let config = if state.configuration.is_empty() {
+            self.initial_configuration()
+        } else {
+            state.configuration.clone()
+        };
+        if self.root_done(&config) {
+            return false;
+        }
+        !self
+            .select(&config, &state.context, event, false)
+            .is_empty()
     }
 
     /// Enter the machine's initial configuration.
@@ -1072,6 +1179,7 @@ where
         let mut enq = ActionQueue::new();
         let mut timers = Vec::new();
         let mut internal = VecDeque::new();
+        let mut entered_log = Vec::new();
         {
             for action in &self.root_entry_actions {
                 action(&mut state.context, &mut enq);
@@ -1080,6 +1188,8 @@ where
                 enq: &mut enq,
                 timers: &mut timers,
                 internal: &mut internal,
+                entered_log: &mut entered_log,
+                track_entered: false,
             };
             let mut entered = BTreeSet::new();
             self.enter_root(&mut state, &mut entered, init, &mut out);
@@ -1095,10 +1205,21 @@ where
     /// guards and actions. [`enter`](Self::enter) remains the unsettled entry
     /// edge for hosts that need to supply their own first event.
     pub fn start(&self, context: &C, init: &E) -> StepOutcome<S, C, CMD, E> {
+        self.start_observed(context, init, &mut ())
+    }
+
+    /// Enter the machine, settle its initial macrostep, and emit microstep records.
+    pub fn start_observed<O: Observer<S, C, CMD>>(
+        &self,
+        context: &C,
+        init: &E,
+        observer: &mut O,
+    ) -> StepOutcome<S, C, CMD, E> {
         let mut state = MachineState::new(Configuration::new(), context.clone());
         let mut enq = ActionQueue::new();
         let mut timers = Vec::new();
         let mut internal = VecDeque::new();
+        let mut entered_log = Vec::new();
         let transitioned = {
             for action in &self.root_entry_actions {
                 action(&mut state.context, &mut enq);
@@ -1107,11 +1228,24 @@ where
                 enq: &mut enq,
                 timers: &mut timers,
                 internal: &mut internal,
+                entered_log: &mut entered_log,
+                track_entered: O::ENABLED,
             };
             let mut entered = BTreeSet::new();
             self.enter_root(&mut state, &mut entered, Some(init), &mut out);
             out.collect_raised();
-            self.settle(&mut state, init, &mut out)
+            if O::ENABLED {
+                observer.on_microstep(MicrostepRecord {
+                    kind: MicrostepKind::Init,
+                    exited: Vec::new(),
+                    entered: std::mem::take(out.entered_log),
+                    configuration: state.configuration.clone(),
+                    context: state.context.clone(),
+                    commands: out.enq.commands.clone(),
+                    timers: out.timers.clone(),
+                });
+            }
+            self.settle(&mut state, init, &mut out, observer)
         };
         self.outcome(state, enq, timers, internal, transitioned, false)
     }
@@ -1125,6 +1259,16 @@ where
 
     /// Process an event from a full run state, including recorded history.
     pub fn step_state(&self, state: &MachineState<S, C>, event: &E) -> StepOutcome<S, C, CMD, E> {
+        self.step_observed(state, event, &mut ())
+    }
+
+    /// Process an event and capture every microstep in `observer` (ADR-0008 Law L10).
+    pub fn step_observed<O: Observer<S, C, CMD>>(
+        &self,
+        state: &MachineState<S, C>,
+        event: &E,
+        observer: &mut O,
+    ) -> StepOutcome<S, C, CMD, E> {
         let mut working = state.clone();
         if working.configuration.is_empty() {
             working.configuration = self.initial_configuration();
@@ -1133,20 +1277,42 @@ where
         let mut enq = ActionQueue::new();
         let mut timers = Vec::new();
         let mut internal = VecDeque::new();
+        let mut entered_log = Vec::new();
         let transitioned = {
             let mut out = Outbox {
                 enq: &mut enq,
                 timers: &mut timers,
                 internal: &mut internal,
+                entered_log: &mut entered_log,
+                track_entered: O::ENABLED,
             };
             let selections = self.select(&working.configuration, &working.context, event, false);
             let taken = !selections.is_empty();
             if taken {
-                self.apply(&mut working, &selections, event, &mut out);
+                self.apply(
+                    &mut working,
+                    &selections,
+                    event,
+                    &mut out,
+                    MicrostepKind::Event,
+                    observer,
+                );
             }
-            self.settle(&mut working, event, &mut out) || taken
+            self.settle(&mut working, event, &mut out, observer) || taken
         };
         self.outcome(working, enq, timers, internal, transitioned, was_done)
+    }
+
+    /// Step an event and return both the final outcome and all microstep records.
+    #[must_use]
+    pub fn microsteps(
+        &self,
+        state: &MachineState<S, C>,
+        event: &E,
+    ) -> crate::observer::MicrostepTrace<S, C, CMD, E> {
+        let mut records = Vec::new();
+        let outcome = self.step_observed(state, event, &mut records);
+        (outcome, records)
     }
 
     /// Timer intents for the delays armed by the active states, in entry order.
@@ -1154,26 +1320,29 @@ where
     #[must_use]
     pub fn timers_for_state(&self, state: &MachineState<S, C>) -> Vec<TimerIntent<S>> {
         let active = self.active_nodes(&state.configuration);
-        if !state.armed.is_empty() {
-            return state
-                .armed
-                .iter()
-                .filter(|timer| active.contains(&timer.state))
-                .map(|timer| TimerIntent::Start {
-                    state: timer.state.clone(),
-                    duration: timer.duration,
-                })
-                .collect();
-        }
         let mut timers = Vec::new();
+        let mut push_unique = |target: S, duration: elm_effect::Duration| {
+            let intent = TimerIntent::Start {
+                state: target,
+                duration,
+            };
+            if !timers.contains(&intent) {
+                timers.push(intent);
+            }
+        };
+        if !state.armed.is_empty() {
+            for timer in &state.armed {
+                if active.contains(&timer.state) {
+                    push_unique(timer.state.clone(), timer.duration);
+                }
+            }
+            return timers;
+        }
         for id in active {
             if let Some(node) = self.node(&id) {
                 for (delay, _) in &node.after {
                     if let Some(duration) = delay.resolve(&state.context, None) {
-                        timers.push(TimerIntent::Start {
-                            state: id.clone(),
-                            duration,
-                        });
+                        push_unique(id.clone(), duration);
                     }
                 }
             }
@@ -1227,6 +1396,17 @@ where
         timer: &TimerFired<S>,
         event: &E,
     ) -> StepOutcome<S, C, CMD, E> {
+        self.step_timer_observed(state, timer, event, &mut ())
+    }
+
+    /// Take the `after` transition of `timer.state` and observe microsteps.
+    pub fn step_timer_observed<O: Observer<S, C, CMD>>(
+        &self,
+        state: &MachineState<S, C>,
+        timer: &TimerFired<S>,
+        event: &E,
+        observer: &mut O,
+    ) -> StepOutcome<S, C, CMD, E> {
         let mut working = state.clone();
         if working.configuration.is_empty() {
             working.configuration = self.initial_configuration();
@@ -1235,59 +1415,139 @@ where
         let mut enq = ActionQueue::new();
         let mut timers = Vec::new();
         let mut internal = VecDeque::new();
+        let mut entered_log = Vec::new();
         let transitioned = {
             let mut out = Outbox {
                 enq: &mut enq,
                 timers: &mut timers,
                 internal: &mut internal,
+                entered_log: &mut entered_log,
+                track_entered: O::ENABLED,
             };
-            let armed = working
-                .armed
-                .iter()
-                .position(|armed| armed.state == timer.state && armed.duration == timer.duration)
-                .map(|position| working.armed.remove(position));
-            let active = self.active_nodes(&working.configuration);
-            let selection = active.contains(&timer.state).then(|| {
-                self.node(&timer.state).and_then(|node| match armed {
-                    Some(armed) => node
-                        .after
-                        .get(armed.transition)
-                        .map(|(_, transition)| transition.clone()),
-                    None => node
-                        .after
-                        .iter()
-                        .find(|(delay, _)| {
-                            delay.resolve(&working.context, Some(event)) == Some(timer.duration)
-                        })
-                        .map(|(_, transition)| transition.clone()),
-                })
-            });
-            let taken = match selection.flatten() {
-                Some(transition)
-                    if transition.guard_passes_in(
-                        &working.configuration,
-                        &working.context,
-                        event,
-                    ) =>
+            let mut armed_indices = Vec::new();
+            let mut idx = 0;
+            while idx < working.armed.len() {
+                if working.armed[idx].state == timer.state
+                    && working.armed[idx].duration == timer.duration
                 {
-                    let selected = Selected {
-                        source: timer.state.clone(),
-                        transition,
-                    };
-                    self.apply(
-                        &mut working,
-                        std::slice::from_ref(&selected),
-                        event,
-                        &mut out,
-                    );
-                    true
+                    armed_indices.push(working.armed.remove(idx).transition);
+                } else {
+                    idx += 1;
                 }
-                _ => false,
+            }
+            let active = self.active_nodes(&working.configuration);
+            let resolved = active
+                .contains(&timer.state)
+                .then(|| {
+                    self.node(&timer.state).and_then(|node| {
+                        if !armed_indices.is_empty() {
+                            armed_indices.into_iter().find_map(|tr_idx| {
+                                node.after.get(tr_idx).and_then(|(_, transition)| {
+                                    transition.resolve_without_matcher(
+                                        &working.configuration,
+                                        &working.context,
+                                        event,
+                                    )
+                                })
+                            })
+                        } else {
+                            node.after
+                                .iter()
+                                .filter(|(delay, _)| {
+                                    delay.resolve(&working.context, Some(event))
+                                        == Some(timer.duration)
+                                })
+                                .find_map(|(_, transition)| {
+                                    transition.resolve_without_matcher(
+                                        &working.configuration,
+                                        &working.context,
+                                        event,
+                                    )
+                                })
+                        }
+                    })
+                })
+                .flatten();
+            let taken = if let Some(transition) = resolved {
+                let selected = Selected {
+                    source: timer.state.clone(),
+                    transition,
+                };
+                self.apply(
+                    &mut working,
+                    std::slice::from_ref(&selected),
+                    event,
+                    &mut out,
+                    MicrostepKind::Timer,
+                    observer,
+                );
+                true
+            } else {
+                false
             };
-            self.settle(&mut working, event, &mut out) || taken
+            self.settle(&mut working, event, &mut out, observer) || taken
         };
         self.outcome(working, enq, timers, internal, transitioned, was_done)
     }
+}
+
+/// Net intra-macrostep timer churn (ADR-0008 Law L8): a `Start` followed by
+/// `Cancel` for the same `(state, duration)` cancels out, while `[Cancel, Start]`
+/// on re-entry is preserved.
+fn net_macrostep_timers<S: PartialEq>(timers: &mut Vec<TimerIntent<S>>) {
+    let mut netted: Vec<TimerIntent<S>> = Vec::with_capacity(timers.len());
+    for intent in timers.drain(..) {
+        match &intent {
+            TimerIntent::Cancel { state, duration } => {
+                if let Some(pos) = netted.iter().rposition(|prior| {
+                    matches!(
+                        prior,
+                        TimerIntent::Start { state: s, duration: d }
+                            if s == state && d == duration
+                    )
+                }) {
+                    netted.remove(pos);
+                } else {
+                    netted.push(intent);
+                }
+            }
+            TimerIntent::Start { .. } => netted.push(intent),
+        }
+    }
+    *timers = netted;
+}
+
+/// Net intra-macrostep transient actor spawns against stops (ADR-0008 Law L8 / D17).
+fn net_macrostep_directives(directives: &mut Vec<ActorDirective>) {
+    let mut netted: Vec<ActorDirective> = Vec::with_capacity(directives.len());
+    for directive in directives.drain(..) {
+        match &directive {
+            ActorDirective::Stop { id } => {
+                if let Some(spawn_pos) = netted.iter().rposition(|prior| {
+                    matches!(prior, ActorDirective::Spawn { id: prior_id, .. } if prior_id == id)
+                }) {
+                    netted.remove(spawn_pos);
+                    let mut idx = spawn_pos;
+                    while idx < netted.len() {
+                        if matches!(&netted[idx], ActorDirective::Send { target, .. } if target == id)
+                        {
+                            netted.remove(idx);
+                        } else {
+                            idx += 1;
+                        }
+                    }
+                } else if !netted.iter().any(|prior| {
+                    matches!(prior, ActorDirective::Stop { id: prior_id } if prior_id == id)
+                }) {
+                    netted.push(directive);
+                }
+            }
+            ActorDirective::Spawn { .. } | ActorDirective::Send { .. } => {
+                netted.push(directive);
+            }
+        }
+    }
+    *directives = netted;
 }
 
 /// Builder for constructing a [`Machine`].
@@ -1416,6 +1676,17 @@ where
         self
     }
 
+    /// Add a choice pseudo-state node configured through a closure.
+    pub fn choice(
+        mut self,
+        id: S,
+        configure: impl FnOnce(StateNode<S, E, C, CMD>) -> StateNode<S, E, C, CMD>,
+    ) -> Self {
+        let node = configure(StateNode::choice(id));
+        self.nodes.insert(node.id.clone(), node);
+        self
+    }
+
     /// Add a pre-constructed state node directly.
     pub fn node(mut self, node: StateNode<S, E, C, CMD>) -> Self {
         self.nodes.insert(node.id.clone(), node);
@@ -1425,8 +1696,10 @@ where
     /// Build the finalized [`Machine`].
     #[must_use]
     pub fn build(self) -> Machine<S, E, C, CMD> {
+        let compiled = CompiledIndex::build(&self.nodes);
         Machine {
             nodes: self.nodes,
+            compiled,
             initial_state: self.initial_state,
             initial_context: self.initial_context,
             root_parallel: self.root_parallel,

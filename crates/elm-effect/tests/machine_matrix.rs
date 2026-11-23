@@ -386,7 +386,10 @@ const MACHINES: &[Machine] = &[
         number: 16,
         name: "Microstep Engine",
         subsystem: "elm-effect-xstate",
-        code: &["crates/elm-effect-xstate/src/machine.rs"],
+        code: &[
+            "crates/elm-effect-xstate/src/machine.rs",
+            "crates/elm-effect-xstate/src/compiled.rs",
+        ],
         witness: "crates/elm-effect-xstate/tests/always_micro_steps.rs::eventless_always_transitions_cascade_until_quiescence",
         coverage: Coverage::Modeled(&[FLOW6]),
     },
@@ -413,6 +416,8 @@ const MACHINES: &[Machine] = &[
         code: &[
             "crates/elm-effect-xstate/src/dynamic.rs",
             "crates/elm-effect-xstate/src/types.rs",
+            "crates/elm-effect-xstate/src/host.rs",
+            "crates/elm-effect-xstate/src/adapter.rs",
         ],
         witness: "crates/elm-effect-xstate/tests/after_timers.rs::leaving_a_delayed_state_cancels_it_and_a_stale_fire_does_nothing",
         coverage: Coverage::Modeled(&[FLOW9]),

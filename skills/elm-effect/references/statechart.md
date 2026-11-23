@@ -39,6 +39,14 @@ Statechart evaluation in `elm-effect-xstate` strictly follows the five fundament
 
 Targetless transitions (`StateNode::targetless()`, or a JSON transition with no `target`) run guards and actions without exiting or entering any state. They are omitted from Mermaid and TLA+ topology output.
 
+### Hardening Laws L7–L11 ([ADR-0008](../../../docs/decisions/0008-harden-elm-effect-xstate-with-compiled-topology-timer-tokens-and-macro-dx.md))
+
+6. **Law L7 (Pre-Order Compiled Topology)**: [`CompiledIndex`](../../../crates/elm-effect-xstate/src/compiled.rs) numbers nodes pre-order at build time (`StateIdx`, `subtree_end`) for $O(1)$ strict-descendant checks (`Machine::is_descendant`) and cached child/ancestry slices.
+7. **Law L8 (Intra-Macrostep Netting)**: Transient `always` states net intra-macrostep `[Start, Cancel]` `TimerIntent`s and `[Spawn, Stop]` `ActorDirective`s (including intermediate `Send`s) inside `Machine::outcome`, while preserving `[Cancel, Start]` / `[Stop, Spawn]` on re-entry.
+8. **Law L9 (Generation-Token Timers & Elm Continuity)**: [`StatechartModel`](../../../crates/elm-effect-xstate/src/adapter.rs) preserves `armed` timers across `Program::init`/`update` and routes elapsed timers via `StatechartDefinition::extract_timer`; outside Elm, [`HostTimers`](../../../crates/elm-effect-xstate/src/host.rs) / [`DrivenMachine`](../../../crates/elm-effect-xstate/src/host.rs) fence stale callbacks with monotonic `TimerToken`s and restore remaining deadlines via `PersistedTimer` (`restore_remaining`).
+9. **Law L10 (Zero-Cost Microstep Observability)**: `Machine::start_observed`, `step_observed`, `step_timer_observed`, and `microsteps` emit `MicrostepRecord`s to any `Observer` (`()` compiles observation away via `const ENABLED: bool = false`).
+10. **Law L11 (Dead-Letter Teardown & Macro/JSON DX)**: [`ActorSystem::stop`](../../../crates/elm-effect-xstate/src/actor.rs) purges child `ActorTask`s, uncollected `Start` timers (emitting `Cancel` for already-armed timers), and `pending` directives while recording undelivered internal/inbox mail in [`DeadLetter`](../../../crates/elm-effect-xstate/src/actor.rs); `Machine` adds `can`, `StateNodeType::Choice`, `on_fn` (decline-to-bubble), `to_machine_json`, and the [`statechart!`](../../../crates/elm-effect-xstate/src/macros.rs) macro.
+
 ---
 
 ## 3. When to Use Statecharts vs Pure Elm Program

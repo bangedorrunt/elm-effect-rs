@@ -1,11 +1,11 @@
 use crate::configuration::Configuration;
 use crate::machine::Machine;
-use crate::types::{MachineState, TimerIntent};
+use crate::types::{ArmedTimer, MachineState, TimerFired, TimerIntent};
 use elm_effect_elm::{Boot, Cmd, Failure, Program, Update};
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
-/// Statechart model holding the active configuration, history, and context.
+/// Statechart model holding the active configuration, history, context, and armed timers.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(bound(
     serialize = "S: serde::Serialize + Ord + Clone, C: serde::Serialize",
@@ -18,15 +18,20 @@ pub struct StatechartModel<S, C> {
     pub history: BTreeMap<S, Configuration<S>>,
     /// Quantitative context data.
     pub context: C,
+    /// Timers currently armed by active states (ADR-0008 Law L9).
+    #[serde(default)]
+    pub armed: Vec<ArmedTimer<S>>,
 }
 
 impl<S: Ord + Clone, C: Clone> StatechartModel<S, C> {
-    fn machine_state(&self) -> MachineState<S, C> {
+    /// Convert this model into a [`MachineState`] for direct probing (`Machine::can`, `microsteps`).
+    #[must_use]
+    pub fn machine_state(&self) -> MachineState<S, C> {
         MachineState {
             configuration: self.configuration.clone(),
             history: self.history.clone(),
             context: self.context.clone(),
-            armed: Vec::new(),
+            armed: self.armed.clone(),
         }
     }
 
@@ -61,6 +66,12 @@ pub trait StatechartDefinition {
     /// Extract a domain event from an incoming message, if matched.
     fn extract_event(msg: &Self::Msg) -> Option<Self::Event>;
 
+    /// Extract an elapsed timer firing and event context from an incoming message, if matched.
+    fn extract_timer(msg: &Self::Msg) -> Option<(TimerFired<Self::State>, Self::Event)> {
+        let _ = msg;
+        None
+    }
+
     /// Map a command interpretation failure to an incoming message.
     fn failure(failure: &Failure<Self::Err>) -> Self::Msg;
 
@@ -69,8 +80,8 @@ pub trait StatechartDefinition {
     /// The engine never reads a clock (ADR-0007 law L3). Entering a state with
     /// `after` produces a [`TimerIntent::Start`]; returning a command from here
     /// hands it to the host, whose delay message must come back through
-    /// [`StatechartDefinition::extract_event`]. The default ignores time, so a
-    /// machine with no `after` transition needs no clock.
+    /// [`StatechartDefinition::extract_timer`] or [`StatechartDefinition::extract_event`].
+    /// The default ignores time, so a machine with no `after` transition needs no clock.
     fn timer_cmd(timer: &TimerIntent<Self::State>) -> Option<Self::Cmd> {
         let _ = timer;
         None
@@ -96,17 +107,21 @@ impl<D: StatechartDefinition> Program for StatechartProgram<D> {
                 configuration: outcome.configuration,
                 history: outcome.history,
                 context: outcome.context,
+                armed: outcome.armed,
             },
             commands,
         )
     }
 
     fn update(model: &Self::Model, msg: &Self::Msg) -> Update<Self::Model, Self::Cmd> {
-        let Some(event) = D::extract_event(msg) else {
+        let machine = D::machine();
+        let outcome = if let Some((timer, event)) = D::extract_timer(msg) {
+            machine.step_timer(&model.machine_state(), &timer, &event)
+        } else if let Some(event) = D::extract_event(msg) {
+            machine.step_state(&model.machine_state(), &event)
+        } else {
             return Update::quiet(model.clone());
         };
-        let machine = D::machine();
-        let outcome = machine.step_state(&model.machine_state(), &event);
         let mut commands = outcome.commands;
         commands.extend(outcome.timers.iter().filter_map(D::timer_cmd));
         Update::with_commands(
@@ -114,6 +129,7 @@ impl<D: StatechartDefinition> Program for StatechartProgram<D> {
                 configuration: outcome.configuration,
                 history: outcome.history,
                 context: outcome.context,
+                armed: outcome.armed,
             },
             commands,
         )

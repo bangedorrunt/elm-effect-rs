@@ -18,11 +18,15 @@
 pub mod action;
 pub mod actor;
 pub mod adapter;
+pub mod compiled;
 pub mod configuration;
 pub mod durable;
 pub mod dynamic;
 pub mod export;
+pub mod host;
 pub mod machine;
+pub mod macros;
+pub mod observer;
 pub mod state_node;
 pub mod topology;
 pub mod transition;
@@ -31,9 +35,11 @@ pub mod types;
 pub use action::ActionQueue;
 pub use actor::{
     ActorDirective, ActorError, ActorId, ActorLogic, ActorSnapshotEntry, ActorState, ActorSystem,
-    ActorTask, ActorTreeSnapshot, CallbackLogic, CallbackSender, EffectLogic, Reducer, StreamLogic,
+    ActorTask, ActorTreeSnapshot, CallbackLogic, CallbackSender, DeadLetter, EffectLogic, Reducer,
+    StreamLogic,
 };
 pub use adapter::{StatechartDefinition, StatechartModel, StatechartProgram};
+pub use compiled::StateIdx;
 pub use configuration::Configuration;
 pub use durable::{ReplayError, TransitionRecord, TransitionStamp};
 pub use dynamic::{
@@ -42,7 +48,11 @@ pub use dynamic::{
     DynamicOutputFn, InvokeConfig, InvokeList, MachineConfig, StateNodeConfig, TargetList,
     TransitionConfig, TransitionRule,
 };
+pub use host::{DrivenMachine, HostScheduler, HostTimers, PersistedTimer, TimerOp, TimerToken};
 pub use machine::{Machine, MachineBuilder};
+#[doc(hidden)]
+pub use macros::__macro_support;
+pub use observer::{MicrostepKind, MicrostepRecord, MicrostepTrace, Observer};
 pub use state_node::StateNode;
 pub use topology::{Topology, TopologyNode};
 pub use transition::Transition;
@@ -52,10 +62,11 @@ pub mod prelude {
     pub use crate::action::ActionQueue;
     pub use crate::actor::{
         ActorDirective, ActorError, ActorId, ActorLogic, ActorSnapshotEntry, ActorState,
-        ActorSystem, ActorTask, ActorTreeSnapshot, CallbackLogic, CallbackSender, EffectLogic,
-        Reducer, StreamLogic,
+        ActorSystem, ActorTask, ActorTreeSnapshot, CallbackLogic, CallbackSender, DeadLetter,
+        EffectLogic, Reducer, StreamLogic,
     };
     pub use crate::adapter::{StatechartDefinition, StatechartModel, StatechartProgram};
+    pub use crate::compiled::StateIdx;
     pub use crate::configuration::Configuration;
     pub use crate::durable::{ReplayError, TransitionRecord, TransitionStamp};
     pub use crate::dynamic::{
@@ -63,8 +74,13 @@ pub mod prelude {
         DynamicEvent, DynamicGuardFn, DynamicMachine, DynamicMachineBuilder, InvokeConfig,
         InvokeList, MachineConfig, StateNodeConfig, TargetList, TransitionConfig, TransitionRule,
     };
+    pub use crate::host::{
+        DrivenMachine, HostScheduler, HostTimers, PersistedTimer, TimerOp, TimerToken,
+    };
     pub use crate::machine::{Machine, MachineBuilder};
+    pub use crate::observer::{MicrostepKind, MicrostepRecord, MicrostepTrace, Observer};
     pub use crate::state_node::StateNode;
+    pub use crate::statechart;
     pub use crate::transition::Transition;
     pub use crate::types::{
         ArmedTimer, MachineState, StateNodeType, StepOutcome, TimerFired, TimerIntent,

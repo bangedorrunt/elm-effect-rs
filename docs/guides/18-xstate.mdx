@@ -43,9 +43,9 @@ In your `Cargo.toml`:
 
 ```toml
 [dependencies]
-elm-effect = { version = "0.4.3", path = "../elm-effect" }
-elm-effect-elm = { version = "0.4.3", path = "../elm-effect-elm" }
-elm-effect-xstate = { version = "0.4.3", path = "../elm-effect-xstate" }
+elm-effect = { version = "0.4.4", path = "../elm-effect" }
+elm-effect-elm = { version = "0.4.4", path = "../elm-effect-elm" }
+elm-effect-xstate = { version = "0.4.4", path = "../elm-effect-xstate" }
 ```
 
 ## Define states and machine
@@ -499,6 +499,60 @@ assert_eq!(outcome.current_state, "Yellow");
 ```
 
 Behavioral conformance vectors live in `crates/elm-effect-xstate/tests/conformance/fixtures/*.json`: 147 cases across actions, always, after, parallel, history, hierarchy, guards, final states, events, and actors, including ninety-two ported from XState 6.0.0-beta.1 (commit d56483f) whose `source` field names the upstream test. `tests/conformance_actors.rs` runs the actor scenarios (`spawn:`, `send:`, `stop:`, and `assign_payload:` actions, `fail` steps, declarative dynamic invoke inputs, plus invoke input/output/error routes and dual done/error routing and context assertions); `tests/conformance_test.rs` runs the machine suite and enforces a feature matrix naming the cases that prove each behavior. Run both with `cargo test -p elm-effect-xstate --test conformance_test --test conformance_actors` or `scripts/sync-xstate-conformance.sh`. This is a crate-authored matrix with ninety-two upstream-derived vectors, not a vendored copy of the ~400-case suite. An optional Node check (`scripts/xstate-differential`, `npm run check`) compares final state, `done`, and context against XState for 119 vectors (118 agree, 1 skipped); it is not part of the cargo gate.
+
+## Declarative `statechart!` macro, probing, and XState v6 export (ADR-0008)
+
+For typed charts with nested hierarchy, `statechart!` compiles directly into a zero-overhead `Machine` (pre-indexed at build time for O(1) descendant checks via `state_idx`, `subtree_end`, and `is_descendant`), automatically wiring `.with_parent(...)` and `.on_key(...)` edge labels while destructuring event payloads once per arm:
+
+```rust
+use elm_effect_xstate::prelude::*;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+enum Job { Idle, Decide, Fast, Slow }
+#[derive(Debug, Clone)]
+enum JobEv { Submit(u32) }
+
+let machine = statechart! {
+    state: Job,
+    event: JobEv,
+    context: u32,
+    command: (),
+    initial: Job::Idle,
+    states: {
+        state Job::Idle {
+            on: {
+                JobEv::Submit(cost) if *cost > 0 => {
+                    target: Job::Decide,
+                    action: |total, _| *total += *cost,
+                },
+            },
+        },
+        choice Job::Decide {
+            always: [
+                { target: Job::Fast, guard: |total| *total < 10 },
+                target: Job::Slow,
+            ],
+        },
+        final Job::Fast {},
+        final Job::Slow {},
+    },
+};
+
+let probe = MachineState::at(Job::Idle, 0);
+assert!(machine.can(&probe, &JobEv::Submit(4)));
+let (outcome, trace) = machine.microsteps(&probe, &JobEv::Submit(4));
+assert_eq!(outcome.current_state, Job::Fast);
+assert_eq!(trace.len(), 2); // MicrostepKind::Event -> MicrostepKind::Always
+let _schema: serde_json::Value = machine.to_machine_json();
+```
+
+Key ADR-0008 capabilities across the runtime:
+
+- **Probing & dynamic routing**: `machine.can(&state, &event)` (and `DynamicMachine::can`) checks if an event enables any transition without mutating context. `StateNode::on_fn` (and `on_fn_targets`) resolves targets dynamically and declines with `None` so parent states can handle the event. `MachineBuilder::choice` / `"type": "choice"` defines immediate `always`-branching pseudo-states.
+- **Zero-cost microstep observation**: `start_observed`, `step_observed`, `step_timer_observed`, and `microsteps` stream `MicrostepRecord`s (`Init`, `Event`, `Timer`, `Always`, `Done`, `Raised`) to any `Observer` (`()` sets `const ENABLED: bool = false`, so standard `step_state` calls pay zero observation cost).
+- **Generation-fenced timers & remaining deadlines**: `StatechartModel` preserves `armed` timers across `Program::init`/`update` and routes elapsed timers via `StatechartDefinition::extract_timer`. Outside the Elm loop, `HostTimers` / `DrivenMachine` assign a monotonic `TimerToken` to reject stale wakeup callbacks and persist `PersistedTimer` records so `restore_remaining` arms only the remaining duration after restart. Transient `always` states net intra-macrostep `[Start, Cancel]` timer churn automatically.
+- **Resilient actor teardown & netting**: Transient `invoke` states net `[Spawn, Stop]` directives within a single macrostep before spawning host tasks. Inside `ActorSystem`, `stop` purges uncollected child `ActorTask`s and pending directives for the stopped subtree, while internal `send_to` or queued inbox mail for missing/stopped actors is captured in `DeadLetter` (`dead_letters()` / `take_dead_letters()`) rather than aborting sibling actors.
+- **Schema interoperability**: `to_machine_json()` exports `Machine` and `DynamicMachine` topologies as XState v6-compatible `MachineJSON` (`initial`, `type`, `on`, `always`, `after`, `onDone`, `reenter`, `history`).
 
 ## Formal verification (TLA+ / TLC)
 

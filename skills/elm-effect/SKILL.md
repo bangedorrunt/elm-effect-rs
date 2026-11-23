@@ -16,7 +16,7 @@ description: >
 
 # elm-effect
 
-The carrier is in the crates. Current release: `0.4.3`. ADR-0002 is the carrier law and the [kernel envelope](../../docs/parity/kernel-envelope.md) is its boundary. ADR-0003 is adoption. ADR-0005 is the durable engine port and `OurEngine`. ADR-0007 is Harel statecharts and XState v6 parity (superseding ADR-0006). The calls are `docs/guides/15-use-the-apis.mdx` and the topic guide next to it. This file only picks the branch. Do not copy an API table into a sibling.
+The carrier is in the crates. Current release: `0.4.4`. ADR-0002 is the carrier law and the [kernel envelope](../../docs/parity/kernel-envelope.md) is its boundary. ADR-0003 is adoption. ADR-0005 is the durable engine port and `OurEngine`. ADR-0007 is Harel statecharts and XState v6 parity (superseding ADR-0006). The calls are `docs/guides/15-use-the-apis.mdx` and the topic guide next to it. This file only picks the branch. Do not copy an API table into a sibling.
 
 Repo root: `/Users/bangedorrunt/workspace/elm-effect-rs`. The Bend carrier is a
 sibling repo, `/Users/bangedorrunt/workspace/elm-effect-bend`; its branch file is
